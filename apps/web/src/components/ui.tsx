@@ -162,7 +162,7 @@ export function Field({ label, error, className, ...p }: ComponentProps<"input">
 // 켜고 끄는 전환(세그먼트·토글)만 완전히 둥글게 (2026-10-16 "on/off는 더 둥글게"). 나머지는 낮은 모서리 유지.
 export function Segmented({ items, active }: { items: { label: string; href: string }[]; active: number }) {
   return (
-    <nav className="flex gap-1 rounded-full bg-soft p-1">
+    <nav className="flex gap-1 rounded-full border border-hair bg-white p-1">
       {items.map((it, i) => (
         <Link
           key={it.href}
@@ -170,7 +170,7 @@ export function Segmented({ items, active }: { items: { label: string; href: str
           aria-current={i === active ? "page" : undefined}
           className={cx(
             "flex-1 rounded-full px-3 py-2.5 text-center text-sm",
-            i === active ? "bg-key font-bold text-white" : "text-mute hover:text-sub",
+            i === active ? "bg-key font-bold text-white" : "text-sub hover:bg-soft hover:text-ink",
           )}
         >
           {it.label}

@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Copy, RotateCcw, Send, X } from "lucide-react";
+import { BookOpen, Copy, RotateCcw, Send, X } from "lucide-react";
 import { askYeongrang, makeWithYeongrang } from "./yeongrang-actions";
 
 // 영랑이: 오른쪽 아래 검정 원형 버튼 → 사용법 문의 / AI로 만들기 (Figma "영랑이 · AI 도우미" Y1~Y4).
@@ -16,9 +16,18 @@ const QUICK_S = ["설문은 어디서 내요?", "비밀번호를 잊었어요", 
 type Msg = { q: string; a: string; source: string | null; href: string | null; ai: boolean };
 
 /** 사이드바 "가이드 보기" → 영랑이 창 열기 */
-export function GuideButton() {
+export function GuideButton({ mini = false }: { mini?: boolean }) {
+  const open = () => window.dispatchEvent(new Event(OPEN_EVENT));
+  // 접힌 사이드바: 아이콘 + 작은 글씨
+  if (mini) {
+    return (
+      <button onClick={open} className="flex w-full flex-col items-center gap-0.5 rounded-control px-1 py-2 text-[11px] text-mute hover:bg-soft">
+        <BookOpen size={18} strokeWidth={1.8} /> 가이드
+      </button>
+    );
+  }
   return (
-    <button onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))} className="mt-3 w-full rounded-control border border-hair bg-white py-2 text-[13px] font-medium hover:bg-soft">
+    <button onClick={open} className="mt-3 w-full rounded-control border border-hair bg-white py-2 text-[13px] font-medium hover:bg-soft">
       가이드 보기
     </button>
   );

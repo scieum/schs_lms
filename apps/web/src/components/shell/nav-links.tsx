@@ -22,29 +22,30 @@ export function SidebarLinks({ groups }: { groups: NavGroup[] }) {
                 key={it.href}
                 href={it.href}
                 aria-current={on ? "page" : undefined}
+                title={it.label}
                 className={cx(
-                  "flex items-center gap-2.5 rounded-control px-3.5 py-2.5 text-[15px]",
+                  "relative flex items-center gap-2.5 rounded-control px-3.5 py-2.5 text-[15px] group-data-[mini=true]/side:flex-col group-data-[mini=true]/side:gap-1 group-data-[mini=true]/side:px-1 group-data-[mini=true]/side:py-2 group-data-[mini=true]/side:text-center group-data-[mini=true]/side:text-[11px] group-data-[mini=true]/side:leading-tight",
                   on ? "bg-soft font-bold text-ink" : "text-sub hover:bg-soft",
                 )}
               >
                 <Icon name={it.icon} className={on ? "text-ink" : "text-mute"} />
-                <span className="flex-1">{it.label}</span>
-                {it.badge ? <span className="min-w-6 rounded-full bg-key px-2 py-0.5 text-center text-[12px] font-bold text-white">{it.badge}</span> : null}
-                {!it.ready && <span className="text-[11px] text-faint">준비 중</span>}
+                <span className="flex-1 group-data-[mini=true]/side:w-full group-data-[mini=true]/side:flex-none group-data-[mini=true]/side:break-keep">{it.label}</span>
+                {it.badge ? <span className="min-w-6 rounded-full bg-key px-2 py-0.5 text-center text-[12px] font-bold text-white group-data-[mini=true]/side:absolute group-data-[mini=true]/side:right-1.5 group-data-[mini=true]/side:top-1 group-data-[mini=true]/side:min-w-4 group-data-[mini=true]/side:px-1 group-data-[mini=true]/side:py-0 group-data-[mini=true]/side:text-[10px]">{it.badge}</span> : null}
+                {!it.ready && <span className="text-[11px] text-faint group-data-[mini=true]/side:hidden">준비 중</span>}
               </Link>
             );
           });
         return g.fold ? (
           <details key={g.label} open={inside} className="group">
-            <summary className="flex cursor-pointer list-none items-center px-3 pb-2 pt-5 text-xs font-medium text-mute">
+            <summary className="flex cursor-pointer list-none items-center px-3 pb-2 pt-5 text-xs font-medium text-mute group-data-[mini=true]/side:justify-center group-data-[mini=true]/side:px-0 group-data-[mini=true]/side:text-[10px]">
               <span className="flex-1">{g.label}</span>
-              <span className="transition-transform group-open:rotate-180">⌄</span>
+              <span className="transition-transform group-open:rotate-180 group-data-[mini=true]/side:hidden">⌄</span>
             </summary>
             {links}
           </details>
         ) : (
           <div key={g.label}>
-            <div className="px-3 pb-2 pt-5 text-xs font-medium text-mute">{g.label}</div>
+            <div className="px-3 pb-2 pt-5 text-xs font-medium text-mute group-data-[mini=true]/side:mx-2 group-data-[mini=true]/side:mb-2 group-data-[mini=true]/side:h-0 group-data-[mini=true]/side:overflow-hidden group-data-[mini=true]/side:border-t group-data-[mini=true]/side:border-line group-data-[mini=true]/side:p-0 group-data-[mini=true]/side:pt-0">{g.label}</div>
             {links}
           </div>
         );

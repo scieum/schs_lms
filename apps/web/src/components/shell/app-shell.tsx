@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { cookies } from "next/headers";
 import { LogOut } from "lucide-react";
 import type { Viewer } from "@/lib/domain/types";
 import { roleLabel } from "@/lib/domain/policy";
@@ -8,22 +9,24 @@ import { logout } from "@/app/(auth)/actions";
 import { Avatar } from "@/components/ui";
 import { navFor, tabsFor, type NavBadges } from "./nav";
 import { SidebarLinks, TabBar } from "./nav-links";
+import { SIDEBAR_COOKIE, SidebarFrame } from "./sidebar-frame";
 import { GuideButton, Yeongrang } from "./yeongrang";
 
 // D2 벤토 그리드: 흰 사이드바 + 흰 본문. 모바일은 하단 탭바.
-export function AppShell({ viewer, children, demo, badges = {} }: { viewer: Viewer; children: ReactNode; demo: boolean; badges?: NavBadges }) {
+export async function AppShell({ viewer, children, demo, badges = {} }: { viewer: Viewer; children: ReactNode; demo: boolean; badges?: NavBadges }) {
+  const mini = (await cookies()).get(SIDEBAR_COOKIE)?.value === "mini";
   const name = viewer.kind === "student" ? viewer.student.name : `${viewer.teacher.name} 선생님`;
   return (
     <div className="min-h-dvh md:flex">
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col overflow-y-auto border-r border-line bg-white px-4 pb-5 pt-6 md:flex">
+      <SidebarFrame initialMini={mini}>
         {/* 로고 = 홈으로 ("/" 가 역할별 홈으로 보낸다) */}
-        <Link href="/" className="flex items-center gap-2.5 px-2 pb-5" aria-label="홈으로">
+        <Link href="/" className="flex items-center gap-2.5 px-2 pb-5 group-data-[mini=true]/side:justify-center group-data-[mini=true]/side:px-0" aria-label="홈으로">
           <Image src="/face.png" alt="" width={30} height={32} />
-          <Image src="/schs-logo.png" alt="속초고등학교 학생관리시스템" width={100} height={28} priority />
+          <Image src="/schs-logo.png" alt="속초고등학교 학생관리시스템" width={100} height={28} priority className="group-data-[mini=true]/side:hidden" />
         </Link>
-        <div className="flex items-center gap-2.5 rounded-control bg-soft py-2 pl-2 pr-3.5">
+        <div className="flex items-center gap-2.5 rounded-control bg-soft py-2 pl-2 pr-3.5 group-data-[mini=true]/side:justify-center group-data-[mini=true]/side:bg-transparent group-data-[mini=true]/side:p-0" title={name}>
           <Avatar name={name} size={34} />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 group-data-[mini=true]/side:hidden">
             <div className="truncate text-sm font-bold">{name}</div>
             <div className="truncate text-xs text-mute">{roleLabel(viewer)}</div>
           </div>
@@ -31,18 +34,19 @@ export function AppShell({ viewer, children, demo, badges = {} }: { viewer: View
         <SidebarLinks groups={navFor(viewer, badges)} />
         {/* 사용 가이드 (Figma 사이드바 아래 카드) → 영랑이 열기 */}
         <div className="mt-auto pt-6">
-          <div className="rounded-inner bg-soft p-4">
+          <div className="rounded-inner bg-soft p-4 group-data-[mini=true]/side:hidden">
             <div className="text-[14px] font-bold">사용 가이드</div>
             <div className="mt-0.5 text-[12px] text-mute">{viewer.kind === "student" ? "처음 쓰는 학생을 위한 안내" : "처음 쓰는 선생님을 위한 안내"}</div>
             <GuideButton />
           </div>
+          <div className="hidden group-data-[mini=true]/side:block"><GuideButton mini /></div>
           <form action={logout} className="pt-2">
-            <button className="flex w-full items-center gap-2.5 rounded-control px-3.5 py-2.5 text-[14px] text-mute hover:bg-soft">
+            <button className="flex w-full items-center gap-2.5 rounded-control px-3.5 py-2.5 text-[14px] text-mute hover:bg-soft group-data-[mini=true]/side:flex-col group-data-[mini=true]/side:gap-0.5 group-data-[mini=true]/side:px-1 group-data-[mini=true]/side:py-2 group-data-[mini=true]/side:text-[11px]">
               <LogOut size={18} strokeWidth={1.8} /> 로그아웃
             </button>
           </form>
         </div>
-      </aside>
+      </SidebarFrame>
       <div className="min-h-dvh min-w-0 flex-1 bg-bg pb-28 md:pb-0">
         {demo && (
           <div className="bg-wait-soft px-4 py-2 text-center text-xs text-[#9a6400]">
