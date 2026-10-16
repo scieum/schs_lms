@@ -17,7 +17,7 @@ export function AppShell({ viewer, children, demo }: { viewer: Viewer; children:
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col overflow-y-auto border-r border-line bg-white px-4 pb-5 pt-6 md:flex">
         <div className="flex items-center gap-2.5 px-2 pb-5">
           <Image src="/face.png" alt="" width={30} height={32} />
-          <span className="text-[15px] font-bold leading-tight">속초고등학교<br />학생관리시스템</span>
+          <Image src="/schs-logo.png" alt="속초고등학교 학생관리시스템" width={100} height={28} priority />
         </div>
         <div className="flex items-center gap-2.5 rounded-control bg-soft py-2 pl-2 pr-3.5">
           <Avatar name={name} size={34} />
