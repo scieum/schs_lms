@@ -1,12 +1,13 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 
 // 상세페이지 추가 섹션 (2026-10-16, 유아이볼 참고: MS Clarity·채널톡 기능 탭, 플리더스·유광기·쿠팡·마플·원티드 FAQ)
 // Features: 영역 탭 → 왼쪽 기능 목록 + 오른쪽 미니 화면. FAQ: 분류 칩 + Q. 아코디언(첫 질문 열림).
 
-type Feature = { title: string; line: string; ai?: boolean };
-type Group = { key: string; label: string; items: Feature[]; mock: () => React.ReactNode };
+type Feature = { title: string; line: string; ml?: string; ai?: boolean };
+type Group = { key: string; label: string; short: string; items: Feature[]; mock: () => React.ReactNode };
 
 const tag = (t: string, tone: string) => <span className={`rounded-chip px-2 py-1 text-[12px] font-bold ${tone}`}>{t}</span>;
 
@@ -81,15 +82,15 @@ function MockAdmin() {
 }
 
 const GROUPS: Group[] = [
-  { key: "record", label: "생활기록부", mock: MockRecord, items: [
-    { title: "교과 세특", line: "편제표와 내 과목 기준으로 반별로 쓰고 확정" },
-    { title: "AI 기록 쓰기", line: "세특·창체 특기사항·행발 초안을 교과별 프롬프트로", ai: true },
-    { title: "누가기록", line: "동아리·자율·진로 기록을 날짜별로 쌓고 AI로 다듬기", ai: true },
-    { title: "프로그램 초안", line: "설문·제출 서류로 학생별 초안을 한 번에", ai: true },
-    { title: "봉사 확인서", line: "사진을 올리면 읽어서 담임에게 바로 전달", ai: true },
-    { title: "나이스 입력 도우미", line: "확정본을 열린 나이스 화면에 채워 넣기" },
+  { key: "record", short: "기록", label: "생활기록부", mock: MockRecord, items: [
+    { title: "교과 세특", line: "편제표와 내 과목 기준으로 반별로 쓰고 확정", ml: "편제표와 내 과목 기준으로 쓰고 확정" },
+    { title: "AI 기록 쓰기", line: "세특·창체 특기사항·행발 초안을 교과별 프롬프트로", ml: "세특·특기사항·행발 초안", ai: true },
+    { title: "누가기록", line: "동아리·자율·진로 기록을 날짜별로 쌓고 AI로 다듬기", ml: "기록을 쌓고 AI로 다듬기", ai: true },
+    { title: "프로그램 초안", line: "설문·제출 서류로 학생별 초안을 한 번에", ml: "설문·서류로 학생별 초안", ai: true },
+    { title: "봉사 확인서", line: "사진을 올리면 읽어서 담임에게 바로 전달", ml: "사진을 읽어 담임에게 전달", ai: true },
+    { title: "나이스 입력 도우미", line: "확정본을 열린 나이스 화면에 채워 넣기", ml: "확정본을 나이스 화면에 채우기" },
   ] },
-  { key: "scores", label: "성적·입시", mock: MockScores, items: [
+  { key: "scores", short: "성적", label: "성적·입시", mock: MockScores, items: [
     { title: "성적 업로드", line: "엑셀이나 성적표 사진으로 반 성적 올리기", ai: true },
     { title: "수능 최저 판정", line: "대학별 기준으로 충족·근접·미충족을 한 번에" },
     { title: "최저 기준 읽기", line: "모집요강 문구나 캡처에서 기준을 뽑아 등록", ai: true },
@@ -97,7 +98,7 @@ const GROUPS: Group[] = [
     { title: "성적 분석", line: "추이와 필요한 등급을 짧은 문장으로", ai: true },
     { title: "상담 명단", line: "한 과목만 올리면 충족되는 학생을 먼저" },
   ] },
-  { key: "students", label: "상담·학생", mock: MockCounsel, items: [
+  { key: "students", short: "상담", label: "상담·학생", mock: MockCounsel, items: [
     { title: "학생 기록 모아 보기", line: "초안·성적·상담·야자·누가기록을 한 화면에" },
     { title: "상담 기록", line: "쓴 사람과 담임만 보는 기록, 고쳐도 이전 버전은 남아요" },
     { title: "상담 요약·다음 질문", line: "지난 상담을 요약하고 다음에 물어볼 것 추천", ai: true },
@@ -105,7 +106,7 @@ const GROUPS: Group[] = [
     { title: "자연어 검색", line: "2학년 3반 여학생처럼 말로 찾기", ai: true },
     { title: "정정 요청", line: "학생이 확정본 정정을 담임에게 요청" },
   ] },
-  { key: "life", label: "학교생활", mock: MockLife, items: [
+  { key: "life", short: "생활", label: "학교생활", mock: MockLife, items: [
     { title: "설문·서류 제출", line: "D-day 알림부터 제출까지 학생 홈에서" },
     { title: "작성 도우미", line: "대신 쓰지 않고 더 쓸 거리를 질문으로", ai: true },
     { title: "야간 자율학습", line: "요일·교시 신청, 출석 체크, 변경 승인" },
@@ -113,7 +114,7 @@ const GROUPS: Group[] = [
     { title: "추천 활동", line: "희망 진로에 맞는 도서·대회·특강", ai: true },
     { title: "내 생활기록부", line: "확정된 지난 기록과 이어갈 주제", ai: true },
   ] },
-  { key: "admin", label: "학교 관리", mock: MockAdmin, items: [
+  { key: "admin", short: "관리", label: "학교 관리", mock: MockAdmin, items: [
     { title: "프로그램 등록", line: "계획서·기안문을 올리면 AI가 칸을 채워요", ai: true },
     { title: "계정·가입", line: "첫 가입자가 관리자, 명부 붙여넣기로 일괄 추가", ai: true },
     { title: "편제표", line: "2022 개정 과목을 학년·학기별로, 이미지로도 등록", ai: true },
@@ -129,11 +130,11 @@ export function FeatureTabs() {
   return (
     <div className="mt-12 md:mt-[70px]">
       <div className="flex justify-center">
-        <div className="flex gap-1 overflow-x-auto rounded-full bg-soft p-1" role="tablist">
+        <div className="flex w-full gap-1 overflow-x-auto rounded-full bg-soft p-1 md:w-auto" role="tablist">
           {GROUPS.map((x, i) => (
             <button key={x.key} role="tab" aria-selected={i === active} onClick={() => setActive(i)}
-              className={`shrink-0 rounded-full px-4 py-2.5 text-[14px] font-bold md:px-6 md:text-[15px] ${i === active ? "bg-white text-ink" : "text-mute hover:text-sub"}`}>
-              {x.label}
+              className={`flex-1 shrink-0 rounded-full px-2 py-2.5 text-[14px] font-bold md:flex-none md:px-6 md:text-[15px] ${i === active ? "bg-white text-ink" : "text-mute hover:text-sub"}`}>
+              <span className="md:hidden">{x.short}</span><span className="hidden md:inline">{x.label}</span>
             </button>
           ))}
         </div>
@@ -145,7 +146,7 @@ export function FeatureTabs() {
               <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-white text-key"><Check size={18} strokeWidth={2.5} /></span>
               <div className="min-w-0 flex-1">
                 <div className="text-[16px] font-bold">{f.title}</div>
-                <div className="mt-0.5 text-[13px] text-sub">{f.line}</div>
+                <div className="mt-0.5 text-[13px] text-sub"><span className="md:hidden">{f.ml ?? f.line}</span><span className="hidden md:inline">{f.line}</span></div>
               </div>
               {f.ai && <span className="shrink-0 rounded-chip bg-new-soft px-2 py-1 text-[12px] font-bold text-new">AI</span>}
             </li>
@@ -157,10 +158,10 @@ export function FeatureTabs() {
   );
 }
 
-type Faq = { cat: "선생님" | "학생" | "개인정보·AI" | "계정"; q: string; a: string };
+type Faq = { cat: "선생님" | "학생" | "개인정보·AI" | "계정"; q: string; a: string; qm?: string; am?: string };
 const FAQS: Faq[] = [
-  { cat: "선생님", q: "AI가 쓴 초안이 그대로 생기부에 들어가나요?", a: "아니요. 선생님이 검토하고 확정을 눌러야만 담임 선생님께 전달되고 나이스로 내보낼 수 있어요." },
-  { cat: "선생님", q: "설문 없이 제출 서류만으로도 초안을 만들 수 있나요?", a: "네. 프로그램을 등록할 때 근거 자료를 학생 제출 서류로 고르면 보고서나 활동지만으로 초안을 만들어요. 합본 PDF는 쪽 단위로 학생별로 나눌 수 있어요." },
+  { cat: "선생님", q: "AI가 쓴 초안이 그대로 생기부에 들어가나요?", a: "아니요. 선생님이 검토하고 확정을 눌러야만 담임 선생님께 전달되고 나이스로 내보낼 수 있어요.", am: "아니요. 선생님이 확정을 눌러야만 담임 선생님께 전달되고 나이스로 내보낼 수 있어요." },
+  { cat: "선생님", q: "설문 없이 제출 서류만으로도 초안을 만들 수 있나요?", qm: "제출 서류만으로도 초안을 만들 수 있나요?", a: "네. 프로그램을 등록할 때 근거 자료를 학생 제출 서류로 고르면 보고서나 활동지만으로 초안을 만들어요. 합본 PDF는 쪽 단위로 학생별로 나눌 수 있어요." },
   { cat: "선생님", q: "글자수(바이트)는 어떻게 맞추나요?", a: "초안을 만들 때 바이트나 글자 수로 분량을 정해요. NEIS 기준(한글 3바이트)으로 자동 검사하고, 한도를 넘는 값은 고를 수 없어요." },
   { cat: "선생님", q: "나이스에는 어떻게 옮기나요?", a: "확정된 기록을 내보낸 뒤 나이스 입력 도우미(크롬 확장)로 열려 있는 나이스 화면에 채워요. 저장 버튼은 선생님이 직접 눌러요." },
   { cat: "학생", q: "올해 생활기록부도 볼 수 있나요?", a: "확정된 지난 학년도 기록만 볼 수 있어요. 올해 기록은 학년이 끝나고 확정된 뒤에 열려요." },
@@ -196,10 +197,10 @@ export function FaqList() {
               <button onClick={() => setOpen(isOpen ? -1 : i)} aria-expanded={isOpen}
                 className="flex w-full items-center gap-3 px-5 py-5 text-left md:px-7">
                 <span className="shrink-0 text-[16px] font-bold text-key">Q.</span>
-                <span className="flex-1 text-[15px] font-bold md:text-[16px]">{f.q}</span>
+                <span className="flex-1 text-[15px] font-bold md:text-[16px]"><span className="md:hidden">{f.qm ?? f.q}</span><span className="hidden md:inline">{f.q}</span></span>
                 <ChevronDown size={20} className={`shrink-0 text-mute transition-transform ${isOpen ? "rotate-180" : ""}`} />
               </button>
-              {isOpen && <p className="px-5 pb-5 pl-[52px] text-[14px] leading-relaxed text-sub md:px-7 md:pl-[60px] md:text-[15px]">{f.a}</p>}
+              {isOpen && <p className="px-5 pb-5 pl-[52px] text-[14px] leading-relaxed text-sub md:px-7 md:pl-[60px] md:text-[15px]"><span className="md:hidden">{f.am ?? f.a}</span><span className="hidden md:inline">{f.a}</span></p>}
             </li>
           );
         })}
@@ -262,6 +263,13 @@ function SpotYeongrang() {
 }
 
 // pc: Figma PC 프레임 문구(줄바꿈 포함), m: 모바일 프레임 문구
+// 모바일 프레임의 단순한 "이름표 · 값" 목록
+const SPOT_ROWS: [string, string][][] = [
+  [["프로그램 이름", "과학 탐구 발표"], ["활동 기간", "10.13 ~ 10.20"], ["대상", "2학년 1~3반"]],
+  [["1–2쪽", "김민준"], ["3–5쪽", "이수아"], ["6–9쪽", "정하은"]],
+  [["김민준", "채움"], ["이수아", "채움"], ["정하은", "건너뜀"]],
+  [["질문", "합본 PDF는 어떻게 나눠요?"], ["영랑이", "페이지 나누기를 누르세요"]],
+];
 const SPOTS = [
   { eyebrow: "프로그램 등록", title: "계획서만 올리면\n칸이 채워져요", pc: "기안문이나 계획서 PDF·캡처를 올리면\n이름·영역·기간·대상을 AI가 읽어 채워요.", m: "PDF·캡처를 올리면 이름·영역·기간·대상을 AI가 읽어 채워요.", mock: SpotForm },
   { eyebrow: "제출 서류", title: "합본 PDF도\n학생별로", pc: "반 전체를 한 파일로 스캔해도 괜찮아요.\n쪽 구간으로 나누고 첫 쪽의 이름으로 학생을 찾아 연결해요.", m: "쪽 구간으로 나누고 첫 쪽 이름으로 학생을 찾아 연결해요.", mock: SpotSplit },
@@ -271,16 +279,21 @@ const SPOTS = [
 
 export function Spotlights() {
   return (
-    <div className="mt-12 flex flex-col gap-16 text-left md:mt-[70px] md:gap-24">
+    <div className="mt-12 flex flex-col gap-12 text-left md:mt-[70px] md:gap-24">
       {SPOTS.map((s, i) => (
-        <div key={s.eyebrow} className={`grid items-center gap-8 md:grid-cols-2 md:gap-16 ${i % 2 ? "md:[&>*:first-child]:order-2" : ""}`}>
+        <div key={s.eyebrow} className={`grid items-center gap-4 md:grid-cols-2 md:gap-16 ${i % 2 ? "md:[&>*:first-child]:order-2" : ""}`}>
           <div>
             <p className="text-[15px] font-bold text-key">{s.eyebrow}</p>
-            <h3 className="mt-3 whitespace-pre-line text-[26px] font-bold leading-[1.3] md:text-[34px]">{s.title}</h3>
+            <h3 className="mt-3 text-[22px] font-bold leading-[1.3] md:whitespace-pre-line md:text-[34px]"><span className="md:hidden">{s.title.replace(/\n/g, " ")}</span><span className="hidden md:inline">{s.title}</span></h3>
             <p className="mt-4 text-[15px] leading-relaxed text-sub md:hidden">{s.m}</p>
             <p className="mt-4 hidden whitespace-pre-line text-[17px] leading-relaxed text-sub md:block">{s.pc}</p>
           </div>
-          <div className="flex min-h-[360px] flex-col justify-center rounded-card bg-soft p-6 md:h-[400px] md:p-8"><div>{s.mock()}</div></div>
+          <div className="flex flex-col gap-2 rounded-card bg-soft p-5 md:hidden">
+            {SPOT_ROWS[i].map(([k, v]) => (
+              <div key={k} className="flex items-center gap-2.5 rounded-inner bg-white px-3.5 py-3 text-[12px]"><span className="w-[84px] shrink-0 text-mute">{k}</span><span className="font-bold">{v}</span></div>
+            ))}
+          </div>
+          <div className="hidden h-[400px] flex-col justify-center rounded-card bg-soft p-8 md:flex"><div>{s.mock()}</div></div>
         </div>
       ))}
     </div>
@@ -288,6 +301,7 @@ export function Spotlights() {
 }
 
 /* ---------- AI 모음 (네이비, 유아이볼: 스타라이트) ---------- */
+const AI_SHORT = ["등록 칸 채우기", "서류를 학생과 연결", "합본 PDF 구간", "교과별 프롬프트", "근거 없는 표현", "사진·열 맞추기", "모집요강에서", "요약과 다음 질문", "먼저 볼 학생", "오늘 순서", "대신 쓰지 않고", "사용법·글 초안"];
 const AI_ITEMS = [
   ["계획서 읽기", "프로그램 등록 칸 채우기"], ["서류 연결", "제출 서류를 학생과 연결"], ["쪽 나누기", "합본 PDF 구간 제안"], ["세특 초안", "속초고 교과별 프롬프트"],
   ["검토 도우미", "근거 없는 표현·비슷한 문장"], ["성적표 읽기", "사진·엑셀 열 맞추기"], ["최저 기준 읽기", "모집요강에서 기준 뽑기"], ["상담 요약", "요약과 다음 질문"],
@@ -298,15 +312,36 @@ export function AiGrid() {
   return (
     <div className="mt-12 md:mt-[70px]">
       <div className="grid grid-cols-2 gap-3 text-left md:grid-cols-4 md:gap-4">
-        {AI_ITEMS.map(([t, l]) => (
+        {AI_ITEMS.map(([t, l], i) => (
           <div key={t} className="rounded-inner bg-navy-2 px-5 py-5">
             <span className="rounded-chip bg-new-soft px-2 py-1 text-[11px] font-bold text-new">AI</span>
             <div className="mt-3 text-[16px] font-bold text-white">{t}</div>
-            <div className="mt-1 text-[13px] text-[#c2caff]">{l}</div>
+            <div className="mt-1 text-[12px] text-[#c2caff] md:text-[13px]"><span className="md:hidden">{AI_SHORT[i]}</span><span className="hidden md:inline">{l}</span></div>
           </div>
         ))}
       </div>
-      <p className="mt-8 text-[14px] text-[#9eaaff]">학생 이름 대신 가명ID만 보내고, 결과는 선생님이 확인한 뒤에만 반영돼요.</p>
+      <p className="mt-8 text-[13px] text-[#9eaaff] md:text-[14px]"><span className="md:hidden">학생 이름 대신 가명ID만 보내요.</span><span className="hidden md:inline">학생 이름 대신 가명ID만 보내고, 결과는 선생님이 확인한 뒤에만 반영돼요.</span></p>
+    </div>
+  );
+}
+
+/* ---------- 모바일 "메뉴" (Figma B안 Mobile Nav) ---------- */
+export function MobileMenu({ links }: { links: [string, string][] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="ml-auto md:hidden">
+      <button onClick={() => setOpen(!open)} aria-expanded={open} className="px-1 py-2 text-[15px] text-[#c4cad1]">{open ? "닫기" : "메뉴"}</button>
+      {open && (
+        <div className="absolute inset-x-0 top-full border-t border-white/10 bg-[#0a0b12] px-4 pb-5 pt-2">
+          {links.map(([l, h]) => (
+            <a key={h} href={h} onClick={() => setOpen(false)} className="block border-b border-white/10 py-3.5 text-[16px] text-[#c4cad1]">{l}</a>
+          ))}
+          <div className="mt-4 flex gap-2">
+            <Link href="/login" className="flex-1 rounded-control bg-key py-3 text-center text-[15px] font-bold text-white">로그인</Link>
+            <Link href="/signup" className="flex-1 rounded-control border border-white/20 py-3 text-center text-[15px] font-bold text-white">선생님 가입</Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

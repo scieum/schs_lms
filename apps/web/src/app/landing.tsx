@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Check, Send, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
-import { AiGrid, FaqList, FeatureTabs, Spotlights } from "./landing-sections";
+import { AiGrid, FaqList, FeatureTabs, MobileMenu, Spotlights } from "./landing-sections";
 
 // 상세페이지 = Figma "상세페이지 시안" B안 · 인디고 (#536DFE). 로그인 전 첫 화면.
 // 구성: Nav → Hero(캐릭터 + 떠 있는 카드) → Problem → How it works → Process(네이비) → Features(기능 탭) → Spotlight → AI(네이비) → For everyone → Safety → FAQ → CTA(네이비) → Footer
@@ -66,6 +66,15 @@ function FloatCard({ title, line, className }: { title: string; line: string; cl
   );
 }
 
+function MobileFloat({ title, line, className }: { title: string; line: string; className: string }) {
+  return (
+    <div className={`absolute rounded-inner border border-white/15 bg-[#22263a]/85 px-3.5 py-2.5 text-left md:hidden ${className}`}>
+      <div className="text-[12px] font-bold text-white">{title}</div>
+      <div className="mt-0.5 text-[11px] text-[#c2caff]">{line}</div>
+    </div>
+  );
+}
+
 /* Process 카드 그림 (Figma 일러스트를 단순한 도형으로) */
 const bar = (w: string, c = "bg-[#d9dde3]") => <span className={`block h-1.5 rounded-full ${c} ${w}`} />;
 function ArtSurvey() {
@@ -110,26 +119,28 @@ export function Landing() {
   return (
     <div className="min-h-dvh bg-white text-ink">
       {/* Nav */}
-      <header className="sticky top-0 z-30 bg-[#0a0b12]/95 backdrop-blur">
+      <header className="sticky top-0 z-30 bg-[#0a0b12]/95 backdrop-blur"><div className="relative">
         <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-8 px-4 md:h-[79px] md:px-0">
           <Logo />
           <nav className="ml-auto hidden items-center gap-9 text-[16px] text-[#c4cad1] md:flex">
             {NAV.map(([l, h]) => <a key={h} href={h} className="hover:text-white">{l}</a>)}
           </nav>
-          <Link href="/login" className="ml-auto rounded-control bg-key px-4 py-2.5 text-[15px] font-bold text-white hover:bg-key-strong md:ml-0 md:px-[18px] md:py-3">로그인</Link>
+          <Link href="/login" className="hidden rounded-control bg-key px-[18px] py-3 text-[15px] font-bold text-white hover:bg-key-strong md:block">로그인</Link>
+          <MobileMenu links={NAV as [string, string][]} />
         </div>
-      </header>
+      </div></header>
 
       {/* Hero */}
       <section className="relative overflow-hidden bg-[linear-gradient(180deg,#0a0b12_0%,#1c2033_100%)] text-white">
         <div className="mx-auto flex max-w-[1200px] flex-col items-center px-4 pt-16 text-center md:pt-[120px]">
-          <h1 className="text-[36px] font-bold leading-[1.25] md:text-[60px]"><span className="md:hidden">한눈에</span><span className="hidden md:inline">한 눈에</span> 확인하는<br />우리 학교 학생 기록</h1>
+          <h1 className="text-[30px] font-bold leading-[1.3] md:text-[60px] md:leading-[1.25]"><span className="md:hidden">한눈에</span><span className="hidden md:inline">한 눈에</span> 확인하는<br />우리 학교 학생 기록</h1>
           <p className="mt-6 text-[16px] font-light text-[#c4cad1] md:text-[20px]">프로그램이 끝나면 설문이 모이고, <BrM />초안은 AI가 먼저 써둬요.</p>
-          <div className="mt-9 flex gap-3">
-            <Link href="/login" className="rounded-control bg-key px-6 py-3.5 text-[15px] font-bold hover:bg-key-strong md:px-[30px] md:py-[18px] md:text-[17px]">속초고 계정으로 시작하기</Link>
-            <a href="#how" className="rounded-control border border-white/20 bg-white/5 px-6 py-3.5 text-[15px] font-bold hover:bg-white/10 md:px-[30px] md:py-[18px] md:text-[17px]">둘러보기</a>
+          {/* 모바일: 버튼을 꽉 채워 위아래로 (Figma Mobile) */}
+          <div className="mt-9 flex w-full flex-col gap-3 md:w-auto md:flex-row">
+            <Link href="/login" className="rounded-control bg-key px-6 py-4 text-[16px] font-bold hover:bg-key-strong md:px-[30px] md:py-[18px] md:text-[17px]">속초고 계정으로 시작하기</Link>
+            <a href="#how" className="rounded-control border border-white/20 bg-white/5 px-6 py-4 text-[16px] font-bold hover:bg-white/10 md:px-[30px] md:py-[18px] md:text-[17px]">둘러보기</a>
           </div>
-          <Link href="/signup" className="mt-4 text-[13px] text-[#9eaaff] underline-offset-4 hover:underline">처음이신 선생님은 가입하기</Link>
+          <Link href="/signup" className="mt-4 hidden text-[13px] text-[#9eaaff] underline-offset-4 hover:underline md:block">처음이신 선생님은 가입하기</Link>
 
           <div className="relative mt-10 h-[300px] w-full max-w-[800px] md:mt-12 md:h-[420px]">
             {/* 은은한 인디고 빛 번짐 (디자인 시스템이 허용한 유일한 예외) */}
@@ -138,6 +149,9 @@ export function Landing() {
             <FloatCard title="진로 프로그램 설문" line="30명 중 30명 응답" className="left-0 top-[60px]" />
             <FloatCard title="생기부 초안 도착" line="30건 · 글자수 검사 통과" className="right-0 top-[30px]" />
             <FloatCard title="확정 대기" line="선생님 검토 3건" className="right-[24px] top-[230px]" />
+            {/* 모바일 떠 있는 카드 2개 (Figma Mobile) */}
+            <MobileFloat title="진로 프로그램 설문" line="30명 중 30명 응답" className="left-[12px] top-[40px]" />
+            <MobileFloat title="생기부 초안 도착" line="30건 · 검사 통과" className="right-[58px] top-[150px]" />
           </div>
         </div>
       </section>
@@ -157,7 +171,7 @@ export function Landing() {
                   <div className="truncate text-[17px] font-bold">{p.title}</div>
                   <div className="mt-0.5 truncate text-[14px] text-sub">{p.desc}</div>
                 </div>
-                <span className="shrink-0 rounded-chip bg-soft px-3 py-1.5 text-[13px] font-medium text-mute">따로 관리</span>
+                <span className="hidden shrink-0 rounded-chip bg-soft px-3 py-1.5 text-[13px] font-medium text-mute md:inline">따로 관리</span>
               </li>
             ))}
           </ul>
@@ -185,7 +199,7 @@ export function Landing() {
             </ol>
             {/* AI 초안 단계에 붙은 말풍선·검사 */}
             <div className="absolute left-[62.5%] top-0 flex -translate-x-1/2 flex-col items-center">
-              <div className="rounded-inner bg-key px-6 py-3 text-center text-white">
+              <div className="whitespace-nowrap rounded-inner bg-key px-6 py-3 text-center text-white">
                 <div className="text-[17px] font-bold">초안 생성 중</div>
                 <div className="text-[13px] text-white/85">30건 중 28건 완료</div>
               </div>
@@ -309,7 +323,7 @@ export function Landing() {
         <div className="mx-auto flex max-w-[1200px] flex-col items-center px-4 pb-24 pt-20 text-center md:px-0 md:pb-[130px] md:pt-[110px]">
           <Image src="/clover.png" alt="" width={187} height={200} className="h-[160px] w-auto md:h-[190px]" />
           <h2 className="mt-8 text-[30px] font-bold leading-[1.3] md:text-[44px]">이번 학기부터,<br />학생 기록은 한 곳에</h2>
-          <Link href="/login" className="mt-8 rounded-control bg-key px-[30px] py-[18px] text-[17px] font-bold hover:bg-key-strong">속초고 계정으로 시작하기</Link>
+          <Link href="/login" className="mt-8 w-full rounded-control bg-key px-[30px] py-4 text-[16px] font-bold hover:bg-key-strong md:w-auto md:py-[18px] md:text-[17px]">속초고 계정으로 시작하기</Link>
         </div>
         <footer className="mx-auto flex max-w-[1200px] flex-col gap-2 px-4 pb-14 text-[13px] text-[#8b95a1] md:px-0">
           <Link href="/" aria-label="처음으로" className="w-fit">

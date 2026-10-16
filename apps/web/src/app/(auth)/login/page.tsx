@@ -4,18 +4,11 @@ import { redirect } from "next/navigation";
 import { ClipboardList, Lock, MessageCircle, Sparkles, type LucideIcon } from "lucide-react";
 import { Yeongrang } from "@/components/shell/yeongrang";
 import { homePath } from "@/lib/domain/policy";
-import { isDemo } from "@/lib/server/env";
 import { getViewer } from "@/lib/server/viewer";
 import { LoginForm } from "./login-form";
 
 export const metadata = { title: "로그인 · 속초고등학교 학생관리시스템" };
 
-const DEMO = [
-  ["관리자", "선생님 · 정다은"],
-  ["교과 교사", "선생님 · 이서연"],
-  ["담임", "선생님 · 박지훈"],
-  ["학생", "학번 20301"],
-];
 
 const FEATURES: { icon: LucideIcon; title: string; desc: string; ai?: boolean }[] = [
   { icon: ClipboardList, title: "설문·서류 제출", desc: "프로그램이 끝나면 휴대폰으로 바로 내요" },
@@ -43,17 +36,6 @@ export default async function LoginPage() {
         <section className="flex flex-1 flex-col items-center justify-between gap-10 px-4 pb-6 pt-8 lg:px-8 lg:pb-8 lg:pt-[72px]">
           <div className="w-full max-w-[440px]">
             <LoginForm />
-            {isDemo && (
-              <div className="mt-6 rounded-inner bg-wait-soft p-4 text-[13px] text-[#9a6400]">
-                <p className="mb-2 font-bold">데모 계정 · 비밀번호 demo1234</p>
-                <ul className="space-y-0.5">
-                  {DEMO.map(([k, v]) => (
-                    <li key={k}>{k}: {v}</li>
-                  ))}
-                  <li>첫 로그인 체험: 학번 20312 · 비밀번호 schs-2026</li>
-                </ul>
-              </div>
-            )}
           </div>
           <p className="text-xs text-mute">© 2026 속초고등학교 교육과정부</p>
         </section>
