@@ -15,6 +15,8 @@ import { greeting } from "@/lib/domain/greeting";
 import { repo } from "@/lib/server/repo";
 import { requireViewer } from "@/lib/server/viewer";
 import { TodayBriefing } from "./briefing";
+import { SchoolInfoRow } from "@/components/school-info";
+import { seoulNow } from "@/lib/domain/night";
 
 export const metadata = { title: "홈 · 속초고등학교 학생관리시스템" };
 
@@ -270,6 +272,7 @@ export default async function TeacherHome() {
             <p className="mt-auto flex items-center gap-1.5 pt-3 text-[12px] text-mute"><Shield size={13} /> 볼 수 있는 기록만 보여요</p>
           </section>
         </div>
+        <SchoolInfoRow today={seoulNow().date} />
       </PageBody>
     </>
   );

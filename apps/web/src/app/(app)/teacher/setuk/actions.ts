@@ -29,9 +29,9 @@ export async function saveSetuk(_: SetukState, form: FormData): Promise<SetukSta
   const content = p.data.content.replace(/\r\n/g, "\n").trim();
 
   // 내게 배정된 과목이고, 내가 맡은 반 학생인지 서버에서 다시 확인한다
-  const [course, mine, student] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getStudent(studentId)]);
+  const [course, mine, student, roster] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getStudent(studentId), repo.getCourseRoster(v.accountId, courseId)]);
   const assignment = mine.find((a) => a.courseId === courseId);
-  if (!course || !assignment || !student || !studentsInCourse([student], course, assignment).length) {
+  if (!course || !assignment || !student || !studentsInCourse([student], course, assignment, roster?.studentIds).length) {
     return { error: "내 담당 과목·반 학생만 쓸 수 있어요" };
   }
 
@@ -71,9 +71,9 @@ export async function aiSetukDraft(input: z.input<typeof AiSchema>): Promise<AiD
   const p = AiSchema.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
   const { courseId, studentId, unit, max } = p.data;
-  const [course, mine, student] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getStudent(studentId)]);
+  const [course, mine, student, roster] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getStudent(studentId), repo.getCourseRoster(v.accountId, courseId)]);
   const assignment = mine.find((a) => a.courseId === courseId);
-  if (!course || !assignment || !student || !studentsInCourse([student], course, assignment).length) {
+  if (!course || !assignment || !student || !studentsInCourse([student], course, assignment, roster?.studentIds).length) {
     return { ok: false, error: "내 담당 과목·반 학생만 쓸 수 있어요" };
   }
 

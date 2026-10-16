@@ -16,6 +16,8 @@ import { requireViewer } from "@/lib/server/viewer";
 import { myTodoInputs } from "./_lib/todos";
 import { KindIcon } from "./recs/client";
 import { TodoPlan } from "./todo-plan";
+import { SchoolInfoRow } from "@/components/school-info";
+import { seoulNow } from "@/lib/domain/night";
 
 export const metadata = { title: "홈 · 속초고등학교 학생관리시스템" };
 
@@ -163,6 +165,7 @@ export default async function StudentHome() {
             </Card>
           </div>
         </div>
+        <SchoolInfoRow today={seoulNow().date} grade={v.student.grade} />
       </PageBody>
     </>
   );

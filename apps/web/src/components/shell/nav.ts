@@ -3,7 +3,7 @@ import type { Viewer } from "@/lib/domain/types";
 // 역할별 메뉴. 교사는 역할이 여러 개면 그룹이 합쳐진다 (관리자 = 모든 권한 교사).
 export type IconName =
   | "home" | "file" | "clipboard" | "users" | "chat" | "userPlus" | "chart" | "target" | "moon"
-  | "book" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user";
+  | "book" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user" | "calendar" | "presentation";
 
 export interface NavItem { label: string; href: string; icon: IconName; ready?: boolean; badge?: number; /** 탭: 이 경로로 시작하면 켜짐 */ match?: string[] }
 /** 사이드바 숫자 배지 (Figma: 초안 검토 12, 오류 처리 2, 설문·서류 제출 2) — href 기준 */
@@ -27,6 +27,7 @@ function baseNav(v: Viewer): NavGroup[] {
         { label: "설문·서류 제출", href: "/student/submit", icon: "clipboard", ready: true },
         { label: "성적·최저", href: "/student/scores", icon: "chart", ready: true },
         { label: "생활기록부", href: "/student/record", icon: "book", ready: true },
+        { label: "학사일정", href: "/schedule", icon: "calendar", ready: true },
       ] },
       { label: "신청", items: [
         { label: "추천 활동", href: "/student/recs", icon: "sparkle", ready: true },
@@ -35,55 +36,61 @@ function baseNav(v: Viewer): NavGroup[] {
       ] },
     ];
   }
-  // Figma 사이드바 그대로: 교사(T1) 업무·학생 / 담임(H1) 우리 반·관리 / 관리자(A1) 업무·관리.
-  // 시안에 없는 기능은 "더보기"에 접어 둔다.
+  // 교사 사이드바: 업무 · 수업 · 학생 · 관리 (2026-10-17 사용자 결정).
+  // 관리는 담임이면 우리 반 기능, 관리자면 관리자 기능까지. 담임이 아니고 관리자도 아니면 관리 묶음이 없다.
   const r = v.teacher.roles;
   const homeroom = r.includes("homeroom") && !!v.teacher.homeroom;
   const admin = r.includes("admin");
   const I = (label: string, href: string, icon: IconName): NavItem => ({ label, href, icon, ready: true });
+  // 담임(관리자 아님)은 우리 반 홈이 첫 화면
+  const home = homeroom && !admin ? "/homeroom" : "/teacher";
 
-  const work: NavGroup = { label: "업무", items: [
-    ...(homeroom && !admin ? [] : [I("홈", "/teacher", "home")]),
-    I("초안 검토", "/teacher/drafts", "file"),
-    I("프로그램", "/teacher/programs", "clipboard"),
-  ] };
-  const students: NavGroup = { label: "학생", items: [
-    I("담당 학생", "/students", "users"),
-    I("상담 기록", "/teacher/counseling", "chat"),
-    I("학생 등록", "/students/new", "userPlus"),
-  ] };
-  // 담임(H1)은 우리 반·관리만 펼치고, 교사 업무·학생은 더보기 맨 앞에 둔다 (관리자는 교사 홈을 쓰므로 펼침)
-  const tuck = homeroom && !admin;
-  const more: NavGroup = { label: "더보기", fold: true, items: [
-    ...(tuck ? [...work.items, ...students.items] : []),
-    I("AI 기록 쓰기", "/teacher/write", "sparkle"),
-    I("교과 세특", "/teacher/setuk", "book"),
-    I("누가기록", "/teacher/logs", "file"),
-    I("봉사 확인서", "/teacher/service", "clipboard"),
-    ...(homeroom ? [I("행발", "/homeroom/behavior", "book"), I("봉사 받은함", "/homeroom/service", "shield")] : []),
-    I("내 교과·과목", "/teacher/subjects", "list"),
-    I("내 동아리", "/teacher/club", "users"),
-  ] };
-  const groups: NavGroup[] = [];
+  const groups: NavGroup[] = [
+    { label: "업무", items: [
+      I("홈", home, "home"),
+      I("학사일정", "/schedule", "calendar"),
+      I("초안 검토", "/teacher/drafts", "file"),
+      I("프로그램", "/teacher/programs", "clipboard"),
+      I("봉사 확인서", "/teacher/service", "shield"),
+    ] },
+    { label: "수업", items: [
+      I("내 수업", "/teacher/subjects", "presentation"),
+      I("교과 세특", "/teacher/setuk", "book"),
+      I("누가기록", "/teacher/logs", "file"),
+      I("AI 기록 쓰기", "/teacher/write", "sparkle"),
+      I("내 동아리", "/teacher/club", "users"),
+    ] },
+    { label: "학생", items: [
+      I("담당 학생", "/students", "users"),
+      I("상담 기록", "/teacher/counseling", "chat"),
+      I("학생 등록", "/students/new", "userPlus"),
+    ] },
+  ];
+  const manage: NavItem[] = [];
   if (homeroom) {
-    groups.push(
-      { label: "우리 반", items: [I("우리 반 홈", "/homeroom", "home"), I("학생 기록", "/homeroom/students", "users"), I("받은 초안", "/homeroom/drafts", "file")] },
-      { label: "관리", items: [I("성적 업로드", "/homeroom/scores", "chart"), I("수능 최저", "/homeroom/minimum", "target"), I("야간 자율학습", "/homeroom/night", "moon")] },
+    if (home !== "/homeroom") manage.push(I("우리 반 홈", "/homeroom", "home"));
+    manage.push(
+      I("학생 기록", "/homeroom/students", "users"),
+      I("받은 초안", "/homeroom/drafts", "file"),
+      I("행발", "/homeroom/behavior", "book"),
+      I("봉사 받은함", "/homeroom/service", "shield"),
+      I("성적 업로드", "/homeroom/scores", "chart"),
+      I("수능 최저", "/homeroom/minimum", "target"),
+      I("야간 자율학습", "/homeroom/night", "moon"),
     );
   }
-  if (!tuck) groups.push(work, students);
   if (admin) {
-    groups.push({ label: "관리자", items: [
-      I("관리 현황", "/admin", "home"),
+    manage.push(
+      I("관리 현황", "/admin", "refresh"),
       I("오류 처리", "/admin/errors", "alert"),
       I("초안 생성 현황", "/admin/pipeline", "refresh"),
       I("계정 관리", "/admin/accounts", "users"),
       I("과목 개설", "/admin/offerings", "list"),
       I("편제표", "/admin/curriculum", "list"),
       I("감사 로그", "/admin/audit", "shield"),
-    ] });
+    );
   }
-  groups.push(more);
+  if (manage.length) groups.push({ label: homeroom && !admin ? "관리 · 우리 반" : "관리", items: manage });
   return groups;
 }
 

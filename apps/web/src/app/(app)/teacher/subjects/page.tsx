@@ -5,10 +5,11 @@ import { schoolYear } from "@/lib/domain/curriculum";
 import { repo } from "@/lib/server/repo";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
+import { RosterBox, type RosterCourse } from "./roster-box";
 import { SubjectsForm } from "./subjects-form";
 import { TeacherPicker } from "./teacher-picker";
 
-export const metadata = { title: "내 교과·과목 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "내 수업 · 속초고등학교 학생관리시스템" };
 
 type Props = { searchParams: Promise<{ teacher?: string }> };
 
@@ -20,13 +21,21 @@ export default async function SubjectsPage({ searchParams }: Props) {
   const teachers = admin ? await repo.listTeachers() : [];
   const target = admin && teacher && teachers.some((t) => t.id === teacher) ? teacher : v.accountId;
 
-  const [groups, assigned, courses, students, who] = await Promise.all([
+  const [groups, assigned, courses, students, who, rosters] = await Promise.all([
     repo.getTeacherGroups(target),
     repo.listTeacherCourses(target),
     repo.listCourses(schoolYear()),
     repo.listStudents(),
     repo.getTeacher(target),
+    repo.listCourseRosters(target),
   ]);
+  // 이동반 명단 칸: 저장된 담당 과목마다 (학년·학기 순)
+  const rosterCourses: RosterCourse[] = assigned.flatMap((a) => {
+    const c = courses.find((x) => x.id === a.courseId);
+    if (!c) return [];
+    const r = rosters.find((x) => x.courseId === c.id);
+    return [{ id: c.id, label: `${c.grade}학년 ${c.semester}학기 · ${c.subject}`, grade: c.grade, classes: a.classes, count: r?.studentIds.length ?? 0, updatedAt: r?.updatedAt ?? null }];
+  }).sort((x, y) => x.label.localeCompare(y.label, "ko"));
   // 학년별 반 목록: 등록된 학생 기준, 없으면 1~8반
   const classesByGrade: Record<number, number[]> = {};
   for (const g of [1, 2, 3]) {
@@ -37,7 +46,7 @@ export default async function SubjectsPage({ searchParams }: Props) {
   return (
     <>
       <PageHeader
-        title={target === v.accountId ? "내 교과·과목" : "교과·과목 지정"}
+        title={target === v.accountId ? "내 수업" : "수업 지정"}
         actions={admin ? <ButtonLink href="/admin/curriculum" kind="outline" size="sm">편제표</ButtonLink> : undefined}
       />
       <PageBody>
@@ -48,6 +57,7 @@ export default async function SubjectsPage({ searchParams }: Props) {
           </p>
         )}
         {/* key: 교사를 바꾸면 폼 상태를 새로 시작 */}
+        <RosterBox teacherId={target} courses={rosterCourses} />
         <SubjectsForm key={target} teacherId={target} initialGroups={groups} initialCourses={assigned} courses={courses} classesByGrade={classesByGrade} aiOn={aiEnabled()} dept={who?.dept ?? null} />
       </PageBody>
     </>

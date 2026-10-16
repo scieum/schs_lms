@@ -21,7 +21,7 @@ const short = (c: Course) => `${c.subject} ${c.grade}-${c.semester}`;
 export default async function SetukPage({ searchParams }: Props) {
   const v = await requireCan("setuk.write");
   const q = await searchParams;
-  const [mine, offered] = await Promise.all([repo.listTeacherCourses(v.accountId), repo.listCourses(schoolYear())]);
+  const [mine, offered, rosters] = await Promise.all([repo.listTeacherCourses(v.accountId), repo.listCourses(schoolYear()), repo.listCourseRosters(v.accountId)]);
   const myCourses = offered.filter((c) => mine.some((a) => a.courseId === c.id));
 
   if (myCourses.length === 0) {
@@ -33,7 +33,7 @@ export default async function SetukPage({ searchParams }: Props) {
             <div className="flex flex-col items-center gap-3 py-8 text-center">
               <p className="font-bold">담당 과목이 아직 없어요</p>
               <p className="text-sm text-sub">내 교과와 과목, 맡은 반을 먼저 골라 주세요</p>
-              <ButtonLink href="/teacher/subjects">내 교과·과목 고르기</ButtonLink>
+              <ButtonLink href="/teacher/subjects">내 수업 정하기</ButtonLink>
             </div>
           </Card>
         </PageBody>
@@ -44,7 +44,7 @@ export default async function SetukPage({ searchParams }: Props) {
   const course = myCourses.find((c) => c.id === q.course) ?? myCourses[0];
   const assignment = mine.find((a) => a.courseId === course.id);
   const [allStudents, records] = await Promise.all([repo.listStudents(), repo.listSetuk(course.id)]);
-  const students = studentsInCourse(allStudents, course, assignment);
+  const students = studentsInCourse(allStudents, course, assignment, rosters.find((r) => r.courseId === course.id)?.studentIds);
   const latest = latestByStudent(records);
   const selected = students.find((s) => s.id === q.student) ?? students.find((s) => statusLabel(latest.get(s.id)) !== "확정") ?? students[0];
   const counts = { 확정: 0, "작성 중": 0, 미작성: 0 };

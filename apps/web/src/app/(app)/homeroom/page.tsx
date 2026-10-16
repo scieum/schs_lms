@@ -10,6 +10,7 @@ import { requireViewer } from "@/lib/server/viewer";
 import { Briefing } from "./briefing";
 import { briefingInputs } from "./briefing-data";
 import { ClassGlance, type GlanceStudent } from "./class-glance";
+import { SchoolInfoRow } from "@/components/school-info";
 
 export const metadata = { title: "우리 반 · 속초고등학교 학생관리시스템" };
 
@@ -135,6 +136,7 @@ export default async function HomeroomHome() {
             </Card>
           </div>
         </div>
+        <SchoolInfoRow today={seoulNow().date} />
       </PageBody>
     </>
   );

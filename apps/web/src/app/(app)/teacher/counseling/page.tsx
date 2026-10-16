@@ -121,7 +121,7 @@ export default async function CounselingPage({ searchParams }: Props) {
             <Card>
               <div className="py-10 text-center">
                 <p className="font-bold">담당 학생이 없어요</p>
-                <p className="mt-1 text-sm text-sub">내 교과·과목에서 맡은 반을 정하면 학생이 보여요</p>
+                <p className="mt-1 text-sm text-sub">내 수업에서 맡은 반이나 이동반 명단을 정하면 학생이 보여요</p>
               </div>
             </Card>
           )}

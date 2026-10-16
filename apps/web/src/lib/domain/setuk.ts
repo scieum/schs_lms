@@ -28,7 +28,13 @@ export function latestByStudent(records: SetukRecord[]): Map<string, SetukRecord
 }
 
 /** 과목을 듣는 학생: 과목 학년 + 내가 맡은 반 (선택과목 수강 명단은 다음 단계) */
-export function studentsInCourse(students: Student[], course: Course, assignment: TeacherCourse | undefined): Student[] {
+/** 과목 담당 학생. 이동반 명단(roster)이 있으면 명단대로, 없으면 맡은 반 학생 */
+export function studentsInCourse(students: Student[], course: Course, assignment: TeacherCourse | undefined, roster?: string[] | null): Student[] {
+  if (!assignment) return [];
+  if (roster?.length) {
+    const ids = new Set(roster);
+    return students.filter((s) => ids.has(s.id)).sort((a, b) => a.studentNo.localeCompare(b.studentNo));
+  }
   const classes = new Set(assignment?.classes ?? []);
   return students
     .filter((s) => s.grade === course.grade && classes.has(s.classNo))

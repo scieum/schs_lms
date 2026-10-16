@@ -40,7 +40,7 @@ const limitLabel = (bytes: number) => `NEIS ${Math.floor(bytes / 3)}자`;
 async function spacesFor(v: Viewer): Promise<Space[]> {
   if (v.kind !== "teacher") return [];
   const y = schoolYear();
-  const [mine, offered, clubs, all] = await Promise.all([repo.listTeacherCourses(v.accountId), repo.listCourses(y), repo.listClubs(y), repo.listStudents()]);
+  const [mine, offered, clubs, all, rosters] = await Promise.all([repo.listTeacherCourses(v.accountId), repo.listCourses(y), repo.listClubs(y), repo.listStudents(), repo.listCourseRosters(v.accountId)]);
   const out: Space[] = [];
 
   // 교과 세특: 내 과목 전체
@@ -49,7 +49,7 @@ async function spacesFor(v: Viewer): Promise<Space[]> {
     const c = blank();
     for (const course of myCourses) {
       const latest = latestByStudent(await repo.listSetuk(course.id));
-      for (const s of studentsInCourse(all, course, mine.find((a) => a.courseId === course.id))) {
+      for (const s of studentsInCourse(all, course, mine.find((a) => a.courseId === course.id), rosters.find((r) => r.courseId === course.id)?.studentIds)) {
         c.total++;
         c[statusLabel(latest.get(s.id))]++;
       }
