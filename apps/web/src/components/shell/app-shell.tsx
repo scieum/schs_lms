@@ -24,9 +24,9 @@ export async function AppShell({ viewer, children, demo, badges = {} }: { viewer
           <Image src="/face.png" alt="" width={30} height={32} />
           <Image src="/schs-logo.png" alt="속초고등학교 학생관리시스템" width={100} height={28} priority className="group-data-[mini=true]/side:hidden" />
         </Link>
-        <div className="flex items-center gap-2.5 rounded-control bg-soft py-2 pl-2 pr-3.5 group-data-[mini=true]/side:justify-center group-data-[mini=true]/side:bg-transparent group-data-[mini=true]/side:p-0" title={name}>
+        <div className="flex items-center gap-2.5 rounded-control bg-soft py-2 pl-2 pr-3.5 group-data-[mini=true]/side:hidden">
           <Avatar name={name} size={34} />
-          <div className="min-w-0 flex-1 group-data-[mini=true]/side:hidden">
+          <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-bold">{name}</div>
             <div className="truncate text-xs text-mute">{roleLabel(viewer)}</div>
           </div>
