@@ -4,8 +4,9 @@ import { Check } from "lucide-react";
 import { Button, Card, Tag, cx } from "@/components/ui";
 import { neisBytes } from "@/lib/domain/length";
 import { addLogs, polishLogMemo, type LogState, type PolishResult } from "./actions";
+import { makeStudentNo } from "@/lib/domain/roster";
 
-type S = { id: string; name: string; classNo: number; number: number; count: number };
+type S = { id: string; name: string; grade: number; classNo: number; number: number; count: number };
 type L = { id: string; studentId: string; date: string; content: string };
 
 // 왼쪽: 학생 고르기(여러 명) · 오른쪽: 같은 기록을 한 번에 추가 + 최근 기록
@@ -42,7 +43,7 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
                 <button type="button" onClick={() => toggle(s.id)} aria-pressed={on}
                   className={cx("flex w-full items-center gap-3 rounded-inner px-2 py-2.5 text-left", on ? "bg-white" : "hover:bg-white/60")}>
                   <span className={cx("flex size-5 shrink-0 items-center justify-center rounded-chip", on ? "bg-key text-white" : "bg-white")}>{on && <Check size={13} strokeWidth={3} />}</span>
-                  <span className="w-10 shrink-0 text-[13px] text-mute">{s.classNo}-{s.number}</span>
+                  <span className="w-12 shrink-0 tabular-nums text-[13px] text-mute">{makeStudentNo(s.grade, s.classNo, s.number)}</span>
                   <span className={cx("min-w-0 flex-1 truncate", on && "font-bold")}>{s.name}</span>
                   <span className="shrink-0 text-xs tabular-nums text-mute">{s.count}건</span>
                 </button>

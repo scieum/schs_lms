@@ -17,6 +17,7 @@ import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 import { suggestCounselQuestions, summarizeCounsel } from "./actions";
 import { StudentPicker } from "./student-picker";
+import { makeStudentNo } from "@/lib/domain/roster";
 
 export const metadata = { title: "담당 학생·상담 · 속초고등학교 학생관리시스템" };
 
@@ -76,7 +77,7 @@ export default async function CounselingPage({ searchParams }: Props) {
             selected={selected?.id ?? null}
             tab={tab}
             students={students.map((s) => ({
-              id: s.id, name: s.name, label: `${s.grade}-${s.classNo}-${s.number}`, classKey: `${s.grade}-${s.classNo}`, count: counts.get(s.id) ?? 0,
+              id: s.id, name: s.name, label: `${makeStudentNo(s.grade, s.classNo, s.number)}`, classKey: `${s.grade}-${s.classNo}`, count: counts.get(s.id) ?? 0,
             }))}
           />
           </div>

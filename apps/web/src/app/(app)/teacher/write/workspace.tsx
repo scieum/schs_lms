@@ -7,6 +7,7 @@ import type { ActivityLog } from "@/lib/domain/activity";
 import { measure, UNIT_LABEL } from "@/lib/domain/length";
 import type { Student } from "@/lib/domain/types";
 import { latestMemoByStudent, latestRecordByStudent, recordMax, recordStatus, type RecordArea, type RecordDraft, type RecordMemo, type RecordStatusLabel } from "@/lib/domain/writing";
+import { makeStudentNo } from "@/lib/domain/roster";
 
 // 기록 쓰기 작업 화면 (Figma T4 초안 검토와 같은 배치): 왼쪽 학생 목록 · 가운데 본문(AI 초안·자동 검사·분량) · 오른쪽 근거 자료
 // 특기사항(/teacher/write?area=…)과 행발(/homeroom/behavior)이 함께 쓴다.
@@ -78,7 +79,7 @@ export function RecordWorkspace({
                   <span className="min-w-0 flex-1">
                     <span className={cx("block truncate", on && "font-bold")}>{s.name}</span>
                     <span className="block truncate text-[12px] text-mute">
-                      {s.grade}-{s.classNo}-{s.number} · 기록 {n}건{r?.content ? ` · ${measure(r.content, r.unit).toLocaleString()}${r.unit === "bytes" ? "B" : "자"}` : ""}
+                      {makeStudentNo(s.grade, s.classNo, s.number)} · 기록 {n}건{r?.content ? ` · ${measure(r.content, r.unit).toLocaleString()}${r.unit === "bytes" ? "B" : "자"}` : ""}
                     </span>
                   </span>
                   <Tag tone={STATUS_TONE[st]}>{st}</Tag>

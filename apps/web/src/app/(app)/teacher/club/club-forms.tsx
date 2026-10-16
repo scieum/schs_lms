@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { Button, Field, cx } from "@/components/ui";
 import { matchRosterText, type RosterMatch } from "@/lib/domain/teacher-assist";
 import { createClub, saveMembers, type ClubState } from "./actions";
+import { makeStudentNo } from "@/lib/domain/roster";
 
 export function NewClubForm() {
   const [state, action, pending] = useActionState<ClubState, FormData>(createClub, {});
@@ -52,7 +53,7 @@ export function MembersForm({ clubId, students, initial }: { clubId: string; stu
                 className={cx("flex w-full items-center gap-2 rounded-inner px-3 py-2.5 text-left text-sm", on ? "bg-white font-medium" : "bg-white/50 text-sub")}>
                 <span className={cx("flex size-5 shrink-0 items-center justify-center rounded-chip", on ? "bg-key text-white" : "bg-soft")}>{on && <Check size={13} strokeWidth={3} />}</span>
                 <span className="truncate">{s.name}</span>
-                <span className="ml-auto text-xs text-mute">{s.classNo}-{s.number}</span>
+                <span className="ml-auto text-xs text-mute">{makeStudentNo(s.grade, s.classNo, s.number)}</span>
               </button>
             </li>
           );

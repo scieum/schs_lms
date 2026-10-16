@@ -8,6 +8,7 @@ import { runDraftJobs } from "@/lib/server/ai/draft";
 import { analyzeResponses, reminderMessage } from "@/lib/server/ai/program-ai";
 import { repo } from "@/lib/server/repo";
 import { programRows, requireProgram } from "../_lib/data";
+import { makeStudentNo } from "@/lib/domain/roster";
 
 export type RemindDraft = { text?: string; label?: "AI" | "자동"; error?: string; sent?: string; n?: number };
 
@@ -117,7 +118,7 @@ export async function analyzeResponsesAction(prev: AnalyzeState, form: FormData)
   const byPid = new Map(rows.map((x) => [x.student.pseudonymId, x.student]));
   const who = (pid: string) => {
     const s = byPid.get(pid);
-    return s ? `${s.grade}-${s.classNo}-${s.number} ${s.name}` : pid;
+    return s ? `${makeStudentNo(s.grade, s.classNo, s.number)} ${s.name}` : pid;
   };
   await repo.audit(v.accountId, "program.ai.analyze", `${program.id} ${sub.length}명 ${r.label}`);
   return {

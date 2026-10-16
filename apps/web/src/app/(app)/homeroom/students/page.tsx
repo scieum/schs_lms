@@ -6,6 +6,7 @@ import { canViewStudentRecord, countByStudent, counselStats } from "@/lib/domain
 import { loadCounsel } from "@/lib/server/counsel";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
+import { makeStudentNo } from "@/lib/domain/roster";
 
 export const metadata = { title: "학생 기록 · 속초고등학교 학생관리시스템" };
 
@@ -43,7 +44,7 @@ export default async function HomeroomStudentsPage() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-bold">{s.name}</span>
                       <span className="block truncate text-xs text-mute">
-                        {s.grade}-{s.classNo}-{s.number} · {counts.get(s.id) ? `상담 ${counts.get(s.id)}` : "상담 없음"}{waiting.has(s.id) ? " · 정정 요청" : ""}
+                        {makeStudentNo(s.grade, s.classNo, s.number)} · {counts.get(s.id) ? `상담 ${counts.get(s.id)}` : "상담 없음"}{waiting.has(s.id) ? " · 정정 요청" : ""}
                       </span>
                     </span>
                     <ChevronRight size={18} className="text-faint" />

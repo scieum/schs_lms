@@ -10,6 +10,7 @@ import { repo } from "@/lib/server/repo";
 import type { AccountSummary } from "@/lib/server/repo/modules/admin";
 import { requireCan } from "@/lib/server/viewer";
 import { lockStaleAccounts, resetPassword, unlockAccount } from "./actions";
+import { makeStudentNo } from "@/lib/domain/roster";
 
 export const metadata = { title: "계정 관리 · 속초고등학교 학생관리시스템" };
 
@@ -22,7 +23,7 @@ const PAGE = 100;
 type Props = { searchParams: Promise<{ f?: string; q?: string; stale?: string }> };
 
 function roleText(a: AccountSummary): string {
-  if (a.student) return `학생 · ${a.student.grade}-${a.student.classNo}-${a.student.number}`;
+  if (a.student) return `학생 · ${makeStudentNo(a.student.grade, a.student.classNo, a.student.number)}`;
   const t = a.teacher;
   if (!t) return "교사";
   if (t.roles.includes("admin")) return "관리자";

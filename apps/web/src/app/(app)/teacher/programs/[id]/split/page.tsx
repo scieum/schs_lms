@@ -6,6 +6,7 @@ import { repo } from "@/lib/server/repo";
 import { programRows, requireProgram } from "../../_lib/data";
 import { pdfPages } from "../../_lib/pdf";
 import { SplitEditor } from "./split-editor";
+import { makeStudentNo } from "@/lib/domain/roster";
 
 export const metadata = { title: "합본 PDF 나누기 · 속초고등학교 학생관리시스템" };
 
@@ -55,7 +56,7 @@ export default async function SplitPage({ params, searchParams }: Props) {
             pages={pages}
             aiOn={aiEnabled()}
             fileHref={`/teacher/programs/${p.id}/materials/file/${m.id}`}
-            students={rows.map((r) => ({ id: r.student.id, label: `${r.student.grade}-${r.student.classNo}-${r.student.number} ${r.student.name}`, sub: r.materials.length ? "서류 있음" : "서류 없음" }))}
+            students={rows.map((r) => ({ id: r.student.id, label: `${makeStudentNo(r.student.grade, r.student.classNo, r.student.number)} ${r.student.name}`, sub: r.materials.length ? "서류 있음" : "서류 없음" }))}
           />
         )}
       </PageBody>

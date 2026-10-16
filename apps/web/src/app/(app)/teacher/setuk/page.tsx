@@ -10,6 +10,7 @@ import { repo } from "@/lib/server/repo";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 import { SetukEditor } from "./editor";
+import { makeStudentNo } from "@/lib/domain/roster";
 
 export const metadata = { title: "교과 세특 · 속초고등학교 학생관리시스템" };
 
@@ -96,7 +97,7 @@ export default async function SetukPage({ searchParams }: Props) {
                         aria-current={on ? "true" : undefined}
                         className={cx("flex items-center gap-3 rounded-inner px-2 py-2.5", on ? "bg-white" : "hover:bg-white/60")}
                       >
-                        <span className="w-12 shrink-0 text-[13px] text-mute">{s.classNo}-{s.number}</span>
+                        <span className="w-12 shrink-0 tabular-nums text-[13px] text-mute">{makeStudentNo(s.grade, s.classNo, s.number)}</span>
                         <span className={cx("min-w-0 flex-1 truncate", on && "font-bold")}>{s.name}</span>
                         <Tag tone={statusLabel(r) === "확정" ? undefined : statusLabel(r) === "작성 중" ? "bg-wait-soft text-wait" : "bg-white text-mute"}>
                           {statusLabel(r)}

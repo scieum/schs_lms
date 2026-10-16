@@ -66,7 +66,7 @@ export default async function LogsPage({ searchParams }: Props) {
             area={area}
             clubId={club?.id}
             today={today()}
-            students={students.map((s) => ({ id: s.id, name: s.name, classNo: s.classNo, number: s.number, count: count(s.id) }))}
+            students={students.map((s) => ({ id: s.id, name: s.name, grade: s.grade, classNo: s.classNo, number: s.number, count: count(s.id) }))}
             logs={logs.map((l) => ({ id: l.id, studentId: l.studentId, date: l.date, content: l.content }))}
           />
         )}

@@ -7,6 +7,7 @@ import { aiEnabled } from "@/lib/server/ai/claude";
 import { programRows, requireProgram } from "../../_lib/data";
 import { assignMaterial, setMissing, setSource } from "./actions";
 import { ReadBox, UploadBox } from "./parts";
+import { makeStudentNo } from "@/lib/domain/roster";
 
 export const metadata = { title: "초안 자료 등록 · 속초고등학교 학생관리시스템" };
 
@@ -29,7 +30,7 @@ export default async function MaterialsPage({ params, searchParams }: Props) {
   const mode = (MODES.find(([k]) => k === q.mode)?.[0] ?? "bulk") as "bulk" | "one" | "bundle";
   const { rows, materials } = await programRows(p);
   const nameOf = new Map(rows.map((r) => [r.student.id, r.student.name]));
-  const opts = rows.map((r) => ({ id: r.student.id, label: `${r.student.grade}-${r.student.classNo}-${r.student.number} ${r.student.name}` }));
+  const opts = rows.map((r) => ({ id: r.student.id, label: `${makeStudentNo(r.student.grade, r.student.classNo, r.student.number)} ${r.student.name}` }));
   const docs = usesDocs(p.source);
 
   const counts = {
@@ -142,7 +143,7 @@ export default async function MaterialsPage({ params, searchParams }: Props) {
                   <form action={setMissing} className="flex items-center gap-2">
                     <input type="hidden" name="programId" value={p.id} />
                     <input type="hidden" name="studentId" value={r.student.id} />
-                    <span className="w-28 shrink-0 truncate text-[14px]">{r.student.classNo}-{r.student.number} {r.student.name}</span>
+                    <span className="w-32 shrink-0 truncate text-[14px]">{makeStudentNo(r.student.grade, r.student.classNo, r.student.number)} {r.student.name}</span>
                     <input name="reason" defaultValue={r.missingReason ?? ""} maxLength={100} placeholder="미제출 사유 (남기면 다음으로 넘어갈 수 있어요)"
                       className="h-9 min-w-0 flex-1 rounded-field bg-navy-2 px-3 text-[13px] text-white outline-none placeholder:text-[#9eaaff] focus:ring-2 focus:ring-key" />
                     <button className="h-9 shrink-0 rounded-control bg-white/10 px-3 text-[13px] hover:bg-white/20">저장</button>
