@@ -3,7 +3,6 @@ import { ButtonLink } from "@/components/ui";
 import { isAdmin } from "@/lib/domain/policy";
 import { schoolYear } from "@/lib/domain/curriculum";
 import { repo } from "@/lib/server/repo";
-import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 import { RosterBox, type RosterCourse } from "./roster-box";
 import { SubjectsForm } from "./subjects-form";
@@ -21,12 +20,11 @@ export default async function SubjectsPage({ searchParams }: Props) {
   const teachers = admin ? await repo.listTeachers() : [];
   const target = admin && teacher && teachers.some((t) => t.id === teacher) ? teacher : v.accountId;
 
-  const [groups, assigned, courses, students, who, rosters] = await Promise.all([
+  const [groups, assigned, courses, students, rosters] = await Promise.all([
     repo.getTeacherGroups(target),
     repo.listTeacherCourses(target),
     repo.listCourses(schoolYear()),
     repo.listStudents(),
-    repo.getTeacher(target),
     repo.listCourseRosters(target),
   ]);
   // 이동반 명단 칸: 저장된 담당 과목마다 (학년·학기 순)
@@ -58,7 +56,7 @@ export default async function SubjectsPage({ searchParams }: Props) {
         )}
         {/* key: 교사를 바꾸면 폼 상태를 새로 시작 */}
         <RosterBox teacherId={target} courses={rosterCourses} />
-        <SubjectsForm key={target} teacherId={target} initialGroups={groups} initialCourses={assigned} courses={courses} classesByGrade={classesByGrade} aiOn={aiEnabled()} dept={who?.dept ?? null} />
+        <SubjectsForm key={target} teacherId={target} initialGroups={groups} initialCourses={assigned} courses={courses} classesByGrade={classesByGrade} />
       </PageBody>
     </>
   );

@@ -4,7 +4,11 @@
 export type MealKind = "조식" | "중식" | "석식";
 export interface Dish { name: string; allergens: number[] }
 export interface Meal { date: string; kind: MealKind; dishes: Dish[]; kcal: string | null }
-export interface SchoolEvent { date: string; name: string; grades: number[]; holiday: boolean }
+/** 학사일정 한 건. date~endDate 기간 (하루면 같음). custom 이면 교사·학생이 직접 추가한 일정 */
+export interface SchoolEvent {
+  date: string; endDate: string; name: string; grades: number[]; holiday: boolean;
+  custom?: { id: string; authorId: string; authorName: string; memo: string | null };
+}
 
 /** 알레르기 번호 (식품 알레르기 표시 기준) */
 export const ALLERGENS: Record<number, string> = {
@@ -48,6 +52,7 @@ export function parseSchedule(json: unknown): SchoolEvent[] {
     .filter((r) => r.EVENT_NM && r.EVENT_NM !== "토요휴업일")
     .map((r) => ({
       date: ymd(r.AA_YMD),
+      endDate: ymd(r.AA_YMD),
       name: r.EVENT_NM.trim(),
       grades: [yes(r.ONE_GRADE_EVENT_YN) && 1, yes(r.TW_GRADE_EVENT_YN) && 2, yes(r.THREE_GRADE_EVENT_YN) && 3].filter((x): x is number => !!x),
       holiday: /휴업|공휴/.test(r.SBTR_DD_SC_NM ?? ""),
@@ -60,3 +65,38 @@ export function nextMealDay(meals: Meal[], today: string): { date: string; meals
   const day = meals.find((m) => m.date >= today)?.date;
   return day ? { date: day, meals: meals.filter((m) => m.date === day) } : null;
 }
+
+const nextDay = (d: string) => {
+  const t = new Date(`${d}T00:00:00Z`);
+  t.setUTCDate(t.getUTCDate() + 1);
+  return t.toISOString().slice(0, 10);
+};
+
+/** 나이스는 여러 날 일정(예: 고사 기간)을 날마다 따로 준다 → 이어진 같은 이름은 기간 하나로 */
+export function mergeDays(events: SchoolEvent[]): SchoolEvent[] {
+  const out: SchoolEvent[] = [];
+  for (const e of [...events].sort((a, b) => a.name.localeCompare(b.name) || a.date.localeCompare(b.date))) {
+    const last = out.at(-1);
+    if (last && !last.custom && !e.custom && last.name === e.name && last.holiday === e.holiday && nextDay(last.endDate) >= e.date) {
+      if (e.endDate > last.endDate) last.endDate = e.endDate;
+      last.grades = [...new Set([...last.grades, ...e.grades])].sort();
+      continue;
+    }
+    out.push({ ...e, grades: [...e.grades] });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+}
+
+export type EventStatus = "진행 중" | "시작 전" | "완료" | "휴업일";
+
+/** 오늘 기준 상태 (휴업일·공휴일은 따로) */
+export function eventStatus(e: Pick<SchoolEvent, "date" | "endDate" | "holiday">, today: string): EventStatus {
+  if (e.holiday) return "휴업일";
+  if (e.endDate < today) return "완료";
+  if (e.date > today) return "시작 전";
+  return "진행 중";
+}
+
+/** 학년 거르기: 학생은 자기 학년(또는 전체) 일정만 */
+export const forGrade = (events: SchoolEvent[], grade?: number) =>
+  grade ? events.filter((e) => !e.grades.length || e.grades.length === 3 || e.grades.includes(grade)) : events;

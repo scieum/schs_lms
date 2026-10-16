@@ -56,13 +56,13 @@ function baseNav(v: Viewer): NavGroup[] {
     { label: "수업", items: [
       I("내 수업", "/teacher/subjects", "presentation"),
       I("교과 세특", "/teacher/setuk", "book"),
-      I("누가기록", "/teacher/logs", "file"),
       I("AI 기록 쓰기", "/teacher/write", "sparkle"),
       I("내 동아리", "/teacher/club", "users"),
     ] },
     { label: "학생", items: [
       I("담당 학생", "/students", "users"),
       I("상담 기록", "/teacher/counseling", "chat"),
+      I("누가기록", "/teacher/logs", "file"),
       I("학생 등록", "/students/new", "userPlus"),
     ] },
   ];

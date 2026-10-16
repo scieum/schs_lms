@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextMealDay, parseDish, parseMeals, parseSchedule } from "./school-info";
+import { eventStatus, mergeDays, nextMealDay, parseDish, parseMeals, parseSchedule } from "./school-info";
 
 const meals = {
   mealServiceDietInfo: [
@@ -31,8 +31,22 @@ describe("나이스 급식·학사일정", () => {
       { AA_YMD: "20261021", EVENT_NM: "2학년 진로 체험", SBTR_DD_SC_NM: "해당없음", ONE_GRADE_EVENT_YN: "N", TW_GRADE_EVENT_YN: "Y", THREE_GRADE_EVENT_YN: "N" },
     ] }] });
     expect(s).toEqual([
-      { date: "2026-10-09", name: "한글날", grades: [1, 2, 3], holiday: true },
-      { date: "2026-10-21", name: "2학년 진로 체험", grades: [2], holiday: false },
+      { date: "2026-10-09", endDate: "2026-10-09", name: "한글날", grades: [1, 2, 3], holiday: true },
+      { date: "2026-10-21", endDate: "2026-10-21", name: "2학년 진로 체험", grades: [2], holiday: false },
     ]);
+  });
+});
+
+describe("학사일정 기간·상태", () => {
+  const ev = (date: string, name: string, endDate = date) => ({ date, endDate, name, grades: [1, 2, 3], holiday: false });
+  it("이어진 같은 이름 일정은 기간 하나로", () => {
+    const m = mergeDays([ev("2026-10-12", "2학기 1회고사"), ev("2026-10-13", "2학기 1회고사"), ev("2026-10-14", "2학기 1회고사"), ev("2026-10-20", "2학기 1회고사"), ev("2026-10-20", "전국연합")]);
+    expect(m.map((e) => `${e.name} ${e.date}~${e.endDate}`)).toEqual(["2학기 1회고사 2026-10-12~2026-10-14", "2학기 1회고사 2026-10-20~2026-10-20", "전국연합 2026-10-20~2026-10-20"]);
+  });
+  it("오늘 기준 상태", () => {
+    expect(eventStatus(ev("2026-10-16", "독서 주간", "2026-10-22"), "2026-10-17")).toBe("진행 중");
+    expect(eventStatus(ev("2026-10-20", "a"), "2026-10-17")).toBe("시작 전");
+    expect(eventStatus(ev("2026-10-12", "a", "2026-10-14"), "2026-10-17")).toBe("완료");
+    expect(eventStatus({ date: "2026-10-09", endDate: "2026-10-09", holiday: true }, "2026-10-17")).toBe("휴업일");
   });
 });

@@ -7,7 +7,7 @@ const LABEL: Record<string, string> = {
   "account.create": "계정 생성", "account.reset": "비밀번호 초기화", "account.unlock": "잠금 해제", "account.lock": "계정 잠금",
   "account.roles": "역할 변경", "audit.export": "감사 로그 내보내기",
   "student.register": "학생 등록", "course.add": "편제표 과목 추가", "course.archive": "편제표 과목 내림",
-  "subjects.assign": "담당 과목 지정", "subjects.roster": "이동반 명단 저장", "setuk.save": "세특 저장", "setuk.confirm": "세특 확정", "setuk.export": "세특 내보내기",
+  "subjects.assign": "담당 과목 지정", "subjects.roster": "이동반 명단 저장", "event.add": "학사일정 추가", "event.edit": "학사일정 수정", "event.delete": "학사일정 삭제", "setuk.save": "세특 저장", "setuk.confirm": "세특 확정", "setuk.export": "세특 내보내기",
   "club.create": "동아리 만들기", "club.members": "동아리 명단", "logs.add": "누가기록 추가",
   "service.scan": "봉사 확인서 읽기", "service.send": "봉사 확인서 보내기", "service.confirm": "봉사 확인서 확인",
   "draft.confirm": "초안 확정", "draft.reject": "초안 반려", "record.view": "학생 기록 열람",
