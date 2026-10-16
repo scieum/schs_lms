@@ -38,7 +38,7 @@ export function SidebarLinks({ groups }: { groups: NavGroup[] }) {
         return g.fold ? (
           <details key={g.label} open={inside} className="group">
             <summary className="flex cursor-pointer list-none items-center px-3 pb-2 pt-5 text-xs font-medium text-mute group-data-[mini=true]/side:justify-center group-data-[mini=true]/side:px-0 group-data-[mini=true]/side:text-[10px]">
-              <span className="flex-1">{g.label}</span>
+              <span className="flex-1 group-data-[mini=true]/side:text-center">{g.label}</span>
               <span className="transition-transform group-open:rotate-180 group-data-[mini=true]/side:hidden">⌄</span>
             </summary>
             {links}
