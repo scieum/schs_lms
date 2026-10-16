@@ -1,84 +1,149 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { matchStudent, parseHours, SERVICE_FILE_TYPES, SERVICE_MAX_BYTES } from "@/lib/domain/activity";
+import { matchStudent, parseHours, servicePeriod, SERVICE_FILE_TYPES, SERVICE_MAX_BYTES } from "@/lib/domain/activity";
 import { isAdmin } from "@/lib/domain/policy";
 import { readServiceDoc } from "@/lib/server/ai/read-service-doc";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 
-async function readFile(form: FormData): Promise<{ bytes: Uint8Array; name: string; mime: string } | string> {
-  const f = form.get("file");
+/** 한 번에 읽고 보낼 수 있는 확인서 수 */
+const MAX_FILES = 20;
+
+type Picked = { bytes: Uint8Array; name: string; mime: string };
+
+function checkFile(f: FormDataEntryValue): Picked | string | Promise<Picked> {
   if (!(f instanceof File) || f.size === 0) return "확인서 파일을 골라 주세요";
-  if (!(SERVICE_FILE_TYPES as readonly string[]).includes(f.type)) return "PDF, JPG, PNG 파일만 올릴 수 있어요";
-  if (f.size > SERVICE_MAX_BYTES) return "8MB까지 올릴 수 있어요";
-  return { bytes: new Uint8Array(await f.arrayBuffer()), name: f.name, mime: f.type };
+  if (!(SERVICE_FILE_TYPES as readonly string[]).includes(f.type)) return `${f.name}: PDF, JPG, PNG 파일만 올릴 수 있어요`;
+  if (f.size > SERVICE_MAX_BYTES) return `${f.name}: 8MB까지 올릴 수 있어요`;
+  return f.arrayBuffer().then((b) => ({ bytes: new Uint8Array(b), name: f.name, mime: f.type }));
 }
 
-export type ScanState = {
-  error?: string;
-  /** 읽은 값. 학생은 학번·이름으로 찾아 id 로 넘긴다 */
-  fields?: { studentId: string | null; studentHint: string | null; date: string | null; hours: number | null; organization: string | null; activity: string | null };
-  n?: number;
+async function readFiles(form: FormData): Promise<Picked[] | string> {
+  const all = form.getAll("file");
+  if (all.length === 0) return "확인서 파일을 골라 주세요";
+  if (all.length > MAX_FILES) return `한 번에 ${MAX_FILES}개까지 올릴 수 있어요`;
+  const out: Picked[] = [];
+  for (const f of all) {
+    const r = await checkFile(f);
+    if (typeof r === "string") return r;
+    out.push(r);
+  }
+  return out;
+}
+
+/** 확인 표의 한 줄. 단체 확인서는 학생마다 한 줄씩 나온다 */
+export type ServiceRowDraft = {
+  key: string;
+  fileIndex: number;
+  fileName: string;
+  studentId: string | null;
+  /** 명단에서 못 찾았을 때 확인서에 적힌 학번·이름 */
+  studentHint: string | null;
+  date: string | null;
+  endDate: string | null;
+  hours: number | null;
+  organization: string;
+  activity: string;
+  /** 못 읽은 파일 */
+  error: string | null;
 };
 
-/** AI로 확인서 읽기: 저장하지 않고 입력칸만 채운다 */
-export async function scanServiceDoc(prev: ScanState, form: FormData): Promise<ScanState> {
+export type ScanState = { error?: string; rows?: ServiceRowDraft[]; n?: number };
+
+/**
+ * AI로 확인서 여러 장 읽기 + 학생 자동 매칭 (학번 우선, 같은 이름이 한 명일 때 이름).
+ * 저장하지 않는다. 교사가 표를 확인한 뒤 "모두 보내기"를 눌러야 저장된다 (C2).
+ */
+export async function scanServiceDocs(prev: ScanState, form: FormData): Promise<ScanState> {
   const v = await requireCan("service.upload");
-  const file = await readFile(form);
-  if (typeof file === "string") return { error: file };
-  const r = await readServiceDoc(file.bytes, file.mime);
-  await repo.audit(v.accountId, "service.scan", r.ok ? "읽음" : "실패");
-  if (!r.ok) return { error: r.error };
-  const s = matchStudent(await repo.listStudents(), { studentNo: r.fields.studentNo, name: r.fields.studentName });
-  const date = r.fields.date && /^\d{4}-\d{2}-\d{2}$/.test(r.fields.date) ? r.fields.date : null;
-  return {
-    n: (prev.n ?? 0) + 1,
-    fields: {
-      studentId: s?.id ?? null,
-      studentHint: s ? null : [r.fields.studentNo, r.fields.studentName].filter(Boolean).join(" ") || null,
-      date,
-      hours: parseHours(r.fields.hours),
-      organization: r.fields.organization,
-      activity: r.fields.activity,
-    },
-  };
+  const n = (prev.n ?? 0) + 1;
+  const files = await readFiles(form);
+  if (typeof files === "string") return { error: files, n };
+  const students = await repo.listStudents();
+  const results = await Promise.all(files.map((f) => readServiceDoc(f.bytes, f.mime)));
+  const rows: ServiceRowDraft[] = [];
+  results.forEach((r, i) => {
+    const base = { fileIndex: i, fileName: files[i].name };
+    if (!r.ok) {
+      rows.push({ ...base, key: `${i}-x`, studentId: null, studentHint: null, date: null, endDate: null, hours: null, organization: "", activity: "", error: r.error });
+      return;
+    }
+    const f = r.fields;
+    const period = servicePeriod(f.startDate, f.endDate);
+    const people = f.students.length ? f.students : [{ studentName: null, studentNo: null, hours: null }];
+    people.forEach((p, j) => {
+      const s = matchStudent(students, { studentNo: p.studentNo, name: p.studentName });
+      rows.push({
+        ...base, key: `${i}-${j}`,
+        studentId: s?.id ?? null,
+        studentHint: s ? null : [p.studentNo, p.studentName].filter(Boolean).join(" ") || null,
+        date: period?.date ?? null, endDate: period?.endDate ?? null,
+        hours: parseHours(p.hours ?? f.hours),
+        organization: f.organization ?? "", activity: f.activity ?? "", error: null,
+      });
+    });
+  });
+  const matched = rows.filter((r) => r.studentId).length;
+  await repo.audit(v.accountId, "service.scan", `${files.length}개 · 자동 매칭 ${matched}/${rows.length}`);
+  return { rows, n };
 }
 
-const Schema = z.object({
+const Row = z.object({
+  fileIndex: z.number().int().min(0),
   studentId: z.string().min(1, "학생을 골라 주세요"),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "날짜를 골라 주세요"),
-  hours: z.string(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "시작일을 골라 주세요"),
+  endDate: z.string().optional().default(""),
+  hours: z.union([z.string(), z.number()]),
   organization: z.string().trim().min(2, "기관을 써 주세요").max(60),
   activity: z.string().trim().min(2, "활동 내용을 써 주세요").max(200),
 });
 
 export type SendState = { error?: string; sent?: string; n?: number };
 
-/** 확인서 저장 + 담임에게 보내기 */
-export async function sendService(prev: SendState, form: FormData): Promise<SendState> {
+/** 확인한 줄을 저장하고 학생별 담임에게 보낸다. 한 줄이라도 틀리면 아무것도 저장하지 않는다 */
+export async function sendServices(prev: SendState, form: FormData): Promise<SendState> {
   const v = await requireCan("service.upload");
-  const p = Schema.safeParse(Object.fromEntries(form));
-  if (!p.success) return { error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
-  const hours = parseHours(p.data.hours);
-  if (hours === null) return { error: "봉사 시간은 0.5~24시간이에요" };
-  const file = await readFile(form);
-  if (typeof file === "string") return { error: file };
-  const student = await repo.getStudent(p.data.studentId);
-  if (!student) return { error: "학생을 찾지 못했어요" };
-
+  const n = (prev.n ?? 0) + 1;
+  const files = await readFiles(form);
+  if (typeof files === "string") return { error: files, n };
+  let raw: unknown;
   try {
-    await repo.addServiceRecord(
-      { studentId: student.id, uploaderId: v.accountId, date: p.data.date, hours, organization: p.data.organization, activity: p.data.activity, fileName: file.name.slice(0, 120), mime: file.mime },
-      file.bytes,
-    );
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "저장하지 못했어요" };
+    raw = JSON.parse(String(form.get("rows") ?? "[]"));
+  } catch {
+    return { error: "보낼 내용을 읽지 못했어요", n };
   }
-  await repo.audit(v.accountId, "service.send", `${student.pseudonymId} ${hours}시간`);
+  const parsed = z.array(Row).min(1, "보낼 확인서가 없어요").safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "입력을 확인해 주세요", n };
+
+  const students = new Map((await repo.listStudents()).map((s) => [s.id, s]));
+  const ready = [];
+  for (const [i, r] of parsed.data.entries()) {
+    const s = students.get(r.studentId);
+    const file = files[r.fileIndex];
+    const hours = parseHours(r.hours);
+    const period = servicePeriod(r.date, r.endDate);
+    if (!s) return { error: `${i + 1}번째 줄: 학생을 골라 주세요`, n };
+    if (!file) return { error: `${i + 1}번째 줄: 파일을 찾지 못했어요`, n };
+    if (hours === null) return { error: `${i + 1}번째 줄(${s.name}): 봉사 시간을 확인해 주세요`, n };
+    if (!period) return { error: `${i + 1}번째 줄(${s.name}): 기간을 확인해 주세요`, n };
+    ready.push({ s, file, hours, period, r });
+  }
+  try {
+    for (const { s, file, hours, period, r } of ready) {
+      await repo.addServiceRecord(
+        { studentId: s.id, uploaderId: v.accountId, ...period, hours, organization: r.organization, activity: r.activity, fileName: file.name.slice(0, 120), mime: file.mime },
+        file.bytes,
+      );
+      await repo.audit(v.accountId, "service.send", `${s.pseudonymId} ${hours}시간`);
+    }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "저장하지 못했어요", n };
+  }
   revalidatePath("/teacher/service");
   revalidatePath("/homeroom/service");
-  return { sent: `${student.grade}학년 ${student.classNo}반 담임 선생님께 보냈어요`, n: (prev.n ?? 0) + 1 };
+  const classes = new Set(ready.map((x) => `${x.s.grade}-${x.s.classNo}`)).size;
+  return { sent: `${ready.length}건을 ${classes}개 반 담임 선생님께 보냈어요`, n };
 }
 
 /** 담임 확인 */

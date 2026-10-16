@@ -112,7 +112,7 @@ export function activityItems(setuk: SetukView[], logs: ActivityLog[], service: 
     })),
     ...service.map((s) => ({
       key: `v-${s.id}`, label: "봉사", title: s.organization, date: s.date,
-      meta: `${s.activity} · ${s.hours}시간 · ${shortDate(s.date)}`, status: s.status === "confirmed" ? "확인 완료" : "확인 대기", content: s.activity,
+      meta: `${s.activity} · ${s.hours}시간 · ${shortDate(s.date)}${s.endDate && s.endDate !== s.date ? `~${shortDate(s.endDate)}` : ""}`, status: s.status === "confirmed" ? "확인 완료" : "확인 대기", content: s.activity,
     })),
   ];
   return out.sort((a, b) => b.date.localeCompare(a.date));

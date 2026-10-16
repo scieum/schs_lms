@@ -1,6 +1,6 @@
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Button, Card, Row, StatTiles, Tag } from "@/components/ui";
-import { homeroomStudents } from "@/lib/domain/activity";
+import { homeroomStudents, periodLabel } from "@/lib/domain/activity";
 import { serviceCheck, serviceTotals } from "@/lib/domain/homeroom";
 import { seoulNow } from "@/lib/domain/night";
 import { aiEnabled } from "@/lib/server/ai/claude";
@@ -33,7 +33,7 @@ export default async function HomeroomServicePage() {
           key={r.id}
           last={i === rows.length - 1}
           title={`${s?.number ?? ""}번 ${s?.name ?? "?"} · ${r.hours}시간`}
-          meta={`${r.date} · ${r.organization} · ${r.activity} · 보낸 분 ${nameOf.get(r.uploaderId) ?? "?"}`}
+          meta={`${periodLabel(r)} · ${r.organization} · ${r.activity} · 보낸 분 ${nameOf.get(r.uploaderId) ?? "?"}`}
           right={
             <div className="flex shrink-0 items-center gap-2">
               <a href={`/service/file/${r.id}`} target="_blank" rel="noreferrer" className="text-[13px] text-key-strong">확인서</a>

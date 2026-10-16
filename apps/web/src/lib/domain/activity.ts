@@ -60,7 +60,10 @@ export interface ServiceRecord {
   id: string;
   studentId: string;
   uploaderId: string;
+  /** 봉사 시작일 */
   date: string;
+  /** 봉사 마감일. 당일 봉사면 date 와 같다 */
+  endDate: string;
   hours: number;
   organization: string;
   activity: string;
@@ -76,11 +79,28 @@ export interface ServiceRecord {
 export const SERVICE_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
 export const SERVICE_MAX_BYTES = 8 * 1024 * 1024;
 
-/** 봉사 시간: 0.5시간 단위, 0 초과 24 이하 */
+/** 기간 봉사(여러 날)까지 한 확인서에 적힌 시간의 상한 */
+export const SERVICE_MAX_HOURS = 200;
+
+/** 봉사 시간: 0.5시간 단위, 0 초과 SERVICE_MAX_HOURS 이하 */
 export function parseHours(raw: string | number | null | undefined): number | null {
   const n = typeof raw === "number" ? raw : Number(String(raw ?? "").replace(/시간|h/gi, "").trim());
-  if (!Number.isFinite(n) || n <= 0 || n > 24) return null;
+  if (!Number.isFinite(n) || n <= 0 || n > SERVICE_MAX_HOURS) return null;
   return Math.round(n * 2) / 2;
+}
+
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+/** 봉사 기간 정리: 마감일이 없거나 시작일보다 빠르면 당일 봉사로 본다 */
+export function servicePeriod(start: string | null | undefined, end: string | null | undefined): { date: string; endDate: string } | null {
+  if (!start || !YMD.test(start)) return null;
+  return { date: start, endDate: end && YMD.test(end) && end >= start ? end : start };
+}
+
+/** 화면 표시: "2026-10-12" 또는 "2026-10-12 ~ 10-14" (해가 바뀌면 연도까지) */
+export function periodLabel(r: { date: string; endDate: string }): string {
+  if (!r.endDate || r.endDate === r.date) return r.date;
+  return `${r.date} ~ ${r.endDate.slice(0, 4) === r.date.slice(0, 4) ? r.endDate.slice(5) : r.endDate}`;
 }
 
 /** 확인서에서 읽은 학번·이름으로 학생 찾기. 학번이 우선, 이름은 한 명일 때만 */

@@ -35,7 +35,8 @@ describe("봉사활동", () => {
     expect(parseHours("3시간")).toBe(3);
     expect(parseHours("2.4")).toBe(2.5);
     expect(parseHours(0)).toBeNull();
-    expect(parseHours("30")).toBeNull();
+    expect(parseHours("30")).toBe(30);
+    expect(parseHours("300")).toBeNull();
     expect(parseHours("abc")).toBeNull();
   });
   it("학번 우선, 이름은 한 명일 때만", () => {

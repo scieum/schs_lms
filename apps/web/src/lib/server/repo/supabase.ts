@@ -38,13 +38,13 @@ const toSetuk = (r: SetukRow): SetukRecord => ({ id: r.id, courseId: r.course_id
 type ClubRow = { id: string; year: number; name: string; advisor_id: string };
 type LogRow = { id: string; area: ActivityLog["area"]; student_id: string; author_id: string; club_id: string | null; date: string; content: string; created_at: string };
 type ServiceRow = {
-  id: string; student_id: string; uploader_id: string; date: string; hours: number | string; organization: string; activity: string;
+  id: string; student_id: string; uploader_id: string; date: string; end_date?: string | null; hours: number | string; organization: string; activity: string;
   file_path: string; file_name: string; mime: string; status: ServiceRecord["status"]; confirmed_by: string | null; confirmed_at: string | null; created_at: string;
 };
 const toClub = (r: ClubRow): Club => ({ id: r.id, year: r.year, name: r.name, advisorId: r.advisor_id });
 const toLog = (r: LogRow): ActivityLog => ({ id: r.id, area: r.area, studentId: r.student_id, authorId: r.author_id, clubId: r.club_id, date: r.date, content: r.content, createdAt: r.created_at });
 const toService = (r: ServiceRow): ServiceRecord => ({
-  id: r.id, studentId: r.student_id, uploaderId: r.uploader_id, date: r.date, hours: Number(r.hours), organization: r.organization, activity: r.activity,
+  id: r.id, studentId: r.student_id, uploaderId: r.uploader_id, date: r.date, endDate: r.end_date ?? r.date, hours: Number(r.hours), organization: r.organization, activity: r.activity,
   filePath: r.file_path, fileName: r.file_name, mime: r.mime, status: r.status, confirmedBy: r.confirmed_by, confirmedAt: r.confirmed_at, createdAt: r.created_at,
 });
 const BUCKET = "service-docs";
@@ -199,11 +199,23 @@ export const supabaseRepo: Repo = {
     const filePath = `${x.studentId}/${crypto.randomUUID()}`;
     const up = await db().storage.from(BUCKET).upload(filePath, file, { contentType: x.mime, upsert: false });
     if (up.error) throw new Error(up.error.message);
-    const r = check(await db().from("service_records").insert({
-      student_id: x.studentId, uploader_id: x.uploaderId, date: x.date, hours: x.hours, organization: x.organization, activity: x.activity,
+    const row = {
+      student_id: x.studentId, uploader_id: x.uploaderId, date: x.date, end_date: x.endDate, hours: x.hours, organization: x.organization, activity: x.activity,
       file_path: filePath, file_name: x.fileName, mime: x.mime,
-    }).select("*").single());
-    return toService(r as ServiceRow);
+    };
+    let res = await db().from("service_records").insert(row).select("*").single();
+    // 0012(end_date) 적용 전 DB: 당일 봉사는 그 열 없이 저장한다
+    if (res.error && /end_date/.test(res.error.message) && x.endDate === x.date) {
+      const { end_date: _skip, ...rest } = row;
+      void _skip;
+      res = await db().from("service_records").insert(rest).select("*").single();
+    }
+    if (res.error) {
+      await db().storage.from(BUCKET).remove([filePath]);
+      if (/end_date/.test(res.error.message)) throw new Error("기간 봉사를 저장하려면 DB 업데이트(0012)가 필요해요. 관리자에게 알려 주세요");
+      if (/hours/.test(res.error.message)) throw new Error("24시간이 넘는 기간 봉사를 저장하려면 DB 업데이트(0012)가 필요해요");
+    }
+    return toService(check(res) as ServiceRow);
   },
   async listServiceRecords({ studentIds, uploaderId }) {
     let q = db().from("service_records").select("*").order("created_at", { ascending: false });
