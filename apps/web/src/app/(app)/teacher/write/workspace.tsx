@@ -60,7 +60,7 @@ export function RecordWorkspace({
 
   return (
     <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
-      <Card title={listTitle} className="md:self-start">
+      <Card title={listTitle}>
         <ul className="-mx-2 flex max-h-[620px] flex-col overflow-y-auto">
           {students.map((s) => {
             const r = latest.get(s.id);
@@ -144,8 +144,8 @@ export function RecordWorkspace({
               {versions.slice(0, 5).map((d, i) => (
                 <li key={d.id} className={cx("flex items-center gap-2 py-2.5 text-[13px]", i > 0 && "border-t border-line")}>
                   <span className="flex-1 text-mute">{new Date(d.createdAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-                  <span className="text-sub">{measure(d.content, d.unit).toLocaleString()}{UNIT_LABEL[d.unit]}</span>
-                  <Tag tone={STATUS_TONE[recordStatus(d)]}>{recordStatus(d)}</Tag>
+                  <span className="shrink-0 text-right tabular-nums text-sub">{measure(d.content, d.unit).toLocaleString()}{UNIT_LABEL[d.unit]}</span>
+                  <span className="flex w-16 shrink-0 justify-end"><Tag tone={STATUS_TONE[recordStatus(d)]}>{recordStatus(d)}</Tag></span>
                 </li>
               ))}
             </ul>

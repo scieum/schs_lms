@@ -73,7 +73,7 @@ export default async function MyScoresPage() {
                     last={i === school.length - 1}
                     title={`${s.grade}학년 ${s.semester}학기`}
                     meta={[["국", s.ko], ["수", s.ma], ["영", s.en]].filter(([, x]) => x !== null).map(([k, x]) => `${k} ${x}`).join(" · ")}
-                    right={<span className="font-bold">{s.average.toFixed(1)}등급</span>}
+                    right={<span className="shrink-0 font-bold tabular-nums">{s.average.toFixed(1)}등급</span>}
                   />
                 ))
               )}

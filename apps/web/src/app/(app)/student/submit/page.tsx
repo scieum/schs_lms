@@ -67,7 +67,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
             )}
             {sel && (
               <>
-                <div className="flex flex-wrap items-center gap-1.5 text-[13px] text-mute">
+                <div className={cx("flex flex-wrap items-center gap-1.5 text-[13px] text-mute", rows.length <= 1 && "-mt-2 md:-mt-4")}>
                   <span>{md(sel.p.startDate)} ~ {md(sel.p.endDate)}</span>
                   <Tag>{sel.state === "미응답" || sel.state === "임시 저장" ? ddayLabel(sel.p.endDate, t) : sel.state}</Tag>
                   {sel.state === "임시 저장" && <Tag>임시 저장</Tag>}

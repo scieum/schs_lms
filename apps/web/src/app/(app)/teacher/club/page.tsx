@@ -18,7 +18,7 @@ export default async function ClubPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="내 동아리" actions={club ? <ButtonLink href={`/teacher/logs?area=${encodeURIComponent("동아리")}&club=${club.id}`} size="sm">누가기록 쓰기</ButtonLink> : undefined} />
+      <PageHeader title="내 동아리" actions={club ? <ButtonLink href={`/teacher/logs?area=${encodeURIComponent("동아리")}&club=${club.id}`} kind="outline" size="sm">누가기록 쓰기</ButtonLink> : undefined} />
       <PageBody>
         {mine.length > 1 && club && (
           <Segmented active={mine.indexOf(club)} items={mine.map((c) => ({ label: c.name, href: `/teacher/club?club=${c.id}` }))} />
@@ -36,7 +36,7 @@ export default async function ClubPage({ searchParams }: Props) {
               <p className="py-6 text-center text-sm text-mute">오른쪽에서 동아리를 먼저 만들어 주세요</p>
             )}
           </Card>
-          <Card title="새 동아리" className="md:self-start">
+          <Card title="새 동아리">
             <NewClubForm />
           </Card>
         </div>

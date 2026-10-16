@@ -47,14 +47,21 @@ export function VerdictTable({ rows, empty }: { rows: VerdictRow[]; empty: strin
         <p className="py-8 text-center text-sm text-mute">해당하는 학생이 없어요</p>
       ) : (
         <>
-          <table className="hidden w-full text-sm md:table">
+          <table className="hidden w-full table-fixed text-sm md:table">
+            <colgroup>
+              <col className="w-40" />
+              <col />
+              <col className="w-36" />
+              {[0, 1, 2, 3].map((i) => <col key={i} className="w-14" />)}
+              <col className="w-24" />
+            </colgroup>
             <thead className="text-xs text-mute">
               <tr className="border-b border-line">
                 <th className="py-2 text-left font-normal">학생</th>
                 <th className="py-2 text-center font-normal">목표 대학·학과</th>
                 <th className="py-2 text-center font-normal">기준</th>
-                {["국어", "수학", "영어", "탐구"].map((h) => <th key={h} className="w-14 py-2 text-center font-normal">{h}</th>)}
-                <th className="w-24 py-2 text-center font-normal">판정</th>
+                {["국어", "수학", "영어", "탐구"].map((h) => <th key={h} className="py-2 text-center font-normal">{h}</th>)}
+                <th className="py-2 text-center font-normal">판정</th>
               </tr>
             </thead>
             <tbody>
@@ -63,18 +70,18 @@ export function VerdictTable({ rows, empty }: { rows: VerdictRow[]; empty: strin
                   <td className="py-3">
                     <div className="flex items-center gap-3">
                       <Avatar name={r.name} size={32} />
-                      <div>
-                        <div className="font-bold">{r.name}</div>
+                      <div className="min-w-0">
+                        <div className="truncate font-bold">{r.name}</div>
                         <div className="text-xs text-mute">{r.number}번</div>
                       </div>
                     </div>
                   </td>
-                  <td className="py-3 text-center font-bold">
+                  <td className="truncate px-2 py-3 text-center font-bold">
                     {r.target ?? <span className="font-normal text-mute">목표 없음</span>}
                     {r.more > 0 && <span className="ml-1 text-xs font-normal text-mute">외 {r.more}</span>}
                   </td>
-                  <td className="py-3 text-center text-sub">{r.rule}</td>
-                  {[r.ko, r.ma, r.en, r.tam].map((x, i) => <td key={i} className="py-3 text-center text-sub">{g(x)}</td>)}
+                  <td className="truncate px-2 py-3 text-center text-sub">{r.rule}</td>
+                  {[r.ko, r.ma, r.en, r.tam].map((x, i) => <td key={i} className="py-3 text-center tabular-nums text-sub">{g(x)}</td>)}
                   <td className="py-3 text-center"><Tag tone={VERDICT_TONE[r.status]}>{r.status}</Tag></td>
                 </tr>
               ))}

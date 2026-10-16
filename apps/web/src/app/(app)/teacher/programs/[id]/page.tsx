@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ClipboardList, Download, FileText, Search, Upload } from "lucide-react";
-import { Bar, Ring } from "@/components/programs/meters";
+import { Bar } from "@/components/programs/meters";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { Avatar, Button, ButtonLink, Card, Tag, cx } from "@/components/ui";
+import { Avatar, Button, ButtonLink, Card, MetricTile, Tag, cx } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
 import { AREA_LABEL, ddayLabel, effectiveStatus, md, responseRate, usesDocs, usesSurvey } from "@/lib/domain/program";
 import { aiEnabled } from "@/lib/server/ai/claude";
@@ -66,7 +66,7 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
         title={p.title}
         actions={
           <>
-            <ButtonLink href={`/teacher/programs/${p.id}/materials`} kind="outline" size="sm"><ClipboardList size={14} /> <span className="hidden md:inline">설문·</span>자료</ButtonLink>
+            <ButtonLink href={`/teacher/programs/${p.id}/materials`} kind="outline" size="sm"><ClipboardList size={14} /> 자료 관리</ButtonLink>
             <ButtonLink href={`/teacher/drafts?program=${p.id}`} size="sm"><FileText size={14} /> <span className="hidden md:inline">초안 </span>검토<span className="hidden md:inline">하기</span></ButtonLink>
           </>
         }
@@ -86,36 +86,24 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
           </form>
         )}
 
+        {/* 숫자 타일 4개: 모두 같은 틀 (이름표 → 큰 숫자 → 한 줄 → 아래 버튼) */}
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-4">
-          <div className="flex items-center gap-3 rounded-card bg-soft p-4 md:px-[22px] md:py-5">
-            <Ring pct={rate} size={64} />
-            <div className="min-w-0">
-              <div className="text-[13px] text-mute">{survey ? "응답률" : "제출률"}</div>
-              <div className="text-[17px] font-bold md:text-xl">{survey ? submitted : withEvidence} / {rows.length}명</div>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 rounded-card bg-soft p-4 md:px-[22px] md:py-5">
-            <div className="text-[13px] text-mute">미응답</div>
-            <div className="text-[22px] font-bold md:text-[28px]">{missing.length}<span className="text-[15px] font-medium text-sub">명{status === "open" ? ` · ${ddayLabel(p.endDate, t)}` : ""}</span></div>
-            <ButtonLink href="#remind" size="sm" kind={missing.length ? "primary" : "outline"} className="hidden md:inline-flex">알림 보내기</ButtonLink>
-          </div>
-          <div className="flex flex-col gap-1.5 rounded-card bg-soft p-4 text-[14px] md:px-[22px] md:py-5">
-            <div className="text-[13px] text-mute">초안 상태</div>
-            <div className="flex justify-between"><span className="text-sub">생성 완료</span><b>{count("검토 대기") + count("확정") + count("반려")}건</b></div>
-            <div className="flex justify-between"><span className="text-sub">생성 중</span><b>{count("생성 중")}건</b></div>
-            <div className="flex justify-between"><span className={failed.length ? "font-bold text-bad" : "text-sub"}>생성 실패</span><b>{failed.length}건</b></div>
-            <div className="mt-1"><GenerateButton programId={p.id} ready={ready} disabled={status === "draft"} /></div>
-          </div>
-          <div className="flex flex-col gap-1.5 rounded-card bg-soft p-4 text-[14px] md:px-[22px] md:py-5">
-            <div className="text-[13px] text-mute">근거 자료</div>
-            {survey && <div className="flex justify-between"><span className="text-sub">설문 응답</span><b>{submitted}명</b></div>}
-            {docs && <div className="flex justify-between"><span className="text-sub">제출 서류</span><b>{withDocs}명</b></div>}
-            <Link href={`/teacher/programs/${p.id}/materials`} className="mt-auto text-[13px] font-medium text-key-strong">자료 관리 ›</Link>
-          </div>
+          <MetricTile label={survey ? "응답률" : "제출률"} value={`${rate}`} unit="%" line={`${survey ? submitted : withEvidence} / ${rows.length}명`}
+            meter={<Bar pct={rate} className="w-full" />}
+            action={<ButtonLink href="#status" kind="outline" size="sm" className="w-full">학생별 현황</ButtonLink>} />
+          <MetricTile label="미응답" value={`${missing.length}`} unit="명" line={status === "open" ? `마감 ${ddayLabel(p.endDate, t)}` : status === "closed" ? "마감됨" : "발행 전"}
+            action={<ButtonLink href="#remind" kind="outline" size="sm" className="w-full">알림 보내기</ButtonLink>} />
+          <MetricTile label="초안" value={`${count("검토 대기") + count("확정") + count("반려")}`} unit="건"
+            line={<>생성 중 {count("생성 중")} · <span className={failed.length ? "font-bold text-bad" : ""}>실패 {failed.length}</span></>}
+            action={<GenerateButton programId={p.id} ready={ready} disabled={status === "draft"} />} />
+          <MetricTile label="근거 자료" value={`${withEvidence}`} unit="명"
+            line={[survey && `설문 ${submitted}`, docs && `서류 ${withDocs}`].filter(Boolean).join(" · ")}
+            action={<ButtonLink href={`/teacher/programs/${p.id}/materials`} kind="outline" size="sm" className="w-full">자료 관리</ButtonLink>} />
         </div>
 
         <RemindBox programId={p.id} missing={status === "open" ? missing.length : 0} aiOn={aiEnabled()} last={lastReminder} />
 
+        <div id="status" className="scroll-mt-6" />
         <Card
           title="학생별 현황"
           action={<a href={`/teacher/programs/${p.id}/export`} download className="hidden items-center gap-1 text-[13px] font-medium text-sub md:inline-flex"><Download size={14} /> 엑셀 내보내기</a>}
@@ -142,7 +130,7 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
           </form>
 
           <div className="hidden grid-cols-[minmax(0,1fr)_96px_72px_88px_168px_88px] items-center gap-3 rounded-inner bg-white px-4 py-2.5 text-[13px] text-mute md:grid">
-            <span>학생</span><span className="text-center">근거 자료</span><span className="text-center">응답일</span><span className="text-center">초안 상태</span><span>글자수</span><span />
+            <span>학생</span><span className="text-center">근거 자료</span><span className="text-center">응답일</span><span className="text-center">초안 상태</span><span className="text-center">글자수</span><span />
           </div>
           {shown.length === 0 ? (
             <p className="py-8 text-center text-sm text-mute">해당하는 학생이 없어요</p>
@@ -164,8 +152,8 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
                     </div>
                     <span className="hidden text-center text-[13px] text-sub md:block">{r.evidenceLabel}</span>
                     <span className="hidden text-center text-[13px] text-sub md:block">{r.response?.submittedAt ? md(r.response.submittedAt.slice(0, 10)) : "—"}</span>
-                    <span className="md:text-center">{statusTag(r)}</span>
-                    <div className="hidden md:block">
+                    <span className="md:flex md:justify-center">{statusTag(r)}</span>
+                    <div className="hidden flex-col items-center md:flex">
                       {r.review === "생성 실패" ? (
                         <span className="text-[12px] font-medium text-bad">{r.job?.attempts ?? 3}회 재시도 실패</span>
                       ) : r.review === "생성 중" ? (
@@ -173,18 +161,18 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
                       ) : (
                         <span className="text-[12px] text-sub">{r.length !== null ? `${r.length.toLocaleString()} / ${max.toLocaleString()}${unit}` : "—"}</span>
                       )}
-                      <Bar pct={r.length !== null ? (r.length / max) * 100 : r.review === "생성 중" ? 30 : 0} tone={r.review === "생성 중" ? "wait" : "key"} className="mt-1 w-32" />
+                      <Bar pct={r.length !== null ? (r.length / max) * 100 : r.review === "생성 중" ? 30 : 0} tone={r.review === "생성 중" ? "wait" : "key"} className="mt-1 w-28" />
                     </div>
                     <div className="hidden justify-end md:flex">
                       {r.review === "생성 실패" && draftHref ? (
-                        <ButtonLink href={draftHref} size="sm">직접 작성</ButtonLink>
+                        <ButtonLink href={draftHref} size="sm" className="w-[76px] px-0">직접 작성</ButtonLink>
                       ) : draftHref && r.latest ? (
-                        <ButtonLink href={draftHref} size="sm" kind="outline">보기</ButtonLink>
+                        <ButtonLink href={draftHref} size="sm" kind="outline" className="w-[76px] px-0">보기</ButtonLink>
                       ) : !r.hasEvidence && !r.missingReason && status === "open" ? (
                         <form action={remindOne}>
                           <input type="hidden" name="programId" value={p.id} />
                           <input type="hidden" name="studentId" value={s.id} />
-                          <Button size="sm" kind="outline">알림</Button>
+                          <Button size="sm" kind="outline" className="w-[76px] px-0">알림</Button>
                         </form>
                       ) : null}
                     </div>

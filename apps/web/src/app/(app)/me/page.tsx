@@ -51,7 +51,7 @@ export default async function MePage() {
               <Button kind="outline" className="w-full"><LogOut size={18} /> 로그아웃</Button>
             </form>
           </div>
-          <Card title="비밀번호 바꾸기" className="md:self-start">
+          <Card title="비밀번호 바꾸기" className="h-full">
             <PasswordForm />
           </Card>
         </div>

@@ -41,7 +41,7 @@ export default async function TeacherHome() {
         <AiBanner
           title="오늘 브리핑"
           line={failed.length ? `생성 실패 ${failed.length}건은 직접 작성이 필요해요` : waiting ? `검토 대기 초안 ${waiting}건이 있어요` : "오늘 먼저 볼 일이 없어요"}
-          action={<ButtonLink href="/teacher/drafts" size="sm" className="hidden md:inline-flex">검토 시작</ButtonLink>}
+          action={<ButtonLink href="/teacher/drafts" kind="outline" size="sm" className="hidden md:inline-flex">검토 시작</ButtonLink>}
         />
         <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
           <Card title="검토할 초안" action={<ButtonLink href="/teacher/drafts" kind="ghost" size="sm">전체</ButtonLink>}>
@@ -53,7 +53,7 @@ export default async function TeacherHome() {
                 return (
                   <Row key={j.id} last={i === queue.length - 1} lead={<Avatar name={s?.name ?? "?"} />} title={s?.name ?? "학생"}
                     meta={`${s ? `${s.grade}학년 ${s.classNo}반 · ` : ""}${title.get(j.programId) ?? ""}`}
-                    right={<a href={`/teacher/drafts?d=${j.id}`}><Tag>{j.state === "ERROR" ? "생성 실패" : "검토 대기"}</Tag></a>} />
+                    right={<a href={`/teacher/drafts?d=${j.id}`} className="shrink-0"><Tag>{j.state === "ERROR" ? "생성 실패" : "검토 대기"}</Tag></a>} />
                 );
               })
             )}
@@ -64,7 +64,7 @@ export default async function TeacherHome() {
             ) : (
               dueSoon.map(({ p, submitted }, i) => (
                 <Row key={p.id} last={i === dueSoon.length - 1} title={p.title} meta={`미응답 ${p.targetIds.length - submitted}명`}
-                  right={<a href={`/teacher/programs/${p.id}`}><Tag>{ddayLabel(p.endDate, now)}</Tag></a>} />
+                  right={<a href={`/teacher/programs/${p.id}`} className="shrink-0"><Tag>{ddayLabel(p.endDate, now)}</Tag></a>} />
               ))
             )}
           </Card>

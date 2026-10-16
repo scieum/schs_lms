@@ -92,6 +92,19 @@ export function StatTiles({ items }: { items: [string, string][] }) {
 }
 
 /** AI 한 줄 배너. 실제 AI가 아닌 규칙 기반 도움은 label="자동" 으로 표시한다 */
+/** 숫자 타일 (행동이 있는 것): 이름표 → 큰 숫자+단위 → 한 줄 → (막대) → 맨 아래 버튼. 한 줄에 놓인 타일은 모두 이것으로 써서 높이·위치를 맞춘다 */
+export function MetricTile({ label, value, unit, line, meter, action }: { label: string; value: string; unit?: string; line?: ReactNode; meter?: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="flex min-h-[172px] flex-col rounded-card bg-soft p-4 md:px-[22px] md:py-5">
+      <div className="text-[13px] text-mute">{label}</div>
+      <div className="mt-1 text-[24px] font-bold leading-tight md:text-[28px]">{value}{unit && <span className="ml-0.5 text-[15px] font-medium text-sub">{unit}</span>}</div>
+      <div className="mt-1 min-h-[19px] truncate text-[13px] text-sub">{line}</div>
+      {meter && <div className="mt-2">{meter}</div>}
+      {action && <div className="mt-auto pt-3">{action}</div>}
+    </div>
+  );
+}
+
 export function AiBanner({ title, line, action, label = "AI" }: { title: string; line: string; action?: ReactNode; label?: "AI" | "자동" }) {
   return (
     <div className="flex items-center gap-3 rounded-inner bg-soft px-4 py-3.5 md:gap-4 md:px-5 md:py-4">
@@ -113,7 +126,7 @@ export function Row({ lead, title, meta, right, last }: { lead?: ReactNode; titl
         <div className="truncate text-[15px] font-medium">{title}</div>
         {meta && <div className="truncate text-[13px] text-mute">{meta}</div>}
       </div>
-      {right}
+      {right && <div className="shrink-0">{right}</div>}
     </div>
   );
 }

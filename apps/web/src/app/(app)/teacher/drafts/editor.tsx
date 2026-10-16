@@ -65,7 +65,7 @@ export function DraftEditor({
             {review.error ? `AI 대신 규칙으로 봤어요 (${review.error})` : review.items ? (items.length ? `${items[0].issue} — "${items[0].phrase.slice(0, 24)}…"` : "더 고칠 제안이 없어요") : "근거 없는 표현·어미를 찾아 제안해요"}
           </div>
         </div>
-        <Button type="button" size="sm" onClick={runReview} disabled={reviewing || !text.trim()}>{reviewing ? "보는 중…" : review.items ? "다시 검토" : "검토 받기"}</Button>
+        <Button type="button" kind="outline" size="sm" onClick={runReview} disabled={reviewing || !text.trim()}>{reviewing ? "보는 중…" : review.items ? "다시 검토" : "검토 받기"}</Button>
       </div>
       {items.length > 0 && (
         <ul className="flex flex-col gap-2">

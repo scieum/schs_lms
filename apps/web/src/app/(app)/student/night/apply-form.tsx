@@ -61,12 +61,12 @@ export function ApplyForm({ days, taken, current, pattern, past, deadline, ai, s
         line={hint?.text ?? pattern?.text ?? "지난 기록이 쌓이면 요일·시간을 미리 채워 줘요"}
         action={
           hint ? (
-            <Button size="sm" onClick={hint.fill}>이대로 채우기</Button>
+            <Button kind="outline" size="sm" onClick={hint.fill}>이대로 채우기</Button>
           ) : pattern ? (
             ai ? (
-              <Button size="sm" onClick={askHelper} disabled={busy}>{busy ? "살펴보는 중…" : "추천 받기"}</Button>
+              <Button kind="outline" size="sm" onClick={askHelper} disabled={busy}>{busy ? "살펴보는 중…" : "추천 받기"}</Button>
             ) : (
-              <Button size="sm" onClick={() => fillWith(pattern.weekdays, pattern.session, pattern.place)}>이대로 채우기</Button>
+              <Button kind="outline" size="sm" onClick={() => fillWith(pattern.weekdays, pattern.session, pattern.place)}>이대로 채우기</Button>
             )
           ) : undefined
         }
@@ -109,8 +109,8 @@ export function ApplyForm({ days, taken, current, pattern, past, deadline, ai, s
                       <span className="block font-bold">{SESSION_LABEL[s]}</span>
                       <span className={cx("text-[13px]", on ? "text-white/80" : "text-mute")}>{sessionTime(s)}</span>
                     </span>
-                    <span className={cx("text-[13px]", on ? "font-bold" : left === 0 ? "text-bad" : "text-sub")}>잔여 {left}석</span>
-                    {on && <Check size={16} />}
+                    <span className={cx("shrink-0 text-[13px] tabular-nums", on ? "font-bold" : left === 0 ? "text-bad" : "text-sub")}>잔여 {left}석</span>
+                    <span className="flex w-4 shrink-0 justify-center">{on && <Check size={16} />}</span>
                   </button>
                 );
               })}

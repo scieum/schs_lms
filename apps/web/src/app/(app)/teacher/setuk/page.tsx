@@ -63,7 +63,7 @@ export default async function SetukPage({ searchParams }: Props) {
               href={`/teacher/setuk/export?course=${course.id}`}
               download
               aria-disabled={counts.확정 === 0}
-              className={cx("inline-flex items-center gap-1.5 rounded-control px-3.5 py-2 text-[13px] font-medium", counts.확정 ? "bg-key text-white hover:bg-key-strong" : "pointer-events-none bg-faint text-white")}
+              className={cx("inline-flex items-center gap-1.5 rounded-control px-3.5 py-2 text-[13px] font-medium", counts.확정 ? "border border-hair bg-white text-ink hover:bg-soft" : "pointer-events-none border border-hair bg-white text-faint")}
             >
               <Download size={14} /> 나이스로 내보내기
             </a>
@@ -83,7 +83,7 @@ export default async function SetukPage({ searchParams }: Props) {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-[300px_1fr] md:gap-6">
-            <Card title={`${course.subject} · ${assignment?.classes.join("·")}반`} className="md:self-start">
+            <Card title={`${course.subject} · ${assignment?.classes.join("·")}반`}>
               <ul className="-mx-2 flex max-h-[560px] flex-col overflow-y-auto">
                 {students.map((s) => {
                   const r = latest.get(s.id);

@@ -37,7 +37,7 @@ export function AiAttach({
           <div className="text-[15px] font-bold">{title}</div>
           <div className="truncate text-[13px] text-sub">{result?.ok ? result.summary : line}</div>
         </div>
-        <Button size="sm" onClick={go} disabled={pending || disabled}>
+        <Button kind="outline" size="sm" onClick={go} disabled={pending || disabled}>
           {pending ? "만드는 중…" : result?.ok ? "다시 만들기" : attachLabel}
         </Button>
       </div>

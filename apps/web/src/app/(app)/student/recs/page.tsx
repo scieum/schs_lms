@@ -66,7 +66,7 @@ export default async function RecsPage({ searchParams }: Props) {
                   <h2 className="text-[17px] font-bold">{it.title}</h2>
                   {it.meta && <p className="mt-1 text-[13px] text-mute">{it.meta}</p>}
                 </div>
-                <InterestButton itemId={it.id} on={picked.has(it.id)} />
+                <div className="mt-auto"><InterestButton itemId={it.id} on={picked.has(it.id)} /></div>
               </article>
             ))}
           </div>

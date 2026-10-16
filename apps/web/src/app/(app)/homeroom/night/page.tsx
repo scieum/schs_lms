@@ -97,7 +97,7 @@ export default async function NightManagePage({ searchParams }: Props) {
                         <input type="hidden" name="class" value={scope.key} />
                         <input type="hidden" name="id" value={r.id} />
                         <Button kind="outline" size="sm" name="decision" value="reject">반려</Button>
-                        <Button size="sm" name="decision" value="approve">승인</Button>
+                        <Button kind="outline" size="sm" name="decision" value="approve">승인</Button>
                       </form>
                     </div>
                   ))}
@@ -105,7 +105,7 @@ export default async function NightManagePage({ searchParams }: Props) {
               )}
             </Card>
 
-            <Card title="이번 주 출석률">
+            <Card title="이번 주 출석률" className="flex-1">
               <BarChart
                 items={rates.map((r) => ({ label: DAY_LABEL[weekday(r.date)], value: r.rate }))}
                 highlight={todayIdx >= 0 ? todayIdx : 4}

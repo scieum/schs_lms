@@ -14,7 +14,7 @@ export function StudentPicker({ students, selected, tab }: { students: S[]; sele
   const shown = students.filter((s) => (cls === "전체" || s.classKey === cls) && (!q.trim() || s.name.includes(q.trim()) || s.label.includes(q.trim())));
 
   return (
-    <Card title="담당 학생" className="md:self-start">
+    <Card title="담당 학생">
       <label className="mb-3 flex items-center gap-2 rounded-field bg-white px-3.5 py-2.5 focus-within:ring-2 focus-within:ring-key">
         <Search size={16} className="text-mute" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름·학번 검색" aria-label="학생 검색"

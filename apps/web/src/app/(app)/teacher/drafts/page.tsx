@@ -78,7 +78,7 @@ export default async function DraftsPage({ searchParams }: Props) {
 
     detail = (
       <>
-        <Card className="min-w-0">
+        <Card className="h-full min-w-0">
           <div className="mb-4 flex items-center gap-3">
             <Avatar name={s.name} size={40} />
             <div className="min-w-0 flex-1">
@@ -116,7 +116,7 @@ export default async function DraftsPage({ searchParams }: Props) {
           )}
         </Card>
 
-        <Card title="근거 자료" className="min-w-0 md:col-start-2 md:self-start xl:col-start-auto">
+        <Card title="근거 자료" className="h-full min-w-0 md:col-start-2 xl:col-start-auto">
           {evidence.length === 0 && <p className="text-[13px] text-mute">근거 자료가 없어요</p>}
           {mats.length > 0 && (
             <div className="mb-4 flex flex-col gap-2">
@@ -192,7 +192,7 @@ export default async function DraftsPage({ searchParams }: Props) {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)] md:gap-6 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
-            <Card title={`검토 ${TABS.find((t) => t[0] === tabKey)![1]} ${list.length}`} className="order-2 md:order-none md:self-start">
+            <Card title={`검토 ${TABS.find((t) => t[0] === tabKey)![1]} ${list.length}`} className="order-2 h-full md:order-none">
               <nav className="mb-3 flex gap-1.5">
                 {TABS.map(([k, label]) => (
                   <Link key={k} href={base(`tab=${k}`)} className={cx("rounded-chip px-2.5 py-1.5 text-[13px]", tabKey === k ? "bg-key font-bold text-white" : "bg-white text-sub")}>{label} {count(k)}</Link>

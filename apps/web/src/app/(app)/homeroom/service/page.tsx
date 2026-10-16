@@ -1,5 +1,5 @@
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { Card, Row, StatTiles, Tag } from "@/components/ui";
+import { Button, Card, Row, StatTiles, Tag } from "@/components/ui";
 import { homeroomStudents } from "@/lib/domain/activity";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
@@ -28,16 +28,18 @@ export default async function HomeroomServicePage() {
           title={`${s?.number ?? ""}번 ${s?.name ?? "?"} · ${r.hours}시간`}
           meta={`${r.date} · ${r.organization} · ${r.activity} · 보낸 분 ${nameOf.get(r.uploaderId) ?? "?"}`}
           right={
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <a href={`/service/file/${r.id}`} target="_blank" rel="noreferrer" className="text-[13px] text-key-strong">확인서</a>
-              {confirm ? (
-                <form action={confirmService}>
-                  <input type="hidden" name="id" value={r.id} />
-                  <button className="rounded-control bg-key px-3 py-1.5 text-[13px] font-medium text-white">확인</button>
-                </form>
-              ) : (
-                <Tag>확정</Tag>
-              )}
+              <div className="flex w-[76px] justify-end">
+                {confirm ? (
+                  <form action={confirmService}>
+                    <input type="hidden" name="id" value={r.id} />
+                    <Button kind="outline" size="sm" className="w-[76px] px-0">확인</Button>
+                  </form>
+                ) : (
+                  <Tag>확정</Tag>
+                )}
+              </div>
             </div>
           }
         />

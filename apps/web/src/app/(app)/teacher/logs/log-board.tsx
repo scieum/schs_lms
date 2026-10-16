@@ -24,7 +24,7 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
         <button type="button" onClick={() => setPicked(all ? new Set() : new Set(students.map((s) => s.id)))} className="text-[13px] font-medium text-key-strong">
           {all ? "모두 해제" : "모두 선택"}
         </button>
-      } className="md:self-start">
+      }>
         <ul className="-mx-2 flex max-h-[560px] flex-col overflow-y-auto">
           {students.map((s) => {
             const on = picked.has(s.id);
@@ -35,7 +35,7 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
                   <span className={cx("flex size-5 shrink-0 items-center justify-center rounded-chip", on ? "bg-key text-white" : "bg-white")}>{on && <Check size={13} strokeWidth={3} />}</span>
                   <span className="w-10 shrink-0 text-[13px] text-mute">{s.classNo}-{s.number}</span>
                   <span className={cx("min-w-0 flex-1 truncate", on && "font-bold")}>{s.name}</span>
-                  <span className="text-xs text-mute">{s.count}건</span>
+                  <span className="shrink-0 text-xs tabular-nums text-mute">{s.count}건</span>
                 </button>
               </li>
             );

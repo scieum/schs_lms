@@ -69,7 +69,7 @@ export function AiRecs({ goal }: { goal: string | null }) {
                       {it.meta && <div className="text-xs text-mute">{it.meta}</div>}
                       <div className="mt-1 text-[13px] text-sub">{it.reason}</div>
                     </div>
-                    <Button size="sm" kind={done ? "soft" : "primary"} disabled={done || pending} onClick={() => start(async () => {
+                    <Button size="sm" kind={done ? "soft" : "outline"} className="w-[88px] shrink-0 px-0" disabled={done || pending} onClick={() => start(async () => {
                       const res = await addAiInterest(it);
                       if (res.error) setErr(res.error);
                       else setAdded((s) => new Set(s).add(key));

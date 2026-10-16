@@ -29,7 +29,7 @@ export default async function StudentsPage() {
                 lead={<Avatar name={s.name} />}
                 title={s.name}
                 meta={`${s.grade}학년 ${s.classNo}반 ${s.number}번 · 학번 ${s.studentNo}`}
-                right={<span className="text-[13px] font-medium text-key-strong">{s.pseudonymId}</span>}
+                right={<span className="shrink-0 text-[13px] font-medium tabular-nums text-key-strong">{s.pseudonymId}</span>}
               />
             ))
           )}

@@ -103,7 +103,7 @@ export default async function MyRecordPage({ searchParams }: Props) {
                 </div>
               </div>
 
-              <Card title="이 기록은요" className="md:self-start">
+              <Card title="이 기록은요" className="h-full">
                 <dl className="flex flex-col gap-2.5 text-sm">
                   <div className="flex justify-between"><dt className="text-mute">학년도</dt><dd className="font-medium">{year}</dd></div>
                   <div className="flex justify-between"><dt className="text-mute">확정일</dt><dd className="font-medium">{confirmed ? fmtDate(confirmed) : "—"}</dd></div>

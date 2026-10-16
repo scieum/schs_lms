@@ -51,10 +51,10 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
   return (
     <>
       <PageHeader title={student.name} actions={
-        <ButtonLink href={`/teacher/counseling?student=${student.id}`} kind="outline" size="sm"><MessageSquare size={16} /> 상담 기록</ButtonLink>
+        <ButtonLink href={`/teacher/counseling?student=${student.id}`} kind="outline" size="sm"><MessageSquare size={14} /> 상담 기록</ButtonLink>
       } />
       <PageBody>
-        <p className="-mt-3 text-[13px] text-mute md:-mt-4">{student.grade}학년 {student.classNo}반 {student.number}번 · 희망 진로 {student.careerGoal ?? "미정"}</p>
+        <p className="-mt-2 text-[13px] text-mute md:-mt-4">{student.grade}학년 {student.classNo}반 {student.number}번 · 희망 진로 {student.careerGoal ?? "미정"}</p>
         <AiAttach title="기록 흐름 요약" line="1·2학년 기록에서 진로 키워드·보완점·겹치는 소재를 찾아요" run={summarizeFlow}
           studentId={student.id} today={now} attachLabel="상담 메모에 붙이기" topicsLabel="보완점" />
 
@@ -72,7 +72,7 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
               <Card title="생기부 초안 모음" action={<span className="text-[13px] text-mute">올해 교과세특</span>}>
                 <ActivityList items={drafts} empty="올해 쓴 교과세특이 없어요" />
               </Card>
-              <Card title="프로그램 초안" action={<span className="text-[13px] text-mute">확정 {finals.length}건</span>}>
+              <Card title="프로그램 초안" className="flex-1" action={<span className="text-[13px] text-mute">확정 {finals.length}건</span>}>
                 {finals.length === 0 ? (
                   <p className="py-6 text-center text-sm text-mute">확정된 프로그램 초안이 없어요</p>
                 ) : (
@@ -97,11 +97,11 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
                   <p className="py-4 text-center text-sm text-mute">확정본이 없어요</p>
                 ) : (
                   RECORD_AREAS.map((a, i) => (
-                    <Row key={a} last={i === RECORD_AREAS.length - 1} title={a} right={<span className="text-sm font-bold">{pastCount[a]}건</span>} />
+                    <Row key={a} last={i === RECORD_AREAS.length - 1} title={a} right={<span className="shrink-0 text-sm font-bold tabular-nums">{pastCount[a]}건</span>} />
                   ))
                 )}
               </Card>
-              <Card title="정정 요청" action={<span className="text-[13px] text-mute">{corrections.length}건</span>}>
+              <Card title="정정 요청" className="flex-1" action={<span className="text-[13px] text-mute">{corrections.length}건</span>}>
                 {corrections.length === 0 ? (
                   <p className="py-4 text-center text-sm text-mute">받은 요청이 없어요</p>
                 ) : (
@@ -153,7 +153,7 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
         )}
 
         {tab === "counsel" && (
-          <Card title="상담 기록" action={<ButtonLink href={`/teacher/counseling?student=${student.id}#new-counsel`} size="sm">기록 쓰기</ButtonLink>}>
+          <Card title="상담 기록" action={<ButtonLink href={`/teacher/counseling?student=${student.id}#new-counsel`} kind="outline" size="sm">기록 쓰기</ButtonLink>}>
             <CounselList studentId={student.id} today={now} items={counsel.map((r) => ({
               id: r.id, date: r.date, area: r.area, content: r.content, author: names.get(r.authorId) ?? "교사",
               mine: r.authorId === v.accountId, revised: !!r.prevId,

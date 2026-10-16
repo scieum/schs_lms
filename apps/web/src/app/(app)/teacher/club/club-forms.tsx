@@ -10,7 +10,7 @@ export function NewClubForm() {
     <form action={action} className="flex flex-col gap-3">
       <Field name="name" label="동아리 이름" placeholder="예: 과학탐구반" required maxLength={30} />
       {state.error && <p className="text-sm text-bad" role="alert">{state.error}</p>}
-      <Button disabled={pending}>{pending ? "만드는 중…" : "동아리 만들기"}</Button>
+      <Button kind="outline" disabled={pending}>{pending ? "만드는 중…" : "동아리 만들기"}</Button>
     </form>
   );
 }

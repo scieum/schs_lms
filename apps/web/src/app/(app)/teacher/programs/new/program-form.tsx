@@ -78,7 +78,7 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
           <div className="text-[15px] font-bold">AI로 설문 문항 만들기</div>
           <div className="truncate text-[13px] text-sub">{aiOn ? "활동 개요를 쓰면 추가 문항을 추천해요" : "AI가 꺼져 있어요. 문항을 직접 써 주세요"}</div>
         </div>
-        <Button type="button" size="sm" onClick={runSuggest} disabled={!aiOn || suggesting || !survey}>
+        <Button type="button" kind="outline" size="sm" onClick={runSuggest} disabled={!aiOn || suggesting || !survey}>
           {suggesting ? "만드는 중…" : "문항 추천받기"}
         </Button>
       </div>

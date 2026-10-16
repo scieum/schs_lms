@@ -57,10 +57,10 @@ export default async function ErrorsPage() {
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5 self-end md:self-auto">
-                        {j.manualRequestedAt ? <Tag>수동 작성 요청됨</Tag> : <Tag>실패</Tag>}
-                        <form action={retryDrafts}><input type="hidden" name="jobId" value={j.id} /><Button size="sm" kind="outline">다시 시도</Button></form>
-                        {!j.manualRequestedAt && <form action={requestManual}><input type="hidden" name="jobId" value={j.id} /><Button size="sm" kind="soft">수동 작성 요청</Button></form>}
-                        <ButtonLink href={`/teacher/drafts?d=${j.id}`} size="sm" kind="outline">보기</ButtonLink>
+                        <span className="flex md:w-[112px] md:justify-end">{j.manualRequestedAt ? <Tag>수동 작성 요청됨</Tag> : <Tag>실패</Tag>}</span>
+                        <form action={retryDrafts}><input type="hidden" name="jobId" value={j.id} /><Button size="sm" kind="outline" className="w-[76px] px-0">다시 시도</Button></form>
+                        {!j.manualRequestedAt ? <form action={requestManual}><input type="hidden" name="jobId" value={j.id} /><Button size="sm" kind="soft" className="w-[104px] px-0">수동 작성 요청</Button></form> : <span className="hidden w-[104px] md:block" />}
+                        <ButtonLink href={`/teacher/drafts?d=${j.id}`} size="sm" kind="outline" className="w-[76px] px-0">보기</ButtonLink>
                       </div>
                     </li>
                   );
@@ -68,7 +68,7 @@ export default async function ErrorsPage() {
               </ul>
             )}
           </Card>
-          <Card title="확인 필요" className="md:self-start">
+          <Card title="확인 필요" className="h-full">
             {checks.length === 0 ? (
               <p className="py-6 text-center text-sm text-mute">없어요</p>
             ) : (
@@ -80,7 +80,7 @@ export default async function ErrorsPage() {
                       <div className="truncate text-[15px] font-medium">{c.title}</div>
                       <div className="truncate text-[13px] text-mute">{c.meta}</div>
                     </div>
-                    <ButtonLink href={c.href} size="sm" kind="outline">보기</ButtonLink>
+                    <ButtonLink href={c.href} size="sm" kind="outline" className="w-[76px] shrink-0 px-0">보기</ButtonLink>
                   </li>
                 ))}
               </ul>

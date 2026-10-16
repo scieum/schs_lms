@@ -33,7 +33,7 @@ export default async function ServicePage() {
                     title={`${s?.name ?? "?"} · ${r.hours}시간 · ${r.organization}`}
                     meta={`${r.date} · ${s ? `${s.grade}-${s.classNo}-${s.number}` : ""} · ${r.activity}`}
                     right={
-                      <div className="flex items-center gap-2">
+                      <div className="flex shrink-0 items-center gap-2">
                         <a href={`/service/file/${r.id}`} target="_blank" rel="noreferrer" className="text-[13px] text-key-strong">파일</a>
                         <Tag>{r.status === "confirmed" ? "확정" : "대기"}</Tag>
                       </div>
@@ -43,7 +43,7 @@ export default async function ServicePage() {
               })
             )}
           </Card>
-          <Card title="확인서 올리기" className="md:self-start">
+          <Card title="확인서 올리기">
             <ServiceUploadForm
               aiOn={aiReadEnabled()}
               today={today()}

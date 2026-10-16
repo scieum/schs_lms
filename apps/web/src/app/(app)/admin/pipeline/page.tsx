@@ -73,7 +73,7 @@ export default async function PipelinePage() {
                     <div className="truncate text-[15px] font-medium">{x.p.title}</div>
                     <div className="text-[12px] text-mute">{x.stage} {STAGE_LABEL[x.stage]} · {x.stages.length}명</div>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex shrink-0 items-center gap-1.5">
                     {x.gates.map((g, k) => <Tag key={k} tone={GATE_TONE[g]}>{`G${k + 1} ${g}`}</Tag>)}
                   </div>
                   <Bar pct={x.pct} className="w-full md:w-28" />

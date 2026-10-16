@@ -58,7 +58,7 @@ export default async function BehaviorPage({ searchParams }: Props) {
               href={`/teacher/write/export?area=${encodeURIComponent("행발")}`}
               download
               aria-disabled={counts.확정 === 0}
-              className={cx("inline-flex items-center gap-1.5 rounded-control px-3.5 py-2 text-[13px] font-medium", counts.확정 ? "bg-key text-white hover:bg-key-strong" : "pointer-events-none bg-faint text-white")}
+              className={cx("inline-flex items-center gap-1.5 rounded-control px-3.5 py-2 text-[13px] font-medium", counts.확정 ? "border border-hair bg-white text-ink hover:bg-soft" : "pointer-events-none border border-hair bg-white text-faint")}
             >
               <Download size={14} /> 나이스로 내보내기
             </a>

@@ -107,7 +107,7 @@ export function AiDraftPanel({
           <div className="flex gap-2">
             <Button type="button" kind="outline" size="sm" onClick={copy}><Copy size={13} /> {copied ? "복사됨" : "복사"}</Button>
             <Button type="button" kind="outline" size="sm" onClick={run}><RotateCcw size={13} /> 다시 쓰기</Button>
-            <Button type="button" size="sm" className="flex-1" onClick={() => onApply(result.text)}>본문에 넣기</Button>
+            <Button type="button" kind="outline" size="sm" className="flex-1" onClick={() => onApply(result.text)}>본문에 넣기</Button>
           </div>
         </div>
       )}

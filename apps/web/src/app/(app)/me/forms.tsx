@@ -15,7 +15,7 @@ export function CareerForm({ current, onDone }: { current: string | null; onDone
       <div className="flex gap-2">
         <input name="careerGoal" defaultValue={current ?? ""} maxLength={40} placeholder="예: 산업디자인" aria-label="희망 진로"
           className="min-w-0 flex-1 rounded-field bg-white px-4 py-2.5 text-[15px] outline-none placeholder:text-faint focus:ring-2 focus:ring-key" />
-        <Button size="sm" disabled={pending}>{pending ? "저장 중…" : "저장"}</Button>
+        <Button kind="outline" size="sm" disabled={pending}>{pending ? "저장 중…" : "저장"}</Button>
       </div>
       {state.error && <p className="text-[13px] text-bad" role="alert">{state.error}</p>}
       {state.ok && !state.error && <p className="text-[13px] text-ok" role="status">바꿨어요. 추천도 새 진로로 바뀌어요</p>}

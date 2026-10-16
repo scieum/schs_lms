@@ -60,11 +60,11 @@ export function SplitEditor({ programId, materialId, pages, students, aiOn, file
             {sug.error ?? (sug.ranges ? sug.ranges.slice(0, 3).map((r) => `${rangeLabel(r)} ${byId.get(r.studentId ?? "")?.label.split(" ").pop() ?? "?"}`).join(" · ") + (sug.ranges.length > 3 ? ` 외 ${sug.ranges.length - 3}명` : "") : aiOn ? "첫 쪽 이름으로 학생별 쪽 구간을 찾아요" : "AI가 꺼져 있어요. 빠른 나누기를 써 보세요")}
           </div>
         </div>
-        <Button type="button" size="sm" onClick={runAi} disabled={!aiOn || suggesting}>{suggesting ? "읽는 중이에요…" : "제안 받기"}</Button>
+        <Button type="button" kind="outline" size="sm" onClick={runAi} disabled={!aiOn || suggesting}>{suggesting ? "읽는 중이에요…" : "제안 받기"}</Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_360px] md:gap-6">
-        <Card title="페이지" action={<a href={fileHref} target="_blank" rel="noreferrer" className="text-[13px] font-medium text-sub">전체 {pages}쪽 보기</a>}>
+        <Card title="페이지" className="h-full" action={<a href={fileHref} target="_blank" rel="noreferrer" className="text-[13px] font-medium text-sub">전체 {pages}쪽 보기</a>}>
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="flex h-11 items-center gap-1 rounded-field bg-white px-3 ring-2 ring-key">
@@ -78,7 +78,7 @@ export function SplitEditor({ programId, materialId, pages, students, aiOn, file
                 <option value="">학생 고르기 (이름·학번)</option>
                 {students.map((s) => <option key={s.id} value={s.id} disabled={used.has(s.id)}>{s.label} · {s.sub}</option>)}
               </select>
-              <Button type="button" size="sm" onClick={add}>구간 추가</Button>
+              <Button type="button" kind="outline" size="sm" onClick={add}>구간 추가</Button>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-[13px]">
               <span className="font-medium text-sub">빠른 나누기</span>
@@ -111,7 +111,7 @@ export function SplitEditor({ programId, materialId, pages, students, aiOn, file
           </div>
         </Card>
 
-        <Card title="구간 지정" className="md:self-start">
+        <Card title="구간 지정" className="h-full">
           <form action={splitAct} className="flex flex-col gap-2.5">
             <input type="hidden" name="programId" value={programId} />
             <input type="hidden" name="materialId" value={materialId} />

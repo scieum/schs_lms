@@ -77,9 +77,9 @@ export function CoursePicker({ semester, deadline, closed, maxCredits, offerings
         }
         action={
           rec?.ok && !closed ? (
-            <Button type="button" size="sm" onClick={addRec}>확인 후 담기</Button>
+            <Button type="button" kind="outline" size="sm" onClick={addRec}>확인 후 담기</Button>
           ) : (
-            <Button type="button" size="sm" kind={rec ? "outline" : "primary"} disabled={recPending || !careerGoal} onClick={askRec}>
+            <Button type="button" size="sm" kind="outline" disabled={recPending || !careerGoal} onClick={askRec}>
               {recPending ? "고르는 중…" : rec ? "다시 추천" : "추천 받기"}
             </Button>
           )
@@ -102,7 +102,7 @@ export function CoursePicker({ semester, deadline, closed, maxCredits, offerings
               </button>
             ))}
           </div>
-          <Card title={`${semester}학기 개설 과목`}>
+          <Card title={`${semester}학기 개설 과목`} className="flex-1">
             {shown.length === 0 ? (
               <p className="py-4 text-center text-sm text-mute">이 분야에 열린 과목이 없어요</p>
             ) : (
@@ -138,7 +138,7 @@ export function CoursePicker({ semester, deadline, closed, maxCredits, offerings
           </Card>
         </div>
 
-        <Card title="내 신청" className="h-fit">
+        <Card title="내 신청">
           {picked.length === 0 ? (
             <p className="py-2 text-sm text-mute">아직 담은 과목이 없어요</p>
           ) : (

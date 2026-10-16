@@ -110,7 +110,7 @@ export function ScoreUpload({ classKey, className, rosterSize, exams, ai }: { cl
 
       <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
         <div className="flex min-w-0 flex-col gap-4 md:gap-6">
-          <Card>
+          <Card className={cx(!p && !showMapEditor && !done && "flex-1")}>
             <div className="flex flex-col gap-3 md:flex-row md:items-center">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-field bg-white text-sub">
@@ -186,13 +186,19 @@ export function ScoreUpload({ classKey, className, rosterSize, exams, ai }: { cl
               </div>
               {/* PC: 표 */}
               <div className="hidden max-h-[560px] overflow-auto md:block">
-                <table className="w-full text-sm">
+                <table className="w-full table-fixed text-sm">
+                  <colgroup>
+                    <col className="w-14" />
+                    <col />
+                    {SUBJECTS.map((k) => <col key={k} className="w-16" />)}
+                    <col className="w-28" />
+                  </colgroup>
                   <thead className="text-left text-xs text-mute">
                     <tr className="border-b border-line">
-                      <th className="py-2 pr-2 font-normal">번호</th>
-                      <th className="py-2 pr-2 font-normal">이름</th>
+                      <th className="py-2 text-center font-normal">번호</th>
+                      <th className="py-2 pl-2 font-normal">이름</th>
                       {SUBJECTS.map((k) => <th key={k} className="px-1 py-2 text-center font-normal">{SUBJECT_LABEL[k]}</th>)}
-                      <th className="py-2 pl-2 font-normal">상태</th>
+                      <th className="py-2 text-center font-normal">상태</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -269,7 +275,7 @@ export function ScoreUpload({ classKey, className, rosterSize, exams, ai }: { cl
             )
           )}
           {!p && !showMapEditor && !done && (
-            <Card title="올리는 방법">
+            <Card title="올리는 방법" className="flex-1">
               <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm text-sub">
                 <li>양식을 내려받아 등급(1~9)을 채워요</li>
                 <li>시험을 고르고 파일을 올려요</li>
@@ -287,18 +293,18 @@ export function ScoreUpload({ classKey, className, rosterSize, exams, ai }: { cl
 function PcRow({ r }: { r: CheckedScoreRow }) {
   return (
     <tr className="border-b border-line last:border-0" title={r.problems.join(" · ") || undefined}>
-      <td className="py-3.5 pr-2 font-medium">{r.raw.number || "–"}</td>
-      <td className="py-3.5 pr-2 font-bold">{r.raw.name || "–"}</td>
+      <td className="py-3.5 text-center font-medium tabular-nums">{r.raw.number || "–"}</td>
+      <td className="truncate py-3.5 pl-2 font-bold">{r.raw.name || "–"}</td>
       {SUBJECTS.map((k) => {
         const v = r.raw[k];
         const bad = r.status === "범위 오류" && r.problems.some((x) => x.startsWith(SUBJECT_LABEL[k]));
         return (
-          <td key={k} className={cx("px-1 py-3.5 text-center", bad ? "font-bold text-bad" : "text-sub")}>
+          <td key={k} className={cx("px-1 py-3.5 text-center tabular-nums", bad ? "font-bold text-bad" : "text-sub")}>
             {v || "—"}
           </td>
         );
       })}
-      <td className="py-3.5 pl-2"><Tag tone={STATUS_TONE[r.status]}>{r.status}</Tag></td>
+      <td className="py-3.5 text-center"><Tag tone={STATUS_TONE[r.status]}>{r.status}</Tag></td>
     </tr>
   );
 }

@@ -42,7 +42,7 @@ export function UploadBox({ programId, mode, students }: { programId: string; mo
       </p>
       {state.error && <p className="text-sm text-bad" role="alert">{state.error}</p>}
       {state.done && <p className="text-sm text-ok" role="status">{state.done}</p>}
-      <Button disabled={pending || names.length === 0}>{pending ? "올리는 중…" : "올리기"}</Button>
+      <Button kind="outline" disabled={pending || names.length === 0}>{pending ? "올리는 중…" : "올리기"}</Button>
     </form>
   );
 }
@@ -64,7 +64,7 @@ export function ReadBox({ programId, pending: count, aiOn, students }: { program
             {!aiOn ? "AI가 꺼져 있어요. 학생을 직접 지정해 주세요" : saved.n && !list ? "확인한 파일을 연결했어요" : count ? `${count}개 파일 → 표지 이름으로 학생 연결·본문 읽기` : "읽을 파일이 없어요"}
           </div>
         </div>
-        <Button size="sm" disabled={!aiOn || reading || count === 0}>{reading ? "읽는 중이에요…" : "서류 읽기"}</Button>
+        <Button kind="outline" size="sm" disabled={!aiOn || reading || count === 0}>{reading ? "읽는 중이에요…" : "서류 읽기"}</Button>
       </form>
       {read.error && <p className="mt-2 text-[13px] text-bad" role="alert">{read.error}</p>}
       {list && list.length > 0 && (
@@ -87,7 +87,7 @@ export function ReadBox({ programId, pending: count, aiOn, students }: { program
               )}
             </div>
           ))}
-          <Button size="sm" disabled={saving} className="self-end">{saving ? "연결하는 중…" : "확인 후 연결"}</Button>
+          <Button kind="outline" size="sm" disabled={saving} className="self-end">{saving ? "연결하는 중…" : "확인 후 연결"}</Button>
         </form>
       )}
     </div>

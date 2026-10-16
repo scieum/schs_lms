@@ -102,7 +102,7 @@ export function SubjectsForm({
         </Card>
       </div>
 
-      <Card title="저장" className="self-start">
+      <Card title="저장">
         <dl className="mb-4 flex flex-col gap-2 text-sm">
           <div className="flex justify-between"><dt className="text-mute">교과</dt><dd className="font-medium">{groups.join(", ") || "-"}</dd></div>
           <div className="flex justify-between"><dt className="text-mute">담당 과목</dt><dd className="font-medium">{count}개</dd></div>

@@ -55,7 +55,7 @@ export function SurveyForm({
               <div className="text-[15px] font-bold">작성 도우미</div>
               <div className="truncate text-[13px] text-sub">{hint.hints?.[0] ?? "대신 써 주지 않아요. 무엇을 더 쓰면 좋을지 힌트만 줘요"}</div>
             </div>
-            <Button type="button" size="sm" onClick={runHint} disabled={hinting}>{hinting ? "보는 중…" : hint.hints ? "힌트 더 보기" : "힌트 보기"}</Button>
+            <Button type="button" kind="outline" size="sm" onClick={runHint} disabled={hinting}>{hinting ? "보는 중…" : hint.hints ? "힌트 더 보기" : "힌트 보기"}</Button>
           </div>
           {hint.hints && hint.hints.length > 1 && (
             <ul className="mt-2 flex flex-col gap-1 pl-12 text-[13px] text-sub">{hint.hints.slice(1).map((h) => <li key={h}>· {h}</li>)}</ul>
@@ -107,7 +107,7 @@ export function SurveyForm({
                     <input type="file" name="file" required accept="application/pdf,image/jpeg,image/png,image/webp,text/plain" className="sr-only"
                       onChange={(e) => setPicked({ n: doc.n ?? 0, name: e.target.files?.[0]?.name ?? "" })} />
                   </label>
-                  {fileName && <Button size="sm" disabled={uploading} className="self-end">{uploading ? "올리는 중…" : "올리기"}</Button>}
+                  {fileName && <Button size="sm" kind={survey ? "outline" : "primary"} disabled={uploading} className="self-end">{uploading ? "올리는 중…" : "올리기"}</Button>}
                   {doc.error && <p className="text-[13px] text-bad" role="alert">{doc.error}</p>}
                 </form>
               )}

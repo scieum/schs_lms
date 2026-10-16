@@ -76,7 +76,7 @@ export default async function MinimumPage({ searchParams }: Props) {
       <PageHeader
         title="수능 최저 판정"
         actions={
-          <div className="flex gap-2">
+          <>
             {exam && (
               <ButtonLink href={`/homeroom/minimum/export?class=${scope.key}&exam=${exam.id}`} kind="outline" size="sm" prefetch={false}>
                 <Download size={14} /> <span className="hidden md:inline">판정 결과 내려받기</span>
@@ -85,7 +85,7 @@ export default async function MinimumPage({ searchParams }: Props) {
             <ButtonLink href="#rules" kind="outline" size="sm">
               <List size={14} /> <span className="hidden md:inline">대학 기준 관리</span>
             </ButtonLink>
-          </div>
+          </>
         }
       />
       <PageBody>

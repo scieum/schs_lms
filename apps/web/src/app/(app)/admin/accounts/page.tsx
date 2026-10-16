@@ -73,7 +73,7 @@ export default async function AccountsPage({ searchParams }: Props) {
           label="자동"
           title="오래 쓰지 않은 계정"
           line={stale.length ? `${STALE_DAYS}일 넘게 접속 없는 계정 ${stale.length}개 — 잠금을 권해요` : `${STALE_DAYS}일 넘게 접속 없는 계정이 없어요`}
-          action={stale.length ? <ButtonLink href="/admin/accounts?stale=1" size="sm">확인 후 잠금</ButtonLink> : undefined}
+          action={stale.length ? <ButtonLink href="/admin/accounts?stale=1" kind="outline" size="sm">확인 후 잠금</ButtonLink> : undefined}
         />
 
         {sp.stale === "1" && stale.length > 0 && (
@@ -85,7 +85,7 @@ export default async function AccountsPage({ searchParams }: Props) {
               <Row key={a.id} last={i === stale.length - 1} lead={<Avatar name={a.name} />} title={a.name} meta={`${roleText(a)} · ${lastSeenLabel(a.lastLoginAt, now)}`} />
             ))}
             <form action={lockStaleAccounts} className="mt-4 flex justify-end">
-              <ConfirmButton message={`${stale.length}개 계정을 잠글까요? 잠금 해제로 다시 열 수 있어요`} size="sm">
+              <ConfirmButton kind="outline" message={`${stale.length}개 계정을 잠글까요? 잠금 해제로 다시 열 수 있어요`} size="sm">
                 {stale.length}개 잠그기
               </ConfirmButton>
             </form>
@@ -115,20 +115,24 @@ export default async function AccountsPage({ searchParams }: Props) {
                       <div className="truncate text-[15px] font-medium">{title}</div>
                       <div className="truncate text-[13px] text-mute">{roleText(a)} · {seen}</div>
                     </div>
-                    <Tag>{st}</Tag>
-                    {st === "잠김" && (
-                      <form action={unlockAccount} className="hidden md:block">
+                    <div className="flex shrink-0 items-center gap-3">
+                      <Tag>{st}</Tag>
+                      <div className="hidden w-[76px] md:block">
+                        {st === "잠김" && (
+                          <form action={unlockAccount}>
+                            <input type="hidden" name="id" value={a.id} />
+                            <Button kind="outline" size="sm" className="w-full px-0">잠금 해제</Button>
+                          </form>
+                        )}
+                      </div>
+                      <form action={resetPassword}>
                         <input type="hidden" name="id" value={a.id} />
-                        <Button kind="outline" size="sm">잠금 해제</Button>
+                        <ConfirmButton kind="outline" size="sm" className="w-[64px] px-0 md:w-[112px]" message={`${a.name}의 비밀번호를 학교 인증코드로 되돌릴까요? 다음 로그인 때 새로 정해요`}>
+                          <span className="md:hidden">초기화</span>
+                          <span className="hidden md:inline">비밀번호 초기화</span>
+                        </ConfirmButton>
                       </form>
-                    )}
-                    <form action={resetPassword}>
-                      <input type="hidden" name="id" value={a.id} />
-                      <ConfirmButton kind="outline" size="sm" message={`${a.name}의 비밀번호를 학교 인증코드로 되돌릴까요? 다음 로그인 때 새로 정해요`}>
-                        <span className="md:hidden">초기화</span>
-                        <span className="hidden md:inline">비밀번호 초기화</span>
-                      </ConfirmButton>
-                    </form>
+                    </div>
                   </div>
                   {st === "잠김" && (
                     <form action={unlockAccount} className="-mt-1 pb-3 pl-[52px] md:hidden">

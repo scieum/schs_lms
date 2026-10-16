@@ -50,7 +50,7 @@ export function GenerateButton({ programId, ready, disabled }: { programId: stri
   return (
     <form action={action} className="flex flex-col gap-1.5">
       <input type="hidden" name="programId" value={programId} />
-      <Button size="sm" kind={ready ? "primary" : "outline"} disabled={pending || disabled || ready === 0}>
+      <Button size="sm" kind="outline" className="w-full" disabled={pending || disabled || ready === 0}>
         {pending ? "만드는 중…" : ready ? `초안 만들기 ${ready}명` : "초안 만들기"}
       </Button>
       {state.error && <p className="text-[12px] text-bad" role="alert">{state.error}</p>}

@@ -49,7 +49,7 @@ export default async function OfferingsPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="과목 개설" actions={<ButtonLink href="#new-offering" size="sm"><Plus size={16} />과목 열기</ButtonLink>} />
+      <PageHeader title="과목 개설" actions={<ButtonLink href="#new-offering" kind="outline" size="sm"><Plus size={16} />과목 열기</ButtonLink>} />
       <PageBody>
         {tabs}
         <StatTiles
@@ -73,6 +73,7 @@ export default async function OfferingsPage({ searchParams }: Props) {
               <form action={addSections}>
                 <input type="hidden" name="roundId" value={round.id} />
                 <ConfirmButton
+                  kind="outline"
                   size="sm"
                   message={`${suggest.map((x) => `${x.offering.subject} 반 +1`).join(", ")} — 늘릴까요?`}
                 >
@@ -96,7 +97,7 @@ export default async function OfferingsPage({ searchParams }: Props) {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="flex-1 truncate text-[15px] font-medium">{o.subject}</span>
-                        <span className={cx("shrink-0 text-[13px]", s.over ? "font-medium text-bad" : "text-mute")}>
+                        <span className={cx("shrink-0 text-[13px] tabular-nums", s.over ? "font-medium text-bad" : "text-mute")}>
                           {s.count} / {s.seats}
                         </span>
                       </div>

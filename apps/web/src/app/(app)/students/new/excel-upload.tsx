@@ -30,7 +30,7 @@ export function ExcelUpload() {
 
       <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
         <div className="flex flex-col gap-4 md:gap-6">
-          <Card>
+          <Card className={p ? undefined : "flex-1"}>
             <form action={previewAction} className="flex items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-field bg-key-soft text-key-strong">
                 <Upload size={20} />
@@ -80,7 +80,7 @@ export function ExcelUpload() {
         </div>
 
         <div className="flex flex-col gap-4 md:gap-6">
-          <Card title="등록 양식">
+          <Card title="등록 양식" className={p || done ? undefined : "flex-1"}>
             <Row
               last
               lead={<span className="flex size-10 shrink-0 items-center justify-center rounded-field bg-white"><FileSpreadsheet size={20} /></span>}

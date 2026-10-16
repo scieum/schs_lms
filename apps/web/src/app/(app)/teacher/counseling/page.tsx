@@ -54,7 +54,7 @@ export default async function CounselingPage({ searchParams }: Props) {
   return (
     <>
       <PageHeader title="담당 학생·상담" actions={
-        selected && <ButtonLink href="#new-counsel" size="sm"><Plus size={16} /> 상담 기록 쓰기</ButtonLink>
+        selected && <ButtonLink href="#new-counsel" kind="outline" size="sm"><Plus size={16} /> 상담 기록 쓰기</ButtonLink>
       } />
       <PageBody>
         <StatTiles items={[
@@ -118,7 +118,7 @@ export default async function CounselingPage({ searchParams }: Props) {
           )}
 
           {selected && (
-            <Card title="활동·초안" className="md:col-span-2 xl:col-span-1 xl:self-start">
+            <Card title="활동·초안" className="md:col-span-2 xl:col-span-1">
               <ActivityList items={side} empty="아직 기록이 없어요" />
             </Card>
           )}

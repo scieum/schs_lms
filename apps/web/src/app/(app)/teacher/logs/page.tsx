@@ -46,7 +46,7 @@ export default async function LogsPage({ searchParams }: Props) {
           title="AI 특기사항 초안"
           line="쌓인 누가기록을 모아 학기말에 특기사항 초안으로 만들어요"
           action={
-            <ButtonLink href={`/teacher/write?area=${encodeURIComponent(area)}${club ? `&club=${club.id}` : ""}`} kind="soft" size="sm">
+            <ButtonLink href={`/teacher/write?area=${encodeURIComponent(area)}${club ? `&club=${club.id}` : ""}`} kind="outline" size="sm">
               초안 쓰기
             </ButtonLink>
           }
