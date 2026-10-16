@@ -11,7 +11,7 @@
 runs/2026-10-16_career-day/
 ├── run.json                  # 진행 상태 (재개용)
 ├── input/
-│   ├── program.json          # 이름, 분류, 개요
+│   ├── program.json          # 이름, 분류, 개요, 분량(length: 단위·최대, 교사 설정)
 │   ├── roster.csv            # 가명ID, 희망진로
 │   └── responses.csv         # 가명ID, 4문항 답
 ├── 01_check/
@@ -40,10 +40,23 @@ runs/2026-10-16_career-day/
 `rules/rules.yaml` 1개. 모든 에이전트와 판정 스크립트는 규칙을 이 파일에서만 읽는다.
 
 담을 항목 (값은 R5에서 확정):
-- 분류별 글자수 한도 (세특 500자, 나머지 OI-5 확정 전까지 임시 500자)
+- 분류별 글자수 한도 (세특 500자, 나머지 OI-5 확정 전까지 임시 500자) — **상한이자 기본값**. 실제 목표 분량은 교사가 `input/program.json`의 `length`로 정한다(아래 "교사 분량 설정").
 - 금지 패턴 (학번 패턴, 가명 ID, 명부 실명)
 - 문체 규칙
 - 공통 설문 4문항 이름
+
+## 교사 분량 설정 (2026-10-16 추가)
+
+교사가 초안을 만들 때 분량을 직접 정한다. `input/program.json`에 넣는다.
+
+```json
+"length": { "unit": "bytes", "max": 1200 }
+```
+
+- `unit`: `bytes`(NEIS 방식: 한글 3, 영문·숫자·공백 1, 줄바꿈 2) 또는 `chars`(공백 포함 글자).
+- `max`: 최대 분량. 비어 있으면 `rules.yaml`의 분류별 상한을 쓴다.
+- `rules.yaml` 상한을 넘는 값은 상한으로 낮춘다 (C7). 하한은 `max × length.min_ratio`.
+- S2(drafter)와 S3(judge)는 같은 값을 쓴다. 계산 규칙은 앱의 `apps/web/src/lib/domain/length.ts`와 같아야 한다.
 
 ## 재개
 
