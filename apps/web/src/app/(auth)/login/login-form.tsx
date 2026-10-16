@@ -38,7 +38,7 @@ export function LoginForm() {
           <span className="text-[13px] font-medium text-sub">{student ? "학번" : "이름"}</span>
           <input
             name="loginId"
-            placeholder={student ? "예: 20312" : "예: 이서연"}
+            placeholder={student ? "예: 20312" : "예: 영랑이"}
             inputMode={student ? "numeric" : "text"}
             autoComplete="username"
             required

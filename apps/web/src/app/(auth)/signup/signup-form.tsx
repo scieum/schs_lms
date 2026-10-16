@@ -33,7 +33,7 @@ export function SignupForm({ first }: { first: boolean }) {
 
       <div className="flex flex-col gap-4">
         <Labeled label="이름 (로그인 ID)">
-          <input name="name" placeholder="예: 이서연" autoComplete="username" required maxLength={20} className={INPUT} />
+          <input name="name" placeholder="예: 영랑이" autoComplete="username" required maxLength={20} className={INPUT} />
         </Labeled>
         <Labeled label="비밀번호">
           <span className="relative">
