@@ -10,13 +10,12 @@ import { readSession } from "./session";
 export const getViewer = cache(async (): Promise<Viewer | null> => {
   const id = await readSession();
   if (!id) return null;
-  const account = await repo.getAccount(id);
+  // DB 왕복을 줄이려고 계정·교사·학생을 한 번에 조회한다 (둘 중 하나만 있다)
+  const [account, teacher, student] = await Promise.all([repo.getAccount(id), repo.getTeacher(id), repo.getStudent(id)]);
   if (!account) return null;
   if (account.kind === "student") {
-    const student = await repo.getStudent(id);
     return student ? { kind: "student", accountId: id, mustChangePassword: account.mustChangePassword, student } : null;
   }
-  const teacher = await repo.getTeacher(id);
   return teacher ? { kind: "teacher", accountId: id, mustChangePassword: account.mustChangePassword, teacher } : null;
 });
 
