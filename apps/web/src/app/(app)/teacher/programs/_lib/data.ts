@@ -4,7 +4,7 @@ import { today } from "@/lib/domain/activity";
 import { measure } from "@/lib/domain/length";
 import { isAdmin, type Action } from "@/lib/domain/policy";
 import {
-  effectiveStatus, latestVersion, responseRate, reviewStatus, studentStage, usesDocs, usesSurvey,
+  effectiveStatus, isProgramOwner, latestVersion, responseRate, reviewStatus, studentStage, usesDocs, usesSurvey,
   type DraftJob, type DraftVersion, type Material, type Program, type ProgramStatus, type ReviewStatus, type Stage, type SurveyResponse,
 } from "@/lib/domain/program";
 import type { Student, Viewer } from "@/lib/domain/types";
@@ -21,7 +21,7 @@ export async function requireProgram(id: string, action: Action = "program.manag
 }
 
 export function canOwn(v: Viewer, p: Program): boolean {
-  return v.kind === "teacher" && (p.ownerId === v.accountId || isAdmin(v));
+  return v.kind === "teacher" && (isProgramOwner(p, v.accountId) || isAdmin(v));
 }
 
 export interface StudentRow {

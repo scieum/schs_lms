@@ -8,7 +8,9 @@ import { checkPlanFile, extractPlanHints, mergePlan, PLAN_MAX_FILES, type PlanRe
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { readPlan, suggestQuestions } from "@/lib/server/ai/program-ai";
 import { repo } from "@/lib/server/repo";
+import type { NewProgram } from "@/lib/server/repo/modules/programs";
 import { requireCan } from "@/lib/server/viewer";
+import { requireProgram } from "../_lib/data";
 import { pdfInfo } from "../_lib/pdf";
 
 export type CreateState = { error?: string };
@@ -24,12 +26,13 @@ const Schema = z.object({
   endDate: date,
   overview: z.string().trim().max(1000, "활동 개요는 1000자까지예요").optional().default(""),
   source: z.enum(["survey", "docs", "both"]),
-  intent: z.enum(["draft", "open"]),
+  intent: z.enum(["draft", "open", "save"]),
 });
 
-/** 프로그램 등록 (임시 저장 또는 발행). 발행하면 대상 학생 화면에 설문·서류 제출이 열린다 */
-export async function createProgramAction(_: CreateState, form: FormData): Promise<CreateState> {
-  const v = await requireCan("program.manage");
+type Fields = Omit<NewProgram, "ownerId" | "status"> & { intent: "draft" | "open" | "save" };
+
+/** 등록·수정 폼 읽기. 담당 교사는 실제 교사만, 나(등록한 교사)는 빼고 저장한다 */
+async function readProgramForm(form: FormData, ownerId: string): Promise<{ error: string } | { f: Fields }> {
   const p = Schema.safeParse(Object.fromEntries(form));
   if (!p.success) return { error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
   const d = p.data;
@@ -41,20 +44,48 @@ export async function createProgramAction(_: CreateState, form: FormData): Promi
   const docKinds = [...new Set(form.getAll("docKind").map((x) => String(x).trim()).filter(Boolean))].slice(0, 8);
   const requestDocs = usesDocs(d.source) && form.get("requestDocs") === "on";
 
-  const students = await repo.listStudents();
+  const [students, teachers] = await Promise.all([repo.listStudents(), repo.listTeachers()]);
   const known = new Set(students.map((s) => s.id));
   const targetIds = [...new Set(form.getAll("target").map(String))].filter((id) => known.has(id));
-  if (d.intent === "open" && targetIds.length === 0) return { error: "대상 학생을 골라 주세요" };
+  if (d.intent !== "draft" && targetIds.length === 0) return { error: "대상 학생을 골라 주세요" };
   if (d.area === "세특" && !d.subject) return { error: "교과세특은 담당 교과를 써 주세요" };
+  const teacherIds = new Set(teachers.map((t) => t.id));
+  const coOwnerIds = [...new Set(form.getAll("coOwner").map(String))].filter((id) => id !== ownerId && teacherIds.has(id)).slice(0, 10);
 
   const range = resolveLength(d.area, { unit: d.lengthUnit, max: d.lengthMax });
-  const program = await repo.createProgram({
-    ownerId: v.accountId, title: d.title, subject: d.subject || null, area: d.area, unit: range.unit, max: range.max,
-    startDate: d.startDate, endDate: d.endDate, source: d.source, requestDocs, docKinds, questions, targetIds,
-    overview: d.overview, status: d.intent,
-  });
-  await repo.audit(v.accountId, d.intent === "open" ? "program.publish" : "program.save", `${program.id} ${AREA_LABEL[d.area]} ${targetIds.length}명`);
+  return {
+    f: {
+      coOwnerIds, title: d.title, subject: d.subject || null, area: d.area, unit: range.unit, max: range.max,
+      startDate: d.startDate, endDate: d.endDate, source: d.source, requestDocs, docKinds, questions, targetIds, overview: d.overview, intent: d.intent,
+    },
+  };
+}
+
+/** 프로그램 등록 (임시 저장 또는 발행). 발행하면 대상 학생 화면에 설문·서류 제출이 열린다 */
+export async function createProgramAction(_: CreateState, form: FormData): Promise<CreateState> {
+  const v = await requireCan("program.manage");
+  const r = await readProgramForm(form, v.accountId);
+  if ("error" in r) return r;
+  const { intent, ...f } = r.f;
+  const status = intent === "open" ? "open" : "draft";
+  const program = await repo.createProgram({ ...f, ownerId: v.accountId, status });
+  await repo.audit(v.accountId, status === "open" ? "program.publish" : "program.save", `${program.id} ${AREA_LABEL[f.area]} ${f.targetIds.length}명 담당 ${1 + f.coOwnerIds.length}명`);
   redirect(`/teacher/programs/${program.id}`);
+}
+
+/**
+ * 프로그램 수정 (담당 교사·관리자). 임시 저장본은 그대로 저장하거나 발행할 수 있고,
+ * 발행된 프로그램은 상태를 그대로 둔 채 내용만 고친다. 이미 받은 응답은 지우지 않는다.
+ */
+export async function updateProgramAction(id: string, _: CreateState, form: FormData): Promise<CreateState> {
+  const { v, program } = await requireProgram(id);
+  const r = await readProgramForm(form, program.ownerId);
+  if ("error" in r) return r;
+  const { intent, ...f } = r.f;
+  const status = program.status === "draft" ? (intent === "open" ? "open" : "draft") : program.status;
+  await repo.updateProgram(id, { ...f, status });
+  await repo.audit(v.accountId, status !== program.status ? "program.publish" : "program.edit", `${id} ${f.targetIds.length}명 담당 ${1 + f.coOwnerIds.length}명`);
+  redirect(`/teacher/programs/${id}`);
 }
 
 export type SuggestState = { questions?: string[]; error?: string; n?: number };

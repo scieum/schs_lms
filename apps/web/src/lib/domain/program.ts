@@ -35,6 +35,8 @@ export interface Question {
 export interface Program {
   id: string;
   ownerId: string;
+  /** 함께 맡는 교사 (등록한 교사 외). 담당자 모두 수정·검토할 수 있다 */
+  coOwnerIds: string[];
   title: string;
   subject: string | null;
   area: DraftCategory;
@@ -50,6 +52,11 @@ export interface Program {
   overview: string;
   status: ProgramStatus;
   createdAt: string;
+}
+
+/** 이 교사가 프로그램 담당자인가 (등록한 교사 또는 함께 맡는 교사) */
+export function isProgramOwner(p: Pick<Program, "ownerId" | "coOwnerIds">, teacherId: string): boolean {
+  return p.ownerId === teacherId || p.coOwnerIds.includes(teacherId);
 }
 
 export const MIN_ANSWER_CHARS = 30;

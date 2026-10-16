@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardList, Download, FileText, Search, Send, Upload } from "lucide-react";
+import { ClipboardList, Download, Pencil, FileText, Search, Send, Upload } from "lucide-react";
 import { Bar, Ring } from "@/components/programs/meters";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Avatar, Button, ButtonLink, Card, Tag, cx } from "@/components/ui";
@@ -89,6 +89,7 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
         title={p.title}
         actions={
           <div className="hidden gap-2 md:flex">
+            <ButtonLink href={`/teacher/programs/${p.id}/edit`} kind="outline" size="sm"><Pencil size={14} /> 수정</ButtonLink>
             <ButtonLink href={`/teacher/programs/${p.id}/materials`} kind="outline" size="sm"><ClipboardList size={14} /> 자료 관리</ButtonLink>
             <ButtonLink href={`/teacher/drafts?program=${p.id}`} size="sm"><FileText size={14} /> 초안 검토하기</ButtonLink>
           </div>
@@ -98,6 +99,8 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
         <div className="-mt-3 flex flex-wrap items-center gap-1.5 text-[13px] text-mute md:-mt-6 md:text-sm md:text-sub">
           <span>{AREA_LABEL[p.area]}{p.subject ? ` ${p.subject}` : ""}<span className="hidden md:inline"> · {md(p.startDate)} ~ {md(p.endDate)}</span> · 대상 {rows.length}명</span>
           {status === "draft" ? <Tag>임시 저장</Tag> : status === "closed" ? <Tag tone="bg-soft text-mute">마감</Tag> : <Tag>{ddayLabel(p.endDate, t)}</Tag>}
+          {p.coOwnerIds.length > 0 && <span>· 담당 {1 + p.coOwnerIds.length}명</span>}
+          <ButtonLink href={`/teacher/programs/${p.id}/edit`} kind="outline" size="sm" className="ml-auto md:hidden"><Pencil size={14} /> 수정</ButtonLink>
         </div>
 
         {status === "draft" && (

@@ -1,7 +1,7 @@
 import "server-only";
 import type { LengthUnit } from "@/lib/domain/length";
 import {
-  daysLeft, effectiveStatus, latestVersion, reviewStatus, usesDocs, usesSurvey, FIXED_QUESTIONS,
+  daysLeft, effectiveStatus, isProgramOwner, latestVersion, reviewStatus, usesDocs, usesSurvey, FIXED_QUESTIONS,
   type DraftJob, type DraftState, type DraftVersion, type Material, type Program, type StudentTodo, type SurveyResponse,
 } from "@/lib/domain/program";
 import { store } from "../demo";
@@ -11,7 +11,7 @@ import { check, db, isUuid } from "../supabase";
 // 인터페이스 + 데모(메모리) 구현 + Supabase 구현을 이 파일 한 곳에 둔다. index.ts 가 합친다.
 
 export type NewProgram = Omit<Program, "id" | "createdAt">;
-export type ProgramPatch = Partial<Pick<Program, "status" | "source" | "requestDocs" | "docKinds">>;
+export type ProgramPatch = Partial<Omit<Program, "id" | "ownerId" | "createdAt">>;
 export type NewMaterial = Omit<Material, "id" | "createdAt" | "filePath">;
 export type MaterialPatch = Partial<Pick<Material, "studentId" | "status" | "matchedBy" | "text" | "pages">>;
 export type DraftJobPatch = Partial<Pick<DraftJob, "state" | "attempts" | "error" | "unit" | "max" | "manualRequestedAt">>;
@@ -39,7 +39,7 @@ export interface FinalDraft {
 }
 
 interface BaseRepo {
-  /** ownerId 를 주면 그 교사 것만 (임시 저장 포함), 없으면 전체 */
+  /** ownerId 를 주면 그 교사가 담당(등록·공동)인 것만 (임시 저장 포함), 없으면 전체 */
   listPrograms(filter?: { ownerId?: string }): Promise<Program[]>;
   getProgram(id: string): Promise<Program | null>;
   createProgram(p: NewProgram): Promise<Program>;
@@ -203,25 +203,25 @@ function seed(): ProgramStore {
 
   s.programs.push(
     {
-      id: P.science, ownerId: "t-subject", title: "과학 탐구 발표", subject: "물리학", area: "세특", unit: "bytes", max: 1500,
+      id: P.science, ownerId: "t-subject", coOwnerIds: [], title: "과학 탐구 발표", subject: "물리학", area: "세특", unit: "bytes", max: 1500,
       startDate: ymd(-3), endDate: ymd(4), source: "both", requestDocs: true, docKinds: ["탐구 보고서", "활동지"],
       questions: [...FIXED_QUESTIONS, extra], targetIds: all, status: "open", createdAt: ago(24 * 5),
       overview: "모둠별로 생활 속 과학 현상을 하나 골라 가설을 세우고 실험·관찰한 뒤 결과를 발표한다.",
     },
     {
-      id: P.career, ownerId: "t-subject", title: "진로 탐색 주간", subject: null, area: "창체-진로", unit: "bytes", max: 1500,
+      id: P.career, ownerId: "t-subject", coOwnerIds: [], title: "진로 탐색 주간", subject: null, area: "창체-진로", unit: "bytes", max: 1500,
       startDate: ymd(-10), endDate: ymd(9), source: "survey", requestDocs: false, docKinds: [],
       questions: [...FIXED_QUESTIONS], targetIds: class3, status: "open", createdAt: ago(24 * 12),
       overview: "희망 진로 분야 직업인 인터뷰 영상을 보고 관련 학과·필요 역량을 조사해 진로 계획서를 쓴다.",
     },
     {
-      id: P.reading, ownerId: "t-subject", title: "독서 토론 동아리", subject: null, area: "창체-동아리", unit: "bytes", max: 1500,
+      id: P.reading, ownerId: "t-subject", coOwnerIds: [], title: "독서 토론 동아리", subject: null, area: "창체-동아리", unit: "bytes", max: 1500,
       startDate: ymd(-1), endDate: ymd(2), source: "survey", requestDocs: false, docKinds: [],
       questions: [...FIXED_QUESTIONS], targetIds: ["s-2", "s-3", "s-4"], status: "open", createdAt: ago(30),
       overview: "한 달에 한 권 같은 책을 읽고 쟁점을 나눠 찬반 토론을 한다.",
     },
     {
-      id: P.eco, ownerId: "t-homeroom", title: "환경 동아리", subject: null, area: "창체-동아리", unit: "bytes", max: 1500,
+      id: P.eco, ownerId: "t-homeroom", coOwnerIds: [], title: "환경 동아리", subject: null, area: "창체-동아리", unit: "bytes", max: 1500,
       startDate: ymd(-40), endDate: ymd(-20), source: "survey", requestDocs: false, docKinds: [],
       questions: [...FIXED_QUESTIONS], targetIds: ["s-8", "s-9"], status: "closed", createdAt: ago(24 * 45),
       overview: "교내 분리배출 실태를 조사하고 개선 캠페인을 연다.",
@@ -324,7 +324,7 @@ const inList = (list: string[] | undefined, v: string) => !list || list.includes
 
 const demoBase: BaseRepo = {
   async listPrograms(filter) {
-    return ps().programs.filter((p) => !filter?.ownerId || p.ownerId === filter.ownerId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(copy);
+    return ps().programs.filter((p) => !filter?.ownerId || isProgramOwner(p, filter.ownerId)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(copy);
   },
   async getProgram(id) {
     const p = ps().programs.find((x) => x.id === id);
@@ -442,7 +442,7 @@ export const demoPrograms: ProgramsRepo = withDerived(demoBase);
 const BUCKET = "program-docs";
 
 type ProgramRow = {
-  id: string; owner_id: string; title: string; subject: string | null; area: Program["area"]; unit: LengthUnit; max_len: number;
+  id: string; owner_id: string; co_owner_ids: string[] | null; title: string; subject: string | null; area: Program["area"]; unit: LengthUnit; max_len: number;
   start_date: string; end_date: string; source: Program["source"]; request_docs: boolean; doc_kinds: string[];
   questions: Program["questions"]; target_ids: string[]; overview: string; status: Program["status"]; created_at: string;
 };
@@ -462,7 +462,7 @@ type VersionRow = {
 type ReminderRow = { id: string; program_id: string; student_ids: string[]; message: string; sender_id: string; created_at: string };
 
 const toProgram = (r: ProgramRow): Program => ({
-  id: r.id, ownerId: r.owner_id, title: r.title, subject: r.subject, area: r.area, unit: r.unit, max: r.max_len, startDate: r.start_date, endDate: r.end_date,
+  id: r.id, ownerId: r.owner_id, coOwnerIds: r.co_owner_ids ?? [], title: r.title, subject: r.subject, area: r.area, unit: r.unit, max: r.max_len, startDate: r.start_date, endDate: r.end_date,
   source: r.source, requestDocs: r.request_docs, docKinds: r.doc_kinds ?? [], questions: r.questions ?? [], targetIds: r.target_ids ?? [],
   overview: r.overview ?? "", status: r.status, createdAt: r.created_at,
 });
@@ -483,14 +483,17 @@ const toReminder = (r: ReminderRow): Reminder => ({ id: r.id, programId: r.progr
 
 const uuids = (list: string[] | undefined) => list?.filter(isUuid);
 
+/** 0011(co_owner_ids) 적용 전 DB면 그 열 없이 다시 시도한다 */
+const noCoOwnerColumn = (e: { message: string } | null) => !!e && /co_owner_ids/.test(e.message);
+
 const supabaseBase: BaseRepo = {
   async listPrograms(filter) {
-    let q = db().from("programs").select("*").order("created_at", { ascending: false });
-    if (filter?.ownerId) {
-      if (!isUuid(filter.ownerId)) return [];
-      q = q.eq("owner_id", filter.ownerId);
-    }
-    return (check(await q) as ProgramRow[]).map(toProgram);
+    const base = () => db().from("programs").select("*").order("created_at", { ascending: false });
+    if (!filter?.ownerId) return (check(await base()) as ProgramRow[]).map(toProgram);
+    if (!isUuid(filter.ownerId)) return [];
+    let res = await base().or(`owner_id.eq.${filter.ownerId},co_owner_ids.cs.{${filter.ownerId}}`);
+    if (noCoOwnerColumn(res.error)) res = await base().eq("owner_id", filter.ownerId);
+    return (check(res) as ProgramRow[]).map(toProgram);
   },
   async getProgram(id) {
     if (!isUuid(id)) return null;
@@ -498,12 +501,18 @@ const supabaseBase: BaseRepo = {
     return r ? toProgram(r as ProgramRow) : null;
   },
   async createProgram(p) {
-    const r = check(await db().from("programs").insert({
-      owner_id: p.ownerId, title: p.title, subject: p.subject, area: p.area, unit: p.unit, max_len: p.max, start_date: p.startDate, end_date: p.endDate,
+    const row = {
+      owner_id: p.ownerId, co_owner_ids: p.coOwnerIds.filter(isUuid), title: p.title, subject: p.subject, area: p.area, unit: p.unit, max_len: p.max, start_date: p.startDate, end_date: p.endDate,
       source: p.source, request_docs: p.requestDocs, doc_kinds: p.docKinds, questions: p.questions, target_ids: p.targetIds.filter(isUuid),
       overview: p.overview, status: p.status,
-    }).select("*").single());
-    return toProgram(r as ProgramRow);
+    };
+    let res = await db().from("programs").insert(row).select("*").single();
+    if (noCoOwnerColumn(res.error) && row.co_owner_ids.length === 0) {
+      const { co_owner_ids: _skip, ...rest } = row;
+      void _skip;
+      res = await db().from("programs").insert(rest).select("*").single();
+    }
+    return toProgram(check(res) as ProgramRow);
   },
   async updateProgram(id, p) {
     if (!isUuid(id)) return;
@@ -512,7 +521,23 @@ const supabaseBase: BaseRepo = {
     if (p.source !== undefined) row.source = p.source;
     if (p.requestDocs !== undefined) row.request_docs = p.requestDocs;
     if (p.docKinds !== undefined) row.doc_kinds = p.docKinds;
-    check(await db().from("programs").update(row).eq("id", id));
+    if (p.coOwnerIds !== undefined) row.co_owner_ids = p.coOwnerIds.filter(isUuid);
+    if (p.title !== undefined) row.title = p.title;
+    if (p.subject !== undefined) row.subject = p.subject;
+    if (p.area !== undefined) row.area = p.area;
+    if (p.unit !== undefined) row.unit = p.unit;
+    if (p.max !== undefined) row.max_len = p.max;
+    if (p.startDate !== undefined) row.start_date = p.startDate;
+    if (p.endDate !== undefined) row.end_date = p.endDate;
+    if (p.questions !== undefined) row.questions = p.questions;
+    if (p.targetIds !== undefined) row.target_ids = p.targetIds.filter(isUuid);
+    if (p.overview !== undefined) row.overview = p.overview;
+    let res = await db().from("programs").update(row).eq("id", id);
+    if (noCoOwnerColumn(res.error) && !row.co_owner_ids?.length) {
+      delete row.co_owner_ids;
+      res = await db().from("programs").update(row).eq("id", id);
+    }
+    check(res);
   },
   async listResponses(programId) {
     if (!isUuid(programId)) return [];

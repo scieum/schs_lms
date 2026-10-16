@@ -6,10 +6,12 @@ import { Button, Card, Steps, Tag, Toggle, cx } from "@/components/ui";
 import { neisMax, UNIT_LABEL, type DraftCategory, type LengthUnit } from "@/lib/domain/length";
 import { AREA_LABEL, AREAS, DEFAULT_DOC_KINDS, FIXED_QUESTIONS, MAX_EXTRA_QUESTIONS, SOURCE_LABEL, md, type EvidenceSource } from "@/lib/domain/program";
 import type { PlanFields } from "@/lib/domain/program-plan";
-import { createProgramAction, suggestQuestionsAction, type CreateState, type SuggestState } from "./actions";
+import type { Program } from "@/lib/domain/program";
+import { createProgramAction, suggestQuestionsAction, updateProgramAction, type CreateState, type SuggestState } from "./actions";
 import { PlanAutofill, type FillKey, type FormNow } from "./plan-autofill";
 
 export type PickStudent = { id: string; label: string; classKey: string; name: string };
+export type PickTeacher = { id: string; label: string };
 
 const INPUT = "h-11 w-full rounded-field bg-white px-3.5 text-[15px] outline-none focus:ring-2 focus:ring-key";
 const LABEL = "text-[13px] font-medium text-sub";
@@ -20,28 +22,36 @@ const SOURCES: [EvidenceSource, string, string, typeof ClipboardList][] = [
   ["both", "둘 다 사용", "설문과 서류를 함께 근거로", Sparkles],
 ];
 
-// T3 프로그램 등록·설문 발행 (Figma 46:855 / 46:1100)
-export function ProgramForm({ students, today, end, aiOn }: { students: PickStudent[]; today: string; end: string; aiOn: boolean }) {
-  const [state, action, pending] = useActionState<CreateState, FormData>(createProgramAction, {});
+// T3 프로그램 등록·설문 발행 (Figma 46:855 / 46:1100). initial 이 있으면 수정 화면
+export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, initial }: {
+  students: PickStudent[]; teachers: PickTeacher[]; ownerId: string; today: string; end: string; aiOn: boolean; initial?: Program;
+}) {
+  const [state, action, pending] = useActionState<CreateState, FormData>(initial ? updateProgramAction.bind(null, initial.id) : createProgramAction, {});
   const [sug, sugAction, suggesting] = useActionState<SuggestState, FormData>(suggestQuestionsAction, {});
   const formRef = useRef<HTMLFormElement>(null);
 
-  const [title, setTitle] = useState("");
-  const [subject, setSubject] = useState("");
-  const [overview, setOverview] = useState("");
-  const [area, setArea] = useState<DraftCategory>("세특");
-  const [len, setLen] = useState<{ unit: LengthUnit; max: number }>({ unit: "bytes", max: neisMax("세특", "bytes") });
-  const [start, setStart] = useState(today);
-  const [endDate, setEndDate] = useState(end);
-  const [source, setSource] = useState<EvidenceSource>("survey");
-  const [requestDocs, setRequestDocs] = useState(true);
-  const [kinds, setKinds] = useState<string[]>(["탐구 보고서"]);
-  const [kindOptions, setKindOptions] = useState(DEFAULT_DOC_KINDS);
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [subject, setSubject] = useState(initial?.subject ?? "");
+  const [overview, setOverview] = useState(initial?.overview ?? "");
+  const [area, setArea] = useState<DraftCategory>(initial?.area ?? "세특");
+  const [len, setLen] = useState<{ unit: LengthUnit; max: number }>(initial ? { unit: initial.unit, max: initial.max } : { unit: "bytes", max: neisMax("세특", "bytes") });
+  const [start, setStart] = useState(initial?.startDate ?? today);
+  const [endDate, setEndDate] = useState(initial?.endDate ?? end);
+  const [source, setSource] = useState<EvidenceSource>(initial?.source ?? "survey");
+  const [requestDocs, setRequestDocs] = useState(initial?.requestDocs ?? true);
+  const [kinds, setKinds] = useState<string[]>(initial ? initial.docKinds : ["탐구 보고서"]);
+  const [kindOptions, setKindOptions] = useState([...new Set([...DEFAULT_DOC_KINDS, ...(initial?.docKinds ?? [])])]);
   const [newKind, setNewKind] = useState("");
-  const [extras, setExtras] = useState<string[]>([]);
+  const [extras, setExtras] = useState<string[]>(initial ? initial.questions.filter((q) => !q.fixed).map((q) => q.prompt) : []);
   const [newQ, setNewQ] = useState("");
-  const [targets, setTargets] = useState<string[]>([]);
+  const [targets, setTargets] = useState<string[]>(initial?.targetIds ?? []);
   const [query, setQuery] = useState("");
+  const [coOwners, setCoOwners] = useState<string[]>(initial?.coOwnerIds ?? []);
+  const [tQuery, setTQuery] = useState("");
+  const owner = teachers.find((t) => t.id === ownerId);
+  const tMatches = tQuery.trim()
+    ? teachers.filter((t) => t.id !== ownerId && !coOwners.includes(t.id) && t.label.includes(tQuery.trim())).slice(0, 6)
+    : [];
 
   const classes = useMemo(() => [...new Set(students.map((s) => s.classKey))].sort(), [students]);
   const byId = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
@@ -92,7 +102,10 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
     startTransition(() => sugAction(fd));
   };
 
-  const submitButtons = (
+  // 발행된 프로그램은 상태를 그대로 두고 내용만 저장한다
+  const submitButtons = initial && initial.status !== "draft" ? (
+    <Button name="intent" value="save" disabled={pending}>{pending ? "저장 중…" : "수정 저장"}</Button>
+  ) : (
     <>
       <Button name="intent" value="open" disabled={pending}>{pending ? "저장 중…" : "등록하기"}</Button>
       <Button name="intent" value="draft" kind="outline" disabled={pending}>임시 저장</Button>
@@ -101,7 +114,7 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
 
   return (
     <div className="flex flex-col gap-4 md:gap-6">
-    <PlanAutofill aiOn={aiOn} now={now} onApply={applyPlan} />
+    {!initial && <PlanAutofill aiOn={aiOn} now={now} onApply={applyPlan} />}
     <form id="program-form" ref={formRef} action={action} className="flex flex-col gap-4 md:gap-6">
       <div className="flex items-center gap-3 rounded-inner bg-soft px-4 py-3.5 md:gap-4 md:px-5 md:py-4">
         <span className="rounded-chip bg-new-soft px-2.5 py-1 text-xs font-bold text-new">AI</span>
@@ -131,12 +144,40 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
                 </label>
               </div>
               <div className="flex flex-col gap-1.5">
+                <span className={LABEL}>담당 교사 (함께 맡은 선생님도 수정·초안 검토를 해요)</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {owner && <span className="inline-flex items-center rounded-chip bg-key-soft px-2.5 py-1 text-[13px] font-medium text-key-strong">{owner.label} · 등록</span>}
+                  {coOwners.map((id) => (
+                    <span key={id} className="inline-flex items-center gap-1 rounded-chip bg-white py-1 pl-2.5 pr-1.5 text-[13px]">
+                      {teachers.find((t) => t.id === id)?.label ?? "교사"}
+                      <button type="button" aria-label="담당에서 빼기" onClick={() => setCoOwners(coOwners.filter((x) => x !== id))} className="text-mute"><X size={13} /></button>
+                      <input type="hidden" name="coOwner" value={id} />
+                    </span>
+                  ))}
+                </div>
+                <label className="flex items-center gap-2 rounded-field bg-white px-3.5 focus-within:ring-2 focus-within:ring-key">
+                  <Search size={16} className="text-mute" />
+                  <input value={tQuery} onChange={(e) => setTQuery(e.target.value)} placeholder="선생님 이름으로 담당 추가" className="h-11 w-full bg-transparent text-[15px] outline-none" aria-label="담당 교사 검색" />
+                </label>
+                {tMatches.length > 0 && (
+                  <ul className="flex flex-col rounded-inner bg-white p-1">
+                    {tMatches.map((t) => (
+                      <li key={t.id}>
+                        <button type="button" onClick={() => { setCoOwners([...coOwners, t.id]); setTQuery(""); }} className="flex w-full items-center gap-2 rounded-control px-3 py-2 text-left text-[14px] hover:bg-soft">
+                          <Plus size={14} className="text-key" /> {t.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
                 <span className={LABEL}>기록 영역</span>
                 <Toggle name="area" value={area} onChange={(v) => { setArea(v as DraftCategory); setLen({ unit: len.unit, max: neisMax(v as DraftCategory, len.unit) }); }}
                   options={AREAS.map((a) => [a, AREA_LABEL[a]])} />
               </div>
               <div className="rounded-inner bg-white p-3">
-                <LengthPicker key={area} category={area} defaultUnit={len.unit} onChange={setLen} />
+                <LengthPicker key={area} category={area} defaultUnit={len.unit} defaultMax={initial && area === initial.area ? initial.max : undefined} onChange={setLen} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <span className={LABEL}>활동 기간 (끝나는 날 = 설문·서류 마감)</span>
@@ -290,7 +331,7 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
         </div>
 
         <aside className="md:sticky md:top-6 md:self-start">
-          <Card title="등록 요약">
+          <Card title={initial ? "수정 요약" : "등록 요약"}>
             <dl className="flex flex-col gap-2.5 text-[14px]">
               {[
                 ["기록 영역", AREA_LABEL[area]],
@@ -298,6 +339,7 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
                 ["근거 자료", SOURCE_LABEL[source]],
                 ["설문 문항", survey ? `${qCount}개` : "없음"],
                 ["대상", `${targets.length}명`],
+                ["담당 교사", `${1 + coOwners.length}명`],
                 ["초안 분량", `${len.max.toLocaleString()}${UNIT_LABEL[len.unit]}`],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-2">
