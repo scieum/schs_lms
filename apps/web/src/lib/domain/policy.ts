@@ -69,8 +69,8 @@ export function can(v: Viewer, action: Action): boolean {
 /** 로그인 후 처음 갈 홈 경로 */
 export function homePath(v: Viewer): string {
   if (v.kind === "student") return "/student";
-  if (isAdmin(v)) return "/admin";
-  if (hasRole(v, "homeroom")) return "/homeroom";
+  // 관리자도 첫 화면은 교사 홈 (2026-10-16 사용자 결정). 관리 현황은 사이드바 "관리자"에서
+  if (hasRole(v, "homeroom") && v.teacher.homeroom && !isAdmin(v)) return "/homeroom";
   return "/teacher";
 }
 

@@ -83,14 +83,14 @@ export default async function HomeroomHome() {
               <div className="text-[13px] text-mute">{k}</div>
               <div className="mt-1.5 text-[22px] font-bold md:text-[28px]">{val}</div>
               {i === 0 && (
-                <ButtonLink href="#drafts" size="sm" className="mt-2.5 w-fit max-md:hidden">
+                <ButtonLink href="/homeroom/drafts" size="sm" className="mt-2.5 w-fit max-md:hidden">
                   <FileText size={15} /> 받은 초안 확인
                 </ButtonLink>
               )}
             </div>
           ))}
         </div>
-        <ButtonLink href="#drafts" className="w-full md:hidden">
+        <ButtonLink href="/homeroom/drafts" className="w-full md:hidden">
           <FileText size={17} /> 받은 초안 확인
         </ButtonLink>
         <Briefing line={brief.line} ai={aiEnabled()} names={Object.fromEntries(byName)} />

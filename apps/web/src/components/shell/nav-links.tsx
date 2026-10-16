@@ -13,10 +13,9 @@ export function SidebarLinks({ groups }: { groups: NavGroup[] }) {
   const path = usePathname();
   return (
     <nav className="flex flex-col gap-0.5">
-      {groups.map((g) => (
-        <div key={g.label}>
-          <div className="px-3 pb-2 pt-5 text-xs font-medium text-mute">{g.label}</div>
-          {g.items.map((it) => {
+      {groups.map((g) => {
+        const inside = g.items.some((it) => isActive(path, it.href));
+        const links = g.items.map((it) => {
             const on = isActive(path, it.href);
             return (
               <Link
@@ -34,9 +33,22 @@ export function SidebarLinks({ groups }: { groups: NavGroup[] }) {
                 {!it.ready && <span className="text-[11px] text-faint">준비 중</span>}
               </Link>
             );
-          })}
-        </div>
-      ))}
+          });
+        return g.fold ? (
+          <details key={g.label} open={inside} className="group">
+            <summary className="flex cursor-pointer list-none items-center px-3 pb-2 pt-5 text-xs font-medium text-mute">
+              <span className="flex-1">{g.label}</span>
+              <span className="transition-transform group-open:rotate-180">⌄</span>
+            </summary>
+            {links}
+          </details>
+        ) : (
+          <div key={g.label}>
+            <div className="px-3 pb-2 pt-5 text-xs font-medium text-mute">{g.label}</div>
+            {links}
+          </div>
+        );
+      })}
     </nav>
   );
 }

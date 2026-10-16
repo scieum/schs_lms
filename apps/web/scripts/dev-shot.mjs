@@ -45,7 +45,7 @@ try {
   await send("Network.enable");
   if (account !== "none") {
     const token = await new SignJWT({}).setProtectedHeader({ alg: "HS256" }).setSubject(account).setIssuedAt().setExpirationTime("2h")
-      .sign(new TextEncoder().encode("demo-only-session-secret-change-me-please"));
+      .sign(new TextEncoder().encode(process.env.SHOT_SECRET || "demo-only-session-secret-change-me-please"));
     await send("Network.setCookie", { name: "schs_session", value: token, url: base, path: "/" });
   }
   await send("Page.enable");

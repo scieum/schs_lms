@@ -34,7 +34,7 @@ describe("권한", () => {
   });
   it("역할별 홈", () => {
     expect(homePath(asStudent)).toBe("/student");
-    expect(homePath(teacher(["admin", "subject"]))).toBe("/admin");
+    expect(homePath(teacher(["admin", "subject"]))).toBe("/teacher");
     expect(homePath(teacher(["homeroom", "subject"], { grade: 2, classNo: 3 }))).toBe("/homeroom");
     expect(homePath(teacher(["subject"]))).toBe("/teacher");
   });
