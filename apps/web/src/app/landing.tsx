@@ -2,10 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { Check, Send, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
+import { FaqList, FeatureTabs } from "./landing-sections";
 
 // 상세페이지 = Figma "상세페이지 시안" B안 · 인디고 (#536DFE). 로그인 전 첫 화면.
-// 구성: Nav → Hero(캐릭터 + 떠 있는 카드) → Problem → How it works → Process(네이비) → For everyone → Safety → More → CTA(네이비) → Footer
-const NAV = [["서비스 소개", "#problem"], ["이용 흐름", "#how"], ["역할별 기능", "#roles"], ["안심 설계", "#safety"]];
+// 구성: Nav → Hero(캐릭터 + 떠 있는 카드) → Problem → How it works → Process(네이비) → Features(기능 탭) → For everyone → Safety → FAQ → CTA(네이비) → Footer
+const NAV = [["서비스 소개", "#problem"], ["이용 흐름", "#how"], ["기능", "#features"], ["안심 설계", "#safety"], ["FAQ", "#faq"]];
 
 const PROBLEMS = [
   { tag: "Form", title: "구글 설문지", desc: "프로그램마다 새로 만들고 명단과 대조" },
@@ -24,10 +25,6 @@ const ROLES = [
 
 const SAFETY = ["확정 버튼은 선생님만", "상담 기록은 필요한 사람만", "고쳐도 기록은 남아요", "NEIS 글자수 자동 체크"];
 
-const MORE = [
-  ["성적", "성적 추이 한눈에"], ["입시", "수능 최저 바로 판정"], ["생기부", "PDF 생기부 자동 정리"],
-  ["추천", "꼬리 무는 활동 추천"], ["야자", "야자 신청부터 출석까지"], ["과목", "진로 맞춤 과목 추천"],
-];
 
 function Logo({ size = 1 }: { size?: number }) {
   return (
@@ -210,6 +207,15 @@ export function Landing() {
         </div>
       </section>
 
+      {/* Features: 생기부 밖의 기능 (유아이볼: MS Clarity·채널톡 기능 탭) */}
+      <section id="features" className="scroll-mt-20 bg-white">
+        <div className="mx-auto max-w-[1200px] px-4 py-20 text-center md:px-0 md:py-[140px]">
+          <Eyebrow>Features</Eyebrow>
+          <H2>생기부만이 아니에요<br />학교 일이 한 곳에</H2>
+          <FeatureTabs />
+        </div>
+      </section>
+
       {/* For everyone */}
       <section id="roles" className="scroll-mt-20 bg-[#f8f9fb]">
         <div className="mx-auto max-w-[1200px] px-4 py-20 text-center md:px-0 md:py-[140px]">
@@ -250,19 +256,12 @@ export function Landing() {
         </div>
       </section>
 
-      {/* More */}
-      <section className="bg-[#f8f9fb]">
+      {/* FAQ (유아이볼: 플리더스·유광기 아코디언, 쿠팡·마플 분류 칩) */}
+      <section id="faq" className="scroll-mt-20 bg-[#f8f9fb]">
         <div className="mx-auto max-w-[1200px] px-4 py-20 text-center md:px-0 md:py-[140px]">
-          <Eyebrow>More</Eyebrow>
-          <H2>기록이 쌓일수록<br />보이는 게 많아져요</H2>
-          <div className="mt-12 grid gap-5 text-left sm:grid-cols-2 md:mt-[70px] md:grid-cols-3 md:gap-x-5 md:gap-y-16">
-            {MORE.map(([tag, title]) => (
-              <div key={title} className="rounded-inner bg-white px-7 py-7">
-                <span className="rounded-chip bg-key-soft px-3 py-1.5 text-[13px] font-medium text-key">{tag}</span>
-                <div className="mt-4 text-[19px] font-bold">{title}</div>
-              </div>
-            ))}
-          </div>
+          <Eyebrow>FAQ</Eyebrow>
+          <H2>자주 묻는 질문</H2>
+          <FaqList />
         </div>
       </section>
 
