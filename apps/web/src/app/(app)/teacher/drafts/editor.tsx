@@ -9,6 +9,7 @@ import { styleIssues } from "@/lib/domain/neis-style";
 import { regenerateDraft, rephraseAction, reviewDraftAction, saveDraft, type RegenState, type RephraseState, type ReviewState, type SaveState } from "./actions";
 import { ForbiddenHits } from "@/components/writing/forbidden-hits";
 import { findForbidden } from "@/lib/domain/forbidden";
+import { OverApproval } from "@/components/writing/over-approval";
 
 // T4 초안 본문 편집 + 자동 검사 + 검토 도우미 + 반려·직접 수정·확정
 export function DraftEditor({
@@ -32,6 +33,7 @@ export function DraftEditor({
   const [review, reviewAction, reviewing] = useActionState<ReviewState, FormData>(reviewDraftAction, {});
   const [text, setText] = useState(initial);
   const [reason, setReason] = useState("");
+  const [allowOver, setAllowOver] = useState(false);
   const [applied, setApplied] = useState<string[]>([]);
   const [re, reAction, rephrasing] = useActionState<RephraseState, FormData>(rephraseAction, {});
   const [similar, setSimilar] = useState<SimilarHit[] | null>(null);
@@ -211,12 +213,15 @@ export function DraftEditor({
         <MessageSquare size={16} className="text-mute" />
         <input form={formId} name="reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder="반려 사유 (반려할 때 필수)" className="h-11 w-full bg-transparent text-[14px] outline-none" />
       </label>
+      {c.length.reason === "too_long" && (
+        <OverApproval form={formId} value={c.length.value} max={range.max} unit={UNIT_LABEL[range.unit]} checked={allowOver} onChange={setAllowOver} />
+      )}
       {save.error && <p className="text-sm text-bad" role="alert">{save.error}</p>}
       {save.saved && <p className="text-sm text-ok" role="status">{save.saved === "finalized" ? "확정했어요 · 새 버전으로 남았어요" : save.saved === "rejected" ? "반려했어요 · 사유가 남았어요" : "고친 내용을 새 버전으로 저장했어요"}</p>}
       <div className="flex justify-end gap-2">
         <Button form={formId} name="intent" value="rejected" kind="outline" disabled={saving || !reason.trim()}>반려</Button>
         <Button form={formId} name="intent" value="draft" kind="soft" disabled={saving || !text.trim()}>직접 수정</Button>
-        <Button form={formId} name="intent" value="finalized" disabled={saving || !!c.hardFail}><Check size={16} /> {finalized ? "다시 확정" : "확정"}</Button>
+        <Button form={formId} name="intent" value="finalized" disabled={saving || (!!c.hardFail && !(c.hardFail === "분량 초과" && allowOver))}><Check size={16} /> {finalized ? "다시 확정" : "확정"}</Button>
       </div>
       <p className="flex items-center justify-center gap-1.5 text-[12px] text-mute"><ShieldCheck size={14} /> 선생님이 확정한 초안만 담임 선생님께 전달돼요</p>
     </div>

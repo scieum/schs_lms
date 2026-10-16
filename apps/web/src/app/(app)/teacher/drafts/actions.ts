@@ -56,7 +56,9 @@ export async function saveDraft(prev: SaveState, form: FormData): Promise<SaveSt
   if (intent === "finalized") {
     const range = resolveLength(program.area, { unit: job.unit, max: job.max });
     const c = checkDraft(content, { range, people: [{ name: student.name, studentNo: student.studentNo }], evidence: [] });
-    if (c.length.reason === "too_long") return { error: `${range.max.toLocaleString()}${UNIT_LABEL[range.unit]}를 넘어서 확정할 수 없어요`, n };
+    // 분량 초과는 교사가 확인(allowOver)하면 확정한다
+    if (c.length.reason === "too_long" && form.get("allowOver") !== "on") return { error: `${range.max.toLocaleString()}${UNIT_LABEL[range.unit]}를 넘었어요. 이대로 확정하려면 분량 초과 확인에 체크해 주세요`, n };
+    if (c.length.reason === "too_long") await repo.audit(v.accountId, "draft.over_length", `${program.id} ${student.pseudonymId} ${c.length.value}/${range.max}`);
     if (!c.identity.ok) return { error: `${c.identity.found.join("·")}이 들어 있어 확정할 수 없어요`, n };
     const banned = forbiddenBlock(content);
     if (banned) return { error: banned, n };

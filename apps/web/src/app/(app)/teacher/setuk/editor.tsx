@@ -4,8 +4,9 @@ import { LengthPicker } from "@/components/length-picker";
 import { Button } from "@/components/ui";
 import { AiDraftPanel } from "@/components/writing/ai-draft-panel";
 import { RecordChecks, type Who } from "@/components/writing/record-checks";
-import { checkLength, resolveLength, type LengthUnit } from "@/lib/domain/length";
+import { checkLength, resolveLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import { aiSetukDraft, saveSetuk, type SetukState } from "./actions";
+import { OverApproval } from "@/components/writing/over-approval";
 
 // 세특 쓰기: AI 초안(관찰 메모) + 본문 + 자동 검사·분량(단위·최대) + 임시 저장 / 확정.
 // AI 초안은 본문에 채우기만 하고 저장은 교사가 누른다.
@@ -32,7 +33,9 @@ export function SetukEditor({
   const [text, setText] = useState(initial);
   const [len, setLen] = useState({ unit: initialUnit, max: initialMax });
   const range = resolveLength("세특", len);
-  const over = checkLength(text, range).reason === "too_long";
+  const length = checkLength(text, range);
+  const over = length.reason === "too_long";
+  const [allowOver, setAllowOver] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
@@ -61,6 +64,7 @@ export function SetukEditor({
           <LengthPicker category="세특" defaultUnit={initialUnit} defaultMax={initialMax} onChange={setLen} />
         </RecordChecks>
 
+        {over && <OverApproval value={length.value} max={range.max} unit={UNIT_LABEL[range.unit]} checked={allowOver} onChange={setAllowOver} />}
         {state.error && <p className="text-sm text-bad" role="alert">{state.error}</p>}
         {state.saved && (
           <p className="text-sm text-ok" role="status">
@@ -71,7 +75,7 @@ export function SetukEditor({
           <Button kind="outline" name="intent" value="draft" disabled={pending} className="flex-1">
             임시 저장
           </Button>
-          <Button name="intent" value="confirmed" disabled={pending || over || !text.trim()} className="flex-1">
+          <Button name="intent" value="confirmed" disabled={pending || (over && !allowOver) || !text.trim()} className="flex-1">
             {confirmed ? "다시 확정" : "확정"}
           </Button>
         </div>

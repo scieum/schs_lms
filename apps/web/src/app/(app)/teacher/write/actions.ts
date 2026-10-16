@@ -88,7 +88,9 @@ export async function saveRecord(_: RecordState, form: FormData): Promise<Record
   if (intent === "confirmed") {
     if (!content) return { error: "빈 내용은 확정할 수 없어요" };
     const c = checkLength(content, range);
-    if (c.reason === "too_long") return { error: `${range.max.toLocaleString()}${UNIT_LABEL[range.unit]}를 넘어서 확정할 수 없어요 (지금 ${c.value.toLocaleString()})` };
+    // 분량 초과는 교사가 확인(allowOver)하면 확정한다
+    if (c.reason === "too_long" && form.get("allowOver") !== "on") return { error: `${range.max.toLocaleString()}${UNIT_LABEL[range.unit]}를 넘었어요 (지금 ${c.value.toLocaleString()}). 이대로 확정하려면 분량 초과 확인에 체크해 주세요` };
+    if (c.reason === "too_long") await repo.audit(v.accountId, "record.over_length", `${c.value}/${range.max}`);
     if (findIdentity(content, t.student).length) return { error: "이름·학번이 들어 있어 확정할 수 없어요" };
     const banned = forbiddenBlock(content);
     if (banned) return { error: banned };

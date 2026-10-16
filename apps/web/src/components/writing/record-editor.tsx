@@ -1,12 +1,13 @@
 "use client";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui";
-import { checkLength, type LengthUnit } from "@/lib/domain/length";
+import { checkLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import { resolveRecordLength, type RecordArea } from "@/lib/domain/writing";
 import { aiRecordDraft, saveRecord, type RecordState } from "@/app/(app)/teacher/write/actions";
 import { AiDraftPanel } from "./ai-draft-panel";
 import { RecordChecks, type Who } from "./record-checks";
 import { RecordLengthPicker } from "./record-length-picker";
+import { OverApproval } from "@/components/writing/over-approval";
 
 const MEMO_HINT: Record<RecordArea, string> = {
   "자율·자치": "관찰 메모 (예: 학급회의 사회, 체육대회 준비 위원, 규칙 제안)",
@@ -41,7 +42,9 @@ export function RecordEditor({
   const [text, setText] = useState(initial);
   const [len, setLen] = useState({ unit: initialUnit, max: initialMax });
   const range = resolveRecordLength(area, len);
-  const over = checkLength(text, range).reason === "too_long";
+  const length = checkLength(text, range);
+  const over = length.reason === "too_long";
+  const [allowOver, setAllowOver] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
@@ -71,6 +74,7 @@ export function RecordEditor({
           <RecordLengthPicker area={area} defaultUnit={initialUnit} defaultMax={initialMax} onChange={setLen} />
         </RecordChecks>
 
+        {over && <OverApproval value={length.value} max={range.max} unit={UNIT_LABEL[range.unit]} checked={allowOver} onChange={setAllowOver} />}
         {state.error && <p className="text-sm text-bad" role="alert">{state.error}</p>}
         {state.saved && (
           <p className="text-sm text-ok" role="status">
@@ -81,7 +85,7 @@ export function RecordEditor({
           <Button kind="outline" name="intent" value="draft" disabled={pending} className="flex-1">
             임시 저장
           </Button>
-          <Button name="intent" value="confirmed" disabled={pending || over || !text.trim()} className="flex-1">
+          <Button name="intent" value="confirmed" disabled={pending || (over && !allowOver) || !text.trim()} className="flex-1">
             {confirmed ? "다시 확정" : "확정"}
           </Button>
         </div>

@@ -14,7 +14,7 @@ const LABEL: Record<string, string> = {
   "offering.round": "과목 신청 열기", "offering.create": "신청 과목 열기", "offering.archive": "신청 과목 내림",
   "offering.sections": "반 늘리기", "offering.settings": "신청 설정", "offering.apply": "과목 신청",
   // 프로그램·초안
-  "program.save": "프로그램 임시 저장", "program.edit": "프로그램 수정", "program.delete": "프로그램 삭제", "program.publish": "프로그램 발행", "program.close": "프로그램 마감", "program.source": "근거 자료 방식 변경",
+  "program.save": "프로그램 임시 저장", "program.edit": "프로그램 수정", "program.delete": "프로그램 삭제", "draft.over_length": "분량 초과 확정", "setuk.over_length": "세특 분량 초과 확정", "record.over_length": "기록 분량 초과 확정", "program.publish": "프로그램 발행", "program.close": "프로그램 마감", "program.source": "근거 자료 방식 변경",
   "program.remind": "미응답 알림", "program.ai.questions": "AI 문항 추천", "program.ai.reminder": "AI 독촉 문구",
   "material.upload": "서류 올리기", "material.assign": "서류 학생 지정", "material.student": "서류 학생 연결", "material.missing": "미제출 사유",
   "material.split": "합본 PDF 나누기", "material.ai.read": "AI 서류 읽기", "material.ai.confirm": "AI 연결 확인", "material.ai.split": "AI 쪽 나누기",
