@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+/* 디자인 시스템: 속초 인디고 (docs/design-system.md, Figma "E 속초 인디고" 모드) */
+@theme {
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+
+  --color-key: #536dfe;
+  --color-key-soft: #eef0ff;
+  --color-key-strong: #3d56e0;
+  --color-navy: #1c2033;
+  --color-navy-2: #2b3152;
+
+  --color-ink: #191f28;
+  --color-sub: #4e5968;
+  --color-mute: #8b95a1;
+  --color-faint: #c4cad1;
+  --color-hair: #d9dde3;
+  --color-line: #e5e8eb;
+  --color-soft: #f2f4f6;
+  --color-bg: #f5f6f8;
+
+  --color-ok: #00b86b;
+  --color-ok-soft: #e3f8ee;
+  --color-due: #ff7a45;
+  --color-due-soft: #fff1ea;
+  --color-wait: #f5a524;
+  --color-wait-soft: #fff5e0;
+  --color-bad: #f04452;
+  --color-bad-soft: #feecee;
+  --color-new: #0bb4d9;
+  --color-new-soft: #e2f7fc;
+
+  /* 모서리: 둥글기를 낮춘 값. 원형(아바타·FAB·단계 점)만 rounded-full */
+  --radius-card: 12px;   /* 카드·패널 */
+  --radius-inner: 10px;  /* 카드 안 블록 */
+  --radius-field: 8px;   /* 입력칸·아이콘 상자 */
+  --radius-control: 8px; /* 버튼·탭·메뉴 */
+  --radius-chip: 6px;    /* 태그·라벨·세그먼트 안쪽 */
+}
+
+html,
+body {
+  background: #ffffff;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-key);
+  outline-offset: 2px;
+}

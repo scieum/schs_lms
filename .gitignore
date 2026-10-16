@@ -1,0 +1,19 @@
+# 비밀 값 — 절대 올리지 않는다 (예시 파일만 허용)
+.env*
+!.env.example
+
+# 의존성·빌드 결과
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# 하네스 실행 결과(학생 응답·초안)와 가명 매핑표
+runs/
+
+# OS·편집기
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.claude/settings.local.json
