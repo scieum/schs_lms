@@ -16,6 +16,12 @@
 - `src/lib/server/ai/` — Claude 호출은 `claude.ts`(aiJson) 하나로. 생기부 문장 프롬프트는 `record-prompts.ts`(속초고 세특 프롬프트 노션), 문체 검사는 `lib/domain/neis-style.ts`.
 - `supabase/migrations/` — 스키마. 모든 테이블 RLS 켜고 정책 없음. 서버가 service role로만 접근.
 
+## 작업 순서 (2026-10-17 사용자 지시)
+1. 기능·화면 요청이 오면 **먼저 Figma 시안**(파일 `VTHccW9TvWVWbNwdBawvSI`)을 고치거나 새로 그린다.
+2. 시안 스크린샷으로 확인한다 (겹침·잘림·문구, PC·모바일 둘 다).
+3. 그다음 코드 개발 → 아래 검증 → 커밋·푸시.
+4. 개발하다 시안과 달라지면 시안도 다시 맞춘다. 새 시안 번호는 `docs/design-system.md` 에 적는다.
+
 ## 지킬 것 (PRD §12)
 - 권한 판정은 `lib/domain/policy.ts`의 `can()` 한 곳에서만. 화면·액션·라우트 모두 `requireCan`.
 - API 키·service role 키는 서버에만 (C1). URL에 학번·이름 금지 (C3).
