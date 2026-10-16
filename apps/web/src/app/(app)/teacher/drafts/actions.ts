@@ -10,6 +10,7 @@ import { rephraseSentence, reviewDraft, type ReviewItem } from "@/lib/server/ai/
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { canOwn } from "../programs/_lib/data";
+import { forbiddenBlock } from "@/lib/domain/forbidden";
 
 /** 이 초안 작업을 다룰 수 있는 교사인지 (자기 프로그램 · 관리자) */
 async function loadJob(jobId: string) {
@@ -57,6 +58,8 @@ export async function saveDraft(prev: SaveState, form: FormData): Promise<SaveSt
     const c = checkDraft(content, { range, people: [{ name: student.name, studentNo: student.studentNo }], evidence: [] });
     if (c.length.reason === "too_long") return { error: `${range.max.toLocaleString()}${UNIT_LABEL[range.unit]}를 넘어서 확정할 수 없어요`, n };
     if (!c.identity.ok) return { error: `${c.identity.found.join("·")}이 들어 있어 확정할 수 없어요`, n };
+    const banned = forbiddenBlock(content);
+    if (banned) return { error: banned, n };
   }
 
   await repo.addDraftVersion({

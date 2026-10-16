@@ -1,4 +1,5 @@
 import "server-only";
+import { FORBIDDEN_PROMPT } from "@/lib/domain/forbidden";
 
 // 생기부 프롬프트 — 출처: 노션 "세특 프롬프트(속초고등학교 전달용)" (2026-07-21 판)
 //   [SKILL] 2022 개정 교육과정 국어·수학·영어·사회·과학·정보 생기부 프롬프트
@@ -187,7 +188,7 @@ const NON_SUBJECT: Record<Exclude<RecordKind, "세특">, { teacher: string; area
 };
 
 /** 시스템 프롬프트 (교과 세특은 교과 계열별 SKILL, 창체·행발은 공통 문체 + 영역 설명) */
-export function recordSystemPrompt(kind: RecordKind, subject?: string | null): string {
+function basePrompt(kind: RecordKind, subject?: string | null): string {
   if (kind === "세특") {
     const fam = subjectFamily(subject);
     const f = fam ? FAMILY[fam] : GENERIC;
@@ -224,4 +225,9 @@ export function kindOfArea(area: string): RecordKind {
   if (area.includes("동아리")) return "동아리";
   if (area.includes("진로")) return "진로";
   return "세특";
+}
+
+/** 생기부 문장 시스템 프롬프트 = 속초고 세특 프롬프트 + 기재요령 금칙어 (lib/domain/forbidden.ts) */
+export function recordSystemPrompt(kind: RecordKind, subject?: string | null): string {
+  return `${basePrompt(kind, subject)}\n\n${FORBIDDEN_PROMPT}`;
 }

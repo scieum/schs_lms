@@ -5,6 +5,8 @@ import { cx } from "@/components/ui";
 import { UNIT_LABEL, type LengthRange } from "@/lib/domain/length";
 import { styleIssues } from "@/lib/domain/neis-style";
 import { checkRecord } from "@/lib/domain/writing";
+import { ForbiddenHits } from "@/components/writing/forbidden-hits";
+import { findForbidden } from "@/lib/domain/forbidden";
 
 export type Who = { name: string; studentNo: string; grade: number; classNo: number; number: number };
 
@@ -15,11 +17,14 @@ export function RecordChecks({ text, range, who, children }: { text: string; ran
   const over = c.length.reason === "too_long";
   const empty = !text.trim();
   const style = styleIssues(text).filter((i) => i !== "서술형 어미" && i !== "마침표 없음"); // 어미는 위 항목이 본다
+  const forbidden = findForbidden(text);
+  const banned = forbidden.filter((h) => h.level === "ban").length;
   const items: [boolean, string][] = [
     [c.length.ok, over ? "분량 초과" : c.length.reason === "too_short" ? `최소 ${range.min.toLocaleString()}${UNIT_LABEL[range.unit]}` : "글자수 범위"],
     [c.identity === 0, `학번·실명 ${c.identity}건`],
     [c.badEndings === 0, c.badEndings ? `어미 확인 ${c.badEndings}문장` : "문장 어미 '~함.'"],
     [style.length === 0, style.length ? style.join(" · ") : "문체 규칙"],
+    [banned === 0, banned ? `금칙어 ${banned}건 (확정 불가)` : forbidden.length ? `금칙어 0건 · 확인 ${forbidden.length}` : "금칙어 0건"],
   ];
   const fails = items.filter(([ok]) => !ok).length;
 
@@ -46,6 +51,7 @@ export function RecordChecks({ text, range, who, children }: { text: string; ran
           ))}
         </ul>
       )}
+      {!empty && <ForbiddenHits hits={forbidden} />}
       {children && <div className="border-t border-line pt-3">{children}</div>}
     </div>
   );

@@ -9,6 +9,7 @@ import { writeRecord } from "@/lib/server/ai/write-record";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { evidenceLogs } from "./data";
+import { forbiddenBlock } from "@/lib/domain/forbidden";
 
 // 창체 특기사항(자율·자치/동아리/진로)·행발: AI 초안 → 교사 수정 → 저장(새 버전) → 확정
 
@@ -89,6 +90,8 @@ export async function saveRecord(_: RecordState, form: FormData): Promise<Record
     const c = checkLength(content, range);
     if (c.reason === "too_long") return { error: `${range.max.toLocaleString()}${UNIT_LABEL[range.unit]}를 넘어서 확정할 수 없어요 (지금 ${c.value.toLocaleString()})` };
     if (findIdentity(content, t.student).length) return { error: "이름·학번이 들어 있어 확정할 수 없어요" };
+    const banned = forbiddenBlock(content);
+    if (banned) return { error: banned };
   }
 
   const r = await repo.addRecordDraft({ area, studentId, authorId: v.accountId, year: schoolYear(), semester: null, content, unit: range.unit, max: range.max, status: intent });

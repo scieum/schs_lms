@@ -5,7 +5,7 @@ export type IconName =
   | "home" | "file" | "clipboard" | "users" | "chat" | "userPlus" | "chart" | "target" | "moon"
   | "book" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user";
 
-export interface NavItem { label: string; href: string; icon: IconName; ready?: boolean; badge?: number }
+export interface NavItem { label: string; href: string; icon: IconName; ready?: boolean; badge?: number; /** 탭: 이 경로로 시작하면 켜짐 */ match?: string[] }
 /** 사이드바 숫자 배지 (Figma: 초안 검토 12, 오류 처리 2, 설문·서류 제출 2) — href 기준 */
 export type NavBadges = Record<string, number>;
 /** fold: 시안에 없는 기능 묶음 — 접어 두고, 지금 화면이 안에 있으면 펼친다 */
@@ -87,41 +87,43 @@ function baseNav(v: Viewer): NavGroup[] {
   return groups;
 }
 
-/** 모바일 하단 탭 (5개) — Figma 각 역할 모바일 시안의 탭 그대로 */
+/** 모바일 하단 탭 (5개). 가운데(3번째)는 언제나 홈 (2026-10-17 사용자 결정) */
 export function tabsFor(v: Viewer): NavItem[] {
   if (v.kind === "student") {
     return [
-      { label: "홈", href: "/student", icon: "home" },
       { label: "제출", href: "/student/submit", icon: "clipboard" },
       { label: "성적", href: "/student/scores", icon: "chart" },
+      { label: "홈", href: "/student", icon: "home" },
       { label: "생기부", href: "/student/record", icon: "book" },
       { label: "MY", href: "/me", icon: "user" },
     ];
   }
   const r = v.teacher.roles;
-  if (r.includes("admin")) {
-    return [
-      { label: "홈", href: "/teacher", icon: "home" },
-      { label: "오류", href: "/admin/errors", icon: "alert" },
-      { label: "계정", href: "/admin/accounts", icon: "users" },
-      { label: "과목", href: "/admin/offerings", icon: "list" },
-      { label: "MY", href: "/me", icon: "user" },
-    ];
-  }
-  if (r.includes("homeroom")) {
-    return [
-      { label: "홈", href: "/homeroom", icon: "home" },
-      { label: "학생", href: "/homeroom/students", icon: "users" },
-      { label: "초안", href: "/homeroom/drafts", icon: "file" },
-      { label: "최저", href: "/homeroom/minimum", icon: "target" },
-      { label: "야자", href: "/homeroom/night", icon: "moon" },
-    ];
-  }
-  return [
-    { label: "홈", href: "/teacher", icon: "home" },
+  const draftsAndPrograms: NavItem[] = [
     { label: "초안", href: "/teacher/drafts", icon: "file" },
     { label: "프로그램", href: "/teacher/programs", icon: "clipboard" },
-    { label: "학생", href: "/students", icon: "users" },
-    { label: "내 정보", href: "/me", icon: "user" },
   ];
+  if (r.includes("admin")) {
+    return [...draftsAndPrograms, { label: "홈", href: "/teacher", icon: "home" }, { label: "관리", href: "/admin", icon: "shield", match: ["/admin"] }, { label: "MY", href: "/me", icon: "user" }];
+  }
+  if (r.includes("homeroom") && v.teacher.homeroom) {
+    // 담임 기능(학생 기록·받은 초안·성적·최저·야자·행발·봉사)은 "담임" 탭 하나로 묶는다
+    return [...draftsAndPrograms, { label: "홈", href: "/homeroom", icon: "home" }, { label: "담임", href: "/homeroom/menu", icon: "users", match: ["/homeroom/"] }, { label: "MY", href: "/me", icon: "user" }];
+  }
+  return [...draftsAndPrograms, { label: "홈", href: "/teacher", icon: "home" }, { label: "학생", href: "/students", icon: "users" }, { label: "MY", href: "/me", icon: "user" }];
 }
+
+/** 담임 탭 메뉴 (/homeroom/menu) */
+export const HOMEROOM_MENU: { label: string; items: NavItem[] }[] = [
+  { label: "우리 반", items: [
+    { label: "학생 기록", href: "/homeroom/students", icon: "users" },
+    { label: "받은 초안", href: "/homeroom/drafts", icon: "file" },
+    { label: "행발", href: "/homeroom/behavior", icon: "book" },
+    { label: "봉사 받은함", href: "/homeroom/service", icon: "shield" },
+  ] },
+  { label: "관리", items: [
+    { label: "성적 업로드", href: "/homeroom/scores", icon: "chart" },
+    { label: "수능 최저", href: "/homeroom/minimum", icon: "target" },
+    { label: "야간 자율학습", href: "/homeroom/night", icon: "moon" },
+  ] },
+];

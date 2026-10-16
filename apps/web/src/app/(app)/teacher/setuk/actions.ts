@@ -7,6 +7,7 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { writeRecord } from "@/lib/server/ai/write-record";
 import { findIdentity, latestMemoByStudent, type AiDraftResult } from "@/lib/domain/writing";
+import { forbiddenBlock } from "@/lib/domain/forbidden";
 
 export type SetukState = { error?: string; saved?: "draft" | "confirmed"; at?: string };
 
@@ -40,6 +41,8 @@ export async function saveSetuk(_: SetukState, form: FormData): Promise<SetukSta
     const c = checkLength(content, range);
     if (c.reason === "too_long") return { error: `${range.max.toLocaleString()}${UNIT_LABEL[range.unit]}를 넘어서 확정할 수 없어요 (지금 ${c.value.toLocaleString()})` };
     if (findIdentity(content, student).length) return { error: "이름·학번이 들어 있어 확정할 수 없어요" };
+    const banned = forbiddenBlock(content);
+    if (banned) return { error: banned };
   }
 
   const r = await repo.addSetuk({ courseId, studentId, authorId: v.accountId, content, unit: range.unit, max: range.max, status: intent });

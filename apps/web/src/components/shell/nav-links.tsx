@@ -58,7 +58,7 @@ export function TabBar({ tabs }: { tabs: NavItem[] }) {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-white px-1.5 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2 md:hidden">
       {tabs.map((t) => {
-        const on = path === t.href || (t.href.split("/").length > 2 && path.startsWith(t.href + "/"));
+        const on = path === t.href || (t.href.split("/").length > 2 && path.startsWith(t.href + "/")) || !!t.match?.some((m) => path.startsWith(m));
         return (
           <Link key={t.href} href={t.href} className="flex flex-1 flex-col items-center gap-0.5 pt-1.5">
             <Icon name={t.icon} size={24} className={on ? "text-key" : "text-faint"} />

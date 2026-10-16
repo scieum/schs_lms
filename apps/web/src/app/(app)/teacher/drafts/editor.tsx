@@ -7,6 +7,8 @@ import { resolveLength, UNIT_LABEL, type DraftCategory, type LengthUnit } from "
 import { checkDraft, similarSentences, type EvidenceItem, type SimilarHit } from "@/lib/domain/program";
 import { styleIssues } from "@/lib/domain/neis-style";
 import { regenerateDraft, rephraseAction, reviewDraftAction, saveDraft, type RegenState, type RephraseState, type ReviewState, type SaveState } from "./actions";
+import { ForbiddenHits } from "@/components/writing/forbidden-hits";
+import { findForbidden } from "@/lib/domain/forbidden";
 
 // T4 초안 본문 편집 + 자동 검사 + 검토 도우미 + 반려·직접 수정·확정
 export function DraftEditor({
@@ -78,6 +80,8 @@ export function DraftEditor({
   };
 
   const style = styleIssues(text).filter((i) => i !== "서술형 어미" && i !== "마침표 없음");
+  const forbidden = findForbidden(text);
+  const banned = forbidden.filter((h) => h.level === "ban").length;
   const checks: [boolean, string][] = [
     [c.length.ok, c.length.reason === "too_long" ? "분량 초과" : c.length.reason === "too_short" ? `최소 ${range.min.toLocaleString()}${UNIT_LABEL[range.unit]}` : "글자수 범위"],
     [c.identity.ok, c.identity.ok ? "학번·실명 0건" : `${c.identity.found.join("·")} 있음`],
@@ -85,6 +89,7 @@ export function DraftEditor({
     [c.evidence.ok, `근거 반영 ${c.evidence.hits.length}개`],
     [c.specific.ok, `학생 근거 문장 ${c.specific.grounded}/${c.specific.total}`],
     [style.length === 0, style.length ? style.join(" · ") : "문체 규칙"],
+    [banned === 0, banned ? `금칙어 ${banned}건 (확정 불가)` : forbidden.length ? `금칙어 0건 · 확인 ${forbidden.length}` : "금칙어 0건"],
   ];
 
   return (
@@ -192,6 +197,7 @@ export function DraftEditor({
             </li>
           ))}
         </ul>
+        <ForbiddenHits hits={forbidden} />
         <form action={regenAction} className="flex flex-col gap-2 border-t border-line pt-3">
           <input type="hidden" name="jobId" value={jobId} />
           <LengthPicker category={area} defaultUnit={unit} defaultMax={max} />

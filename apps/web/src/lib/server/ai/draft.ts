@@ -7,6 +7,7 @@ import {
 } from "@/lib/domain/program";
 import type { Student } from "@/lib/domain/types";
 import { repo } from "@/lib/server/repo";
+import { forbiddenBlock } from "@/lib/domain/forbidden";
 import { polishStyle } from "@/lib/domain/neis-style";
 import { aiEnabled, aiJson } from "./claude";
 import { readMaterial } from "./program-ai";
@@ -94,6 +95,8 @@ async function attemptOnce(job: DraftJob, people: { name: string; studentNo: str
   text = fitToLength(polishStyle(text), range);
   const c = checkDraft(text, { range, people: [{ name: student.name, studentNo: student.studentNo }], evidence });
   if (c.hardFail) return { ok: false, error: c.hardFail };
+  const banned = forbiddenBlock(text);
+  if (source === "ai" && banned && job.attempts < MAX_ATTEMPTS - 1) return { ok: false, error: "기재 금지 표현 포함" };
   if (source === "ai" && c.weak && job.attempts < MAX_ATTEMPTS - 1) return { ok: false, error: "학생 근거와 연결 약함" };
   await repo.addDraftVersion({ jobId: job.id, programId: program.id, studentId: student.id, content: text, status: "draft", reason: null, source, authorId: null });
   return { ok: true };
