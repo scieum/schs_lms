@@ -9,6 +9,8 @@ import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { programRows, requireProgram, type StudentRow } from "../_lib/data";
 import { remindOne, setProgramStatus } from "./actions";
+import { isAdmin } from "@/lib/domain/policy";
+import { DeleteBox } from "./delete-box";
 import { AnalyzeBox, AutoSelect, GenerateButton, RemindBox } from "./parts";
 
 export const metadata = { title: "프로그램 상세 · 속초고등학교 학생관리시스템" };
@@ -39,7 +41,8 @@ const pair = (o: string): [string, string] => [o, o];
 export default async function ProgramDetail({ params, searchParams }: Props) {
   const { id } = await params;
   const q = await searchParams;
-  const { program: p } = await requireProgram(id);
+  const { v, program: p } = await requireProgram(id);
+  const canDelete = v.kind === "teacher" && (p.ownerId === v.accountId || isAdmin(v));
   const t = today();
   const [{ rows, materials, responses }, reminders] = await Promise.all([programRows(p), repo.listReminders({ programId: p.id })]);
   const status = effectiveStatus(p, t);
@@ -286,6 +289,7 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
             <Button size="sm" kind="ghost">지금 마감하기</Button>
           </form>
         )}
+        {canDelete && <DeleteBox programId={p.id} title={p.title} counts={`응답 ${responses.length}건 · 서류 ${materials.length}개 · 초안`} />}
       </PageBody>
     </>
   );

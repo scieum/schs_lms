@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveLength } from "./length";
 import {
-  addDays, afterAttempt, buildQuestions, checkDraft, ddayLabel, effectiveStatus, FIXED_QUESTIONS, findIdentity, keywords, latestVersion,
+  addDays, afterAttempt, monthGrid, programsInMonth, shiftMonth, buildQuestions, checkDraft, ddayLabel, effectiveStatus, FIXED_QUESTIONS, findIdentity, keywords, latestVersion,
   maskIdentity, matchFileName, programGates, programStage, quickSplit, reviewStatus, sampleDraft, studentStage, summarizeErrors,
   validateAnswers, validateRanges, errorAdvice, weekTodos, responseDigest, similarSentences, similarity, rephraseRule, type DraftJob, type DraftVersion,
 } from "./program";
@@ -183,5 +183,20 @@ describe("AI 보강 규칙 대체", () => {
   it("문장 다르게 쓰기(규칙)", () => {
     expect(rephraseRule("실험 결과를 표로 정리했다.")).toEqual(["실험 결과를 표로 정리함.", "실험 결과를 표로 체계적으로 정리함."]);
     expect(rephraseRule("결과를 발표함.")).toEqual(["결과를 설명함."]);
+  });
+});
+
+describe("전체 일정 캘린더", () => {
+  it("2026년 10월은 9.28(월)부터 11.1(일)까지 5주", () => {
+    const g = monthGrid("2026-10");
+    expect(g[0][0]).toBe("2026-09-28");
+    expect(g.at(-1)?.at(-1)).toBe("2026-11-01");
+    expect(g).toHaveLength(5);
+  });
+  it("달과 겹치는 프로그램만, 달 이동", () => {
+    const ps = [{ startDate: "2026-09-25", endDate: "2026-10-02" }, { startDate: "2026-11-02", endDate: "2026-11-05" }, { startDate: "2026-10-10", endDate: "2026-10-12" }];
+    expect(programsInMonth(ps, "2026-10")).toHaveLength(2);
+    expect(shiftMonth("2026-12", 1)).toBe("2027-01");
+    expect(shiftMonth("2026-01", -1)).toBe("2025-12");
   });
 });

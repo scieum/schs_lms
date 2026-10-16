@@ -644,3 +644,35 @@ export function rephraseRule(sentence: string): string[] {
   if (swap) out.push(ending.replace(swap[0], swap[1]));
   return [...new Set(out.map((x) => x.replace(/\s{2,}/g, " ").trim()))].filter((x) => x !== s).slice(0, 2);
 }
+
+// ---------- 전체 일정 (목록·캘린더) ----------
+
+/** "2026-10" → 그 달을 덮는 주(월~일) 목록. 칸은 YYYY-MM-DD, 앞뒤 달 날짜도 채운다 */
+export function monthGrid(ym: string): string[][] {
+  const [y, m] = ym.split("-").map(Number);
+  const first = `${ym}-01`;
+  const dow = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7; // 월=0
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const weeks: string[][] = [];
+  let d = addDays(first, -dow);
+  while (weeks.length === 0 || d <= `${ym}-${String(last).padStart(2, "0")}`) {
+    const w: string[] = [];
+    for (let i = 0; i < 7; i++) { w.push(d); d = addDays(d, 1); }
+    weeks.push(w);
+  }
+  return weeks;
+}
+
+/** 이 달과 겹치는 프로그램 (시작일 순) */
+export function programsInMonth<T extends Pick<Program, "startDate" | "endDate">>(list: T[], ym: string): T[] {
+  const from = `${ym}-01`;
+  const to = `${ym}-31`;
+  return list.filter((p) => p.startDate <= to && p.endDate >= from).sort((a, b) => a.startDate.localeCompare(b.startDate));
+}
+
+/** "2026-10" 에서 n달 이동 */
+export function shiftMonth(ym: string, n: number): string {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}

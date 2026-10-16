@@ -44,6 +44,8 @@ interface BaseRepo {
   getProgram(id: string): Promise<Program | null>;
   createProgram(p: NewProgram): Promise<Program>;
   updateProgram(id: string, patch: ProgramPatch): Promise<void>;
+  /** 프로그램과 딸린 응답·서류(파일)·초안 작업·버전·알림·미제출 사유를 모두 지운다. 확정본 확인은 호출하는 쪽에서 */
+  deleteProgram(id: string): Promise<void>;
 
   listResponses(programId: string): Promise<SurveyResponse[]>;
   getResponse(programId: string, studentId: string): Promise<SurveyResponse | null>;
@@ -339,6 +341,17 @@ const demoBase: BaseRepo = {
     const p = ps().programs.find((x) => x.id === id);
     if (p) Object.assign(p, copy(patch));
   },
+  async deleteProgram(id) {
+    const s = ps();
+    for (const m of s.materials) if (m.programId === id) s.files.delete(m.filePath);
+    s.programs = s.programs.filter((x) => x.id !== id);
+    s.responses = s.responses.filter((x) => x.programId !== id);
+    s.materials = s.materials.filter((x) => x.programId !== id);
+    s.missing = s.missing.filter((x) => x.programId !== id);
+    s.jobs = s.jobs.filter((x) => x.programId !== id);
+    s.versions = s.versions.filter((x) => x.programId !== id);
+    s.reminders = s.reminders.filter((x) => x.programId !== id);
+  },
   async listResponses(programId) {
     return ps().responses.filter((r) => r.programId === programId).map(copy);
   },
@@ -538,6 +551,16 @@ const supabaseBase: BaseRepo = {
       res = await db().from("programs").update(row).eq("id", id);
     }
     check(res);
+  },
+  async deleteProgram(id) {
+    if (!isUuid(id)) return;
+    const paths = (check(await db().from("program_materials").select("file_path").eq("program_id", id)) as { file_path: string }[]).map((r) => r.file_path);
+    // 자식 표부터 (외래 키에 cascade 가 없다)
+    for (const t of ["draft_versions", "draft_jobs", "program_missing", "program_reminders", "survey_responses", "program_materials"]) {
+      check(await db().from(t).delete().eq("program_id", id));
+    }
+    check(await db().from("programs").delete().eq("id", id));
+    if (paths.length) await db().storage.from(BUCKET).remove(paths);
   },
   async listResponses(programId) {
     if (!isUuid(programId)) return [];

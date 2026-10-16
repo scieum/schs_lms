@@ -1,7 +1,9 @@
 "use server";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { today } from "@/lib/domain/activity";
+import { isAdmin } from "@/lib/domain/policy";
 import { effectiveStatus, maskIdentity, responseDigest } from "@/lib/domain/program";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { runDraftJobs } from "@/lib/server/ai/draft";
@@ -59,6 +61,26 @@ export async function setProgramStatus(form: FormData) {
   await repo.audit(v.accountId, to === "open" ? "program.publish" : "program.close", program.id);
   revalidatePath(`/teacher/programs/${program.id}`);
   revalidatePath("/teacher/programs");
+}
+
+export type DeleteState = { error?: string; n?: number };
+
+/**
+ * 프로그램 삭제: 만든 교사(공동 담당 제외)와 관리자만.
+ * 확정된 초안이 있으면 지우지 않는다 — 확정본은 추가만 하고 지우지 않는다 (C4). 그때는 마감으로 둔다.
+ */
+export async function deleteProgram(prev: DeleteState, form: FormData): Promise<DeleteState> {
+  const { v, program } = await requireProgram(String(form.get("programId") ?? ""));
+  const n = (prev.n ?? 0) + 1;
+  if (v.kind !== "teacher" || (program.ownerId !== v.accountId && !isAdmin(v))) return { error: "만든 선생님이나 관리자만 지울 수 있어요", n };
+  if (String(form.get("confirm") ?? "").trim() !== program.title) return { error: "프로그램 이름을 똑같이 써 주세요", n };
+  const finalized = (await repo.listDraftVersions({ programIds: [program.id] })).some((x) => x.status === "finalized");
+  if (finalized) return { error: "확정된 초안이 있어 지울 수 없어요. 마감으로 두면 학생 화면에서 닫혀요", n };
+  await repo.deleteProgram(program.id);
+  await repo.audit(v.accountId, "program.delete", `${program.id} ${program.title}`);
+  revalidatePath("/teacher/programs");
+  revalidatePath("/teacher");
+  redirect("/teacher/programs");
 }
 
 export type GenState = { error?: string; started?: string; n?: number };
