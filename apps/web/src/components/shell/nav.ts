@@ -45,7 +45,7 @@ function baseNav(v: Viewer): NavGroup[] {
   const work: NavGroup = { label: "업무", items: [
     ...(homeroom && !admin ? [] : [I("홈", "/teacher", "home")]),
     I("초안 검토", "/teacher/drafts", "file"),
-    I("프로그램·설문", "/teacher/programs", "clipboard"),
+    I("프로그램", "/teacher/programs", "clipboard"),
   ] };
   const students: NavGroup = { label: "학생", items: [
     I("담당 학생", "/students", "users"),

@@ -52,6 +52,8 @@ try {
   const nav = await send("Page.navigate", { url: base + path });
   if (process.env.SHOT_DEBUG) console.log("navigate:", JSON.stringify(nav));
   await sleep(5000);
+  // SHOT_PRE: 찍기 전에 실행할 스크립트 (버튼 누르기 등). 화면이 바뀔 시간을 준다
+  if (process.env.SHOT_PRE) { await send("Runtime.evaluate", { expression: process.env.SHOT_PRE }); await sleep(800); }
   const h = (await send("Runtime.evaluate", { expression: "document.documentElement.scrollHeight", returnByValue: true })).result.value;
   await send("Emulation.setDeviceMetricsOverride", { width, height: Math.min(h, 12000), deviceScaleFactor: 1, mobile });
   await sleep(1200);

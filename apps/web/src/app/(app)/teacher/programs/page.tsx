@@ -10,10 +10,11 @@ import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { programSummaries } from "./_lib/data";
-import { ScheduleCalendar, ScheduleList, type ScheduleItem } from "./schedule";
+import { ScheduleCalendar } from "./calendar";
+import { ScheduleList, type ScheduleItem } from "./schedule";
 import { WeekBox } from "./week-box";
 
-export const metadata = { title: "프로그램·자료 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "프로그램 · 속초고등학교 학생관리시스템" };
 
 const VIEWS = [["mine", "내 프로그램"], ["all", "전체 목록"], ["calendar", "캘린더"]] as const;
 
@@ -24,15 +25,21 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
   const tabs = <Segmented items={VIEWS.map(([k, label]) => ({ label, href: k === "mine" ? "/teacher/programs" : `/teacher/programs?view=${k}` }))} active={VIEWS.findIndex(([k]) => k === view)} />;
   if (view !== "mine") {
     // 전체 일정: 담당이 아니어도 본다. 남의 임시 저장본은 빼고, 학생 정보는 넣지 않는다
-    const [all, teachers] = await Promise.all([repo.listPrograms(), repo.listTeachers()]);
+    const [all, teachers, studentList] = await Promise.all([repo.listPrograms(), repo.listTeachers(), repo.listStudents()]);
     const names = new Map(teachers.map((x) => [x.id, x.name]));
+    const deptOf = new Map(teachers.map((x) => [x.id, x.dept]));
+    const stu = new Map(studentList.map((x) => [x.id, { no: x.studentNo, name: x.name }]));
     const items: ScheduleItem[] = all
       .filter((p) => p.status !== "draft" || isProgramOwner(p, v.accountId))
       .map((p) => {
-        const owners = [p.ownerId, ...p.coOwnerIds].map((id) => names.get(id)).filter(Boolean);
+        const ids = [p.ownerId, ...p.coOwnerIds];
+        const owners = ids.map((id) => names.get(id)).filter((x): x is string => !!x);
+        const depts = [...new Set(ids.map((id) => deptOf.get(id)).filter((x): x is string => !!x))].join(", ");
         return {
           id: p.id, title: p.title, area: p.area, subject: p.subject, startDate: p.startDate, endDate: p.endDate, status: p.status, targetIds: p.targetIds,
           owners: owners.length > 2 ? `${owners.slice(0, 2).join("·")} 외 ${owners.length - 2}명` : owners.join("·") || "담당 미정",
+          ownerNames: owners, depts,
+          students: p.targetIds.flatMap((id) => stu.get(id) ?? []).sort((a, b) => a.no.localeCompare(b.no)),
           mine: isProgramOwner(p, v.accountId) || isAdmin(v),
         };
       });
@@ -40,7 +47,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
     const month = /^\d{4}-\d{2}$/.test(sp.month ?? "") ? sp.month! : t.slice(0, 7);
     return (
       <>
-        <PageHeader title="프로그램·자료" actions={<ButtonLink href="/teacher/programs/new" size="sm"><Plus size={14} /> 새 프로그램</ButtonLink>} />
+        <PageHeader title="프로그램" actions={<ButtonLink href="/teacher/programs/new" size="sm"><Plus size={14} /> 새 프로그램</ButtonLink>} />
         <PageBody>
           {tabs}
           {view === "all" ? <ScheduleList items={items} today={t} /> : <ScheduleCalendar items={items} month={month} today={t} />}
@@ -59,7 +66,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
   return (
     <>
       <PageHeader
-        title="프로그램·자료"
+        title="프로그램"
         actions={
           <>
             {isAdmin(v) && <ButtonLink href={showAll ? "/teacher/programs" : "/teacher/programs?all=1"} kind="outline" size="sm">{showAll ? "내 것만" : "전체 보기"}</ButtonLink>}

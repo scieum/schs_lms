@@ -12,7 +12,7 @@ export const GUIDE: GuideEntry[] = [
   { id: "1.1", title: "첫 로그인과 비밀번호", href: "/me", who: ["teacher", "homeroom", "admin", "student"], body: "처음에는 학교에서 받은 인증코드로 로그인하고 바로 새 비밀번호를 정해요. 비밀번호는 내 정보에서 바꿀 수 있고, 잊으면 관리자 선생님께 초기화를 요청해요. 5번 틀리면 10분 잠겨요." },
   { id: "1.2", title: "교사 가입", href: "/signup", who: ["teacher", "admin"], body: "로그인 화면의 '교사 가입'에서 학교 인증코드로 가입해요. 맨 처음 가입한 선생님이 관리자가 돼요." },
   { id: "2.1", title: "학생 등록", href: "/students/new", who: ["teacher", "homeroom", "admin"], body: "학생 등록에서 엑셀 양식을 받아 채운 뒤 올리거나, 한 명씩 추가해요. 열 이름이 달라도 AI가 맞춰 줘요. 가명ID는 자동으로 붙어요." },
-  { id: "3.1", title: "프로그램 등록과 설문 발행", href: "/teacher/programs/new", who: ["teacher", "homeroom", "admin"], body: "프로그램·자료 → 새 프로그램. 계획서나 기안문(PDF·캡처)을 올리면 이름·영역·기간·대상을 AI가 채워요. 확인 후 등록하면 대상 학생 화면에 설문과 서류 제출 칸이 열려요." },
+  { id: "3.1", title: "프로그램 등록과 설문 발행", href: "/teacher/programs/new", who: ["teacher", "homeroom", "admin"], body: "프로그램 → 새 프로그램. 계획서나 기안문(PDF·캡처)을 올리면 이름·영역·기간·대상을 AI가 채워요. 확인 후 등록하면 대상 학생 화면에 설문과 서류 제출 칸이 열려요." },
   { id: "3.2", title: "응답 현황과 미응답 알림", href: "/teacher/programs", who: ["teacher", "homeroom", "admin"], body: "프로그램 상세에서 응답률, 미응답 학생, 초안 상태를 봐요. 미응답 독촉 문구를 AI로 만들고 확인 후 보내요." },
   { id: "4.1", title: "제출 서류 올리기", href: "/teacher/programs", who: ["teacher", "homeroom", "admin"], body: "프로그램 상세 → 자료 관리에서 여러 파일을 한 번에 올려요. 파일 이름의 학번·이름으로 학생과 자동 연결되고, 안 되면 직접 지정해요." },
   { id: "4.2", title: "합본 PDF 나누기", href: "/teacher/programs", who: ["teacher", "homeroom", "admin"], body: "자료 관리에서 합본 파일의 '페이지 나누기'를 누르세요. 쪽 구간마다 학생을 고르거나, N쪽씩 나누거나, 첫 쪽 이름으로 자동 인식할 수 있어요." },

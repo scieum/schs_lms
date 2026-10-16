@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveLength } from "./length";
 import {
-  addDays, afterAttempt, monthGrid, programsInMonth, shiftMonth, buildQuestions, checkDraft, ddayLabel, effectiveStatus, FIXED_QUESTIONS, findIdentity, keywords, latestVersion,
+  addDays, afterAttempt, monthGrid, programsInMonth, shiftMonth, weekBars, buildQuestions, checkDraft, ddayLabel, effectiveStatus, FIXED_QUESTIONS, findIdentity, keywords, latestVersion,
   maskIdentity, matchFileName, programGates, programStage, quickSplit, reviewStatus, sampleDraft, studentStage, summarizeErrors,
   validateAnswers, validateRanges, errorAdvice, weekTodos, responseDigest, similarSentences, similarity, rephraseRule, type DraftJob, type DraftVersion,
 } from "./program";
@@ -198,5 +198,22 @@ describe("전체 일정 캘린더", () => {
     expect(programsInMonth(ps, "2026-10")).toHaveLength(2);
     expect(shiftMonth("2026-12", 1)).toBe("2027-01");
     expect(shiftMonth("2026-01", -1)).toBe("2025-12");
+  });
+});
+
+describe("캘린더 막대", () => {
+  const week = ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18"];
+  it("주를 넘는 프로그램은 잘려 이어지고, 겹치면 다른 줄", () => {
+    const bars = weekBars(week, [
+      { id: "a", startDate: "2026-10-07", endDate: "2026-10-26" },
+      { id: "b", startDate: "2026-10-14", endDate: "2026-10-21" },
+      { id: "c", startDate: "2026-10-12", endDate: "2026-10-13" },
+    ]);
+    const by = Object.fromEntries(bars.map((b) => [b.id, b]));
+    expect(by.a).toMatchObject({ from: 0, to: 6, starts: false, ends: false });
+    expect(by.b).toMatchObject({ from: 2, to: 6, starts: true, ends: false });
+    expect(by.c).toMatchObject({ from: 0, to: 1, starts: true, ends: true });
+    expect(by.c.lane).toBe(1);
+    expect(by.b.lane).toBe(1);
   });
 });

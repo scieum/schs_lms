@@ -676,3 +676,22 @@ export function shiftMonth(ym: string, n: number): string {
   const d = new Date(Date.UTC(y, m - 1 + n, 1));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
+
+export interface WeekBar { id: string; from: number; to: number; lane: number; starts: boolean; ends: boolean }
+
+/** 한 주(월~일 7칸)에 프로그램을 이어진 막대로 놓는다. 겹치면 아래 줄(lane)로 내린다 */
+export function weekBars(week: string[], list: Pick<Program, "id" | "startDate" | "endDate">[]): WeekBar[] {
+  const first = week[0];
+  const last = week[week.length - 1];
+  const lanes: number[] = []; // lane 마다 마지막으로 찬 칸
+  return list
+    .filter((p) => p.startDate <= last && p.endDate >= first)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate) || b.endDate.localeCompare(a.endDate))
+    .map((p) => {
+      const from = Math.max(0, week.indexOf(p.startDate < first ? first : p.startDate));
+      const to = p.endDate > last ? week.length - 1 : week.indexOf(p.endDate);
+      let lane = lanes.findIndex((end) => end < from);
+      if (lane === -1) { lane = lanes.length; lanes.push(to); } else lanes[lane] = to;
+      return { id: p.id, from, to, lane, starts: p.startDate >= first, ends: p.endDate <= last };
+    });
+}
