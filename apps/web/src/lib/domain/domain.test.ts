@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { can, homePath } from "./policy";
 import { checkNewPassword } from "./password";
-import { afterFailure, afterSuccess, isLocked, MAX_FAILS } from "./lockout";
+import { afterFailure, afterSuccess, isAdminLock, isLocked, MAX_FAILS } from "./lockout";
 import { checkRows, makeStudentNo, matchHeaders, nextPseudonymIds, normalizeGender, summarize } from "./roster";
 import type { Student, Teacher, Viewer } from "./types";
 
@@ -50,6 +50,11 @@ describe("비밀번호 규칙", () => {
 });
 
 describe("로그인 잠금", () => {
+  it("관리자가 잠근 계정은 자동 잠금과 구분한다", () => {
+    const now = new Date("2026-10-16T09:00:00Z");
+    expect(isAdminLock({ failedCount: 0, lockedUntil: "9999-12-31T00:00:00Z" }, now)).toBe(true);
+    expect(isAdminLock(afterFailure({ failedCount: MAX_FAILS - 1, lockedUntil: null }, now), now)).toBe(false);
+  });
   const now = new Date("2026-10-16T09:00:00Z");
   it("5번 틀리면 10분 잠기고, 성공하면 초기화", () => {
     let s = afterSuccess();

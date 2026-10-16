@@ -9,7 +9,7 @@ export const NEIS_MAX_BYTES: Record<DraftCategory, number> = {
   세특: 1500,
   "창체-자율": 1500,
   "창체-동아리": 1500,
-  "창체-진로": 1500,
+  "창체-진로": 2100, // 진로활동 특기사항은 700자
 };
 /** 하한 = 최대 × 비율 (rules.yaml length.min_ratio 와 같은 값) */
 export const MIN_RATIO = 0.6;

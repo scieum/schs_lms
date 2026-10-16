@@ -1,0 +1,503 @@
+// 프로그램·설문·제출 서류·생기부 초안 파이프라인의 순수 규칙.
+// 화면·서버 액션·저장소가 같은 판정을 쓰도록 여기 한 곳에 둔다 (부수효과 없음).
+import { checkLength, type DraftCategory, type LengthRange, type LengthUnit } from "./length";
+import type { Student } from "./types";
+
+// ---------- 프로그램 ----------
+
+export const AREAS: DraftCategory[] = ["세특", "창체-자율", "창체-동아리", "창체-진로"];
+export const AREA_LABEL: Record<DraftCategory, string> = {
+  세특: "교과세특",
+  "창체-자율": "창체 · 자율",
+  "창체-동아리": "창체 · 동아리",
+  "창체-진로": "창체 · 진로",
+};
+export function isArea(v: string): v is DraftCategory {
+  return (AREAS as string[]).includes(v);
+}
+
+/** 초안 근거: 설문 응답 · 학생 제출 서류 · 둘 다 (설문 없이 서류만으로도 만든다) */
+export type EvidenceSource = "survey" | "docs" | "both";
+export const SOURCE_LABEL: Record<EvidenceSource, string> = { survey: "설문", docs: "서류", both: "설문 + 서류" };
+export const usesSurvey = (s: EvidenceSource) => s !== "docs";
+export const usesDocs = (s: EvidenceSource) => s !== "survey";
+
+export type ProgramStatus = "draft" | "open" | "closed";
+
+export interface Question {
+  id: string;
+  title: string;
+  prompt: string;
+  fixed: boolean;
+  minChars: number;
+}
+
+export interface Program {
+  id: string;
+  ownerId: string;
+  title: string;
+  subject: string | null;
+  area: DraftCategory;
+  unit: LengthUnit;
+  max: number;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD (설문·서류 마감)
+  source: EvidenceSource;
+  requestDocs: boolean;
+  docKinds: string[];
+  questions: Question[];
+  targetIds: string[];
+  overview: string;
+  status: ProgramStatus;
+  createdAt: string;
+}
+
+export const MIN_ANSWER_CHARS = 30;
+export const MAX_ANSWER_CHARS = 500;
+export const MAX_EXTRA_QUESTIONS = 2;
+
+/** 고정 4문항 (PRD F2-2) */
+export const FIXED_QUESTIONS: Question[] = [
+  { id: "q1", title: "활동 내용", prompt: "어떤 활동을 했나요?", fixed: true, minChars: MIN_ANSWER_CHARS },
+  { id: "q2", title: "배운 점", prompt: "활동을 통해 무엇을 배웠나요?", fixed: true, minChars: MIN_ANSWER_CHARS },
+  { id: "q3", title: "느낀 점", prompt: "활동하며 어떤 생각이 들었나요?", fixed: true, minChars: MIN_ANSWER_CHARS },
+  { id: "q4", title: "후속 계획", prompt: "무엇을 더 해보고 싶나요?", fixed: true, minChars: MIN_ANSWER_CHARS },
+];
+
+/** 고정 4문항 + 추가 0~2문항. 빈 문항은 빼고, 2개를 넘으면 오류 */
+export function buildQuestions(extra: string[]): Question[] | string {
+  const list = extra.map((q) => q.trim()).filter(Boolean);
+  if (list.length > MAX_EXTRA_QUESTIONS) return `추가 문항은 ${MAX_EXTRA_QUESTIONS}개까지예요`;
+  if (list.some((q) => q.length > 100)) return "문항은 100자까지 쓸 수 있어요";
+  return [
+    ...FIXED_QUESTIONS,
+    ...list.map((q, i) => ({ id: `q${5 + i}`, title: `추가 ${i + 1}`, prompt: q, fixed: false, minChars: MIN_ANSWER_CHARS })),
+  ];
+}
+
+export const DEFAULT_DOC_KINDS = ["탐구 보고서", "활동지", "소감문"];
+
+// ---------- 날짜 ----------
+
+const DAY = 86400000;
+const dayNum = (ymd: string) => Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +ymd.slice(8, 10)) / DAY;
+
+/** 마감까지 남은 날 (오늘 마감 = 0, 지났으면 음수) */
+export function daysLeft(endDate: string, today: string): number {
+  return dayNum(endDate) - dayNum(today);
+}
+
+/** "D-4" · "D-day" · "마감" */
+export function ddayLabel(endDate: string, today: string): string {
+  const n = daysLeft(endDate, today);
+  if (n < 0) return "마감";
+  return n === 0 ? "D-day" : `D-${n}`;
+}
+
+/** 날짜 더하기 (YYYY-MM-DD) */
+export function addDays(ymd: string, n: number): string {
+  return new Date((dayNum(ymd) + n) * DAY).toISOString().slice(0, 10);
+}
+
+/** 10.13 형식 */
+export const md = (ymd: string) => `${+ymd.slice(5, 7)}.${String(+ymd.slice(8, 10)).padStart(2, "0")}`;
+
+/** 마감이 지나면 닫힌 것으로 본다 */
+export function effectiveStatus(p: Pick<Program, "status" | "endDate">, today: string): ProgramStatus {
+  if (p.status === "open" && daysLeft(p.endDate, today) < 0) return "closed";
+  return p.status;
+}
+
+// ---------- 설문 응답 ----------
+
+export interface SurveyResponse {
+  id: string;
+  programId: string;
+  studentId: string;
+  answers: Record<string, string>;
+  /** null 이면 임시 저장 */
+  submittedAt: string | null;
+  updatedAt: string;
+}
+
+/** 제출 검사: 모든 문항에 최소 글자 이상. 임시 저장은 길이 상한만 본다 */
+export function validateAnswers(questions: Question[], answers: Record<string, string>, submit: boolean): Record<string, string> {
+  const errors: Record<string, string> = {};
+  for (const q of questions) {
+    const a = (answers[q.id] ?? "").trim();
+    if (a.length > MAX_ANSWER_CHARS) errors[q.id] = `${MAX_ANSWER_CHARS}자까지 쓸 수 있어요`;
+    else if (submit && a.length < q.minChars) errors[q.id] = `${q.minChars}자 이상 써 주세요 (지금 ${a.length}자)`;
+  }
+  return errors;
+}
+
+export function answeredCount(questions: Question[], answers: Record<string, string>): number {
+  return questions.filter((q) => (answers[q.id] ?? "").trim().length >= q.minChars).length;
+}
+
+export function responseRate(targets: number, submitted: number): number {
+  return targets === 0 ? 0 : Math.round((submitted / targets) * 100);
+}
+
+// ---------- 제출 서류 ----------
+
+/** matched 학생 연결됨 · needs_review 확인 필요 · bundle 합본(나누기 전) · split_done 나눈 원본 */
+export type MaterialStatus = "matched" | "needs_review" | "bundle" | "split_done";
+export type MatchedBy = "studentNo" | "name" | "manual" | "ai" | "split" | "student" | null;
+
+export interface Material {
+  id: string;
+  programId: string;
+  studentId: string | null;
+  fileName: string;
+  mime: string;
+  size: number;
+  pages: number | null;
+  filePath: string;
+  status: MaterialStatus;
+  matchedBy: MatchedBy;
+  /** 서류에서 읽은 글 (이름·학번은 가린 뒤 저장) */
+  text: string | null;
+  uploaderId: string;
+  createdAt: string;
+}
+
+export const MATERIAL_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "text/plain"] as const;
+export const MATERIAL_MAX_BYTES = 50 * 1024 * 1024;
+
+/**
+ * 파일 이름의 학번·이름으로 학생 찾기 (T6 자동 매칭).
+ * 예: "20312_김민준_탐구보고서.pdf". 학번이 먼저, 이름은 대상 중 한 명일 때만
+ */
+export function matchFileName(fileName: string, students: Student[]): { studentId: string; by: "studentNo" | "name" } | null {
+  const base = fileName.replace(/\.[^.]+$/, "");
+  for (const m of base.matchAll(/(?<!\d)(\d{5})(?!\d)/g)) {
+    const s = students.find((x) => x.studentNo === m[1]);
+    if (s) return { studentId: s.id, by: "studentNo" };
+  }
+  const flat = base.replace(/\s/g, "");
+  const hits = students.filter((s) => s.name.length >= 2 && flat.includes(s.name));
+  // "이수아"와 "수아"처럼 겹치면 긴 이름이 이긴다
+  const longest = hits.filter((s) => !hits.some((o) => o !== s && o.name.length > s.name.length && o.name.includes(s.name)));
+  if (longest.length === 1) return { studentId: longest[0].id, by: "name" };
+  return null;
+}
+
+/** 합본으로 볼 파일: 여러 학생 것이 한 PDF 에 (파일 이름에 "합본" 또는 쪽수가 많음) */
+export function looksLikeBundle(fileName: string, pages: number | null): boolean {
+  return /합본|전체|모음|bundle/i.test(fileName) || (pages ?? 0) >= 12;
+}
+
+// ---------- 개인정보 가림 ----------
+
+/**
+ * 이름·학번을 가린다. AI에 보내기 전·서류 글을 저장하기 전에 쓴다.
+ * 이름은 성을 뺀 이름(2글자 이상)도 같이 가린다.
+ */
+export function maskIdentity(text: string, people: { name: string; studentNo: string }[], label = "○○"): string {
+  let out = text;
+  const nos = [...new Set(people.map((p) => p.studentNo).filter(Boolean))];
+  for (const no of nos) out = out.replace(new RegExp(`(?<!\\d)${no}(?!\\d)`, "g"), "#####");
+  const names = new Set<string>();
+  for (const p of people) {
+    const n = p.name.replace(/\s/g, "");
+    if (n.length >= 2) names.add(n);
+    if (n.length >= 3) names.add(n.slice(1));
+  }
+  for (const n of [...names].sort((a, b) => b.length - a.length)) out = out.split(n).join(label);
+  return out;
+}
+
+/** 실명·학번이 남아 있는지 (G1 ③, 초안 자동 검사) */
+export function findIdentity(text: string, people: { name: string; studentNo: string }[]): string[] {
+  const found: string[] = [];
+  for (const p of people) {
+    if (p.name.length >= 2 && text.includes(p.name)) found.push("실명");
+    if (p.studentNo && new RegExp(`(?<!\\d)${p.studentNo}(?!\\d)`).test(text)) found.push("학번");
+  }
+  return [...new Set(found)];
+}
+
+// ---------- 합본 PDF 나누기 ----------
+
+export interface PageRange {
+  from: number;
+  to: number;
+  studentId: string | null;
+}
+
+/** 쪽 구간 검사: 1..pages 안, from ≤ to, 겹침 없음, 학생 지정 필수, 같은 학생 두 번 금지 */
+export function validateRanges(ranges: PageRange[], pages: number): string | null {
+  if (ranges.length === 0) return "구간을 하나 이상 넣어 주세요";
+  const sorted = [...ranges].sort((a, b) => a.from - b.from);
+  for (const r of sorted) {
+    if (!Number.isInteger(r.from) || !Number.isInteger(r.to) || r.from < 1 || r.to > pages || r.from > r.to) {
+      return `${r.from}–${r.to}쪽은 1–${pages}쪽 안에서 골라 주세요`;
+    }
+    if (!r.studentId) return `${r.from}–${r.to}쪽의 학생을 골라 주세요`;
+  }
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].from <= sorted[i - 1].to) return `${sorted[i - 1].from}–${sorted[i - 1].to}쪽과 ${sorted[i].from}–${sorted[i].to}쪽이 겹쳐요`;
+  }
+  const ids = sorted.map((r) => r.studentId);
+  if (new Set(ids).size !== ids.length) return "한 학생에게 구간을 두 번 줄 수 없어요";
+  return null;
+}
+
+/** 빠른 나누기: N쪽씩, 명렬표 순서로 학생을 배정한다 */
+export function quickSplit(pages: number, per: number, studentIds: string[]): PageRange[] {
+  const n = Math.max(1, Math.floor(per));
+  const out: PageRange[] = [];
+  for (let from = 1, i = 0; from <= pages; from += n, i++) {
+    out.push({ from, to: Math.min(pages, from + n - 1), studentId: studentIds[i] ?? null });
+  }
+  return out;
+}
+
+export const rangeLabel = (r: { from: number; to: number }) => (r.from === r.to ? `${r.from}쪽` : `${r.from}–${r.to}쪽`);
+
+// ---------- 초안 파이프라인 ----------
+
+export type DraftState = "PENDING" | "RUNNING" | "DONE" | "ERROR";
+export const MAX_ATTEMPTS = 3;
+
+export interface DraftJob {
+  id: string;
+  programId: string;
+  studentId: string;
+  state: DraftState;
+  attempts: number;
+  error: string | null;
+  unit: LengthUnit;
+  max: number;
+  /** 관리자가 담당 교사에게 수동 작성을 요청한 때 */
+  manualRequestedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 생기부 기록 상태: draft 초안 · finalized 확정(교사만) · rejected 반려(사유 필수) */
+export type DraftVersionStatus = "draft" | "finalized" | "rejected";
+export type DraftSource = "ai" | "sample" | "manual";
+
+/** 초안 버전. 고칠 때마다 새로 추가하고 지우거나 덮어쓰지 않는다 (C4) */
+export interface DraftVersion {
+  id: string;
+  jobId: string;
+  programId: string;
+  studentId: string;
+  content: string;
+  status: DraftVersionStatus;
+  reason: string | null;
+  source: DraftSource;
+  authorId: string | null;
+  createdAt: string;
+}
+
+/** 한 번 시도한 결과로 다음 상태를 정한다. 실패는 3회까지 다시 시도하고, 그래도 안 되면 ERROR */
+export function afterAttempt(job: Pick<DraftJob, "attempts">, ok: boolean, error?: string): Pick<DraftJob, "state" | "attempts" | "error"> {
+  const attempts = job.attempts + 1;
+  if (ok) return { state: "DONE", attempts, error: null };
+  if (attempts >= MAX_ATTEMPTS) return { state: "ERROR", attempts, error: `${MAX_ATTEMPTS}회 재시도 실패 · 수동 작성 필요${error ? ` (${error})` : ""}` };
+  return { state: "PENDING", attempts, error: error ?? null };
+}
+
+/** 학생별 마지막 버전 */
+export function latestVersion(versions: DraftVersion[], jobId: string): DraftVersion | undefined {
+  let best: DraftVersion | undefined;
+  for (const v of versions) if (v.jobId === jobId && (!best || best.createdAt <= v.createdAt)) best = v;
+  return best;
+}
+
+export type ReviewStatus = "검토 대기" | "확정" | "반려" | "생성 중" | "생성 실패" | "대기";
+export function reviewStatus(job: DraftJob | undefined, latest: DraftVersion | undefined): ReviewStatus {
+  if (!job) return "대기";
+  if (latest?.status === "finalized") return "확정";
+  if (latest?.status === "rejected") return "반려";
+  if (job.state === "ERROR") return latest ? "검토 대기" : "생성 실패";
+  if (job.state === "PENDING" || job.state === "RUNNING") return "생성 중";
+  return latest ? "검토 대기" : "생성 실패";
+}
+
+// ---------- 초안 자동 검사 ----------
+
+/** 받침이 ㅁ 인 글자(함·음·임·됨·봄…)로 끝나는 문장인가 — NEIS 개조식 어미 */
+function endsWithNominal(sentence: string): boolean {
+  const s = sentence.replace(/[\s'"’”」』)]+$/, "");
+  const ch = s.charCodeAt(s.length - 1);
+  if (ch < 0xac00 || ch > 0xd7a3) return false;
+  return (ch - 0xac00) % 28 === 16;
+}
+
+/** 문장 나누기: 마침표 기준 (따옴표 안 마침표는 드물어 무시) */
+export function sentences(text: string): string[] {
+  return text
+    .replace(/\s+/g, " ")
+    .split(/(?<=\.)\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** 근거 글에서 뽑은 핵심 낱말 (2글자 이상 한글 낱말, 흔한 말 제외) */
+const STOP = new Set(["그리고", "그래서", "하지만", "활동", "이번", "통해", "대해", "정말", "많이", "있어요", "했어요", "했다", "것을", "것이", "수업", "생각", "학생", "있는", "하는", "되는", "에서", "으로"]);
+export function keywords(text: string): string[] {
+  const words = text.match(/[가-힣A-Za-z0-9]{2,}/g) ?? [];
+  const stems = words.map((w) => w.replace(/(을|를|이|가|은|는|에서|으로|로|와|과|의|에|도|만|까지|부터|이라|라고|했어요|했다|해요|하고|하여|해서)$/, ""));
+  return [...new Set(stems.filter((w) => w.length >= 2 && !STOP.has(w)))];
+}
+
+export interface EvidenceItem {
+  /** "설문 Q1" · "서류 탐구보고서.pdf" */
+  label: string;
+  text: string;
+}
+
+/** 학생 한 명의 근거: 설문 답(답한 문항) + 연결된 서류. 프로그램의 근거 설정을 따른다 */
+export function buildEvidence(
+  program: Pick<Program, "source" | "questions">,
+  response: Pick<SurveyResponse, "answers" | "submittedAt"> | null | undefined,
+  materials: Pick<Material, "fileName" | "text" | "status">[],
+): EvidenceItem[] {
+  const out: EvidenceItem[] = [];
+  if (usesSurvey(program.source) && response?.submittedAt) {
+    program.questions.forEach((q, i) => {
+      const a = (response.answers[q.id] ?? "").trim();
+      if (a) out.push({ label: `설문 Q${i + 1} ${q.title}`, text: a });
+    });
+  }
+  if (usesDocs(program.source)) {
+    for (const m of materials) if (m.status === "matched") out.push({ label: `서류 ${m.fileName}`, text: m.text ?? "" });
+  }
+  return out;
+}
+
+export interface DraftCheck {
+  length: { ok: boolean; value: number; reason?: "too_short" | "too_long" };
+  identity: { ok: boolean; found: string[] };
+  ending: { ok: boolean; bad: number; total: number };
+  evidence: { ok: boolean; hits: string[]; total: number };
+  /** 다시 만들어야 하는 문제 (분량 초과·실명/학번·빈 글) */
+  hardFail: string | null;
+  allOk: boolean;
+}
+
+/** 초안 자동 검사: 글자수 범위 · 학번·실명 0건 · 어미 '~함.' · 근거 반영 */
+export function checkDraft(text: string, opts: { range: LengthRange; people: { name: string; studentNo: string }[]; evidence: EvidenceItem[] }): DraftCheck {
+  const body = text.trim();
+  const len = checkLength(body, opts.range);
+  const found = findIdentity(body, opts.people);
+  const ss = sentences(body);
+  const bad = ss.filter((s) => !endsWithNominal(s.replace(/\.$/, "")) || !s.endsWith(".")).length;
+  const draftWords = new Set(keywords(body));
+  const hits = opts.evidence.filter((e) => keywords(e.text).some((k) => draftWords.has(k) || body.includes(k))).map((e) => e.label);
+  const needHits = Math.min(1, opts.evidence.length);
+  const hardFail = !body ? "빈 초안" : len.reason === "too_long" ? "분량 초과" : found.length ? `${found.join("·")} 포함` : null;
+  const result = {
+    length: { ok: len.ok, value: len.value, reason: len.reason },
+    identity: { ok: found.length === 0, found },
+    ending: { ok: ss.length > 0 && bad === 0, bad, total: ss.length },
+    evidence: { ok: hits.length >= needHits, hits, total: opts.evidence.length },
+    hardFail,
+  };
+  return { ...result, allOk: !hardFail && result.length.ok && result.ending.ok && result.evidence.ok };
+}
+
+/** 분량을 넘으면 문장 단위로 뒤에서부터 잘라 맞춘다 (자르지 못하면 그대로) */
+export function fitToLength(text: string, range: LengthRange): string {
+  const ss = sentences(text);
+  while (ss.length > 1 && checkLength(ss.join(" "), range).reason === "too_long") ss.pop();
+  return ss.join(" ");
+}
+
+// ---------- AI 키가 없을 때의 예시 초안 (데모) ----------
+
+const clip = (s: string, n = 48) => {
+  const first = s.split(/[.!?…]\s/)[0] ?? s;
+  const one = first.replace(/['"‘’“”]/g, "").replace(/[.!?~…]+/g, " ").replace(/\s+/g, " ").trim();
+  return one.length > n ? `${one.slice(0, n).trim()}…` : one;
+};
+
+/**
+ * 결정적 예시 초안. AI가 꺼진 데모에서도 흐름을 볼 수 있게 한다 (화면에 "예시" 표시).
+ * 입력은 이미 가림 처리된 글이어야 한다.
+ */
+export function sampleDraft(input: {
+  title: string;
+  area: DraftCategory;
+  answers: string[];
+  docs: { kind: string; text: string | null }[];
+  careerGoal: string | null;
+  range: LengthRange;
+}): string {
+  const [a1, a2, a3, a4] = input.answers.map((a) => (a ?? "").trim());
+  const out: string[] = [];
+  out.push(`${input.title} 활동에 참여하여 스스로 정한 주제로 탐구를 수행함.`);
+  if (a1) out.push(`활동 과정에서 '${clip(a1)}'라고 정리하며 탐구 과정을 구체적으로 기록함.`);
+  for (const d of input.docs.slice(0, 2)) {
+    out.push(d.text ? `제출한 ${d.kind}에서 '${clip(d.text, 40)}'라는 내용을 근거로 결과를 정리함.` : `제출한 ${d.kind}에 탐구 과정과 결과를 체계적으로 정리함.`);
+  }
+  if (a2) out.push(`활동을 통해 '${clip(a2)}'라는 점을 배웠다고 밝힘.`);
+  if (a3) out.push(`'${clip(a3)}'라는 소감에서 스스로 돌아보는 태도를 보임.`);
+  if (a4) out.push(`후속 계획으로 '${clip(a4)}'를 제시하며 탐구를 이어가려는 의지를 보임.`);
+  if (input.careerGoal) out.push(`희망 진로인 ${input.careerGoal} 분야와 활동을 연결하여 의미를 해석함.`);
+  if (input.area === "세특") out.push("교과 개념을 실제 현상에 적용하여 설명하는 능력이 돋보임.");
+  else out.push("활동 전 과정에 성실하게 참여하는 모습을 보임.");
+  return fitToLength(out.join(" "), input.range);
+}
+
+// ---------- 파이프라인 현황 (A4) ----------
+
+export type Stage = "S1" | "S2" | "S3" | "S4" | "S5";
+export const STAGE_LABEL: Record<Stage, string> = { S1: "수집", S2: "초안", S3: "검사", S4: "확정", S5: "전달" };
+
+/**
+ * 학생 한 명이 지금 어느 단계인가.
+ * S1 근거 수집 · S2 초안 생성(대기·생성 중·실패) · S3 검사·교사 검토 대기 · S4 확정 · S5 전달(마감 지난 프로그램의 확정본)
+ */
+export function studentStage(o: { job?: DraftJob; latest?: DraftVersion; closed: boolean }): Stage {
+  if (!o.job) return "S1";
+  if (o.latest?.status === "finalized") return o.closed ? "S5" : "S4";
+  if (o.job.state !== "DONE" && !(o.job.state === "ERROR" && o.latest)) return "S2";
+  return "S3";
+}
+
+export type GateTag = "통과" | "진행" | "대기";
+/** 프로그램의 게이트 G1~G4 (수집·초안·검토·전달) */
+export function programGates(stages: Stage[], hasError: boolean): GateTag[] {
+  const num = stages.map((s) => Number(s.slice(1)));
+  const gate = (k: number): GateTag => {
+    if (num.length > 0 && num.every((x) => x > k)) return "통과";
+    return num.some((x) => x >= k) ? "진행" : "대기";
+  };
+  const g = [gate(1), gate(2), gate(3), gate(4)];
+  if (hasError && g[1] === "통과") g[1] = "진행";
+  return g;
+}
+
+/** 프로그램 대표 단계 = 가장 뒤처진 학생의 단계 */
+export function programStage(stages: Stage[]): Stage {
+  if (stages.length === 0) return "S1";
+  return stages.reduce((a, b) => (Number(b.slice(1)) < Number(a.slice(1)) ? b : a));
+}
+
+/** 실패 원인을 묶어 센다 (A4 "실패 원인 요약" — 규칙 기반) */
+export function summarizeErrors(errors: (string | null)[]): { cause: string; n: number }[] {
+  const m = new Map<string, number>();
+  for (const e of errors) {
+    if (!e) continue;
+    const cause = /분량 초과/.test(e) ? "글자 수 초과" : /실명|학번/.test(e) ? "실명·학번 포함" : /근거|자료 없음/.test(e) ? "근거 부족" : /AI|키|사용량|호출/.test(e) ? "AI 호출 실패" : "기타";
+    m.set(cause, (m.get(cause) ?? 0) + 1);
+  }
+  return [...m.entries()].map(([cause, n]) => ({ cause, n })).sort((a, b) => b.n - a.n);
+}
+
+// ---------- 학생 할 일 ----------
+
+export interface StudentTodo {
+  programId: string;
+  title: string;
+  kind: "survey" | "docs";
+  endDate: string;
+  /** 설문: 답한 문항 / 전체, 서류: 올린 수 */
+  progress: string;
+}

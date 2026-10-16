@@ -1,0 +1,91 @@
+import "server-only";
+import { z } from "zod";
+import { UNIT_LABEL, type LengthRange } from "@/lib/domain/length";
+import type { Student } from "@/lib/domain/types";
+import { fitToMax, sampleDraft, scrubIdentity, type RecordArea } from "@/lib/domain/writing";
+import { polishStyle } from "@/lib/domain/neis-style";
+import { aiEnabled, aiJson } from "./claude";
+import { recordSystemPrompt } from "./record-prompts";
+
+// 생기부 기록 초안: 교과 세특 · 창체 특기사항(자율·자치/동아리/진로) · 행발.
+// - 교사가 "AI 초안"을 눌렀을 때만 부른다. 결과는 편집기에 채우기만 하고 저장은 교사가 한다.
+// - AI에는 가명ID만 보낸다. 교사 메모·누가기록 속 이름·학번도 가명ID로 바꾼 뒤 보낸다.
+// - 키가 없으면(데모) 메모·누가기록을 이어 붙인 결정적 예시 초안을 돌려준다(화면에 "예시").
+
+export type WriteKind = "세특" | RecordArea;
+
+export interface WriteInput {
+  kind: WriteKind;
+  student: Student;
+  /** 세특 과목명, 동아리 이름 */
+  context?: string;
+  memo: string;
+  logs: { date: string; content: string }[];
+  range: LengthRange;
+}
+
+export type WriteResult = { text: string; sample: boolean; notice?: string };
+
+const Out = z.object({ draft: z.string() });
+
+// 문체·구성 규칙은 속초고 세특 프롬프트(노션)를 옮긴 record-prompts.ts 를 따른다
+const APP_RULES = `
+앱 규칙:
+- 교사가 준 관찰 메모와 누가기록만 근거로 쓴다. 근거가 하나의 활동이면 (주제)와 (활동)으로, 여러 건이면 활동 블록 여러 개로 본다.
+- 교외 수상, 공인 어학 성적, 기관·대학·회사 이름, 부모 직업은 쓰지 않는다.
+- 한 문단으로 쓰고 draft 에 최종본만 넣는다.`;
+
+function target(range: LengthRange): string {
+  const unit = UNIT_LABEL[range.unit];
+  const chars = range.unit === "bytes" ? ` (한글 약 ${Math.floor(range.min / 3)}~${Math.floor(range.max / 3)}자)` : "";
+  return `${range.min.toLocaleString()}~${range.max.toLocaleString()}${unit}${chars}`;
+}
+
+export async function writeRecord(input: WriteInput): Promise<WriteResult> {
+  const { student, range } = input;
+  const pid = student.pseudonymId;
+  // 교사가 이름을 적었어도 AI에는 가명ID만 간다
+  const memo = scrubIdentity(input.memo.trim(), student, pid).text;
+  const logs = input.logs.map((l) => ({ date: l.date, content: scrubIdentity(l.content, student, pid).text }));
+
+  const fallback = (notice?: string): WriteResult => ({
+    // 예시 초안은 서버 안에서만 만들므로 이름·학번을 지운 원문으로 만든다
+    text: polishStyle(sampleDraft({
+      memo: scrubIdentity(input.memo, student).text,
+      logs: input.logs.map((l) => scrubIdentity(l.content, student).text),
+      careerGoal: input.kind === "진로" || input.kind === "세특" ? student.careerGoal : null,
+      range,
+    })),
+    sample: true,
+    notice,
+  });
+
+  if (!memo && !logs.length) return { text: "", sample: false, notice: "관찰 메모나 누가기록이 있어야 초안을 만들 수 있어요" };
+  if (!aiEnabled()) return fallback("AI 키가 없어 메모·누가기록을 이어 붙인 예시 초안이에요");
+
+  const content = [
+    `학생: ${pid}`,
+    input.context ? `${input.kind === "세특" ? "과목" : "동아리"}: ${input.context}` : null,
+    student.careerGoal ? `희망 진로: ${student.careerGoal}` : null,
+    `분량: ${target(range)} 안에서 쓴다.`,
+    "",
+    "<교사 관찰 메모>",
+    memo || "(없음)",
+    "</교사 관찰 메모>",
+    "",
+    "<누가기록>",
+    logs.length ? logs.map((l, i) => `${i + 1}. [${l.date}] ${l.content}`).join("\n") : "(없음)",
+    "</누가기록>",
+  ]
+    .filter((x) => x !== null)
+    .join("\n");
+
+  const system = recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null) + APP_RULES;
+  const r = await aiJson(Out, { system, content, model: "write", maxTokens: 3000 });
+  if (!r.ok) return fallback(`${r.error} — 예시 초안을 대신 채웠어요`);
+
+  // 결과에 이름·학번·가명ID가 섞이면 지운다
+  const clean = polishStyle(scrubIdentity(r.data.draft, student).text.replaceAll(pid, ""));
+  const fitted = fitToMax(clean, range);
+  return { text: fitted, sample: false, notice: fitted !== clean ? "분량을 넘어 마지막 문장을 뺐어요" : undefined };
+}

@@ -4,6 +4,7 @@ import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { AiBanner, ButtonLink, Card, Segmented, StatTiles, Tag, cx } from "@/components/ui";
 import { measure, neisMax, UNIT_LABEL } from "@/lib/domain/length";
 import { latestByStudent, statusLabel, studentsInCourse } from "@/lib/domain/setuk";
+import { latestMemoByStudent } from "@/lib/domain/writing";
 import { schoolYear, type Course } from "@/lib/domain/curriculum";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
@@ -47,6 +48,7 @@ export default async function SetukPage({ searchParams }: Props) {
   const counts = { 확정: 0, "작성 중": 0, 미작성: 0 };
   for (const s of students) counts[statusLabel(latest.get(s.id))]++;
   const cur = selected ? latest.get(selected.id) : undefined;
+  const memo = selected ? latestMemoByStudent(await repo.listRecordMemos(`세특:${course.id}`, [selected.id])).get(selected.id) : undefined;
   const href = (studentId?: string) => `/teacher/setuk?course=${course.id}${studentId ? `&student=${studentId}` : ""}`;
 
   return (
@@ -73,7 +75,7 @@ export default async function SetukPage({ searchParams }: Props) {
           <Segmented active={myCourses.indexOf(course)} items={myCourses.map((c) => ({ label: short(c), href: `/teacher/setuk?course=${c.id}` }))} />
         )}
         <StatTiles items={[["학생", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
-        <AiBanner title="AI 초안" line="수업 관찰·과제 근거로 만든 초안이 있으면 여기에 불러와요" />
+        <AiBanner title="AI 세특 초안" line="관찰 메모를 적고 AI 초안을 누르면 NEIS 문장으로 채워요. 저장은 선생님이 해요" />
 
         {students.length === 0 ? (
           <Card>
@@ -118,6 +120,8 @@ export default async function SetukPage({ searchParams }: Props) {
                   unit={cur?.unit ?? "bytes"}
                   max={cur?.max ?? neisMax("세특", "bytes")}
                   confirmed={cur?.status === "confirmed"}
+                  who={{ name: selected.name, studentNo: selected.studentNo, grade: selected.grade, classNo: selected.classNo, number: selected.number }}
+                  memo={memo?.content ?? ""}
                 />
                 {cur && (
                   <p className="mt-3 text-[12px] text-mute">

@@ -42,7 +42,15 @@ export default async function LogsPage({ searchParams }: Props) {
         {area === "동아리" && myClubs.length > 1 && club && (
           <Segmented active={myClubs.indexOf(club)} items={myClubs.map((c) => ({ label: c.name, href: `/teacher/logs?area=${encodeURIComponent("동아리")}&club=${c.id}` }))} />
         )}
-        <AiBanner title="AI 특기사항 초안" line="쌓인 누가기록을 모아 학기말에 특기사항 초안으로 만들어요" />
+        <AiBanner
+          title="AI 특기사항 초안"
+          line="쌓인 누가기록을 모아 학기말에 특기사항 초안으로 만들어요"
+          action={
+            <ButtonLink href={`/teacher/write?area=${encodeURIComponent(area)}${club ? `&club=${club.id}` : ""}`} kind="soft" size="sm">
+              초안 쓰기
+            </ButtonLink>
+          }
+        />
 
         {area === "동아리" && !club ? (
           <Card>

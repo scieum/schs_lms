@@ -79,6 +79,7 @@ export function Landing() {
                 속초고 계정으로 시작하기 <ArrowRight size={18} />
               </Link>
               <a href="#process" className="rounded-control border border-white/20 px-6 py-3.5 font-medium text-[#c2caff] hover:bg-white/5">둘러보기</a>
+              <Link href="/signup" className="px-2 py-3.5 font-medium text-[#c2caff] underline-offset-4 hover:underline">선생님 가입</Link>
             </div>
           </div>
           <div className="flex flex-col gap-3">
@@ -196,7 +197,9 @@ export function Landing() {
       {/* Footer */}
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-10 text-sm text-mute md:px-8">
-          <Image src="/schs-logo.png" alt="SCHS" width={86} height={24} />
+          <Link href="/" aria-label="처음으로" className="w-fit">
+            <Image src="/schs-logo.png" alt="SCHS" width={86} height={24} />
+          </Link>
           <p>속초고등학교 교육과정부 · 학생·교직원 전용</p>
           <p>© 2026 속초고등학교 교육과정부</p>
         </div>

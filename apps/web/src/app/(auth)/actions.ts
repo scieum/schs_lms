@@ -2,7 +2,7 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { afterFailure, afterSuccess, isLocked, minutesLeft } from "@/lib/domain/lockout";
+import { afterFailure, afterSuccess, isAdminLock, isLocked, minutesLeft } from "@/lib/domain/lockout";
 import { checkNewPassword, PASSWORD_MESSAGES } from "@/lib/domain/password";
 import { homePath } from "@/lib/domain/policy";
 import { env } from "@/lib/server/env";
@@ -34,6 +34,9 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
     await bcrypt.compare(password, DUMMY_HASH);
     return { error: WRONG };
   }
+  if (isAdminLock(account, now)) {
+    return { error: "관리자가 잠근 계정이에요. 관리자 선생님께 풀어 달라고 요청해 주세요" };
+  }
   if (isLocked(account, now)) {
     return { error: `5번 틀려서 잠겼어요. ${minutesLeft(account, now)}분 뒤에 다시 시도해 주세요` };
   }
@@ -49,6 +52,7 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
   }
 
   await repo.updateAccount(account.id, afterSuccess());
+  await repo.adminTouchLogin(account.id);
   await repo.audit(account.id, "login", null);
   await createSession(account.id);
   if (account.mustChangePassword) redirect("/change-password");
@@ -60,12 +64,12 @@ export async function logout() {
   const id = await readSession();
   if (id) await repo.audit(id, "logout", null);
   await destroySession();
-  redirect("/login");
+  redirect("/");
 }
 
 export async function changePassword(_: FormState, form: FormData): Promise<FormState> {
   const v = await getViewer();
-  if (!v) redirect("/login");
+  if (!v) redirect("/");
   const next = String(form.get("password") ?? "");
   const confirm = String(form.get("confirm") ?? "");
   const problem = checkNewPassword(next, confirm, env.initialAuthCode);

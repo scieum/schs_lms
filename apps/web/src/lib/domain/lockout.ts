@@ -17,6 +17,11 @@ export function minutesLeft(s: LockState, now: Date): number {
   return Math.max(1, Math.ceil((new Date(s.lockedUntil).getTime() - now.getTime()) / 60000));
 }
 
+/** 관리자가 직접 잠근 계정 (잠금 시각이 자동 잠금 길이보다 훨씬 뒤) */
+export function isAdminLock(s: LockState, now: Date): boolean {
+  return isLocked(s, now) && new Date(s.lockedUntil!).getTime() - now.getTime() > 24 * 3600000;
+}
+
 /** 비밀번호가 틀렸을 때 다음 상태 */
 export function afterFailure(s: LockState, now: Date): LockState {
   // 잠금이 풀린 뒤 첫 실패는 1회부터 다시 센다

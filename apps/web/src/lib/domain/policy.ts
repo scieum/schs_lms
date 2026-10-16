@@ -11,7 +11,18 @@ export type Action =
   | "setuk.write" // 교과 세특 쓰기 (배정받은 과목만 — 액션에서 한 번 더 확인)
   | "logs.write" // 창체 누가기록 (동아리 지도교사·담임 — 학생별 권한은 activity.canLog)
   | "service.upload" // 봉사 확인서 올리기 (담당 교사)
-  | "service.receive"; // 봉사 확인서 받기·확인 (담임)
+  | "service.receive" // 봉사 확인서 받기·확인 (담임)
+  | "program.manage" // 프로그램 등록·설문 발행·자료 등록 (교사 — 남의 프로그램은 액션에서 한 번 더 확인)
+  | "draft.review" // 생기부 초안 생성·검토·확정 (교사 — 자기 프로그램만)
+  | "counsel.write" // 상담 기록 쓰기 (교사 — 담임은 반 학생 기록 전체 열람, 교과교사는 자기 것만)
+  | "record.write" // AI 기록 쓰기 공간 (세특·누가기록 특기사항·행발)
+  | "homeroom.view" // 우리 반 학생 기록 모아 보기 (담임·관리자)
+  | "scores.upload" // 성적 업로드 (담임·관리자)
+  | "minimum.view" // 수능 최저 판정 (담임·관리자)
+  | "night.manage" // 야간 자율학습 출석·승인 (담임·관리자)
+  | "pipeline.view" // 초안 생성 현황·오류 처리 (관리자)
+  | "offering.manage" // 과목 신청 개설·정원 (관리자)
+  | "student.self"; // 학생 본인 화면 (설문·제출·성적·생기부·추천·야자·과목 신청)
 
 function hasRole(v: Viewer, role: TeacherRole) {
   return v.kind === "teacher" && v.teacher.roles.includes(role);
@@ -33,13 +44,25 @@ export function can(v: Viewer, action: Action): boolean {
     case "setuk.write":
     case "logs.write":
     case "service.upload":
+    case "program.manage":
+    case "draft.review":
+    case "counsel.write":
+    case "record.write":
       return v.kind === "teacher";
     case "service.receive":
+    case "homeroom.view":
+    case "scores.upload":
+    case "minimum.view":
+    case "night.manage":
       return v.kind === "teacher" && (!!v.teacher.homeroom || isAdmin(v));
     case "account.manage":
     case "audit.view":
     case "curriculum.manage":
+    case "pipeline.view":
+    case "offering.manage":
       return isAdmin(v);
+    case "student.self":
+      return v.kind === "student";
   }
 }
 

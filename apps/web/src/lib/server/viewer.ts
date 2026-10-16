@@ -23,7 +23,7 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
 /** 로그인 필수 + 비밀번호 변경 강제 (C9) */
 export async function requireViewer(): Promise<Viewer> {
   const v = await getViewer();
-  if (!v) redirect("/login");
+  if (!v) redirect("/");
   if (v.mustChangePassword) redirect("/change-password");
   return v;
 }

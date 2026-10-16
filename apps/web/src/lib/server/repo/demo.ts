@@ -9,7 +9,7 @@ import type { NewServiceRecord, NewStudent, Repo } from "./types";
 // 데모 저장소: 서버 메모리에만 있다. 서버를 다시 켜면 처음 상태로 돌아간다.
 // 데모 비밀번호는 모두 demo1234 (김민준만 첫 로그인 상태라 인증코드 schs-2026)
 
-interface Store {
+export interface Store {
   accounts: Map<string, Account>;
   teachers: Map<string, Teacher>;
   students: Map<string, Student>;
@@ -50,6 +50,17 @@ function seed(): Store {
     ["s-3", 2, 3, 7, "박서준", "남", false],
     ["s-4", 2, 1, 11, "한지민", "여", false],
     ["s-5", 2, 2, 3, "최지우", "여", false],
+    // 2학년 3반 (박지훈 선생님 반) — Figma H1~H5 명단
+    ["s-6", 2, 3, 15, "이수아", "여", false],
+    ["s-7", 2, 3, 21, "정하은", "여", false],
+    ["s-8", 2, 3, 2, "오승우", "남", false],
+    ["s-9", 2, 3, 27, "최유진", "여", false],
+    ["s-10", 2, 3, 30, "한도윤", "남", false],
+    ["s-11", 2, 3, 18, "윤지호", "남", false],
+    ["s-12", 2, 3, 9, "서예린", "여", false],
+    ["s-13", 2, 3, 14, "문태오", "남", false],
+    ["s-14", 2, 3, 5, "배준혁", "남", false],
+    ["s-15", 2, 3, 16, "송유나", "여", false],
   ];
   S.forEach(([id, grade, classNo, number, name, gender, first], i) => {
     const studentNo = `${grade}${String(classNo).padStart(2, "0")}${String(number).padStart(2, "0")}`;
@@ -97,7 +108,8 @@ function seed(): Store {
   return { accounts, teachers, students, audit: [], courses, teacherGroups, teacherCourses, setuk, clubs, clubMembers, logs, service: [], files: new Map() };
 }
 
-function store(): Store {
+/** 모듈(modules/*)도 같은 데모 데이터(계정·학생·교사)를 읽고 쓸 때 쓴다 */
+export function store(): Store {
   if (!g.__schsDemo) g.__schsDemo = seed();
   return g.__schsDemo;
 }

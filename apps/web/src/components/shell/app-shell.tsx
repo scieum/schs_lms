@@ -41,6 +41,13 @@ export function AppShell({ viewer, children, demo }: { viewer: Viewer; children:
             데모 모드 · 가짜 데이터예요. 서버를 다시 켜면 처음 상태로 돌아가요
           </div>
         )}
+        {/* 모바일 머리: 로고 = 홈으로 */}
+        <div className="flex h-12 items-center border-b border-line bg-white px-4 md:hidden">
+          <Link href="/" className="flex items-center gap-2" aria-label="홈으로">
+            <Image src="/face.png" alt="" width={24} height={26} />
+            <Image src="/schs-logo.png" alt="속초고등학교 학생관리시스템" width={86} height={24} />
+          </Link>
+        </div>
         {children}
       </div>
       <TabBar tabs={tabsFor(viewer)} />

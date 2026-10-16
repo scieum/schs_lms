@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Eye, EyeOff, Info } from "lucide-react";
 import { Button, cx } from "@/components/ui";
@@ -83,6 +84,11 @@ export function LoginForm() {
           비밀번호를 잊었어요
         </button>
         {forgot && <p className="mt-2 text-[13px] text-sub">관리자 선생님께 초기화를 요청해 주세요</p>}
+        {!student && (
+          <p className="mt-3 text-[13px] text-mute">
+            처음이신가요? <Link href="/signup" className="font-medium text-key">교사 가입</Link>
+          </p>
+        )}
       </div>
     </form>
   );

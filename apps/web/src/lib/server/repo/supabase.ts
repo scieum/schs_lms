@@ -11,7 +11,7 @@ import type { NewServiceRecord, NewStudent, Repo } from "./types";
 // 모든 테이블은 RLS가 켜져 있고 정책이 없어서, 브라우저(anon) 접근은 전부 막힌다.
 
 let client: SupabaseClient | null = null;
-function db() {
+export function db() {
   client ??= createClient(env.supabaseUrl, env.supabaseServiceKey, { auth: { persistSession: false } });
   return client;
 }
@@ -25,7 +25,7 @@ const toStudent = (r: StudentRow): Student => ({ id: r.id, pseudonymId: r.pseudo
 const toTeacher = (r: TeacherRow): Teacher => ({ id: r.id, name: r.name, roles: r.roles, homeroom: r.homeroom_grade && r.homeroom_class ? { grade: r.homeroom_grade, classNo: r.homeroom_class } : null, dept: r.dept });
 
 // 다른 환경(데모)에서 만든 세션 쿠키처럼 UUID가 아닌 id는 조회하지 않고 "없음"으로 본다
-const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+export const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
 type CourseRow = { id: string; year: number; grade: number; semester: 1 | 2; subject: string; subject_group: SubjectGroup; course_type: Course["type"]; credits: number };
 type TeacherCourseRow = { teacher_id: string; course_id: string; classes: number[] };
@@ -49,7 +49,7 @@ const toService = (r: ServiceRow): ServiceRecord => ({
 });
 const BUCKET = "service-docs";
 
-function check<T>(res: { data: T; error: { message: string } | null }): T {
+export function check<T>(res: { data: T; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
   return res.data;
 }
