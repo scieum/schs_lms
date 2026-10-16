@@ -23,7 +23,13 @@ const ROLES = [
   { role: "관리자", img: "/face.png", items: ["명부·계정 관리", "비밀번호 초기화", "초안 생성 실패 모니터", "감사 로그"] },
 ];
 
-const SAFETY = ["확정 버튼은 선생님만", "상담 기록은 필요한 사람만", "고쳐도 기록은 남아요", "NEIS 글자수 자동 체크"];
+// desc 는 Figma 모바일 프레임에만 있는 보조 줄
+const SAFETY: { title: string; desc?: ReactNode }[] = [
+  { title: "확정 버튼은 선생님만" },
+  { title: "상담 기록은 필요한 사람만", desc: <>교과 선생님은 본인 기록만,<br />담임은 반 학생 기록만 봐요.</> },
+  { title: "고쳐도 기록은 남아요", desc: <>확정본과 상담 기록은 덮어쓰지 않고<br />새 버전으로 쌓여요.</> },
+  { title: "NEIS 글자수 자동 체크" },
+];
 
 
 function Logo({ size = 1 }: { size?: number }) {
@@ -33,6 +39,13 @@ function Logo({ size = 1 }: { size?: number }) {
       <Image src="/schs-logo.png" alt="속초고등학교 학생관리시스템" width={107 * size} height={30 * size} priority />
     </Link>
   );
+}
+
+/** Figma 모바일 프레임에만 있는 줄바꿈 */
+const BrM = () => <br className="md:hidden" />;
+/** 모바일 프레임에만 있는 짧은 설명 줄 */
+function MobileLead({ children }: { children: ReactNode }) {
+  return <p className="mt-4 text-[15px] leading-relaxed text-sub md:hidden">{children}</p>;
 }
 
 function Eyebrow({ children }: { children: string }) {
@@ -110,8 +123,8 @@ export function Landing() {
       {/* Hero */}
       <section className="relative overflow-hidden bg-[linear-gradient(180deg,#0a0b12_0%,#1c2033_100%)] text-white">
         <div className="mx-auto flex max-w-[1200px] flex-col items-center px-4 pt-16 text-center md:pt-[120px]">
-          <h1 className="text-[36px] font-bold leading-[1.25] md:text-[60px]">한 눈에 확인하는<br />우리 학교 학생 기록</h1>
-          <p className="mt-6 text-[16px] font-light text-[#c4cad1] md:text-[20px]">프로그램이 끝나면 설문이 모이고, 초안은 AI가 먼저 써둬요.</p>
+          <h1 className="text-[36px] font-bold leading-[1.25] md:text-[60px]"><span className="md:hidden">한눈에</span><span className="hidden md:inline">한 눈에</span> 확인하는<br />우리 학교 학생 기록</h1>
+          <p className="mt-6 text-[16px] font-light text-[#c4cad1] md:text-[20px]">프로그램이 끝나면 설문이 모이고, <BrM />초안은 AI가 먼저 써둬요.</p>
           <div className="mt-9 flex gap-3">
             <Link href="/login" className="rounded-control bg-key px-6 py-3.5 text-[15px] font-bold hover:bg-key-strong md:px-[30px] md:py-[18px] md:text-[17px]">속초고 계정으로 시작하기</Link>
             <a href="#how" className="rounded-control border border-white/20 bg-white/5 px-6 py-3.5 text-[15px] font-bold hover:bg-white/10 md:px-[30px] md:py-[18px] md:text-[17px]">둘러보기</a>
@@ -157,6 +170,7 @@ export function Landing() {
           <div className="text-center">
             <Eyebrow>How it works</Eyebrow>
             <H2>설문 한 번이면<br />초안까지 끝</H2>
+            <MobileLead>프로그램이 끝나면 설문이 나가고,<br />응답이 들어오는 순간 AI가 생기부 초안을 써요.<br />선생님은 확인하고 확정만 하면 돼요.</MobileLead>
           </div>
           <div className="relative pb-28 pt-24">
             {/* 진행 줄 */}
@@ -192,6 +206,7 @@ export function Landing() {
         <div className="mx-auto max-w-[1200px] px-4 py-20 text-center md:px-0 md:py-[140px]">
           <Eyebrow>Process</Eyebrow>
           <H2 light>이렇게 흘러가요</H2>
+          <p className="mt-4 text-[15px] leading-relaxed text-[#c2caff] md:hidden">AI는 쓰는 순간에만 일하고,<br />확정은 언제나 선생님 몫이에요.</p>
           <ol className="mt-12 grid gap-5 text-left sm:grid-cols-2 md:mt-[70px] md:grid-cols-4">
             {STEPS.map((s, i) => (
               <li key={s.title} className="flex flex-col rounded-inner bg-[linear-gradient(180deg,#eef0ff_0%,#ffffff_60%)] p-3.5 pb-6">
@@ -239,6 +254,7 @@ export function Landing() {
         <div className="mx-auto max-w-[1200px] px-4 py-20 text-center md:px-0 md:py-[140px]">
           <Eyebrow>For everyone</Eyebrow>
           <H2>누가 보느냐에 따라<br />딱 필요한 만큼만</H2>
+          <MobileLead>같은 학생 기록이라도<br />학생·선생님·담임·관리자에게 보이는 범위가 달라요.</MobileLead>
           <div className="mt-12 grid gap-5 text-left sm:grid-cols-2 md:mt-[70px] md:grid-cols-4">
             {ROLES.map((r) => (
               <div key={r.role} className="rounded-inner bg-white p-6">
@@ -263,11 +279,16 @@ export function Landing() {
           <div className="text-center">
             <Eyebrow>Safety</Eyebrow>
             <H2>AI가 쓰고,<br />확정은 선생님이</H2>
+            <MobileLead>민감한 학생 기록이라 지켜야 할 건 시스템이 먼저 지켜요.</MobileLead>
           </div>
           <ul className="flex flex-col gap-3">
             {SAFETY.map((s) => (
-              <li key={s} className="flex items-center gap-4 rounded-inner bg-soft px-7 py-5 text-[17px] font-bold">
-                <Check size={20} strokeWidth={2.5} className="shrink-0 text-key" />{s}
+              <li key={s.title} className="flex items-center gap-4 rounded-inner bg-soft px-7 py-5">
+                <Check size={20} strokeWidth={2.5} className="shrink-0 text-key" />
+                <div>
+                  <div className="text-[17px] font-bold">{s.title}</div>
+                  {s.desc && <p className="mt-1 text-[13px] leading-relaxed text-sub md:hidden">{s.desc}</p>}
+                </div>
               </li>
             ))}
           </ul>

@@ -261,11 +261,12 @@ function SpotYeongrang() {
   );
 }
 
+// pc: Figma PC 프레임 문구(줄바꿈 포함), m: 모바일 프레임 문구
 const SPOTS = [
-  { eyebrow: "프로그램 등록", title: "계획서만 올리면\n칸이 채워져요", line: "기안문이나 계획서 PDF·캡처를 올리면 이름·영역·기간·대상을 AI가 읽어 채워요. 확인하고 고친 뒤 발행해요.", mock: SpotForm },
-  { eyebrow: "제출 서류", title: "합본 PDF도\n학생별로", line: "반 전체를 한 파일로 스캔해도 괜찮아요. 쪽 구간으로 나누고, 첫 쪽의 이름으로 학생을 찾아 연결해요.", mock: SpotSplit },
-  { eyebrow: "나이스 반영", title: "확정본은\n나이스까지 한 번에", line: "확정된 세특·특기사항·행발을 내보내고, 크롬 확장이 열린 나이스 화면에 채워요. 분량이 넘거나 이름이 다르면 건너뛰어요.", mock: SpotNeis },
-  { eyebrow: "영랑이", title: "막히면\n영랑이에게", line: "오른쪽 아래 영랑이에게 사용법을 물으면 안내서를 근거로 답하고 해당 화면으로 데려다줘요. 안내 문자나 가정통신문 초안도 만들어요.", mock: SpotYeongrang },
+  { eyebrow: "프로그램 등록", title: "계획서만 올리면\n칸이 채워져요", pc: "기안문이나 계획서 PDF·캡처를 올리면\n이름·영역·기간·대상을 AI가 읽어 채워요.", m: "PDF·캡처를 올리면 이름·영역·기간·대상을 AI가 읽어 채워요.", mock: SpotForm },
+  { eyebrow: "제출 서류", title: "합본 PDF도\n학생별로", pc: "반 전체를 한 파일로 스캔해도 괜찮아요.\n쪽 구간으로 나누고 첫 쪽의 이름으로 학생을 찾아 연결해요.", m: "쪽 구간으로 나누고 첫 쪽 이름으로 학생을 찾아 연결해요.", mock: SpotSplit },
+  { eyebrow: "나이스 반영", title: "확정본은\n나이스까지 한 번에", pc: "확정된 세특·특기사항·행발을 내보내고\n크롬 확장이 열린 나이스 화면에 채워요.", m: "크롬 확장이 열린 나이스 화면에 채워요. 저장은 선생님이 직접.", mock: SpotNeis },
+  { eyebrow: "영랑이", title: "막히면\n영랑이에게", pc: "사용법을 물으면 안내서를 근거로 답하고 해당 화면으로 데려다줘요.\n안내 문자나 가정통신문 초안도 만들어요.", m: "안내서를 근거로 답하고 해당 화면으로 데려다줘요.", mock: SpotYeongrang },
 ];
 
 export function Spotlights() {
@@ -276,7 +277,8 @@ export function Spotlights() {
           <div>
             <p className="text-[15px] font-bold text-key">{s.eyebrow}</p>
             <h3 className="mt-3 whitespace-pre-line text-[26px] font-bold leading-[1.3] md:text-[34px]">{s.title}</h3>
-            <p className="mt-4 text-[15px] leading-relaxed text-sub md:text-[17px]">{s.line}</p>
+            <p className="mt-4 text-[15px] leading-relaxed text-sub md:hidden">{s.m}</p>
+            <p className="mt-4 hidden whitespace-pre-line text-[17px] leading-relaxed text-sub md:block">{s.pc}</p>
           </div>
           <div className="flex min-h-[360px] flex-col justify-center rounded-card bg-soft p-6 md:h-[400px] md:p-8"><div>{s.mock()}</div></div>
         </div>
