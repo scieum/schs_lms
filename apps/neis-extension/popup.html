@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>SCHS 나이스 입력 도우미</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <img src="icon128.png" alt="" width="28" height="28" />
+    <strong>나이스 입력 도우미</strong>
+  </header>
+
+  <section id="load">
+    <label class="file">
+      <input type="file" id="file" accept=".json,application/json" />
+      <span>내보낸 세특 파일 불러오기</span>
+    </label>
+    <p class="hint">학생관리시스템 › 교과 세특 › 나이스로 내보내기</p>
+  </section>
+
+  <section id="data" hidden>
+    <div class="card">
+      <div class="row"><b id="subject"></b><button id="clear" class="ghost" type="button">지우기</button></div>
+      <div class="muted" id="meta"></div>
+    </div>
+
+    <label class="field">반
+      <select id="classNo"></select>
+    </label>
+
+    <div class="seg" role="radiogroup" aria-label="넣는 방식">
+      <label><input type="radio" name="mode" value="overwrite" checked /> 덮어쓰기</label>
+      <label><input type="radio" name="mode" value="append" /> 이어쓰기</label>
+    </div>
+
+    <label class="field">최대 바이트
+      <input type="number" id="maxBytes" min="1" />
+    </label>
+
+    <ul id="list"></ul>
+
+    <details>
+      <summary>화면 찾기 설정 (나이스 화면이 바뀌면)</summary>
+      <label class="field">학생 줄 선택자 <input id="rowSelector" placeholder="tr, [role=row]" /></label>
+      <label class="field">입력칸 선택자 <input id="fieldSelector" placeholder="textarea, [contenteditable=true]" /></label>
+      <label class="check"><input type="checkbox" id="checkName" checked /> 이름까지 맞는 줄에만 넣기</label>
+      <label class="check"><input type="checkbox" id="mainWorld" /> 페이지 환경에서 실행 (값이 저장 안 될 때)</label>
+    </details>
+
+    <button id="fill" type="button" class="primary">지금 화면에 채우기</button>
+    <p class="hint">채운 뒤 내용을 확인하고 <b>나이스 저장 버튼은 직접</b> 눌러 주세요.</p>
+    <div id="result" role="status"></div>
+  </section>
+
+  <footer>불러온 자료는 30분 뒤 자동으로 지워져요</footer>
+  <script src="popup.js"></script>
+</body>
+</html>

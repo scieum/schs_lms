@@ -1,5 +1,7 @@
 import "server-only";
 import bcrypt from "bcryptjs";
+import { schoolYear, type Course, type SubjectGroup, type TeacherCourse } from "@/lib/domain/curriculum";
+import type { SetukRecord } from "@/lib/domain/setuk";
 import type { Account, AuditEntry, Student, Teacher } from "@/lib/domain/types";
 import type { NewStudent, Repo } from "./types";
 
@@ -11,6 +13,10 @@ interface Store {
   teachers: Map<string, Teacher>;
   students: Map<string, Student>;
   audit: AuditEntry[];
+  courses: (Course & { active: boolean })[];
+  teacherGroups: Map<string, SubjectGroup[]>;
+  teacherCourses: TeacherCourse[];
+  setuk: SetukRecord[];
 }
 
 const g = globalThis as unknown as { __schsDemo?: Store };
@@ -45,7 +51,36 @@ function seed(): Store {
     students.set(id, { id, pseudonymId: `S${String(i + 1).padStart(3, "0")}`, studentNo, grade, classNo, number, name, birthDate, careerGoal: i === 0 ? "산업디자인" : null });
   });
 
-  return { accounts, teachers, students, audit: [] };
+  // 편제표 예시 (올해): 1학년 공통과목, 2학년 선택과목
+  const y = schoolYear();
+  const C: [string, number, 1 | 2, string, SubjectGroup, Course["type"], number][] = [
+    ["c-1", 1, 1, "통합과학1", "과학", "공통", 4],
+    ["c-2", 1, 2, "통합과학2", "과학", "공통", 4],
+    ["c-3", 1, 1, "공통국어1", "국어", "공통", 4],
+    ["c-4", 2, 1, "물리학", "과학", "일반 선택", 4],
+    ["c-5", 2, 1, "화학", "과학", "일반 선택", 4],
+    ["c-6", 2, 2, "생명과학", "과학", "일반 선택", 4],
+    ["c-7", 2, 1, "문학", "국어", "일반 선택", 4],
+    ["c-8", 2, 1, "대수", "수학", "일반 선택", 4],
+  ];
+  const courses = C.map(([id, grade, semester, subject, group, type, credits]) => ({ id, year: y, grade, semester, subject, group, type, credits, active: true }));
+  const teacherGroups = new Map<string, SubjectGroup[]>([["t-subject", ["과학"]], ["t-homeroom", ["국어"]]]);
+  const teacherCourses: TeacherCourse[] = [
+    { teacherId: "t-subject", courseId: "c-4", classes: [1, 2, 3] },
+    { teacherId: "t-subject", courseId: "c-5", classes: [3] },
+    { teacherId: "t-homeroom", courseId: "c-7", classes: [3] },
+  ];
+  const setuk: SetukRecord[] = [{
+    id: "r-1", courseId: "c-4", studentId: "s-2", authorId: "t-subject", unit: "bytes", max: 1500, status: "draft",
+    content: "운동 법칙 단원에서 마찰이 있는 빗면 실험을 설계하여 측정값과 이론값의 차이를 분석함.",
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+  }, {
+    id: "r-2", courseId: "c-4", studentId: "s-3", authorId: "t-subject", unit: "bytes", max: 1500, status: "confirmed",
+    content: "파동 단원에서 소리의 공명을 주제로 관 길이에 따른 공명 진동수를 측정하고, 오차 원인을 온도 변화로 설명하는 탐구 보고서를 작성함.",
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+  }];
+
+  return { accounts, teachers, students, audit: [], courses, teacherGroups, teacherCourses, setuk };
 }
 
 function store(): Store {
@@ -92,6 +127,56 @@ export const demoRepo: Repo = {
       s.students.set(id, st);
       return st;
     });
+  },
+  async listTeachers() {
+    return [...store().teachers.values()].sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  },
+  async listCourses(year) {
+    return store().courses.filter((c) => c.active && c.year === year).map(({ active: _a, ...c }) => c);
+  },
+  async getCourse(id) {
+    const c = store().courses.find((x) => x.id === id && x.active);
+    if (!c) return null;
+    const { active: _a, ...rest } = c;
+    return rest;
+  },
+  async createCourse(c) {
+    const s = store();
+    if (s.courses.some((x) => x.active && x.year === c.year && x.grade === c.grade && x.semester === c.semester && x.subject === c.subject)) {
+      throw new Error("이미 같은 학기에 있는 과목이에요");
+    }
+    const row = { ...c, id: crypto.randomUUID(), active: true };
+    s.courses.push(row);
+    const { active: _a, ...rest } = row;
+    return rest;
+  },
+  async archiveCourse(id) {
+    const c = store().courses.find((x) => x.id === id);
+    if (c) c.active = false;
+  },
+  async getTeacherGroups(teacherId) {
+    return store().teacherGroups.get(teacherId) ?? [];
+  },
+  async setTeacherGroups(teacherId, groups) {
+    store().teacherGroups.set(teacherId, [...groups]);
+  },
+  async listTeacherCourses(teacherId) {
+    return store().teacherCourses.filter((t) => t.teacherId === teacherId).map((t) => ({ ...t, classes: [...t.classes] }));
+  },
+  async listAllTeacherCourses() {
+    return store().teacherCourses.map((t) => ({ ...t, classes: [...t.classes] }));
+  },
+  async setTeacherCourses(teacherId, rows) {
+    const s = store();
+    s.teacherCourses = [...s.teacherCourses.filter((t) => t.teacherId !== teacherId), ...rows.map((r) => ({ ...r, teacherId }))];
+  },
+  async listSetuk(courseId) {
+    return store().setuk.filter((r) => r.courseId === courseId);
+  },
+  async addSetuk(r) {
+    const row: SetukRecord = { ...r, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+    store().setuk.push(row);
+    return row;
   },
   async audit(actorId, action, target) {
     store().audit.unshift({ id: crypto.randomUUID(), actorId, action, target, at: new Date().toISOString() });

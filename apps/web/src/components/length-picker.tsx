@@ -10,11 +10,14 @@ export function LengthPicker({
   name = "length",
   defaultUnit = "bytes",
   defaultMax,
+  onChange,
 }: {
   category: DraftCategory;
   name?: string;
   defaultUnit?: LengthUnit;
   defaultMax?: number;
+  /** 바뀐 단위·최대를 바깥(글자 수 표시 등)에 알린다 */
+  onChange?: (s: { unit: LengthUnit; max: number }) => void;
 }) {
   const [unit, setUnit] = useState<LengthUnit>(defaultUnit);
   const [max, setMax] = useState(String(defaultMax ?? neisMax(category, defaultUnit)));
@@ -25,8 +28,10 @@ export function LengthPicker({
   function switchUnit(next: LengthUnit) {
     if (next === unit) return;
     const n = Number(max.replace(/,/g, "")) || 0;
-    setMax(String(next === "chars" ? Math.floor(n / 3) : n * 3));
+    const m = next === "chars" ? Math.floor(n / 3) : n * 3;
+    setMax(String(m));
     setUnit(next);
+    onChange?.({ unit: next, max: m });
   }
 
   return (
@@ -52,11 +57,15 @@ export function LengthPicker({
             name={`${name}Max`}
             inputMode="numeric"
             value={max}
-            onChange={(e) => setMax(e.target.value.replace(/[^\d]/g, ""))}
+            onChange={(e) => {
+              const raw = e.target.value.replace(/[^\d]/g, "");
+              setMax(raw);
+              onChange?.({ unit, max: Number(raw) || 0 });
+            }}
             aria-label={`최대 분량 (${UNIT_LABEL[unit]})`}
             className="w-full bg-transparent text-[15px] outline-none"
           />
-          <span className="text-sm text-mute">{UNIT_LABEL[unit]}</span>
+          <span className="shrink-0 whitespace-nowrap text-sm text-mute">{UNIT_LABEL[unit]}</span>
         </label>
         <span className="rounded-chip bg-key-soft px-2.5 py-1 text-xs font-bold text-key">
           NEIS 한도 {limit.toLocaleString()}

@@ -1,0 +1,47 @@
+"use server";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { checkLength, resolveLength, UNIT_LABEL } from "@/lib/domain/length";
+import { studentsInCourse } from "@/lib/domain/setuk";
+import { repo } from "@/lib/server/repo";
+import { requireCan } from "@/lib/server/viewer";
+
+export type SetukState = { error?: string; saved?: "draft" | "confirmed"; at?: string };
+
+const Schema = z.object({
+  courseId: z.string().min(1),
+  studentId: z.string().min(1),
+  content: z.string().max(5000, "너무 길어요"),
+  lengthUnit: z.enum(["bytes", "chars"]),
+  lengthMax: z.coerce.number().int().min(1, "최대 분량을 넣어 주세요"),
+  intent: z.enum(["draft", "confirmed"]),
+});
+
+/** 세특 저장: 임시 저장(draft) 또는 확정. 언제나 새 버전으로 추가한다 (C4) */
+export async function saveSetuk(_: SetukState, form: FormData): Promise<SetukState> {
+  const v = await requireCan("setuk.write");
+  const p = Schema.safeParse(Object.fromEntries(form));
+  if (!p.success) return { error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
+  const { courseId, studentId, intent } = p.data;
+  const content = p.data.content.replace(/\r\n/g, "\n").trim();
+
+  // 내게 배정된 과목이고, 내가 맡은 반 학생인지 서버에서 다시 확인한다
+  const [course, mine, student] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getStudent(studentId)]);
+  const assignment = mine.find((a) => a.courseId === courseId);
+  if (!course || !assignment || !student || !studentsInCourse([student], course, assignment).length) {
+    return { error: "내 담당 과목·반 학생만 쓸 수 있어요" };
+  }
+
+  const range = resolveLength("세특", { unit: p.data.lengthUnit, max: p.data.lengthMax });
+  if (intent === "confirmed") {
+    if (!content) return { error: "빈 내용은 확정할 수 없어요" };
+    const c = checkLength(content, range);
+    if (c.reason === "too_long") return { error: `${range.max.toLocaleString()}${UNIT_LABEL[range.unit]}를 넘어서 확정할 수 없어요 (지금 ${c.value.toLocaleString()})` };
+  }
+
+  const r = await repo.addSetuk({ courseId, studentId, authorId: v.accountId, content, unit: range.unit, max: range.max, status: intent });
+  // 감사 로그에는 이름 대신 가명ID
+  await repo.audit(v.accountId, intent === "confirmed" ? "setuk.confirm" : "setuk.save", `${course.subject} ${student.pseudonymId}`);
+  revalidatePath("/teacher/setuk");
+  return { saved: intent, at: r.createdAt };
+}

@@ -1,4 +1,4 @@
-// 공통 UI. 규칙: 상호작용은 알약(r999), 카드 r24, 입력칸 r16, 그림자 없음, 글은 짧게.
+// 공통 UI. 규칙: 카드 r12 · 블록 r10 · 버튼·입력 r8 · 태그 r6, 그림자 없음, 글은 짧게.
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 

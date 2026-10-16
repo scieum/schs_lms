@@ -1,5 +1,7 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Course, SubjectGroup, TeacherCourse } from "@/lib/domain/curriculum";
+import type { SetukRecord } from "@/lib/domain/setuk";
 import type { Account, Student, Teacher } from "@/lib/domain/types";
 import { env } from "../env";
 import type { NewStudent, Repo } from "./types";
@@ -23,6 +25,14 @@ const toTeacher = (r: TeacherRow): Teacher => ({ id: r.id, name: r.name, roles: 
 
 // 다른 환경(데모)에서 만든 세션 쿠키처럼 UUID가 아닌 id는 조회하지 않고 "없음"으로 본다
 const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+type CourseRow = { id: string; year: number; grade: number; semester: 1 | 2; subject: string; subject_group: SubjectGroup; course_type: Course["type"]; credits: number };
+type TeacherCourseRow = { teacher_id: string; course_id: string; classes: number[] };
+type SetukRow = { id: string; course_id: string; student_id: string; author_id: string; content: string; unit: SetukRecord["unit"]; max_len: number; status: SetukRecord["status"]; created_at: string };
+
+const toCourse = (r: CourseRow): Course => ({ id: r.id, year: r.year, grade: r.grade, semester: r.semester, subject: r.subject, group: r.subject_group, type: r.course_type, credits: r.credits });
+const toTeacherCourse = (r: TeacherCourseRow): TeacherCourse => ({ teacherId: r.teacher_id, courseId: r.course_id, classes: r.classes });
+const toSetuk = (r: SetukRow): SetukRecord => ({ id: r.id, courseId: r.course_id, studentId: r.student_id, authorId: r.author_id, content: r.content, unit: r.unit, max: r.max_len, status: r.status, createdAt: r.created_at });
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
@@ -77,6 +87,63 @@ export const supabaseRepo: Repo = {
     }));
     const r = check(await db().rpc("register_students", { rows: payload }));
     return (r as StudentRow[]).map(toStudent);
+  },
+  async listTeachers() {
+    const r = check(await db().from("teachers").select("*").order("name"));
+    return (r as TeacherRow[]).map(toTeacher);
+  },
+  async listCourses(year) {
+    const r = check(await db().from("school_courses").select("*").eq("year", year).eq("active", true).order("grade").order("semester").order("subject"));
+    return (r as CourseRow[]).map(toCourse);
+  },
+  async getCourse(id) {
+    if (!isUuid(id)) return null;
+    const r = check(await db().from("school_courses").select("*").eq("id", id).eq("active", true).maybeSingle());
+    return r ? toCourse(r as CourseRow) : null;
+  },
+  async createCourse(c) {
+    const res = await db().from("school_courses").insert({
+      year: c.year, grade: c.grade, semester: c.semester, subject: c.subject, subject_group: c.group, course_type: c.type, credits: c.credits,
+    }).select("*").single();
+    if (res.error?.code === "23505") throw new Error("이미 같은 학기에 있는 과목이에요");
+    return toCourse(check(res) as CourseRow);
+  },
+  async archiveCourse(id) {
+    if (!isUuid(id)) return;
+    check(await db().from("school_courses").update({ active: false }).eq("id", id));
+  },
+  async getTeacherGroups(teacherId) {
+    if (!isUuid(teacherId)) return [];
+    const r = check(await db().from("teacher_groups").select("groups").eq("teacher_id", teacherId).maybeSingle());
+    return ((r as { groups: SubjectGroup[] } | null)?.groups ?? []);
+  },
+  async setTeacherGroups(teacherId, groups) {
+    check(await db().from("teacher_groups").upsert({ teacher_id: teacherId, groups }));
+  },
+  async listTeacherCourses(teacherId) {
+    if (!isUuid(teacherId)) return [];
+    const r = check(await db().from("teacher_courses").select("*").eq("teacher_id", teacherId));
+    return (r as TeacherCourseRow[]).map(toTeacherCourse);
+  },
+  async listAllTeacherCourses() {
+    const r = check(await db().from("teacher_courses").select("*"));
+    return (r as TeacherCourseRow[]).map(toTeacherCourse);
+  },
+  async setTeacherCourses(teacherId, rows) {
+    // 지우고 다시 넣는다 (배정은 기록이 아니라 설정이라 C4 대상 아님). 실패하면 그대로 오류
+    check(await db().from("teacher_courses").delete().eq("teacher_id", teacherId));
+    if (rows.length) check(await db().from("teacher_courses").insert(rows.map((r) => ({ teacher_id: teacherId, course_id: r.courseId, classes: r.classes }))));
+  },
+  async listSetuk(courseId) {
+    if (!isUuid(courseId)) return [];
+    const r = check(await db().from("setuk_records").select("*").eq("course_id", courseId).order("created_at"));
+    return (r as SetukRow[]).map(toSetuk);
+  },
+  async addSetuk(x) {
+    const r = check(await db().from("setuk_records").insert({
+      course_id: x.courseId, student_id: x.studentId, author_id: x.authorId, content: x.content, unit: x.unit, max_len: x.max, status: x.status,
+    }).select("*").single());
+    return toSetuk(r as SetukRow);
   },
   async audit(actorId, action, target) {
     check(await db().from("audit_logs").insert({ actor_id: actorId, action, target }));

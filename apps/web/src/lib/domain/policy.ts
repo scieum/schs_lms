@@ -5,7 +5,10 @@ export type Action =
   | "student.register" // 학생 등록 (엑셀·한 명씩)
   | "student.list" // 학생 목록 보기
   | "account.manage" // 계정 관리·비밀번호 초기화
-  | "audit.view"; // 감사 로그
+  | "audit.view" // 감사 로그
+  | "curriculum.manage" // 편제표(학교 개설 과목) 관리
+  | "subjects.assign" // 내 교과·과목 정하기 (관리자는 다른 교사 것도)
+  | "setuk.write"; // 교과 세특 쓰기 (배정받은 과목만 — 액션에서 한 번 더 확인)
 
 function hasRole(v: Viewer, role: TeacherRole) {
   return v.kind === "teacher" && v.teacher.roles.includes(role);
@@ -23,8 +26,12 @@ export function can(v: Viewer, action: Action): boolean {
     case "student.list":
       // 2026-10-16 결정: 관리자와 교사 모두 학생을 등록할 수 있다
       return v.kind === "teacher";
+    case "subjects.assign":
+    case "setuk.write":
+      return v.kind === "teacher";
     case "account.manage":
     case "audit.view":
+    case "curriculum.manage":
       return isAdmin(v);
   }
 }

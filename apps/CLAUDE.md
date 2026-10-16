@@ -9,6 +9,7 @@
 - AI: docs/ai-features.md (Claude, 영랑이).
 
 ## 구조
+- `apps/neis-extension/` — 나이스 입력 도우미(크롬 확장, MV3). 내보낸 확정 세특을 열린 나이스 화면에 채운다. 저장은 교사가 직접. README 참고.
 - `src/lib/domain/` — 순수 규칙(권한·비밀번호·잠금·명단 검사). 테스트는 여기에 둔다.
 - `src/lib/server/` — 서버 전용(세션, env, 엑셀, repo). `server-only`.
 - `src/lib/server/repo/` — Supabase 키가 없으면 데모(메모리) repo를 쓴다.
@@ -24,7 +25,7 @@
 
 ## Supabase 연결 (처음 한 번)
 1. Supabase 새 프로젝트: 지역 Seoul(ap-northeast-2).
-2. SQL Editor에 `apps/web/supabase/migrations/` 의 0001, 0002 를 차례로 붙여 실행. (0002 = service_role 권한. "새 테이블 자동 공개"를 꺼 두었으므로 필요)
+2. SQL Editor에 `apps/web/supabase/migrations/` 의 0001, 0002, 0003 을 차례로 붙여 실행. (0002 = service_role 권한. "새 테이블 자동 공개"를 꺼 두었으므로 필요)
 3. `apps/web/.env.example` → `.env.local` 로 복사해 채운다 (URL, service role 키, SESSION_SECRET, INITIAL_AUTH_CODE).
 4. `npm run seed:admin -- <관리자 이름>` → 첫 관리자 생성. 그 이름 + 인증코드로 로그인하면 비밀번호 변경 화면이 뜬다.
 5. `npm run build && npm start` — 화면 위 "데모 모드" 띠가 사라지면 연결된 것.

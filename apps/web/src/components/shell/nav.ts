@@ -28,8 +28,10 @@ export function navFor(v: Viewer): NavGroup[] {
   const groups: NavGroup[] = [
     { label: "업무", items: [
       { label: "홈", href: "/teacher", icon: "home", ready: true },
+      { label: "교과 세특", href: "/teacher/setuk", icon: "book", ready: true },
       { label: "초안 검토", href: "/teacher/drafts", icon: "file" },
       { label: "프로그램·자료", href: "/teacher/programs", icon: "clipboard" },
+      { label: "내 교과·과목", href: "/teacher/subjects", icon: "list", ready: true },
     ] },
     { label: "학생", items: [
       { label: "담당 학생", href: "/students", icon: "users", ready: true },
@@ -51,7 +53,7 @@ export function navFor(v: Viewer): NavGroup[] {
       { label: "오류 처리", href: "/admin/errors", icon: "alert" },
       { label: "초안 생성 현황", href: "/admin/pipeline", icon: "refresh" },
       { label: "계정 관리", href: "/admin/accounts", icon: "users" },
-      { label: "과목 개설", href: "/admin/courses", icon: "list" },
+      { label: "편제표", href: "/admin/curriculum", icon: "list", ready: true },
       { label: "감사 로그", href: "/admin/audit", icon: "shield", ready: true },
     ] });
   }
@@ -72,7 +74,7 @@ export function tabsFor(v: Viewer): NavItem[] {
   const home = v.teacher.roles.includes("admin") ? "/admin" : v.teacher.roles.includes("homeroom") ? "/homeroom" : "/teacher";
   return [
     { label: "홈", href: home, icon: "home" },
-    { label: "초안", href: "/teacher/drafts", icon: "file" },
+    { label: "세특", href: "/teacher/setuk", icon: "book" },
     { label: "학생", href: "/students", icon: "users" },
     { label: "등록", href: "/students/new", icon: "userPlus" },
     { label: "MY", href: "/me", icon: "user" },

@@ -1,3 +1,5 @@
+import type { Course, SubjectGroup, TeacherCourse } from "@/lib/domain/curriculum";
+import type { SetukRecord } from "@/lib/domain/setuk";
 import type { Account, AuditEntry, Student, Teacher } from "@/lib/domain/types";
 
 export interface NewStudent {
@@ -24,6 +26,27 @@ export interface Repo {
   existingPseudonymIds(): Promise<string[]>;
   /** 학생 계정과 학생 정보를 함께 만든다. 학번이 겹치면 실패 */
   createStudents(rows: NewStudent[]): Promise<Student[]>;
+
+  listTeachers(): Promise<Teacher[]>;
+
+  // 편제표 (학교 개설 과목). 지우지 않고 active=false 로 내린다
+  listCourses(year: number): Promise<Course[]>;
+  getCourse(id: string): Promise<Course | null>;
+  /** 같은 학년도·학년·학기·과목이 이미 있으면 실패 */
+  createCourse(c: Omit<Course, "id">): Promise<Course>;
+  archiveCourse(id: string): Promise<void>;
+
+  // 교사의 교과·담당 과목
+  getTeacherGroups(teacherId: string): Promise<SubjectGroup[]>;
+  setTeacherGroups(teacherId: string, groups: SubjectGroup[]): Promise<void>;
+  listTeacherCourses(teacherId: string): Promise<TeacherCourse[]>;
+  listAllTeacherCourses(): Promise<TeacherCourse[]>;
+  /** 이 교사의 배정을 통째로 바꾼다 */
+  setTeacherCourses(teacherId: string, rows: TeacherCourse[]): Promise<void>;
+
+  // 교과 세특: 추가만 한다 (C4)
+  listSetuk(courseId: string): Promise<SetukRecord[]>;
+  addSetuk(r: Omit<SetukRecord, "id" | "createdAt">): Promise<SetukRecord>;
 
   audit(actorId: string | null, action: string, target: string | null): Promise<void>;
   listAudit(limit: number): Promise<AuditEntry[]>;
