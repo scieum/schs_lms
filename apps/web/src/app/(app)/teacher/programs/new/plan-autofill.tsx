@@ -105,7 +105,7 @@ export function PlanAutofill({ aiOn, now, onApply }: { aiOn: boolean; now: FormN
         <div className="min-w-0 flex-1">
           <div className="text-[15px] font-bold">계획서·기안문으로 채우기</div>
           <div className="truncate text-[13px] text-sub">
-            {reading ? "읽는 중이에요" : aiOn ? "PDF나 캡처를 올리면 이름·기간·대상을 읽어 채워요" : "AI가 꺼져 있어 파일 이름·문서 정보로만 채워요"}
+            {reading ? "읽는 중이에요" : aiOn ? "PDF·HWPX·캡처를 올리면 이름·기간·대상을 읽어 채워요" : "AI가 꺼져 있어 파일 이름·문서 정보로만 채워요"}
           </div>
         </div>
         <input ref={input} type="file" multiple accept=".pdf,image/png,image/jpeg,image/webp,.hwp,.hwpx" className="sr-only" aria-label="계획서 파일"
@@ -126,7 +126,7 @@ export function PlanAutofill({ aiOn, now, onApply }: { aiOn: boolean; now: FormN
           <button type="button" onClick={() => input.current?.click()} className="rounded-chip px-2 py-1 text-[12px] font-medium text-sub hover:bg-white">+ 더 올리기</button>
         )}
         <span className="text-[12px] text-mute">
-          {files.length ? "" : "끌어다 놓거나 캡처를 붙여넣어도(Ctrl+V) 돼요 · "}PDF·JPG·PNG 10MB 이하 · HWP는 PDF로 저장하거나 캡처해서 올려 주세요
+          {files.length ? "" : "끌어다 놓거나 캡처를 붙여넣어도(Ctrl+V) 돼요 · "}PDF·HWPX·JPG·PNG 10MB 이하 · HWP는 한글에서 HWPX로 저장해 올려 주세요
         </span>
       </div>
       {(warn || state.error) && <p className="mt-2 text-[13px] text-bad" role="alert">{warn ?? `${state.error}${state.note ? ` · ${state.note}` : ""}`}</p>}

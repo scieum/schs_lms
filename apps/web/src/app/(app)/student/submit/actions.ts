@@ -10,6 +10,7 @@ import { docCheck, followUps } from "@/lib/server/ai/student-ai";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { pdfPages } from "@/app/(app)/teacher/programs/_lib/pdf";
+import { readUpload } from "@/lib/server/hwpx";
 
 const STUDENT_MAX_BYTES = 20 * 1024 * 1024;
 
@@ -56,17 +57,19 @@ export async function uploadMyDoc(prev: DocState, form: FormData): Promise<DocSt
   if (!usesDocs(program.source) || !program.requestDocs) return { error: "서류를 받지 않는 프로그램이에요", n };
   const f = form.get("file");
   if (!(f instanceof File) || f.size === 0) return { error: "파일을 골라 주세요", n };
-  if (!(MATERIAL_TYPES as readonly string[]).includes(f.type)) return { error: "PDF, JPG, PNG, TXT 파일만 올릴 수 있어요", n };
   if (f.size > STUDENT_MAX_BYTES) return { error: "20MB까지 올릴 수 있어요", n };
+  const up = await readUpload(f);
+  if (typeof up === "string") return { error: up, n };
+  if (!(MATERIAL_TYPES as readonly string[]).includes(up.mime)) return { error: "PDF, HWPX, JPG, PNG, TXT 파일만 올릴 수 있어요", n };
   const mine = (await repo.listMaterialsByStudent(me.id)).filter((m) => m.programId === program.id);
   if (mine.length >= 5) return { error: "한 프로그램에 5개까지 올릴 수 있어요", n };
-  const bytes = new Uint8Array(await f.arrayBuffer());
+  const { bytes, mime } = up;
   const people = [{ name: me.name, studentNo: me.studentNo }];
   await repo.addMaterial({
-    programId: program.id, studentId: me.id, fileName: f.name.slice(0, 120), mime: f.type, size: f.size,
-    pages: f.type === "application/pdf" ? await pdfPages(bytes) : f.type.startsWith("image/") ? 1 : null,
+    programId: program.id, studentId: me.id, fileName: f.name.slice(0, 120), mime, size: f.size,
+    pages: mime === "application/pdf" ? await pdfPages(bytes) : mime.startsWith("image/") ? 1 : null,
     status: "matched", matchedBy: "student", uploaderId: me.id,
-    text: f.type === "text/plain" ? maskIdentity(new TextDecoder().decode(bytes).slice(0, 4000), people) : null,
+    text: up.text ? maskIdentity(up.text.slice(0, 4000), people) : null,
   }, bytes);
   await repo.audit(me.id, "material.student", `${program.id} ${me.pseudonymId}`);
   revalidatePath("/student/submit");

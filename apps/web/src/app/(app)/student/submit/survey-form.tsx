@@ -115,8 +115,8 @@ export function SurveyForm({
                   <label className={cx("flex cursor-pointer flex-col items-center gap-2 rounded-inner bg-white px-4 py-6 text-center", fileName && "ring-2 ring-key")}>
                     <span className="flex size-10 items-center justify-center rounded-field bg-soft"><Upload size={18} /></span>
                     <span className="font-bold">{fileName || <><span className="hidden md:inline">파일을 끌어다 놓거나 선택하세요</span><span className="md:hidden">파일 선택 또는 사진 찍기</span></>}</span>
-                    <span className="text-[12px] text-mute">PDF · JPG · PNG · 20MB까지</span>
-                    <input type="file" name="file" required accept="application/pdf,image/jpeg,image/png,image/webp,text/plain" className="sr-only"
+                    <span className="text-[12px] text-mute">PDF · HWPX · JPG · PNG · 20MB까지</span>
+                    <input type="file" name="file" required accept="application/pdf,image/jpeg,image/png,image/webp,text/plain,.hwpx" className="sr-only"
                       onChange={(e) => setPicked({ n: doc.n ?? 0, name: e.target.files?.[0]?.name ?? "" })} />
                   </label>
                   {fileName && <Button size="sm" kind={survey ? "outline" : "primary"} disabled={uploading} className="self-end">{uploading ? "올리는 중…" : "올리기"}</Button>}

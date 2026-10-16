@@ -59,8 +59,9 @@ describe("제목·영역·과목·서류", () => {
     expect(guessSource("활동 후 설문과 보고서 제출", ["보고서"])).toBe("both");
     expect(guessSource("보고서 제출", ["보고서"])).toBe("docs");
   });
-  it("HWP 는 안내, 큰 파일은 거절", () => {
-    expect(checkPlanFile({ name: "계획.hwp", type: "", size: 10 })).toMatch(/PDF로 저장/);
+  it("HWP 는 HWPX 저장 안내, HWPX 는 받음, 큰 파일은 거절", () => {
+    expect(checkPlanFile({ name: "계획.hwp", type: "", size: 10 })).toMatch(/HWPX/);
+    expect(checkPlanFile({ name: "계획.hwpx", type: "", size: 10 })).toBeNull();
     expect(checkPlanFile({ name: "a.png", type: "image/png", size: 11 * 1024 * 1024 })).toMatch(/10MB/);
     expect(checkPlanFile({ name: "a.png", type: "image/png", size: 10 })).toBeNull();
   });

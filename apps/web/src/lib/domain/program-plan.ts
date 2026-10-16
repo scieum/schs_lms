@@ -33,13 +33,14 @@ export const EMPTY_PLAN: PlanFields = {
 };
 
 export const PLAN_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "text/plain"] as const;
+// HWPX 는 이름으로 받고 서버에서 글을 뽑는다 (브라우저마다 형식 이름이 달라서)
 export const PLAN_MAX_BYTES = 10 * 1024 * 1024;
 export const PLAN_MAX_FILES = 5;
 
-/** 올린 파일 검사. HWP 는 직접 못 읽으니 안내 문구를 돌려준다 */
+/** 올린 파일 검사. HWPX 는 받고(글을 뽑음), HWP(바이너리)는 HWPX로 저장하라고 안내한다 */
 export function checkPlanFile(f: { name: string; type: string; size: number }): string | null {
-  if (/\.(hwp|hwpx)$/i.test(f.name)) return `${f.name}: 한글 파일은 바로 읽지 못해요. PDF로 저장하거나 캡처해서 올려 주세요`;
-  if (!(PLAN_FILE_TYPES as readonly string[]).includes(f.type)) return `${f.name}: PDF·JPG·PNG·WEBP만 올릴 수 있어요`;
+  if (/\.hwp$/i.test(f.name)) return `${f.name}: HWP는 바로 읽지 못해요. 한글에서 'HWPX'로 저장하거나 PDF로 올려 주세요`;
+  if (!/\.hwpx$/i.test(f.name) && !(PLAN_FILE_TYPES as readonly string[]).includes(f.type)) return `${f.name}: PDF·HWPX·JPG·PNG·WEBP만 올릴 수 있어요`;
   if (f.size > PLAN_MAX_BYTES) return `${f.name}: 10MB 이하만 올릴 수 있어요`;
   return null;
 }

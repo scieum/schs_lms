@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { matchStudent } from "@/lib/domain/activity";
 import {
-  looksLikeBundle, maskIdentity, matchFileName, MATERIAL_MAX_BYTES, MATERIAL_TYPES, type EvidenceSource, type Material,
+  isReadableByAi, looksLikeBundle, maskIdentity, matchFileName, MATERIAL_MAX_BYTES, MATERIAL_TYPES, type EvidenceSource, type Material,
 } from "@/lib/domain/program";
 import type { Student } from "@/lib/domain/types";
 import { aiEnabled } from "@/lib/server/ai/claude";
@@ -10,6 +10,7 @@ import { readMaterial } from "@/lib/server/ai/program-ai";
 import { repo } from "@/lib/server/repo";
 import { requireProgram } from "../../_lib/data";
 import { pdfPages } from "../../_lib/pdf";
+import { readUpload } from "@/lib/server/hwpx";
 
 const paths = (id: string) => {
   revalidatePath(`/teacher/programs/${id}/materials`);
@@ -51,17 +52,19 @@ export async function uploadMaterials(prev: UploadState, form: FormData): Promis
   const people = targets.map((s) => ({ name: s.name, studentNo: s.studentNo }));
   const counts = { matched: 0, review: 0, bundle: 0, skipped: 0 };
   for (const f of files) {
-    if (!(MATERIAL_TYPES as readonly string[]).includes(f.type) || f.size > MATERIAL_MAX_BYTES) {
+    const up = f.size > MATERIAL_MAX_BYTES ? null : await readUpload(f);
+    if (!up || typeof up === "string" || !(MATERIAL_TYPES as readonly string[]).includes(up.mime)) {
       counts.skipped++;
       continue;
     }
-    const bytes = new Uint8Array(await f.arrayBuffer());
-    const pages = f.type === "application/pdf" ? await pdfPages(bytes) : f.type.startsWith("image/") ? 1 : null;
-    const text = f.type === "text/plain" ? maskIdentity(new TextDecoder().decode(bytes).slice(0, 4000), people) : null;
+    const { bytes, mime } = up;
+    const pages = mime === "application/pdf" ? await pdfPages(bytes) : mime.startsWith("image/") ? 1 : null;
+    // TXT·HWPX 는 글을 바로 저장 (이름·학번은 가림)
+    const text = up.text ? maskIdentity(up.text.slice(0, 4000), people) : null;
     let studentId: string | null = null;
     let status: Material["status"] = "needs_review";
     let matchedBy: Material["matchedBy"] = null;
-    if (mode === "bundle" || (mode === "bulk" && f.type === "application/pdf" && looksLikeBundle(f.name, pages))) {
+    if (mode === "bundle" || (mode === "bulk" && mime === "application/pdf" && looksLikeBundle(f.name, pages))) {
       status = "bundle";
     } else if (mode === "one") {
       studentId = chosen;
@@ -75,14 +78,14 @@ export async function uploadMaterials(prev: UploadState, form: FormData): Promis
         matchedBy = m.by;
       }
     }
-    await repo.addMaterial({ programId: program.id, studentId, fileName: f.name.slice(0, 120), mime: f.type, size: f.size, pages, status, matchedBy, text, uploaderId: v.accountId }, bytes);
+    await repo.addMaterial({ programId: program.id, studentId, fileName: f.name.slice(0, 120), mime, size: f.size, pages, status, matchedBy, text, uploaderId: v.accountId }, bytes);
     if (status === "bundle") counts.bundle++;
     else if (status === "matched") counts.matched++;
     else counts.review++;
   }
   await repo.audit(v.accountId, "material.upload", `${program.id} ${files.length - counts.skipped}개`);
   paths(program.id);
-  const parts = [`자동 연결 ${counts.matched}`, counts.review && `확인 필요 ${counts.review}`, counts.bundle && `합본 ${counts.bundle}`, counts.skipped && `건너뜀 ${counts.skipped} (형식·크기)`].filter(Boolean);
+  const parts = [`자동 연결 ${counts.matched}`, counts.review && `확인 필요 ${counts.review}`, counts.bundle && `합본 ${counts.bundle}`, counts.skipped && `건너뜀 ${counts.skipped} (형식·크기 — HWP는 HWPX로 저장해 주세요)`].filter(Boolean);
   return { done: `${files.length}개 중 ${parts.join(" · ")}`, n };
 }
 
@@ -112,7 +115,7 @@ export async function readMaterialsAction(prev: ReadState, form: FormData): Prom
   const targets = await targetsOf(program.targetIds);
   const people = targets.map((s) => ({ name: s.name, studentNo: s.studentNo }));
   const list = (await repo.listMaterials(program.id))
-    .filter((m) => m.mime !== "text/plain" && (m.status === "needs_review" || (m.status === "matched" && !m.text)))
+    .filter((m) => isReadableByAi(m.mime) && (m.status === "needs_review" || (m.status === "matched" && !m.text)))
     .slice(0, 10);
   if (list.length === 0) return { error: "읽을 파일이 없어요 (확인 필요이거나 글을 아직 안 읽은 파일만 읽어요)", n };
   const proposals: ReadProposal[] = [];

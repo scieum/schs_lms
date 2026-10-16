@@ -12,6 +12,7 @@ import type { NewProgram } from "@/lib/server/repo/modules/programs";
 import { requireCan } from "@/lib/server/viewer";
 import { requireProgram } from "../_lib/data";
 import { pdfInfo } from "../_lib/pdf";
+import { readUpload } from "@/lib/server/hwpx";
 
 export type CreateState = { error?: string };
 
@@ -120,7 +121,14 @@ export async function readPlanAction(prev: PlanState, form: FormData): Promise<P
   }
   const year = Number(today().slice(0, 4));
   const classes = [...new Set((await repo.listStudents()).map((s) => `${s.grade}-${s.classNo}`))];
-  const loaded = await Promise.all(files.map(async (f) => ({ name: f.name.slice(0, 120), mime: f.type, bytes: new Uint8Array(await f.arrayBuffer()) })));
+  // HWPX 는 글을 뽑아 글 파일처럼 다룬다 (hwpx 스킬의 text_extract 방식)
+  const read = await Promise.all(files.map(readUpload));
+  const bad = read.find((r): r is string => typeof r === "string");
+  if (bad) return { error: bad, n };
+  const loaded = (read as Exclude<(typeof read)[number], string>[]).map((r) =>
+    r.mime === "application/hwp+zip" && r.text
+      ? { name: r.name.slice(0, 120), mime: "text/plain", bytes: new TextEncoder().encode(r.text) }
+      : { name: r.name.slice(0, 120), mime: r.mime, bytes: r.bytes });
 
   // 규칙 대체: 파일 이름 → PDF 문서 정보 → 글 파일
   const segments: { label: string; text: string }[] = [];

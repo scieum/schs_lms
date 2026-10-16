@@ -25,9 +25,9 @@ export function UploadBox({ programId, mode, students }: { programId: string; mo
       <label className={cx("flex cursor-pointer flex-col items-center gap-3 rounded-inner border-2 border-dashed border-hair bg-white px-4 py-8 text-center", names.length > 0 && "border-key")}>
         <span className="flex size-11 items-center justify-center rounded-field bg-soft text-key"><FileUp size={22} /></span>
         <span className="font-bold">{names.length ? `${names.length}개 파일 골랐어요` : mode === "bundle" ? "합본 PDF 고르기" : "파일을 골라 주세요"}</span>
-        <span className="text-[13px] text-mute">{names.length ? names.slice(0, 3).join(", ") + (names.length > 3 ? " …" : "") : mode === "bundle" ? "여러 학생 서류를 모은 PDF" : "PDF · JPG · PNG · TXT · 파일당 최대 50MB"}</span>
+        <span className="text-[13px] text-mute">{names.length ? names.slice(0, 3).join(", ") + (names.length > 3 ? " …" : "") : mode === "bundle" ? "여러 학생 서류를 모은 PDF" : "PDF · HWPX · JPG · PNG · TXT · 파일당 최대 50MB"}</span>
         <input type="file" name="files" multiple={mode !== "one"} required className="sr-only"
-          accept={mode === "bundle" ? "application/pdf" : "application/pdf,image/jpeg,image/png,image/webp,text/plain"}
+          accept={mode === "bundle" ? "application/pdf" : "application/pdf,image/jpeg,image/png,image/webp,text/plain,.hwpx"}
           onChange={(e) => setPicked({ n: state.n ?? 0, names: [...(e.target.files ?? [])].map((f) => f.name) })} />
       </label>
       {mode === "bulk" && (

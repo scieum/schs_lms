@@ -3,7 +3,7 @@ import { z } from "zod";
 import { resolveLength, UNIT_LABEL } from "@/lib/domain/length";
 import {
   afterAttempt, buildEvidence, checkDraft, fitToLength, maskIdentity, MAX_ATTEMPTS, sampleDraft, usesSurvey,
-  type DraftJob, type DraftSource, type Material,
+  isReadableByAi, type DraftJob, type DraftSource, type Material,
 } from "@/lib/domain/program";
 import type { Student } from "@/lib/domain/types";
 import { repo } from "@/lib/server/repo";
@@ -42,7 +42,7 @@ const APP_RULES = (min: number, max: number, unit: string) => `
 async function readUnreadMaterials(list: Material[], people: { name: string; studentNo: string }[]): Promise<Material[]> {
   if (!aiEnabled()) return list;
   return Promise.all(list.map(async (m) => {
-    if (m.status !== "matched" || m.text || m.mime === "text/plain") return m;
+    if (m.status !== "matched" || m.text || !isReadableByAi(m.mime)) return m;
     const bytes = await repo.getMaterialFile(m);
     if (!bytes) return m;
     const r = await readMaterial(bytes, m.mime);
