@@ -21,6 +21,9 @@ const toAccount = (r: AccountRow): Account => ({ id: r.id, kind: r.kind, loginId
 const toStudent = (r: StudentRow): Student => ({ id: r.id, pseudonymId: r.pseudonym_id, studentNo: r.student_no, grade: r.grade, classNo: r.class_no, number: r.number, name: r.name, birthDate: r.birth_date, careerGoal: r.career_goal });
 const toTeacher = (r: TeacherRow): Teacher => ({ id: r.id, name: r.name, roles: r.roles, homeroom: r.homeroom_grade && r.homeroom_class ? { grade: r.homeroom_grade, classNo: r.homeroom_class } : null, dept: r.dept });
 
+// 다른 환경(데모)에서 만든 세션 쿠키처럼 UUID가 아닌 id는 조회하지 않고 "없음"으로 본다
+const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
 function check<T>(res: { data: T; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
   return res.data;
@@ -32,6 +35,7 @@ export const supabaseRepo: Repo = {
     return r ? toAccount(r as AccountRow) : null;
   },
   async getAccount(id) {
+    if (!isUuid(id)) return null;
     const r = check(await db().from("accounts").select("*").eq("id", id).maybeSingle());
     return r ? toAccount(r as AccountRow) : null;
   },
@@ -44,10 +48,12 @@ export const supabaseRepo: Repo = {
     check(await db().from("accounts").update(row).eq("id", id));
   },
   async getTeacher(id) {
+    if (!isUuid(id)) return null;
     const r = check(await db().from("teachers").select("*").eq("id", id).maybeSingle());
     return r ? toTeacher(r as TeacherRow) : null;
   },
   async getStudent(id) {
+    if (!isUuid(id)) return null;
     const r = check(await db().from("students").select("*").eq("id", id).maybeSingle());
     return r ? toStudent(r as StudentRow) : null;
   },
