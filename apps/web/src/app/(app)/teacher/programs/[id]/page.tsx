@@ -9,7 +9,7 @@ import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { programRows, requireProgram, type StudentRow } from "../_lib/data";
 import { remindOne, setProgramStatus } from "./actions";
-import { GenerateButton, RemindBox } from "./parts";
+import { AnalyzeBox, GenerateButton, RemindBox } from "./parts";
 
 export const metadata = { title: "프로그램 상세 · 속초고등학교 학생관리시스템" };
 
@@ -102,6 +102,7 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
         </div>
 
         <RemindBox programId={p.id} missing={status === "open" ? missing.length : 0} aiOn={aiEnabled()} last={lastReminder} />
+        {survey && <AnalyzeBox programId={p.id} submitted={submitted} aiOn={aiEnabled()} />}
 
         <div id="status" className="scroll-mt-6" />
         <Card

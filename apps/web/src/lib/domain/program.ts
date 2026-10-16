@@ -501,3 +501,126 @@ export interface StudentTodo {
   /** 설문: 답한 문항 / 전체, 서류: 올린 수 */
   progress: string;
 }
+
+// ---------- AI 보강의 규칙 대체 (키가 없을 때 "자동") ----------
+
+/** A4 실패 원인별 조치 (규칙). AI 가 켜져 있으면 이 결과를 다듬는다 */
+const ADVICE: Record<string, string> = {
+  "글자 수 초과": "분량을 늘려 다시 만들거나 근거 자료가 너무 길지 않은지 확인해요",
+  "실명·학번 포함": "자료 관리에서 서류 글에 이름·학번이 남았는지 확인한 뒤 다시 시도해요",
+  "근거 부족": "설문 미제출·서류 미연결 학생은 담당 교사에게 수동 작성을 요청해요",
+  "AI 호출 실패": "잠시 뒤 모두 다시 시도해요. 계속되면 AI 키·사용량을 확인해요",
+  기타: "초안 보기에서 오류 내용을 확인하고 직접 작성을 요청해요",
+};
+export function errorAdvice(causes: { cause: string; n: number }[]): string[] {
+  return causes.map((c) => `${c.cause} ${c.n}건 — ${ADVICE[c.cause] ?? ADVICE.기타}`);
+}
+
+/** T1·프로그램 목록 "이번 주 할 일" (규칙): 마감 임박·미응답·검토 대기·실패·발행 전 */
+export interface WeekTodo {
+  programId: string;
+  text: string;
+  /** 낮을수록 먼저 */
+  rank: number;
+}
+export function weekTodos(
+  items: { id: string; title: string; status: ProgramStatus; endDate: string; targets: number; submitted: number; review: number; failed: number; drafts: number }[],
+  today: string,
+): WeekTodo[] {
+  const out: WeekTodo[] = [];
+  for (const s of items) {
+    const left = daysLeft(s.endDate, today);
+    const missing = s.targets - s.submitted;
+    if (s.status === "open" && left <= 7 && missing > 0) out.push({ programId: s.id, rank: left, text: `${s.title} ${ddayLabel(s.endDate, today)} · 미응답 ${missing}명` });
+    if (s.failed > 0) out.push({ programId: s.id, rank: 1, text: `${s.title} 생성 실패 ${s.failed}건` });
+    if (s.review > 0) out.push({ programId: s.id, rank: 3, text: `${s.title} 검토 대기 ${s.review}건` });
+    if (s.status === "closed" && s.drafts === 0 && s.submitted > 0) out.push({ programId: s.id, rank: 2, text: `${s.title} 마감 · 초안 만들기 전` });
+    if (s.status === "draft") out.push({ programId: s.id, rank: 5, text: `${s.title} 발행 전` });
+  }
+  return out.sort((a, b) => a.rank - b.rank);
+}
+
+/** T2 응답 분석 (규칙): 공통 낱말 · 눈에 띄는 응답 · 근거가 얇은 학생. 입력은 가명ID와 가린 답 */
+export interface ResponseDigest {
+  themes: string[];
+  highlights: { pid: string; note: string }[];
+  thin: { pid: string; note: string }[];
+}
+export function responseDigest(students: { pid: string; answers: string[] }[], minChars = MIN_ANSWER_CHARS): ResponseDigest {
+  const df = new Map<string, number>();
+  for (const s of students) for (const k of new Set(keywords(s.answers.join(" ")))) df.set(k, (df.get(k) ?? 0) + 1);
+  const floor = Math.max(2, Math.ceil(students.length * 0.2));
+  const themes = [...df.entries()].filter(([, n]) => n >= floor).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko")).slice(0, 6).map(([k, n]) => `${k} (${n}명)`);
+  const scored = students.map((s) => {
+    const all = s.answers.join(" ");
+    const len = all.replace(/\s/g, "").length;
+    const rare = keywords(all).filter((k) => (df.get(k) ?? 0) === 1);
+    return { s, len, rare, nums: /\d/.test(all) };
+  });
+  const highlights = scored
+    .filter((x) => x.rare.length >= 3 && x.len >= minChars * 2)
+    .sort((a, b) => b.rare.length - a.rare.length || b.len - a.len)
+    .slice(0, 3)
+    .map((x) => ({ pid: x.s.pid, note: `다른 학생에게 없는 낱말: ${x.rare.slice(0, 3).join(", ")}${x.nums ? " · 수치 있음" : ""}` }));
+  const thin = scored
+    .filter((x) => x.s.answers.filter((a) => a.trim().length < minChars * 1.5).length >= Math.ceil(x.s.answers.length / 2))
+    .sort((a, b) => a.len - b.len)
+    .slice(0, 5)
+    .map((x) => ({ pid: x.s.pid, note: `답이 짧아요 (모두 ${x.len}자)` }));
+  return { themes, highlights, thin };
+}
+
+/** T4 비슷한 문장 찾기: 글자 3-gram 자카드 유사도 (공백·문장부호 무시) */
+function grams(s: string, n = 3): Set<string> {
+  const t = s.replace(/[\s.,'"’”‘“·()]/g, "");
+  const out = new Set<string>();
+  for (let i = 0; i + n <= t.length; i++) out.add(t.slice(i, i + n));
+  return out;
+}
+export function similarity(a: string, b: string): number {
+  const x = grams(a);
+  const y = grams(b);
+  if (!x.size || !y.size) return 0;
+  let inter = 0;
+  for (const g of x) if (y.has(g)) inter++;
+  return inter / (x.size + y.size - inter);
+}
+export interface SimilarHit {
+  sentence: string;
+  peer: string;
+  peerSentence: string;
+  score: number;
+}
+/** 내 초안 문장마다 다른 학생 초안에서 가장 비슷한 문장 (threshold 이상만, 높은 순) */
+export function similarSentences(text: string, peers: { label: string; text: string }[], threshold = 0.45): SimilarHit[] {
+  const others = peers.flatMap((p) => sentences(p.text).map((s) => ({ label: p.label, s })));
+  const hits: SimilarHit[] = [];
+  for (const mine of sentences(text)) {
+    if (mine.replace(/\s/g, "").length < 12) continue;
+    let best: SimilarHit | null = null;
+    for (const o of others) {
+      const score = similarity(mine, o.s);
+      if (score >= threshold && (!best || score > best.score)) best = { sentence: mine, peer: o.label, peerSentence: o.s, score: Math.round(score * 100) / 100 };
+    }
+    if (best) hits.push(best);
+  }
+  return hits.sort((a, b) => b.score - a.score);
+}
+
+/** 문장 다르게 쓰기 (규칙): 어미를 '~함.'으로 맞추고 흔한 서술어를 바꾼 안. 같은 글이면 빼고 최대 2개 */
+const VERB_SWAP: [RegExp, string][] = [
+  [/정리함\.$/, "체계적으로 정리함."], [/조사함\.$/, "찾아 비교함."], [/발표함\.$/, "설명함."], [/탐구함\.$/, "깊이 있게 탐구함."],
+  [/보임\.$/, "드러냄."], [/깨달음\.$/, "이해함."], [/참여함\.$/, "성실히 임함."], [/노력함\.$/, "힘씀."], [/하였음\.$/, "함."],
+];
+export function rephraseRule(sentence: string): string[] {
+  const s = sentence.trim();
+  const ending = s
+    .replace(/(했다|하였다|했어요|해요|한다)\.?$/, "함.")
+    .replace(/(이다|입니다)\.?$/, "임.")
+    .replace(/(였다|었다)\.?$/, "음.")
+    .replace(/([^.])$/, "$1.");
+  const out = [ending];
+  const swap = VERB_SWAP.find(([re]) => re.test(ending));
+  if (swap) out.push(ending.replace(swap[0], swap[1]));
+  return [...new Set(out.map((x) => x.replace(/\s{2,}/g, " ").trim()))].filter((x) => x !== s).slice(0, 2);
+}

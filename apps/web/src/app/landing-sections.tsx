@@ -55,6 +55,19 @@ function MockLife() {
     </div>
   );
 }
+function MockCounsel() {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between"><span className="text-[15px] font-bold">김민준 · 상담 기록</span>{tag("AI 요약", "bg-new-soft text-new")}</div>
+      <div className="rounded-inner bg-white p-4 text-[13px] leading-relaxed text-sub">진로 상담 3회 모두 산업디자인과 공학 사이 고민. 최근엔 디자인공학 쪽으로 기울었어요.</div>
+      <span className="pt-1 text-[13px] font-bold text-sub">다음에 물어볼 것</span>
+      {["디자인공학과에서 가장 궁금한 수업은?", "포트폴리오로 쓸 활동은 무엇이 있을까?"].map((q) => (
+        <div key={q} className="rounded-inner bg-white px-4 py-3 text-[13px] font-medium">{q}</div>
+      ))}
+    </div>
+  );
+}
+
 function MockAdmin() {
   return (
     <div className="flex flex-col gap-2.5">
@@ -70,28 +83,43 @@ function MockAdmin() {
 const GROUPS: Group[] = [
   { key: "record", label: "생활기록부", mock: MockRecord, items: [
     { title: "교과 세특", line: "편제표와 내 과목 기준으로 반별로 쓰고 확정" },
-    { title: "누가기록", line: "동아리·자율·진로 기록을 날짜별로 쌓기" },
-    { title: "AI 기록 쓰기", line: "세특·특기사항·행발 초안을 교과별 프롬프트로", ai: true },
+    { title: "AI 기록 쓰기", line: "세특·창체 특기사항·행발 초안을 교과별 프롬프트로", ai: true },
+    { title: "누가기록", line: "동아리·자율·진로 기록을 날짜별로 쌓고 AI로 다듬기", ai: true },
+    { title: "프로그램 초안", line: "설문·제출 서류로 학생별 초안을 한 번에", ai: true },
     { title: "봉사 확인서", line: "사진을 올리면 읽어서 담임에게 바로 전달", ai: true },
     { title: "나이스 입력 도우미", line: "확정본을 열린 나이스 화면에 채워 넣기" },
   ] },
   { key: "scores", label: "성적·입시", mock: MockScores, items: [
     { title: "성적 업로드", line: "엑셀이나 성적표 사진으로 반 성적 올리기", ai: true },
     { title: "수능 최저 판정", line: "대학별 기준으로 충족·근접·미충족을 한 번에" },
+    { title: "최저 기준 읽기", line: "모집요강 문구나 캡처에서 기준을 뽑아 등록", ai: true },
     { title: "목표 대학", line: "학생이 고른 대학 기준을 바로 확인" },
-    { title: "상담 기록", line: "쓴 사람과 담임만 보는 상담 기록과 AI 요약", ai: true },
+    { title: "성적 분석", line: "추이와 필요한 등급을 짧은 문장으로", ai: true },
+    { title: "상담 명단", line: "한 과목만 올리면 충족되는 학생을 먼저" },
+  ] },
+  { key: "students", label: "상담·학생", mock: MockCounsel, items: [
+    { title: "학생 기록 모아 보기", line: "초안·성적·상담·야자·누가기록을 한 화면에" },
+    { title: "상담 기록", line: "쓴 사람과 담임만 보는 기록, 고쳐도 이전 버전은 남아요" },
+    { title: "상담 요약·다음 질문", line: "지난 상담을 요약하고 다음에 물어볼 것 추천", ai: true },
+    { title: "학생 등록", line: "엑셀 양식이나 한 명씩, 가명ID는 자동 발급" },
+    { title: "자연어 검색", line: "2학년 3반 여학생처럼 말로 찾기", ai: true },
+    { title: "정정 요청", line: "학생이 확정본 정정을 담임에게 요청" },
   ] },
   { key: "life", label: "학교생활", mock: MockLife, items: [
     { title: "설문·서류 제출", line: "D-day 알림부터 제출까지 학생 홈에서" },
+    { title: "작성 도우미", line: "대신 쓰지 않고 더 쓸 거리를 질문으로", ai: true },
     { title: "야간 자율학습", line: "요일·교시 신청, 출석 체크, 변경 승인" },
     { title: "과목 신청", line: "학점과 정원을 확인하며 담고 신청" },
     { title: "추천 활동", line: "희망 진로에 맞는 도서·대회·특강", ai: true },
+    { title: "내 생활기록부", line: "확정된 지난 기록과 이어갈 주제", ai: true },
   ] },
   { key: "admin", label: "학교 관리", mock: MockAdmin, items: [
-    { title: "계정·가입", line: "첫 가입자가 관리자, 비밀번호 초기화와 잠금" },
     { title: "프로그램 등록", line: "계획서·기안문을 올리면 AI가 칸을 채워요", ai: true },
-    { title: "편제표", line: "2022 개정 과목을 학년·학기별로 관리" },
-    { title: "초안 현황·감사 로그", line: "실패한 초안과 누가 무엇을 했는지 한눈에" },
+    { title: "계정·가입", line: "첫 가입자가 관리자, 명부 붙여넣기로 일괄 추가", ai: true },
+    { title: "편제표", line: "2022 개정 과목을 학년·학기별로, 이미지로도 등록", ai: true },
+    { title: "과목 개설", line: "정원·마감 설정과 반 늘리기 제안" },
+    { title: "초안 생성 현황", line: "단계별 진행과 실패한 초안 다시 시도" },
+    { title: "감사 로그", line: "누가 언제 무엇을 했는지, 이상 접근 표시" },
   ] },
 ];
 
@@ -110,10 +138,10 @@ export function FeatureTabs() {
           ))}
         </div>
       </div>
-      <div className="mt-8 grid gap-5 text-left md:grid-cols-2 md:gap-8" role="tabpanel">
-        <ul className="flex flex-col gap-2.5">
+      <div className="mt-8 grid items-stretch gap-5 text-left md:grid-cols-2 md:gap-8" role="tabpanel">
+        <ul className="flex h-full flex-col gap-2.5">
           {g.items.map((f) => (
-            <li key={f.title} className="flex items-center gap-4 rounded-inner bg-soft px-5 py-4">
+            <li key={f.title} className="flex flex-1 items-center gap-4 rounded-inner bg-soft px-5 py-4">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-white text-key"><Check size={18} strokeWidth={2.5} /></span>
               <div className="min-w-0 flex-1">
                 <div className="text-[16px] font-bold">{f.title}</div>
@@ -123,7 +151,7 @@ export function FeatureTabs() {
             </li>
           ))}
         </ul>
-        <div className="hidden rounded-card bg-soft p-6 md:block md:p-8">{g.mock()}</div>
+        <div className="hidden h-full flex-col justify-center rounded-card bg-soft p-6 md:flex md:p-8"><div>{g.mock()}</div></div>
       </div>
     </div>
   );
@@ -176,6 +204,107 @@ export function FaqList() {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/* ---------- Spotlight: 핵심 흐름을 좌우 번갈아 (유아이볼: 클로바노트·매니패스트) ---------- */
+function SpotForm() {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3 rounded-inner border-2 border-dashed border-[#C2CAFF] bg-white px-4 py-3.5 text-[13px] font-medium text-sub">
+        <span className="rounded-chip bg-key-soft px-2 py-1 text-[12px] font-bold text-key">PDF</span>2026_과학탐구발표_계획서.pdf
+      </div>
+      {[["프로그램 이름", "과학 탐구 발표"], ["기록 영역", "교과세특 · 통합과학"], ["활동 기간", "10.13 ~ 10.20"], ["대상", "2학년 1~3반"]].map(([k, v]) => (
+        <div key={k} className="flex items-center gap-3 rounded-inner bg-white px-4 py-3 text-[13px]">
+          <span className="w-24 shrink-0 text-mute">{k}</span><span className="flex-1 font-bold">{v}</span>{tag("AI", "bg-new-soft text-new")}
+        </div>
+      ))}
+    </div>
+  );
+}
+function SpotSplit() {
+  const ranges = [["1–2쪽", "김민준"], ["3–5쪽", "이수아"], ["6–9쪽", "정하은"]];
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-6 gap-1.5">
+        {Array.from({ length: 12 }, (_, i) => (
+          <span key={i} className={`flex aspect-[3/4] items-end justify-center rounded-[4px] pb-1 text-[10px] font-bold ${i < 2 ? "bg-key text-white" : i < 5 ? "bg-[#C2CAFF] text-key-strong" : i < 9 ? "bg-key-soft text-key-strong" : "bg-white text-mute"}`}>{i + 1}</span>
+        ))}
+      </div>
+      {ranges.map(([r, n]) => (
+        <div key={r} className="flex items-center gap-3 rounded-inner bg-white px-4 py-3 text-[13px]">
+          <span className="w-14 shrink-0 font-bold">{r}</span><span className="flex-1">{n}</span>{tag("이름 인식", "bg-ok-soft text-ok")}
+        </div>
+      ))}
+    </div>
+  );
+}
+function SpotNeis() {
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center justify-between pb-1"><span className="text-[15px] font-bold">나이스 입력 도우미</span>{tag("2학년 3반", "bg-key-soft text-key-strong")}</div>
+      {[["김민준", "채움", "bg-ok-soft text-ok"], ["이수아", "채움", "bg-ok-soft text-ok"], ["정하은", "분량 초과 · 건너뜀", "bg-bad-soft text-bad"], ["오승우", "채움", "bg-ok-soft text-ok"]].map(([n, t, c]) => (
+        <div key={n} className="flex items-center justify-between rounded-inner bg-white px-4 py-3 text-[13px] font-medium">{n}{tag(t, c)}</div>
+      ))}
+      <p className="pt-1 text-[12px] text-mute">저장 버튼은 선생님이 직접 눌러요</p>
+    </div>
+  );
+}
+function SpotYeongrang() {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="ml-auto max-w-[80%] rounded-inner bg-key px-4 py-3 text-[13px] text-white">합본 PDF는 어떻게 나눠요?</div>
+      <div className="max-w-[88%] rounded-inner bg-white px-4 py-3 text-[13px] leading-relaxed">프로그램 자료 등록에서 합본 파일의 <b>페이지 나누기</b>를 누르세요. 쪽 구간마다 학생을 고르거나, 첫 쪽 이름으로 자동 인식할 수 있어요.</div>
+      <div className="flex gap-2">{tag("사용 안내서 4.2", "bg-white text-sub")}{tag("바로 가기", "bg-key-soft text-key-strong")}</div>
+    </div>
+  );
+}
+
+const SPOTS = [
+  { eyebrow: "프로그램 등록", title: "계획서만 올리면\n칸이 채워져요", line: "기안문이나 계획서 PDF·캡처를 올리면 이름·영역·기간·대상을 AI가 읽어 채워요. 확인하고 고친 뒤 발행해요.", mock: SpotForm },
+  { eyebrow: "제출 서류", title: "합본 PDF도\n학생별로", line: "반 전체를 한 파일로 스캔해도 괜찮아요. 쪽 구간으로 나누고, 첫 쪽의 이름으로 학생을 찾아 연결해요.", mock: SpotSplit },
+  { eyebrow: "나이스 반영", title: "확정본은\n나이스까지 한 번에", line: "확정된 세특·특기사항·행발을 내보내고, 크롬 확장이 열린 나이스 화면에 채워요. 분량이 넘거나 이름이 다르면 건너뛰어요.", mock: SpotNeis },
+  { eyebrow: "영랑이", title: "막히면\n영랑이에게", line: "오른쪽 아래 영랑이에게 사용법을 물으면 안내서를 근거로 답하고 해당 화면으로 데려다줘요. 안내 문자나 가정통신문 초안도 만들어요.", mock: SpotYeongrang },
+];
+
+export function Spotlights() {
+  return (
+    <div className="mt-12 flex flex-col gap-16 text-left md:mt-[70px] md:gap-24">
+      {SPOTS.map((s, i) => (
+        <div key={s.eyebrow} className={`grid items-center gap-8 md:grid-cols-2 md:gap-16 ${i % 2 ? "md:[&>*:first-child]:order-2" : ""}`}>
+          <div>
+            <p className="text-[15px] font-bold text-key">{s.eyebrow}</p>
+            <h3 className="mt-3 whitespace-pre-line text-[26px] font-bold leading-[1.3] md:text-[34px]">{s.title}</h3>
+            <p className="mt-4 text-[15px] leading-relaxed text-sub md:text-[17px]">{s.line}</p>
+          </div>
+          <div className="flex min-h-[360px] flex-col justify-center rounded-card bg-soft p-6 md:h-[400px] md:p-8"><div>{s.mock()}</div></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- AI 모음 (네이비, 유아이볼: 스타라이트) ---------- */
+const AI_ITEMS = [
+  ["계획서 읽기", "프로그램 등록 칸 채우기"], ["서류 연결", "제출 서류를 학생과 연결"], ["쪽 나누기", "합본 PDF 구간 제안"], ["세특 초안", "속초고 교과별 프롬프트"],
+  ["검토 도우미", "근거 없는 표현·비슷한 문장"], ["성적표 읽기", "사진·엑셀 열 맞추기"], ["최저 기준 읽기", "모집요강에서 기준 뽑기"], ["상담 요약", "요약과 다음 질문"],
+  ["우리 반 브리핑", "먼저 볼 학생 3명"], ["학생 할 일", "오늘 할 일 순서"], ["작성 힌트", "대신 쓰지 않고 질문으로"], ["영랑이", "사용법 문의·글 초안"],
+];
+
+export function AiGrid() {
+  return (
+    <div className="mt-12 md:mt-[70px]">
+      <div className="grid grid-cols-2 gap-3 text-left md:grid-cols-4 md:gap-4">
+        {AI_ITEMS.map(([t, l]) => (
+          <div key={t} className="rounded-inner bg-navy-2 px-5 py-5">
+            <span className="rounded-chip bg-new-soft px-2 py-1 text-[11px] font-bold text-new">AI</span>
+            <div className="mt-3 text-[16px] font-bold text-white">{t}</div>
+            <div className="mt-1 text-[13px] text-[#c2caff]">{l}</div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-8 text-[14px] text-[#9eaaff]">학생 이름 대신 가명ID만 보내고, 결과는 선생님이 확인한 뒤에만 반영돼요.</p>
     </div>
   );
 }

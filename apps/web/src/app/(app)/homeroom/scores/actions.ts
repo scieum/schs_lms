@@ -3,10 +3,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { classScope } from "@/components/scores/scope";
 import {
-  checkScoreRows, colLetter, matchScoreHeaders, SCORE_FIELD_LABEL, SCORE_FIELDS, summarizeScoreRows, validColumnMap,
-  type CheckedScoreRow, type ColumnMap, type ScoreField,
+  checkScoreRows, colLetter, matchScoreHeaders, SCORE_FIELD_LABEL, SCORE_FIELDS, summarizeScoreRows, validColumnMap, withRosterNames,
+  type CheckedScoreRow, type ColumnMap, type NumberedScoreRow, type ScoreField,
 } from "@/lib/domain/scores";
-import { aiJson } from "@/lib/server/ai/claude";
+import { aiEnabled, aiJson } from "@/lib/server/ai/claude";
+import { readScorePicture } from "@/lib/server/ai/homeroom-ai";
 import { repo } from "@/lib/server/repo";
 import { buildTable, readScoreSheet, SCORE_MAX_BYTES } from "@/lib/server/scores-excel";
 import { requireCan } from "@/lib/server/viewer";
@@ -24,10 +25,17 @@ export type UploadState =
       renamed: { from: string; to: ScoreField }[];
       rows: CheckedScoreRow[];
       summary: ReturnType<typeof summarizeScoreRows>;
+      /** 사진·PDF 를 AI 가 읽은 번호·등급 행. 반영할 때 그대로 다시 보내 서버가 다시 검사한다 */
+      picture?: NumberedScoreRow[];
     }
   | { kind: "done"; count: number; examName: string };
 
 const XLSX_TYPES = ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ""];
+const PICTURE_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
+const PICTURE_MAX_BYTES = 8 * 1024 * 1024;
+const G = z.string().trim().max(6);
+const NumberedRows = z.array(z.object({ number: G, ko: G, ma: G, en: G, hi: G, t1: G, t2: G })).min(1).max(80);
+const IDENTITY_MAP = Object.fromEntries(SCORE_FIELDS.map((f, i) => [f, i])) as ColumnMap;
 
 function parseMap(raw: FormDataEntryValue | null): ColumnMap | null {
   if (!raw) return null;
@@ -42,13 +50,38 @@ function parseMap(raw: FormDataEntryValue | null): ColumnMap | null {
 }
 
 /** 파일 읽기 + 열 맞추기 + 행 검사. 반영할 때도 같은 함수로 다시 검사한다 (클라이언트 값을 믿지 않음) */
-async function inspect(form: FormData): Promise<Exclude<UploadState, { kind: "idle" } | { kind: "done" }> & { classKey?: string }> {
+async function inspect(form: FormData, readPicture = false): Promise<Exclude<UploadState, { kind: "idle" } | { kind: "done" }> & { classKey?: string }> {
   const v = await requireCan("scores.upload");
   const scope = await classScope(v, String(form.get("class") ?? ""));
   if (!scope) return { kind: "error", message: "담임 반이 없어요" };
+  const roster = scope.students.map((s) => ({ id: s.id, number: s.number, name: s.name }));
+  // 사진 행: 이름은 언제나 서버가 번호로 명단에서 붙인다 (클라이언트·AI 의 이름을 받지 않음)
+  const numbered = (picture: NumberedScoreRow[], fileName: string) => {
+    const rows = checkScoreRows(withRosterNames(picture, roster), roster);
+    return {
+      kind: "preview" as const, fileName, headers: SCORE_FIELDS.map((f) => SCORE_FIELD_LABEL[f]), map: IDENTITY_MAP, renamed: [],
+      rows, summary: summarizeScoreRows(rows, roster.length), picture, classKey: scope.key,
+    };
+  };
+  const rawsJson = form.get("raws");
+  if (rawsJson) {
+    const parsed = NumberedRows.safeParse((() => { try { return JSON.parse(String(rawsJson)); } catch { return null; } })());
+    if (!parsed.success) return { kind: "error", message: "읽은 성적을 다시 확인해 주세요" };
+    return numbered(parsed.data, String(form.get("fileName") ?? "성적표 사진").slice(0, 80));
+  }
   const file = form.get("file");
   if (!(file instanceof File) || file.size === 0) return { kind: "error", message: "엑셀 파일을 골라 주세요" };
-  if (!file.name.toLowerCase().endsWith(".xlsx") || !XLSX_TYPES.includes(file.type)) return { kind: "error", message: "xlsx 파일만 올릴 수 있어요. 양식을 받아서 써 주세요" };
+  if (PICTURE_TYPES.includes(file.type)) {
+    if (!readPicture) return { kind: "error", message: "사진은 먼저 읽기부터 해 주세요" };
+    if (!aiEnabled()) return { kind: "error", message: "AI가 꺼져 있어 사진은 읽을 수 없어요. 양식 엑셀로 올려 주세요" };
+    if (file.size > PICTURE_MAX_BYTES) return { kind: "error", message: "사진·PDF는 8MB까지 올릴 수 있어요" };
+    const r = await readScorePicture(new Uint8Array(await file.arrayBuffer()), file.type);
+    if (!r.ok) return { kind: "error", message: `${r.error} · 양식 엑셀로 올려도 돼요` };
+    if (!r.data.length) return { kind: "error", message: "AI가 성적표에서 행을 찾지 못했어요. 양식 엑셀로 올려 주세요" };
+    await repo.audit(v.accountId, "scores.ai.picture", `${scope.key} ${r.data.length}행`);
+    return numbered(r.data.slice(0, 80), file.name);
+  }
+  if (!file.name.toLowerCase().endsWith(".xlsx") || !XLSX_TYPES.includes(file.type)) return { kind: "error", message: "xlsx 또는 성적표 사진(png·jpg)·PDF만 올릴 수 있어요" };
   if (file.size > SCORE_MAX_BYTES) return { kind: "error", message: "2MB까지 올릴 수 있어요" };
 
   let sheet: { headers: string[]; rows: string[][] };
@@ -67,7 +100,6 @@ async function inspect(form: FormData): Promise<Exclude<UploadState, { kind: "id
     return { kind: "mapping", fileName: file.name, headers: sheet.headers, map, missing: SCORE_FIELDS.filter((f) => map[f] === undefined) };
   }
   const raws = sheet.rows.map((cells) => Object.fromEntries(SCORE_FIELDS.map((f) => [f, cells[map[f]!] ?? ""])) as Record<ScoreField, string>);
-  const roster = scope.students.map((s) => ({ id: s.id, number: s.number, name: s.name }));
   const rows = checkScoreRows(raws, roster);
   const renamed = given
     ? SCORE_FIELDS.filter((f) => sheet.headers[map[f]!] !== SCORE_FIELD_LABEL[f]).map((f) => ({ from: sheet.headers[map[f]!] || `${colLetter(map[f]!)}열`, to: f }))
@@ -75,9 +107,9 @@ async function inspect(form: FormData): Promise<Exclude<UploadState, { kind: "id
   return { kind: "preview", fileName: file.name, headers: sheet.headers, map, renamed, rows, summary: summarizeScoreRows(rows, roster.length), classKey: scope.key };
 }
 
-/** 1단계: 올린 파일 검사 (저장 안 함) */
+/** 1단계: 올린 파일 검사 (저장 안 함). 사진·PDF 면 AI 가 번호·등급만 읽는다 */
 export async function previewScores(_: UploadState, form: FormData): Promise<UploadState> {
-  const r = await inspect(form);
+  const r = await inspect(form, true);
   if (r.kind === "preview") delete r.classKey;
   return r;
 }
@@ -123,7 +155,7 @@ const AiMap = z.object({
 
 /** 엑셀 1행 제목만 AI 에 보내 열 매칭을 제안받는다. 학생 이름·성적 값은 보내지 않는다 */
 export async function suggestColumns(headers: string[]): Promise<{ ok: true; map: ColumnMap } | { ok: false; error: string }> {
-  await requireCan("scores.upload");
+  const v = await requireCan("scores.upload");
   const list = headers.slice(0, 40).map((h, i) => `${colLetter(i)}열(index ${i}): ${String(h).slice(0, 40)}`).join("\n");
   const res = await aiJson(AiMap, {
     model: "fast",
@@ -132,6 +164,7 @@ export async function suggestColumns(headers: string[]): Promise<{ ok: true; map
     content: `엑셀 1행 제목:\n${list}`,
   });
   if (!res.ok) return res;
+  await repo.audit(v.accountId, "scores.ai.columns", `${headers.length}열`);
   const map: ColumnMap = {};
   const used = new Set<number>();
   for (const c of res.data.columns) {

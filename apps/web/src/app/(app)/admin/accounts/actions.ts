@@ -4,9 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
-  checkRoleChange, checkTeacherName, homeroomTakenBy, isStale, MANUAL_LOCK_UNTIL, normalizeRoles, normalizeTeacherName,
+  checkRoleChange, checkRoster, checkTeacherName, homeroomTakenBy, isStale, MANUAL_LOCK_UNTIL, normalizeRoles, normalizeTeacherName, parseTeacherRoster,
+  type RosterRow,
 } from "@/lib/domain/accounts";
 import type { TeacherRole } from "@/lib/domain/types";
+import { aiEnabled } from "@/lib/server/ai/claude";
+import { readRoster } from "@/lib/server/ai/admin-ai";
 import { env } from "@/lib/server/env";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
@@ -110,4 +113,67 @@ export async function updateTeacher(_: AccountFormState, form: FormData): Promis
   revalidatePath("/admin/accounts");
   revalidatePath(`/admin/accounts/${id}`);
   return { done: "저장했어요" };
+}
+
+// ---------------------------------------------------------------- 교사 명부 붙여넣기 → 일괄 추가
+
+export type RosterPreview = { ok: true; rows: RosterRow[]; label: "AI" | "자동"; note?: string } | { ok: false; error: string };
+
+/** 명부 읽기: 키가 있으면 AI 가 열을 해석하고, 없거나 실패하면 규칙 파서. 저장하지 않는다 (교사 이름은 학생 정보가 아니다) */
+export async function previewRoster(text: string): Promise<RosterPreview> {
+  const v = await requireCan("account.manage");
+  const raw = String(text ?? "").slice(0, 20000);
+  if (!raw.trim()) return { ok: false, error: "명부를 붙여 넣어 주세요" };
+  const teachers = await repo.listTeachers();
+  const rule = parseTeacherRoster(raw, teachers);
+  if (!aiEnabled()) return rule.length ? { ok: true, rows: rule, label: "자동" } : { ok: false, error: "읽을 줄이 없어요" };
+  const r = await readRoster(raw);
+  await repo.audit(v.accountId, "account.ai.roster", `${r.ok ? r.data.length : 0}줄`);
+  if (!r.ok || !r.data.length) return rule.length ? { ok: true, rows: rule, label: "자동", note: "AI가 읽지 못해 규칙으로 읽었어요" } : { ok: false, error: "읽을 줄이 없어요" };
+  const rows = checkRoster(
+    r.data.slice(0, 100).map((x) => ({
+      line: x.line,
+      name: x.name,
+      dept: x.dept,
+      homeroom: x.grade && x.classNo && x.grade >= 1 && x.grade <= 3 && x.classNo >= 1 && x.classNo <= 20 ? { grade: x.grade, classNo: x.classNo } : null,
+    })),
+    teachers,
+  );
+  return { ok: true, rows, label: "AI" };
+}
+
+const BulkSchema = z.array(z.object({
+  line: z.number().int(),
+  name: z.string().max(40),
+  dept: z.string().max(40).nullable(),
+  homeroom: z.object({ grade: z.number().int().min(1).max(3), classNo: z.number().int().min(1).max(20) }).nullable(),
+})).max(100);
+
+export type BulkState = { error?: string; done?: string; failed?: string[] };
+
+/** 확인 후 추가: 미리보기에서 고른 줄을 서버에서 다시 검사하고 만든다. 첫 로그인은 학교 인증코드 */
+export async function createTeachersBulk(_: BulkState, form: FormData): Promise<BulkState> {
+  const v = await requireCan("account.manage");
+  let input: z.infer<typeof BulkSchema>;
+  try {
+    input = BulkSchema.parse(JSON.parse(String(form.get("rows") ?? "[]")));
+  } catch {
+    return { error: "명부를 다시 읽어 주세요" };
+  }
+  if (!input.length) return { error: "추가할 교사를 골라 주세요" };
+  const rows = checkRoster(input, await repo.listTeachers());
+  const hash = await bcrypt.hash(env.initialAuthCode, 10);
+  let made = 0;
+  const failed: string[] = rows.filter((r) => r.error).map((r) => `${r.name || `${r.line}줄`}: ${r.error}`);
+  for (const r of rows.filter((x) => !x.error)) {
+    try {
+      const id = await repo.adminCreateTeacher({ name: r.name, passwordHash: hash, dept: r.dept, homeroom: r.homeroom, roles: normalizeRoles(["subject"], r.homeroom) });
+      await repo.audit(v.accountId, "account.create", id);
+      made++;
+    } catch (e) {
+      failed.push(`${r.name}: ${e instanceof Error && e.message === "duplicate_name" ? "이미 있는 이름이에요" : "추가하지 못했어요"}`);
+    }
+  }
+  revalidatePath("/admin/accounts");
+  return { done: made ? `${made}명을 추가했어요 · 첫 로그인은 학교 인증코드로` : undefined, failed, error: made ? undefined : "추가한 교사가 없어요" };
 }

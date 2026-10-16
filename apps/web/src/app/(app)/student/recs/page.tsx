@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Card, StatTiles, Tag, cx } from "@/components/ui";
 import { countByKind, isFresh, isRecKind, matchRecs, REC_KINDS } from "@/lib/domain/counsel";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { CareerToggle } from "../../me/forms";
@@ -29,7 +30,7 @@ export default async function RecsPage({ searchParams }: Props) {
       <PageHeader title="나에게 맞는 추천" actions={<CareerToggle current={goal} />} />
       <PageBody>
         <StatTiles items={[["도서", `${counts.도서}개`], ["대회", `${counts.대회}개`], ["활동", `${counts.활동}개`], ["진로 특강", `${counts.진로}개`]]} />
-        <AiRecs goal={goal} />
+        <AiRecs goal={goal} aiOn={aiEnabled()} />
 
         <nav className="flex gap-1 overflow-x-auto" aria-label="분류">
           {[null, ...REC_KINDS].map((k) => (

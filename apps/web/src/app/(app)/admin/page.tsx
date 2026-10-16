@@ -1,19 +1,23 @@
 import { AlertCircle } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { AiBanner, ButtonLink, Card, Row, StatTiles, Tag } from "@/components/ui";
-import { accountStatus } from "@/lib/domain/accounts";
+import { DailyBrief } from "@/components/admin/ai-panels";
+import { ButtonLink, Card, Row, StatTiles, Tag } from "@/components/ui";
+import { accountStatus, dailyCheck } from "@/lib/domain/accounts";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { actionLabel } from "./audit/labels";
+import { loadDailyCheck } from "./audit/load";
 
 export const metadata = { title: "관리 홈 · 속초고등학교 학생관리시스템" };
 
 export default async function AdminHome() {
   await requireCan("account.manage");
   const now = new Date();
-  const [students, audit, accounts, jobs, programs] = await Promise.all([
-    repo.listStudents(), repo.listAudit(5), repo.adminListAccounts(), repo.listDraftJobs({}), repo.listPrograms(),
+  const [students, audit, accounts, jobs, programs, check] = await Promise.all([
+    repo.listStudents(), repo.listAudit(5), repo.adminListAccounts(), repo.listDraftJobs({}), repo.listPrograms(), loadDailyCheck(),
   ]);
+  const checkItems = dailyCheck(check);
   const errors = jobs.filter((j) => j.state === "ERROR");
   const running = jobs.filter((j) => j.state === "PENDING" || j.state === "RUNNING").length;
   const waiting = accounts.filter((a) => accountStatus(a, now) === "대기").length;
@@ -26,11 +30,10 @@ export default async function AdminHome() {
       <PageHeader title="관리 홈" actions={<ButtonLink href="/students/new" kind="outline" size="sm">학생 등록</ButtonLink>} />
       <PageBody>
         <StatTiles items={[["학생 계정", `${students.length}명`], ["오류", `${errors.length}건`], ["생성 중", `${running}건`], ["계정 대기", `${waiting}명`]]} />
-        <AiBanner
-          title="오늘 점검"
-          label="자동"
-          line={errors.length ? `초안 생성 실패 ${errors.length}건 — 재시도하거나 담당 교사에게 직접 작성을 요청하세요` : "실패한 초안이 없어요"}
-          action={<ButtonLink href="/admin/errors" size="sm" className="hidden md:inline-flex">오류 처리</ButtonLink>}
+        <DailyBrief
+          aiOn={aiEnabled()}
+          initial={{ items: checkItems, line: checkItems.length ? `${checkItems.length}가지 — ${checkItems[0].text}` : "오늘 처리할 것이 없어요" }}
+          link={errors.length ? <ButtonLink href="/admin/errors" size="sm" className="hidden md:inline-flex">오류 처리</ButtonLink> : undefined}
         />
         <div className="grid gap-4 md:grid-cols-[1fr_360px] md:gap-6">
           <Card title="오류 처리" action={<ButtonLink href="/admin/errors" kind="ghost" size="sm">전체</ButtonLink>}>

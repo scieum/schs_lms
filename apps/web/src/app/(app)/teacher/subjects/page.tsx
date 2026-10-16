@@ -3,6 +3,7 @@ import { ButtonLink } from "@/components/ui";
 import { isAdmin } from "@/lib/domain/policy";
 import { schoolYear } from "@/lib/domain/curriculum";
 import { repo } from "@/lib/server/repo";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 import { SubjectsForm } from "./subjects-form";
 import { TeacherPicker } from "./teacher-picker";
@@ -19,11 +20,12 @@ export default async function SubjectsPage({ searchParams }: Props) {
   const teachers = admin ? await repo.listTeachers() : [];
   const target = admin && teacher && teachers.some((t) => t.id === teacher) ? teacher : v.accountId;
 
-  const [groups, assigned, courses, students] = await Promise.all([
+  const [groups, assigned, courses, students, who] = await Promise.all([
     repo.getTeacherGroups(target),
     repo.listTeacherCourses(target),
     repo.listCourses(schoolYear()),
     repo.listStudents(),
+    repo.getTeacher(target),
   ]);
   // 학년별 반 목록: 등록된 학생 기준, 없으면 1~8반
   const classesByGrade: Record<number, number[]> = {};
@@ -46,7 +48,7 @@ export default async function SubjectsPage({ searchParams }: Props) {
           </p>
         )}
         {/* key: 교사를 바꾸면 폼 상태를 새로 시작 */}
-        <SubjectsForm key={target} teacherId={target} initialGroups={groups} initialCourses={assigned} courses={courses} classesByGrade={classesByGrade} />
+        <SubjectsForm key={target} teacherId={target} initialGroups={groups} initialCourses={assigned} courses={courses} classesByGrade={classesByGrade} aiOn={aiEnabled()} dept={who?.dept ?? null} />
       </PageBody>
     </>
   );

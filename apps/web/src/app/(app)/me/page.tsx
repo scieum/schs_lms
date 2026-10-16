@@ -3,6 +3,7 @@ import { logout } from "@/app/(auth)/actions";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Avatar, Button, Card, Row } from "@/components/ui";
 import { roleLabel } from "@/lib/domain/policy";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireViewer } from "@/lib/server/viewer";
 import { CareerForm, PasswordForm } from "./forms";
 
@@ -44,7 +45,7 @@ export default async function MePage() {
             {v.kind === "student" && (
               <Card title="희망 진로">
                 <p className="mb-3 text-[13px] text-sub">추천 활동이 이 진로를 기준으로 바뀌어요</p>
-                <CareerForm current={v.student.careerGoal} />
+                <CareerForm current={v.student.careerGoal} assist aiOn={aiEnabled()} />
               </Card>
             )}
             <form action={logout}>

@@ -3,7 +3,7 @@ import { useActionState, useMemo, useState, useTransition } from "react";
 import { Check } from "lucide-react";
 import { AiBanner, Button, Card, StatTiles, Tag, cx } from "@/components/ui";
 import { seatLabel, seats, type Offering } from "@/lib/domain/offering";
-import { applyCourses, recommendCourses, type ApplyState, type Recommend } from "./actions";
+import { applyCourses, checkMyCombo, recommendCourses, type ApplyState, type ComboResult, type Recommend } from "./actions";
 
 type Props = {
   semester: number;
@@ -22,6 +22,8 @@ export function CoursePicker({ semester, deadline, closed, maxCredits, offerings
   const [field, setField] = useState("전체");
   const [rec, setRec] = useState<Recommend | null>(null);
   const [recPending, startRec] = useTransition();
+  const [combo, setCombo] = useState<{ key: string; r: ComboResult } | null>(null);
+  const [comboPending, startCombo] = useTransition();
   const [state, action, pending] = useActionState<ApplyState, FormData>(applyCourses, {});
 
   const fields = useMemo(() => ["전체", ...new Set(offerings.map((o) => o.field))], [offerings]);
@@ -47,6 +49,9 @@ export function CoursePicker({ semester, deadline, closed, maxCredits, offerings
     if (!rec?.ok) return;
     setCart((c) => [...c, ...rec.ids.filter((id) => !c.includes(id) && offerings.some((o) => o.id === id && canAdd(o)))]);
   };
+  const cartKey = [...cart].sort().join(",");
+  const comboNow = combo && combo.key === cartKey ? combo.r : null;
+  const askCombo = () => startCombo(async () => setCombo({ key: cartKey, r: await checkMyCombo(cart) }));
   const recNames = rec?.ok ? rec.ids.map((id) => offerings.find((o) => o.id === id)?.subject).filter(Boolean).join("·") : "";
 
   const submit = (
@@ -159,6 +164,23 @@ export function CoursePicker({ semester, deadline, closed, maxCredits, offerings
             <span className={cx("font-bold", over && "text-bad")}>{credits} / {maxCredits}학점</span>
           </div>
           {over && <p className="mt-2 text-[13px] text-bad">최대 {maxCredits}학점까지 담을 수 있어요</p>}
+          {picked.length > 0 && (
+            <div className="mt-4 rounded-inner bg-white px-3.5 py-3">
+              <div className="flex items-center gap-2">
+                <Tag tone={(comboNow?.ok ? comboNow.label : "AI") === "AI" ? "bg-new-soft text-new" : "bg-key-soft text-key-strong"}>{comboNow?.ok ? comboNow.label : "AI"}</Tag>
+                <span className="flex-1 text-[13px] font-bold">조합 점검</span>
+                <Button type="button" kind="outline" size="sm" disabled={comboPending} onClick={askCombo}>{comboPending ? "보는 중…" : comboNow ? "다시 점검" : "점검하기"}</Button>
+              </div>
+              {comboPending && <p className="mt-2 text-[12px] text-mute">읽는 중이에요</p>}
+              {comboNow && !comboPending && (comboNow.ok ? (
+                <ul className="mt-2 flex flex-col gap-1 text-[13px]">
+                  {comboNow.notes.map((n) => <li key={n.text} className={n.tone === "warn" ? "text-due" : "text-sub"}>· {n.text}</li>)}
+                  {comboNow.note && <li className="text-[12px] text-mute">{comboNow.note}</li>}
+                </ul>
+              ) : <p className="mt-2 text-[13px] text-bad">{comboNow.error}</p>)}
+              {!comboNow && !comboPending && <p className="mt-1.5 text-[12px] text-mute">진로 연계·학점·분야 쏠림을 봐요</p>}
+            </div>
+          )}
           {state.error && <p className="mt-3 text-sm text-bad" role="alert">{state.error}</p>}
           {state.done && !changed && <p className="mt-3 text-sm text-ok" role="status">{state.done}</p>}
           <div className="mt-4 hidden md:block">{submit}</div>

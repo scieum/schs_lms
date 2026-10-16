@@ -1,9 +1,9 @@
 "use client";
-import { useActionState, useState } from "react";
-import { X } from "lucide-react";
+import { useActionState, useRef, useState, useTransition } from "react";
+import { ImageUp, X } from "lucide-react";
 import { Button, cx, Field } from "@/components/ui";
 import { AREA_LABEL, AREAS, describeRule, INQUIRY_LABEL, ruleProblems, type Area, type InquiryMode } from "@/lib/domain/scores";
-import { addRule, type RuleState } from "./actions";
+import { addRule, extractRule, type RuleState } from "./actions";
 
 /** "기준 추가 +" → 펼쳐지는 입력. 고르는 대로 "국·수·영·탐 중 2개 합 5" 처럼 미리 보여 준다 */
 export function RuleForm() {
@@ -19,6 +19,35 @@ export function RuleForm() {
   const [maxSum, setMaxSum] = useState(5);
   const [history, setHistory] = useState("");
   const [inquiry, setInquiry] = useState<InquiryMode>("best");
+  const [university, setUniversity] = useState("");
+  const [major, setMajor] = useState("");
+  const [note, setNote] = useState("");
+  // 모집요강 → AI 채우기 (저장은 교사가 "기준 저장"으로)
+  const [src, setSrc] = useState("");
+  const [shot, setShot] = useState<File | null>(null);
+  const [fill, setFill] = useState<{ tone: "ok" | "bad"; text: string; label?: "AI" | "자동" } | null>(null);
+  const [filling, startFill] = useTransition();
+  const shotRef = useRef<HTMLInputElement>(null);
+
+  const runFill = () =>
+    startFill(async () => {
+      const fd = new FormData();
+      fd.set("text", src);
+      if (shot) fd.set("file", shot);
+      const r = await extractRule(fd);
+      if (!r.ok) return setFill({ tone: "bad", text: r.error });
+      const x = r.rule;
+      setPool(x.pool);
+      setPick(x.pick);
+      setMaxSum(x.maxSum);
+      setRequired(x.required);
+      setHistory(x.historyMax ? String(x.historyMax) : "");
+      setInquiry(x.inquiry);
+      if (x.university) setUniversity(x.university);
+      if (x.major) setMajor(x.major);
+      if (x.note) setNote(x.note);
+      setFill({ tone: "ok", label: r.source, text: r.note ?? "채운 값을 확인하고 '기준 저장'을 눌러 주세요" });
+    });
 
   const rule = { pool, pick, maxSum, required: required.filter((a) => pool.includes(a)), historyMax: history ? Number(history) : null, inquiry };
   const problems = ruleProblems(rule);
@@ -35,9 +64,30 @@ export function RuleForm() {
           <h3 className="flex-1 text-lg font-bold">기준 추가</h3>
           <button type="button" onClick={() => setOpen(false)} aria-label="닫기" className="text-mute"><X size={20} /></button>
         </div>
+        <div className="flex flex-col gap-2 rounded-inner bg-soft p-3.5">
+          <div className="flex items-center gap-2">
+            <span className={cx("rounded-chip px-2.5 py-1 text-xs font-bold", fill?.label === "자동" ? "bg-key-soft text-key-strong" : "bg-new-soft text-new")}>{fill?.label ?? "AI"}</span>
+            <span className="flex-1 text-sm font-bold">모집요강으로 채우기</span>
+          </div>
+          <textarea value={src} onChange={(e) => setSrc(e.target.value)} rows={3} maxLength={4000} aria-label="모집요강 문구"
+            placeholder="예: 국어, 수학, 영어, 탐구(1과목) 중 2개 영역 등급 합 5 이내, 한국사 4등급 이내"
+            className="w-full resize-y rounded-field bg-white p-3 text-[13px] outline-none placeholder:text-faint focus:ring-2 focus:ring-key" />
+          <div className="flex items-center gap-2">
+            <input ref={shotRef} type="file" accept="image/png,image/jpeg,image/webp,application/pdf" className="hidden"
+              onChange={(e) => { setShot(e.target.files?.[0] ?? null); e.currentTarget.value = ""; }} />
+            <Button type="button" size="sm" kind="ghost" onClick={() => (shot ? setShot(null) : shotRef.current?.click())} className="min-w-0">
+              <ImageUp size={14} /> <span className="truncate">{shot ? `${shot.name} 빼기` : "캡처 올리기"}</span>
+            </Button>
+            <span className="flex-1" />
+            <Button type="button" size="sm" kind="outline" onClick={runFill} disabled={filling || (!src.trim() && !shot)}>
+              {filling ? "읽는 중…" : "기준 채우기"}
+            </Button>
+          </div>
+          {fill && <p className={cx("text-[13px]", fill.tone === "bad" ? "text-bad" : "text-sub")} role={fill.tone === "bad" ? "alert" : "status"}>{fill.text}</p>}
+        </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field name="university" label="대학" placeholder="A대" required className="[&_input]:bg-soft" />
-          <Field name="major" label="학과·전형" placeholder="산업디자인" required className="[&_input]:bg-soft" />
+          <Field name="university" label="대학" placeholder="A대" required value={university} onChange={(e) => setUniversity(e.target.value)} className="[&_input]:bg-soft" />
+          <Field name="major" label="학과·전형" placeholder="산업디자인" required value={major} onChange={(e) => setMajor(e.target.value)} className="[&_input]:bg-soft" />
         </div>
         <Chips label="반영 영역" value={pool} onToggle={(a) => setPool((x) => toggle(x, a))} name="pool" />
         <div className="grid grid-cols-2 gap-3">
@@ -60,7 +110,7 @@ export function RuleForm() {
             </select>
           </label>
         </div>
-        <Field name="note" label="메모 (선택)" placeholder="예: 과탐 2과목 평균" className="[&_input]:bg-soft" />
+        <Field name="note" label="메모 (선택)" placeholder="예: 과탐 2과목 평균" value={note} onChange={(e) => setNote(e.target.value)} maxLength={100} className="[&_input]:bg-soft" />
         <div className="rounded-inner bg-key-soft px-4 py-3">
           <div className="text-[15px] font-bold text-key-strong">{problems.length ? problems[0] : d.main}</div>
           {!problems.length && d.extra && <div className="text-[13px] text-sub">{d.extra}</div>}

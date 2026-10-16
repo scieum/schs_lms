@@ -12,8 +12,9 @@ import { isAdmin } from "@/lib/domain/policy";
 import {
   activityItems, loadAssigned, loadCounsel, loadStudentLogs, loadStudentService, loadStudentSetuk, teacherNames,
 } from "@/lib/server/counsel";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
-import { summarizeCounsel } from "./actions";
+import { suggestCounselQuestions, summarizeCounsel } from "./actions";
 import { StudentPicker } from "./student-picker";
 
 export const metadata = { title: "담당 학생·상담 · 속초고등학교 학생관리시스템" };
@@ -65,7 +66,7 @@ export default async function CounselingPage({ searchParams }: Props) {
         ]} />
         {selected ? (
           <AiAttach key={selected.id} title="상담 요약" line={`${selected.name} 학생 상담 ${mine.length}건을 요약하고 다음 주제를 정해요`}
-            run={summarizeCounsel} studentId={selected.id} today={now} attachLabel="상담 기록에 붙이기" disabled={!mine.length} />
+            run={summarizeCounsel} studentId={selected.id} today={now} attachLabel="상담 기록에 붙이기" disabled={!mine.length} label={aiEnabled() ? "AI" : "자동"} />
         ) : null}
 
         <div className="grid gap-4 md:grid-cols-[280px_1fr] md:gap-6 xl:grid-cols-[280px_1fr_300px]">
@@ -96,6 +97,9 @@ export default async function CounselingPage({ searchParams }: Props) {
               {tab === "counsel" && (
                 <div className="mt-4 flex flex-col gap-4">
                   <p className="flex items-center gap-2 rounded-inner bg-white px-4 py-3 text-[13px] text-sub"><ShieldCheck size={16} className="shrink-0 text-mute" />{notice}</p>
+                  <AiAttach key={`q-${selected.id}`} title="다음 상담 질문" tag="질문" listTopics topicsLabel="물어볼 질문"
+                    line={mine.length ? "최근 상담 기록을 읽고 다음에 물어볼 질문 3개를 골라요" : "첫 상담에서 물어볼 질문 3개를 골라요"}
+                    run={suggestCounselQuestions} studentId={selected.id} today={now} attachLabel="상담 기록 시작" runLabel="질문 추천" label={aiEnabled() && mine.length ? "AI" : "자동"} />
                   <div id="new-counsel" className="scroll-mt-6">
                     <CounselForm key={selected.id} studentId={selected.id} today={now} />
                   </div>

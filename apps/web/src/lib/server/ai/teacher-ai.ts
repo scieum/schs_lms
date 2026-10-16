@@ -1,0 +1,133 @@
+import "server-only";
+import { z } from "zod";
+import { SUBJECT_GROUPS, type Course, type SubjectGroup } from "@/lib/domain/curriculum";
+import { FIELD_LABEL, type Field } from "@/lib/domain/roster";
+import {
+  briefingRule, cleanCourseSuggestion, cleanHeaderMap, counselQuestionsRule, guessHeaders, parseStudentQuery, polishLogRule, suggestCoursesRule,
+  type BriefingInput, type BriefingLine, type CourseSuggestion, type StudentFilter,
+} from "@/lib/domain/teacher-assist";
+import { aiEnabled, aiJson } from "./claude";
+
+// 교사 화면의 버튼형 AI (docs/ai-features.md §3). 모두 결과만 돌려주고, 반영은 화면에서 교사가 누른다.
+// 학생은 가명ID만 보낸다. 이름이 섞일 수 있는 글은 부르는 쪽에서 가린 뒤 넘긴다.
+// 키가 없거나 실패하면 규칙 결과를 label "자동" 으로 돌려준다.
+
+export type Assisted<T> = { data: T; label: "AI" | "자동"; error?: string };
+
+/** T1 오늘 브리핑: 숫자·프로그램 제목만 보낸다 (학생 정보 없음) */
+export async function todayBriefing(b: BriefingInput): Promise<Assisted<BriefingLine[]>> {
+  const rule = briefingRule(b);
+  if (!aiEnabled() || !rule.length) return { data: rule, label: "자동" };
+  const r = await aiJson(z.object({ lines: z.array(z.object({ text: z.string(), ref: z.number().int() })) }), {
+    model: "fast",
+    system: `너는 고등학교 교사의 업무 비서다. 아래 할 일 후보를 보고 오늘 먼저 할 일 3개를 우선순위대로 고른다.
+- 마감이 가깝고 학생에게 영향이 큰 일을 먼저 둔다
+- text: 40자 이내, "~해요" 체, 숫자를 살린다
+- ref: 고른 후보 번호(0부터)`,
+    content:
+      rule.map((l, i) => `${i}. ${l.text}`).join("\n") +
+      `\n\n참고: 생성 실패 ${b.failed}건, 검토 대기 ${b.waiting}건, 마감 임박 설문 ${b.dueSoon.length}개, 상담 기록 없는 학생 ${b.noCounsel}명`,
+  });
+  if (!r.ok) return { data: rule, label: "자동", error: r.error };
+  // 후보 번호로만 링크를 붙인다 (AI가 만든 주소는 쓰지 않는다)
+  const seen = new Set<number>();
+  const lines: BriefingLine[] = [];
+  for (const l of r.data.lines) {
+    if (!rule[l.ref] || seen.has(l.ref) || !l.text.trim()) continue;
+    seen.add(l.ref);
+    lines.push({ text: l.text.trim().slice(0, 80), href: rule[l.ref].href });
+  }
+  return lines.length ? { data: lines.slice(0, 3), label: "AI" } : { data: rule, label: "자동" };
+}
+
+/** 누가기록 다듬기: 이미 가린 메모 → 누가기록 문체 1~2문장 */
+export async function polishLog(masked: string, area: string): Promise<Assisted<string>> {
+  const rule = polishLogRule(masked);
+  if (!aiEnabled()) return { data: rule, label: "자동" };
+  const r = await aiJson(z.object({ text: z.string() }), {
+    model: "fast",
+    system: `너는 고등학교 교사의 누가기록(${area}) 정리 도우미다. 교사의 짧은 메모나 음성 받아쓰기를 누가기록 문장으로 다듬는다.
+- 1~2문장, 200자 이내. 종결은 "~함." "~임." 같은 명사형
+- 메모에 있는 사실만 쓴다. 평가·칭찬·추측을 보태지 않는다
+- 군말("어", "음", "그러니까")·반복은 지운다
+- 여러 학생에게 같이 들어가는 기록이므로 특정 학생 이름이나 "○○" 같은 자리를 만들지 않는다`,
+    content: `메모:\n${masked}`,
+  });
+  if (!r.ok) return { data: rule, label: "자동", error: r.error };
+  const t = r.data.text.replace(/\s+/g, " ").trim();
+  return t ? { data: t.slice(0, 1000), label: "AI" } : { data: rule, label: "자동" };
+}
+
+/** 상담: 다음에 물어볼 질문 3개. 기록은 가린 뒤 넘긴다 */
+export async function nextCounselQuestions(pid: string, records: { date: string; area: string; content: string }[]): Promise<Assisted<{ line: string; questions: string[] }>> {
+  const rule = { line: records.length ? `최근 상담(${records[0].date}, ${records[0].area})에 이어 물어볼 질문이에요` : "첫 상담에서 물어볼 질문이에요", questions: counselQuestionsRule(records) };
+  if (!aiEnabled() || !records.length) return { data: rule, label: "자동" };
+  const r = await aiJson(z.object({ line: z.string(), questions: z.array(z.string()) }), {
+    model: "fast",
+    system: `너는 고등학교 교사의 상담 준비를 돕는다. 지난 상담 기록을 읽고 다음 상담에서 학생에게 물어볼 질문 3개를 만든다.
+- 지난번에 나온 고민·계획이 어떻게 됐는지 확인하는 질문을 먼저
+- 열린 질문, 존댓말 의문문, 각 50자 이내
+- line: 지난 상담 흐름 한 줄 요약(40자 이내, "~함" 체)`,
+    content: `학생: ${pid}\n상담 기록(최근 순):\n${records.slice(0, 8).map((x) => `- ${x.date} [${x.area}] ${x.content}`).join("\n")}`,
+  });
+  if (!r.ok) return { data: rule, label: "자동", error: r.error };
+  const qs = r.data.questions.map((q) => q.trim()).filter(Boolean).slice(0, 3);
+  return qs.length ? { data: { line: r.data.line.trim() || rule.line, questions: qs }, label: "AI" } : { data: rule, label: "자동" };
+}
+
+/** 내 교과·과목 추천: 부서 이름 + 편제표 과목(학생 정보 없음) */
+export async function suggestMyCourses(dept: string | null, current: SubjectGroup[], courses: Course[]): Promise<Assisted<CourseSuggestion & { reason: string }>> {
+  const base = suggestCoursesRule(dept, current, courses);
+  const rule = { ...base, reason: base.groups.length ? `${dept ?? "고른 교과"} 기준으로 ${base.groups.join("·")} 과목을 담았어요` : "부서 정보가 없어 추천하지 못했어요. 교과를 먼저 골라 주세요" };
+  if (!aiEnabled() || !courses.length || (!dept && !current.length)) return { data: rule, label: "자동" };
+  const r = await aiJson(z.object({ groups: z.array(z.string()), courseIds: z.array(z.string()), reason: z.string() }), {
+    model: "fast",
+    system: `너는 고등학교 교사의 담당 과목 지정을 돕는다. 교사의 부서(교과)와 이미 고른 교과를 보고 학교 편제표에서 이 교사가 맡을 만한 과목을 고른다.
+- groups 는 다음 중에서만: ${SUBJECT_GROUPS.join(", ")}
+- courseIds 는 편제표 목록의 id 만
+- reason: 왜 골랐는지 한 줄(50자 이내, "~했어요" 체)`,
+    content: `부서: ${dept ?? "(없음)"}\n이미 고른 교과: ${current.join(", ") || "(없음)"}\n\n편제표:\n${courses.map((c) => `${c.id} | ${c.group} | ${c.subject} | ${c.grade}학년 ${c.semester}학기 | ${c.type ?? "학교 지정"}`).join("\n")}`,
+  });
+  if (!r.ok) return { data: rule, label: "자동", error: r.error };
+  const clean = cleanCourseSuggestion(r.data, courses);
+  return clean.groups.length ? { data: { ...clean, reason: r.data.reason.trim() }, label: "AI" } : { data: rule, label: "자동" };
+}
+
+const FIELDS: Field[] = ["grade", "classNo", "number", "name", "gender", "track"];
+
+/** 학생 등록 엑셀 열 맞추기: 1행(제목)만 보낸다 */
+export async function mapRosterHeaders(headers: string[]): Promise<Assisted<Partial<Record<Field, number>>>> {
+  const rule = guessHeaders(headers);
+  if (!aiEnabled()) return { data: rule, label: "자동" };
+  const r = await aiJson(z.object(Object.fromEntries(FIELDS.map((f) => [f, z.number().int().nullable()])) as Record<Field, z.ZodNullable<z.ZodNumber>>), {
+    model: "fast",
+    system: `너는 학생 명단 엑셀의 열 제목을 등록 양식 항목에 맞춘다. 각 항목에 맞는 열 번호(0부터)를 주고, 없으면 null.
+항목: ${FIELDS.map((f) => `${f}=${FIELD_LABEL[f]}`).join(", ")}
+한 열은 한 항목에만 쓴다. 학번(5자리)처럼 여러 값이 합쳐진 열은 고르지 않는다.`,
+    content: `열 제목:\n${headers.map((h, i) => `${i}: ${h || "(빈 칸)"}`).join("\n")}`,
+  });
+  if (!r.ok) return { data: rule, label: "자동", error: r.error };
+  const map = cleanHeaderMap(r.data, headers.length);
+  return { data: Object.keys(map).length ? map : rule, label: Object.keys(map).length ? "AI" : "자동" };
+}
+
+/** 학생 목록 말로 찾기. 이름이 들어 있으면 부르는 쪽에서 규칙만 쓴다 */
+export async function parseStudentSearch(q: string): Promise<Assisted<StudentFilter>> {
+  const rule = parseStudentQuery(q).filter;
+  if (!aiEnabled()) return { data: rule, label: "자동" };
+  const r = await aiJson(
+    z.object({ grade: z.number().int().nullable(), classNo: z.number().int().nullable(), number: z.number().int().nullable(), gender: z.enum(["남", "여"]).nullable() }),
+    {
+      model: "fast",
+      system: "너는 학생 목록 검색어를 필터로 바꾼다. 학년(1~3)·반·번호·성별(남/여)만 뽑고 없으면 null. 이름은 다루지 않는다.",
+      content: `검색어: ${q}`,
+    },
+  );
+  if (!r.ok) return { data: rule, label: "자동", error: r.error };
+  const f: StudentFilter = {};
+  if (r.data.grade && r.data.grade >= 1 && r.data.grade <= 3) f.grade = r.data.grade;
+  if (r.data.classNo && r.data.classNo >= 1 && r.data.classNo <= 20) f.classNo = r.data.classNo;
+  if (r.data.number && r.data.number >= 1 && r.data.number <= 60) f.number = r.data.number;
+  if (r.data.gender) f.gender = r.data.gender;
+  return { data: { ...rule, ...f }, label: "AI" };
+}

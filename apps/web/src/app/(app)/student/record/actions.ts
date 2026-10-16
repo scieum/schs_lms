@@ -1,7 +1,9 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { aiJson } from "@/lib/server/ai/claude";
+import { frequentWords, nextTopicsRule } from "@/lib/domain/student-assist";
+import { aiEnabled, aiJson } from "@/lib/server/ai/claude";
+import { nextYearTopics } from "@/lib/server/ai/student-ai";
 import { loadMyRecords } from "@/lib/server/counsel";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
@@ -31,7 +33,7 @@ const KeywordSchema = z.object({
   topics: z.array(z.string()).describe("이어서 탐구하면 좋을 주제 1~3개"),
 });
 
-export type KeywordResult = { ok: true; keywords: string[]; topics: string[] } | { ok: false; error: string };
+export type KeywordResult = { ok: true; keywords: string[]; topics: string[]; label: "AI" | "자동" } | { ok: false; error: string };
 
 /** AI 기록 요약: 그 학년 확정 기록 → 키워드·이어갈 주제. 가명ID만 보낸다 */
 export async function summarizeMyRecord(grade: number): Promise<KeywordResult> {
@@ -39,12 +41,31 @@ export async function summarizeMyRecord(grade: number): Promise<KeywordResult> {
   if (v.kind !== "student") return { ok: false, error: "학생만 쓸 수 있어요" };
   const records = (await loadMyRecords(v)).filter((r) => r.grade === grade);
   if (!records.length) return { ok: false, error: "요약할 확정 기록이 없어요" };
+  const rule = { ok: true as const, keywords: frequentWords(records.map((x) => x.content)), topics: nextTopicsRule(records), label: "자동" as const };
+  if (!aiEnabled()) {
+    await repo.audit(v.accountId, "record.ai_keywords", v.student.pseudonymId);
+    return rule;
+  }
   const r = await aiJson(KeywordSchema, {
     model: "fast",
     system: "고등학생이 자기 생활기록부 확정 기록을 한눈에 보도록 핵심 키워드와 이어갈 주제를 뽑는다. 짧은 명사구로 쓴다.",
     content: `학생: ${v.student.pseudonymId}\n기록:\n${records.map((x) => `[${x.area} ${x.title}] ${x.content}`).join("\n")}`,
   });
   await repo.audit(v.accountId, "record.ai_keywords", v.student.pseudonymId);
-  if (!r.ok) return r;
-  return { ok: true, keywords: r.data.keywords.slice(0, 5), topics: r.data.topics.slice(0, 3) };
+  if (!r.ok) return rule;
+  return { ok: true, keywords: r.data.keywords.slice(0, 5), topics: r.data.topics.slice(0, 3), label: "AI" };
+}
+
+export type NextTopics = { ok: true; topics: { title: string; why: string }[]; label: "AI" | "자동"; note?: string } | { ok: false; error: string };
+
+/** 다음 학년에 이어갈 주제: 그 학년 확정 기록 + 희망 진로 → 주제 3개와 이유. 저장하지 않는다 (확인 후 관심에 담기) */
+export async function nextYearAction(grade: number): Promise<NextTopics> {
+  const v = await requireCan("student.self");
+  if (v.kind !== "student") return { ok: false, error: "학생만 쓸 수 있어요" };
+  const records = (await loadMyRecords(v)).filter((r) => r.grade === grade);
+  if (!records.length) return { ok: false, error: "이어갈 확정 기록이 없어요" };
+  const r = await nextYearTopics(v.student.pseudonymId, v.student.careerGoal, records.map((x) => ({ area: x.area, title: x.title, content: x.content })));
+  await repo.audit(v.accountId, "record.ai.next", `${v.student.pseudonymId} ${r.label}`);
+  if (!r.topics.length) return { ok: false, error: "이어갈 주제를 찾지 못했어요" };
+  return { ok: true, topics: r.topics, label: r.label, note: r.error ? "AI가 답하지 않아 기록 제목으로 골랐어요" : undefined };
 }

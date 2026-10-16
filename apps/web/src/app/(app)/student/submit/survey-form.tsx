@@ -1,9 +1,9 @@
 "use client";
 import { startTransition, useActionState, useState } from "react";
-import { Check, FileText, Send, ShieldCheck, Upload } from "lucide-react";
+import { Check, FileText, ListChecks, Send, ShieldCheck, Upload } from "lucide-react";
 import { Button, cx } from "@/components/ui";
 import { MAX_ANSWER_CHARS, type Question } from "@/lib/domain/program";
-import { hintAction, saveSurvey, uploadMyDoc, type DocState, type HintState, type SurveyState } from "./actions";
+import { docCheckAction, hintAction, saveSurvey, uploadMyDoc, type DocCheckState, type DocState, type HintState, type SurveyState } from "./actions";
 
 // S2 설문·서류 제출 (Figma 50:1116 / 50:1264)
 export function SurveyForm({
@@ -24,6 +24,7 @@ export function SurveyForm({
   const [state, action, saving] = useActionState<SurveyState, FormData>(saveSurvey, {});
   const [hint, hintRun, hinting] = useActionState<HintState, FormData>(hintAction, {});
   const [doc, docAction, uploading] = useActionState<DocState, FormData>(uploadMyDoc, {});
+  const [check, checkRun, checking] = useActionState<DocCheckState, FormData>(docCheckAction, {});
   const [answers, setAnswers] = useState<Record<string, string>>(initial);
   const [picked, setPicked] = useState({ n: 0, name: "" });
   const fileName = picked.n === (doc.n ?? 0) ? picked.name : "";
@@ -37,6 +38,12 @@ export function SurveyForm({
     for (const q of questions) fd.set(`q_${q.id}`, answers[q.id] ?? "");
     startTransition(() => hintRun(fd));
   };
+  const runCheck = () => {
+    const fd = new FormData();
+    fd.set("programId", programId);
+    startTransition(() => checkRun(fd));
+  };
+  const askCount = hint.asks ? Object.values(hint.asks).filter((a) => a.length).length : 0;
 
   const buttons = (cls?: string) => (
     <>
@@ -50,16 +57,15 @@ export function SurveyForm({
       {survey && !closed && (
         <div className="rounded-inner bg-soft px-4 py-3.5 md:px-5 md:py-4">
           <div className="flex items-center gap-3 md:gap-4">
-            <span className={cx("rounded-chip px-2.5 py-1 text-xs font-bold", aiOn ? "bg-new-soft text-new" : "bg-key-soft text-key-strong")}>{hint.label ?? (aiOn ? "AI" : "자동")}</span>
+            <span className={cx("rounded-chip px-2.5 py-1 text-xs font-bold", (hint.label ?? (aiOn ? "AI" : "자동")) === "AI" ? "bg-new-soft text-new" : "bg-key-soft text-key-strong")}>{hint.label ?? (aiOn ? "AI" : "자동")}</span>
             <div className="min-w-0 flex-1">
               <div className="text-[15px] font-bold">작성 도우미</div>
-              <div className="truncate text-[13px] text-sub">{hint.hints?.[0] ?? "대신 써 주지 않아요. 무엇을 더 쓰면 좋을지 힌트만 줘요"}</div>
+              <div className="truncate text-[13px] text-sub">
+                {hinting ? "읽는 중이에요" : hint.error ?? (hint.asks ? `문항마다 더 쓸 수 있는 질문을 ${askCount}곳에 달았어요` : "대신 써 주지 않아요. 더 쓸 수 있는 것을 질문으로 알려 줘요")}
+              </div>
             </div>
-            <Button type="button" kind="outline" size="sm" onClick={runHint} disabled={hinting}>{hinting ? "보는 중…" : hint.hints ? "힌트 더 보기" : "힌트 보기"}</Button>
+            <Button type="button" kind="outline" size="sm" onClick={runHint} disabled={hinting}>{hinting ? "보는 중…" : hint.asks ? "다시 보기" : "힌트 보기"}</Button>
           </div>
-          {hint.hints && hint.hints.length > 1 && (
-            <ul className="mt-2 flex flex-col gap-1 pl-12 text-[13px] text-sub">{hint.hints.slice(1).map((h) => <li key={h}>· {h}</li>)}</ul>
-          )}
         </div>
       )}
 
@@ -88,6 +94,12 @@ export function SurveyForm({
                       </span>
                     </label>
                     {err && <p className="mt-1.5 text-[13px] text-bad">{err}</p>}
+                    {!closed && hint.asks?.[q.id]?.length ? (
+                      <div className="mt-2.5 rounded-inner bg-white/60 px-3.5 py-2.5">
+                        <p className="text-[12px] font-bold text-sub">이 답에 더 쓸 수 있는 것</p>
+                        <ul className="mt-1 flex flex-col gap-0.5 text-[13px] text-sub">{hint.asks[q.id].map((x) => <li key={x}>· {x}</li>)}</ul>
+                      </div>
+                    ) : null}
                   </section>
                 );
               })}
@@ -119,6 +131,29 @@ export function SurveyForm({
                     </li>
                   ))}
                 </ul>
+              )}
+              {!closed && (
+                <div className="mt-2 rounded-inner bg-white px-3.5 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className={cx("rounded-chip px-2 py-0.5 text-[11px] font-bold", (check.label ?? (aiOn ? "AI" : "자동")) === "AI" ? "bg-new-soft text-new" : "bg-key-soft text-key-strong")}>{check.label ?? (aiOn ? "AI" : "자동")}</span>
+                    <span className="flex-1 text-[13px] font-bold">빠진 항목 점검</span>
+                    <Button type="button" kind="outline" size="sm" onClick={runCheck} disabled={checking}><ListChecks size={14} /> {checking ? "보는 중…" : check.checks ? "다시 점검" : "점검하기"}</Button>
+                  </div>
+                  {checking && <p className="mt-2 text-[12px] text-mute">읽는 중이에요</p>}
+                  {check.error && !checking && <p className="mt-2 text-[12px] text-mute">{check.error}</p>}
+                  {check.checks && !checking && (
+                    <ul className="mt-2 flex flex-col gap-1.5 text-[13px]">
+                      {check.checks.map((c) => (
+                        <li key={c.kind} className="flex flex-col gap-0.5">
+                          <span className="font-medium">{c.kind} · <span className={c.uploaded ? "text-ok" : "text-bad"}>{c.uploaded ? "올림" : "아직 안 올림"}</span></span>
+                          {c.missing.length > 0 && <span className="text-sub">빠진 것: {c.missing.join(" · ")}</span>}
+                          {c.uploaded && !c.missing.length && !c.checklist.length && <span className="text-ok">빠진 항목이 없어요</span>}
+                          {c.checklist.length > 0 && <span className="text-sub">{c.uploaded ? "파일 안에 있는지 직접 확인해요" : "올리기 전에 확인해요"}: {c.checklist.join(" · ")}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               )}
               <p className="mt-2 flex items-center gap-1.5 rounded-inner bg-white px-3.5 py-2.5 text-[12px] text-sub"><ShieldCheck size={14} /> 이름·학번은 선생님께 보내기 전 자동으로 가려져요</p>
             </section>

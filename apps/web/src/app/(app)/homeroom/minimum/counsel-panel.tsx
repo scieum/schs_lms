@@ -24,7 +24,7 @@ export function CounselPanel({ classKey, examId, ai, nearCount, names }: { class
     <>
       <AiBanner
         title="최저 분석"
-        label={draft?.source === "자동" ? "자동" : "AI"}
+        label={draft ? draft.source : ai ? "AI" : "자동"}
         line={error || (draft ? draft.summary : `한 과목만 1등급 올리면 충족되는 학생 ${nearCount}명 — 우선 상담 대상`)}
         action={
           !draft ? (
@@ -70,7 +70,7 @@ export function CounselPanel({ classKey, examId, ai, nearCount, names }: { class
             <input type="hidden" name="class" value={classKey} />
             <input type="hidden" name="examId" value={examId} />
             <input type="hidden" name="items" value={JSON.stringify(picked.map(({ studentId, reason }) => ({ studentId, reason })))} />
-            <p className="flex-1 text-[13px] text-mute">{saved.saved ? `${saved.saved}명을 상담 명단에 저장했어요` : "가명ID·등급만 AI에 보냈어요"}</p>
+            <p className="flex-1 text-[13px] text-mute">{saved.saved ? `${saved.saved}명을 상담 명단에 저장했어요` : draft.source === "AI" ? "가명ID·등급만 AI에 보냈어요" : "규칙으로 고른 명단이에요"}</p>
             <Button size="sm" disabled={saving || picked.length === 0}>{saving ? "저장하는 중…" : `확인 후 저장 (${picked.length}명)`}</Button>
           </form>
           {saved.error && <p className="mt-2 text-sm text-bad" role="alert">{saved.error}</p>}

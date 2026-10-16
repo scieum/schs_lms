@@ -4,8 +4,8 @@ import { today } from "@/lib/domain/activity";
 import { measure } from "@/lib/domain/length";
 import { isAdmin, type Action } from "@/lib/domain/policy";
 import {
-  effectiveStatus, latestVersion, reviewStatus, studentStage, usesDocs, usesSurvey,
-  type DraftJob, type DraftVersion, type Material, type Program, type ReviewStatus, type Stage, type SurveyResponse,
+  effectiveStatus, latestVersion, responseRate, reviewStatus, studentStage, usesDocs, usesSurvey,
+  type DraftJob, type DraftVersion, type Material, type Program, type ProgramStatus, type ReviewStatus, type Stage, type SurveyResponse,
 } from "@/lib/domain/program";
 import type { Student, Viewer } from "@/lib/domain/types";
 import { repo } from "@/lib/server/repo";
@@ -72,4 +72,35 @@ export async function programRows(program: Program): Promise<{ rows: StudentRow[
       };
     });
   return { rows, materials, responses };
+}
+
+export interface ProgramSummary {
+  p: Program;
+  submitted: number;
+  rate: number;
+  status: ProgramStatus;
+  review: number;
+  done: number;
+  failed: number;
+  drafts: number;
+}
+
+/** 프로그램 목록(T 프로그램·자료)과 "이번 주 할 일"이 같이 쓰는 요약 */
+export async function programSummaries(programs: Program[]): Promise<ProgramSummary[]> {
+  const ids = programs.map((p) => p.id);
+  const [jobs, versions, responses] = await Promise.all([
+    repo.listDraftJobs({ programIds: ids }),
+    repo.listDraftVersions({ programIds: ids }),
+    Promise.all(programs.map((p) => repo.listResponses(p.id))),
+  ]);
+  const t = today();
+  return programs.map((p, i) => {
+    const submitted = responses[i].filter((r) => r.submittedAt && p.targetIds.includes(r.studentId)).length;
+    const pj = jobs.filter((j) => j.programId === p.id);
+    const st = pj.map((j) => reviewStatus(j, latestVersion(versions, j.id)));
+    return {
+      p, submitted, rate: responseRate(p.targetIds.length, submitted), status: effectiveStatus(p, t), drafts: pj.length,
+      review: st.filter((s) => s === "검토 대기").length, done: st.filter((s) => s === "확정").length, failed: st.filter((s) => s === "생성 실패").length,
+    };
+  });
 }

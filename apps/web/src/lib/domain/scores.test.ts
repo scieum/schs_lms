@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   averageTrend, checkScoreRows, colLetter, countVerdicts, describeRule, judgeMinimum, matchScoreHeaders, mockAverage, parseGrade,
-  ruleProblems, shortRule, summarizeScoreRows, trendSummary, validColumnMap, type Grades, type MinRule, type ScoreField,
+  parseMinRuleText, ruleProblems, shortRule, summarizeScoreRows, trendSummary, validColumnMap, withRosterNames, type Grades, type MinRule, type ScoreField,
 } from "./scores";
 
 const g = (ko: number | null, ma: number | null, en: number | null, t1: number | null, t2: number | null, hi: number | null = 3): Grades => ({ ko, ma, en, hi, t1, t2 });
@@ -192,5 +192,32 @@ describe("성적 행 검사", () => {
   });
   it("이름 사이 공백은 무시", () => {
     expect(checkScoreRows([row("12", "김 민준")], roster)[0].status).toBe("정상");
+  });
+});
+
+describe("사진 성적표: 번호로 이름 채우기", () => {
+  it("명단 번호의 이름을 넣고, 없는 번호는 비워서 '명단에 없음'으로 막는다", () => {
+    const roster = [{ id: "s-1", number: 1, name: "김민준" }];
+    const raws = withRosterNames([
+      { number: "1", ko: "2", ma: "3", en: "2", hi: "3", t1: "2", t2: "2" },
+      { number: "7", ko: "2", ma: "3", en: "2", hi: "3", t1: "2", t2: "" },
+    ], roster);
+    expect(raws.map((r) => r.name)).toEqual(["김민준", ""]);
+    expect(checkScoreRows(raws, roster).map((r) => r.status)).toEqual(["정상", "명단에 없음"]);
+  });
+});
+
+describe("모집요강 문구 → 최저 기준 (규칙)", () => {
+  it("영역·개수·합·한국사·탐구 1과목", () => {
+    const r = parseMinRuleText("국어, 수학, 영어, 탐구(1과목) 중 2개 영역 등급 합 5 이내, 한국사 4등급 이내");
+    expect(r).toEqual({ pool: ["ko", "ma", "en", "tam"], pick: 2, maxSum: 5, required: [], historyMax: 4, inquiry: "best", found: true });
+  });
+  it("줄임말·수학 필수·탐구 2과목 평균 절사", () => {
+    const r = parseMinRuleText("국,수,영,탐 중 3합 7 (수학 필수, 탐구 2과목 평균 소수점 절사)");
+    expect(r).toMatchObject({ pool: ["ko", "ma", "en", "tam"], pick: 3, maxSum: 7, required: ["ma"], historyMax: null, inquiry: "avgFloor", found: true });
+  });
+  it("수학·영어 중 2개만 반영, 기준을 못 찾으면 found=false", () => {
+    expect(parseMinRuleText("수학, 영어 중 2개 합 4").pool).toEqual(["ma", "en"]);
+    expect(parseMinRuleText("수능 최저 없음").found).toBe(false);
   });
 });

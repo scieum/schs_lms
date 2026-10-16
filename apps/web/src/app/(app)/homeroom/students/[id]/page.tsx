@@ -15,7 +15,9 @@ import {
 } from "@/lib/server/counsel";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { summarizeFlow } from "./actions";
+import { TabInsight } from "./tab-insight";
 
 export const metadata = { title: "학생 기록 · 속초고등학교 학생관리시스템" };
 
@@ -127,6 +129,10 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
         )}
 
         {tab === "scores" && (
+          <TabInsight studentId={student.id} tab="scores" title="성적 추이 해석" ai={aiEnabled()}
+            line={scores.trend.length < 2 ? "모의고사가 두 번 이상 있어야 추이를 볼 수 있어요" : "평균 등급 흐름과 상담에서 짚을 과목을 한 줄로 알려 줘요"} />
+        )}
+        {tab === "scores" && (
           <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
             <Card title="모의고사 평균 등급" action={<ButtonLink href="/homeroom/scores" kind="ghost" size="sm">성적 업로드</ButtonLink>}>
               {scores.trend.length === 0 ? (
@@ -164,6 +170,7 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
         {tab === "night" && (
           <div className="flex flex-col gap-4 md:gap-6">
             <StatTiles items={[["이번 주 신청", `${night.signed}일`], ["출석", `${night.attended}일`]]} />
+            <TabInsight studentId={student.id} tab="night" title="출결 한 줄" ai={aiEnabled()} line="최근 4주 야자 출결 흐름을 한 줄로 알려 줘요" />
             <ButtonLink href="/homeroom/night" kind="outline" size="sm" className="w-fit">야간 자율학습 관리</ButtonLink>
           </div>
         )}

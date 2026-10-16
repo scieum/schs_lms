@@ -24,13 +24,13 @@ export function ReviewPanel({ classKey, line, ai, names }: { classKey: string; l
     <>
       <AiBanner
         title="출결 살펴보기"
-        label={draft?.source === "자동" ? "자동" : "AI"}
+        label={draft ? draft.source : ai ? "AI" : "자동"}
         line={error || draft?.summary || line}
         action={
           draft ? (
             <Button size="sm" kind="ghost" onClick={() => setDraft(null)}>닫기</Button>
           ) : (
-            <Button kind="outline" size="sm" onClick={run} disabled={busy}>{busy ? "살펴보는 중…" : ai ? "확인 후 보내기" : "메시지 만들기"}</Button>
+            <Button kind="outline" size="sm" onClick={run} disabled={busy}>{busy ? "살펴보는 중…" : "메시지 만들기"}</Button>
           )
         }
       />
@@ -70,7 +70,7 @@ export function ReviewPanel({ classKey, line, ai, names }: { classKey: string; l
           <form action={send} className="mt-4 flex items-center gap-3">
             <input type="hidden" name="class" value={classKey} />
             <input type="hidden" name="rows" value={JSON.stringify(picked.map((p) => ({ studentId: p.studentId, body: p.message })))} />
-            <p className="flex-1 text-[13px] text-mute">{sent.sent ? `${sent.sent}명에게 보냈어요 (학생 야자 화면)` : "가명ID·출결만 AI에 보냈어요"}</p>
+            <p className="flex-1 text-[13px] text-mute">{sent.sent ? `${sent.sent}명에게 보냈어요 (학생 야자 화면)` : draft.source === "AI" ? "가명ID·출결만 AI에 보냈어요" : "규칙으로 만든 기본 문구예요"}</p>
             <Button kind="outline" size="sm" disabled={sending || picked.length === 0}>{sending ? "보내는 중…" : `확인 후 보내기 (${picked.length}명)`}</Button>
           </form>
           {sent.error && <p className="mt-2 text-sm text-bad" role="alert">{sent.error}</p>}

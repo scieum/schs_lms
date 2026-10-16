@@ -32,7 +32,7 @@ export function RemoveInterest({ id }: { id: string }) {
 }
 
 /** AI 추천 기준 배너 + 결과 확인 → 하나씩 "확인 후 담기" */
-export function AiRecs({ goal }: { goal: string | null }) {
+export function AiRecs({ goal, aiOn }: { goal: string | null; aiOn: boolean }) {
   const [pending, start] = useTransition();
   const [r, setR] = useState<AiRecResult | null>(null);
   const [added, setAdded] = useState<Set<string>>(new Set());
@@ -41,19 +41,19 @@ export function AiRecs({ goal }: { goal: string | null }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3 rounded-inner bg-soft px-4 py-3.5 md:gap-4 md:px-5 md:py-4">
-        <span className="rounded-chip bg-new-soft px-2.5 py-1 text-xs font-bold text-new">AI</span>
+        <span className={(r?.ok ? r.label : aiOn ? "AI" : "자동") === "AI" ? "rounded-chip bg-new-soft px-2.5 py-1 text-xs font-bold text-new" : "rounded-chip bg-key-soft px-2.5 py-1 text-xs font-bold text-key-strong"}>{r?.ok ? r.label : aiOn ? "AI" : "자동"}</span>
         <div className="min-w-0 flex-1">
           <div className="text-[15px] font-bold">추천 기준</div>
           <div className="truncate text-[13px] text-sub">희망 진로: {goal ?? "아직 없어요"}{" "}· 확정 기록 키워드</div>
         </div>
-        <Button size="sm" disabled={pending || !goal} onClick={() => start(async () => setR(await aiRecommend()))}>
-          {pending ? "찾는 중…" : "AI 추천 받기"}
+        <Button size="sm" kind="outline" disabled={pending || !goal} onClick={() => start(async () => setR(await aiRecommend()))}>
+          {pending ? "찾는 중…" : r?.ok ? "다시 추천" : "추천 받기"}
         </Button>
       </div>
       {r && !r.ok && <p className="px-1 text-[13px] text-bad" role="alert">{r.error}</p>}
       {r?.ok && (
-        <Card title="AI 추천" action={<Tag>추천</Tag>}>
-          <p className="mb-3 text-[13px] text-mute">AI가 고른 후보예요. 확인하고 마음에 드는 것만 담아요</p>
+        <Card title={r.label === "AI" ? "AI 추천" : "진로 맞춤 추천"} action={<Tag>추천</Tag>}>
+          <p className="mb-3 text-[13px] text-mute">{r.note ?? (r.label === "AI" ? "AI가 고른 후보예요. 확인하고 마음에 드는 것만 담아요" : "희망 진로로 고른 후보예요. 마음에 드는 것만 담아요")}</p>
           {r.items.length === 0 ? (
             <p className="py-4 text-center text-sm text-mute">맞는 추천을 찾지 못했어요</p>
           ) : (

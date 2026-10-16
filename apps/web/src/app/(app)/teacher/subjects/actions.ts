@@ -2,7 +2,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { isAdmin } from "@/lib/domain/policy";
-import { isSubjectGroup, schoolYear, type TeacherCourse } from "@/lib/domain/curriculum";
+import { isSubjectGroup, schoolYear, type SubjectGroup, type TeacherCourse } from "@/lib/domain/curriculum";
+import { suggestMyCourses } from "@/lib/server/ai/teacher-ai";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 
@@ -43,4 +44,20 @@ export async function saveSubjects(_: SubjectsState, form: FormData): Promise<Su
   revalidatePath("/teacher/setuk");
   revalidatePath("/admin/curriculum");
   return { saved: true };
+}
+
+export type CourseAdvice = { ok: true; groups: SubjectGroup[]; courseIds: string[]; reason: string; label: "AI" | "자동"; notice?: string } | { ok: false; error: string };
+
+/** "내 교과로 추천": 부서(교과) + 편제표 → 교과·과목 후보. 저장하지 않는다 (학생 정보 없음) */
+export async function adviseCourses(input: { teacherId: string; groups: string[] }): Promise<CourseAdvice> {
+  const v = await requireCan("subjects.assign");
+  if (input.teacherId !== v.accountId && !isAdmin(v)) return { ok: false, error: "다른 선생님 과목은 관리자만 정할 수 있어요" };
+  const t = await repo.getTeacher(input.teacherId);
+  if (!t) return { ok: false, error: "선생님을 찾지 못했어요" };
+  const courses = await repo.listCourses(schoolYear());
+  if (!courses.length) return { ok: false, error: "편제표에 과목이 없어요" };
+  const r = await suggestMyCourses(t.dept, input.groups.filter(isSubjectGroup), courses);
+  if (r.label === "AI") await repo.audit(v.accountId, "subjects.ai.suggest", t.dept ?? null);
+  if (!r.data.groups.length) return { ok: false, error: r.data.reason };
+  return { ok: true, ...r.data, label: r.label, notice: r.error ? `AI 대신 부서 이름으로 골랐어요 (${r.error})` : undefined };
 }

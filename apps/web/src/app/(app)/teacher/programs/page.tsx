@@ -2,12 +2,15 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Bar } from "@/components/programs/meters";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { AiBanner, ButtonLink, Card, StatTiles, Tag } from "@/components/ui";
+import { ButtonLink, Card, StatTiles, Tag } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
 import { isAdmin } from "@/lib/domain/policy";
-import { AREA_LABEL, ddayLabel, effectiveStatus, latestVersion, md, responseRate, reviewStatus, SOURCE_LABEL } from "@/lib/domain/program";
+import { AREA_LABEL, ddayLabel, md, SOURCE_LABEL, weekTodos } from "@/lib/domain/program";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
+import { programSummaries } from "./_lib/data";
+import { WeekBox } from "./week-box";
 
 export const metadata = { title: "프로그램·자료 · 속초고등학교 학생관리시스템" };
 
@@ -15,26 +18,11 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
   const v = await requireCan("program.manage");
   const showAll = (await searchParams).all === "1" && isAdmin(v);
   const programs = await repo.listPrograms(showAll ? undefined : { ownerId: v.accountId });
-  const ids = programs.map((p) => p.id);
-  const [jobs, versions, responses] = await Promise.all([
-    repo.listDraftJobs({ programIds: ids }),
-    repo.listDraftVersions({ programIds: ids }),
-    Promise.all(programs.map((p) => repo.listResponses(p.id))),
-  ]);
+  const summary = await programSummaries(programs);
   const t = today();
-
-  const summary = programs.map((p, i) => {
-    const submitted = responses[i].filter((r) => r.submittedAt && p.targetIds.includes(r.studentId)).length;
-    const pj = jobs.filter((j) => j.programId === p.id);
-    const st = pj.map((j) => reviewStatus(j, latestVersion(versions, j.id)));
-    return {
-      p, submitted, rate: responseRate(p.targetIds.length, submitted), status: effectiveStatus(p, t),
-      review: st.filter((s) => s === "검토 대기").length, done: st.filter((s) => s === "확정").length, failed: st.filter((s) => s === "생성 실패").length,
-    };
-  });
   const open = summary.filter((s) => s.status === "open");
   const avg = open.length ? Math.round(open.reduce((n, s) => n + s.rate, 0) / open.length) : 0;
-  const soon = open.filter((s) => { const d = ddayLabel(s.p.endDate, t); return d === "D-day" || /^D-[1-3]$/.test(d); });
+  const todos = weekTodos(summary.map((s) => ({ id: s.p.id, title: s.p.title, status: s.status, endDate: s.p.endDate, targets: s.p.targetIds.length, submitted: s.submitted, review: s.review, failed: s.failed, drafts: s.drafts })), t);
 
   return (
     <>
@@ -49,10 +37,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
       />
       <PageBody>
         <StatTiles items={[["진행 중", `${open.length}개`], ["평균 응답률", `${avg}%`], ["검토 대기", `${summary.reduce((n, s) => n + s.review, 0)}건`], ["생성 실패", `${summary.reduce((n, s) => n + s.failed, 0)}건`]]} />
-        {soon.length > 0 && (
-          <AiBanner label="자동" title="마감 임박" line={soon.map((s) => `${s.p.title} ${ddayLabel(s.p.endDate, t)} · 미응답 ${s.p.targetIds.length - s.submitted}명`).join(" · ")}
-            action={<ButtonLink href={`/teacher/programs/${soon[0].p.id}`} kind="outline" size="sm" className="hidden md:inline-flex">독촉하기</ButtonLink>} />
-        )}
+        {todos.length > 0 && <WeekBox line={todos.slice(0, 3).map((x) => x.text).join(" · ")} href={`/teacher/programs/${todos[0].programId}`} all={showAll} aiOn={aiEnabled()} />}
         {programs.length === 0 ? (
           <Card>
             <div className="flex flex-col items-center gap-3 py-8 text-center">

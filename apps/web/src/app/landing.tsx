@@ -2,11 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { Check, Send, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
-import { FaqList, FeatureTabs } from "./landing-sections";
+import { AiGrid, FaqList, FeatureTabs, Spotlights } from "./landing-sections";
 
 // 상세페이지 = Figma "상세페이지 시안" B안 · 인디고 (#536DFE). 로그인 전 첫 화면.
-// 구성: Nav → Hero(캐릭터 + 떠 있는 카드) → Problem → How it works → Process(네이비) → Features(기능 탭) → For everyone → Safety → FAQ → CTA(네이비) → Footer
-const NAV = [["서비스 소개", "#problem"], ["이용 흐름", "#how"], ["기능", "#features"], ["안심 설계", "#safety"], ["FAQ", "#faq"]];
+// 구성: Nav → Hero(캐릭터 + 떠 있는 카드) → Problem → How it works → Process(네이비) → Features(기능 탭) → Spotlight → AI(네이비) → For everyone → Safety → FAQ → CTA(네이비) → Footer
+const NAV = [["서비스 소개", "#problem"], ["이용 흐름", "#how"], ["기능", "#features"], ["AI", "#ai"], ["안심 설계", "#safety"], ["FAQ", "#faq"]];
 
 const PROBLEMS = [
   { tag: "Form", title: "구글 설문지", desc: "프로그램마다 새로 만들고 명단과 대조" },
@@ -213,6 +213,24 @@ export function Landing() {
           <Eyebrow>Features</Eyebrow>
           <H2>생기부만이 아니에요<br />학교 일이 한 곳에</H2>
           <FeatureTabs />
+        </div>
+      </section>
+
+      {/* Spotlight: 핵심 흐름 (유아이볼: 클로바노트·매니패스트) */}
+      <section id="spotlight" className="scroll-mt-20 bg-[#f8f9fb]">
+        <div className="mx-auto max-w-[1200px] px-4 py-20 text-center md:px-0 md:py-[140px]">
+          <Eyebrow>Spotlight</Eyebrow>
+          <H2>손이 가장 많이 가던 일부터<br />먼저 덜었어요</H2>
+          <Spotlights />
+        </div>
+      </section>
+
+      {/* AI 모음 (네이비) */}
+      <section id="ai" className="scroll-mt-20 bg-navy">
+        <div className="mx-auto max-w-[1200px] px-4 py-20 text-center md:px-0 md:py-[140px]">
+          <Eyebrow>AI</Eyebrow>
+          <H2 light>AI가 곳곳에서 거들어요</H2>
+          <AiGrid />
         </div>
       </section>
 

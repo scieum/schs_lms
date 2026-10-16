@@ -44,7 +44,11 @@ export function ScoreUpload({ classKey, className, rosterSize, exams, ai }: { cl
 
   const form = (extra: Record<string, string> = {}) => {
     const fd = new FormData();
-    if (file) fd.set("file", file);
+    // 사진으로 읽은 행은 파일 대신 읽은 값을 다시 보낸다 (서버가 명단으로 다시 검사)
+    if (p?.picture) {
+      fd.set("raws", JSON.stringify(p.picture));
+      fd.set("fileName", p.fileName);
+    } else if (file) fd.set("file", file);
     fd.set("class", classKey);
     fd.set("examId", examId);
     for (const [k, v] of Object.entries(extra)) fd.set(k, v);
@@ -82,7 +86,10 @@ export function ScoreUpload({ classKey, className, rosterSize, exams, ai }: { cl
     URL.revokeObjectURL(url);
   }
 
-  const renamedLine = p?.renamed.length
+  const picture = !!p?.picture;
+  const renamedLine = picture
+    ? "성적표 사진에서 번호·등급만 읽었어요 · 이름은 명단에서 붙여요. 값을 확인해 주세요"
+    : p?.renamed.length
     ? p.renamed.map((r) => `'${r.from}' → ${SCORE_FIELD_LABEL[r.to]}`).join(" · ")
     : "열 이름이 달라도 제목만 보고 맞춰요 · 학생 이름·성적은 보내지 않아요";
   const showMapEditor = !!(mapping || editMap || aiMap);
@@ -93,15 +100,16 @@ export function ScoreUpload({ classKey, className, rosterSize, exams, ai }: { cl
       <Steps items={["파일 선택", "열 맞추기", "검증", "반영"]} active={step} />
 
       <AiBanner
-        title="AI로 엑셀 열 맞추기"
-        line={aiMap?.error ?? (aiMap ? "AI 제안을 확인하고 '확인 후 업로드'를 눌러 주세요" : renamedLine)}
+        title={picture ? "AI로 성적표 읽기" : "AI로 엑셀 열 맞추기"}
+        label={ai ? "AI" : "자동"}
+        line={aiMap?.error ?? (aiMap ? "AI 제안을 확인하고 '확인 후 업로드'를 눌러 주세요" : mapping && !ai ? "AI가 꺼져 있어요. 오른쪽에서 열을 직접 골라 주세요" : renamedLine)}
         action={
-          headers.length > 0 && !done ? (
+          headers.length > 0 && !done && !picture && ai ? (
             aiMap && !aiMap.error ? (
               <Button size="sm" onClick={() => run(file, aiMap.map)} disabled={previewing}>확인 후 업로드</Button>
             ) : (
-              <Button size="sm" kind={mapping ? "primary" : "soft"} onClick={askAi} disabled={aiBusy || !ai}>
-                {aiBusy ? "맞추는 중…" : ai ? "AI 제안" : "AI 꺼짐"}
+              <Button size="sm" kind={mapping ? "primary" : "soft"} onClick={askAi} disabled={aiBusy}>
+                {aiBusy ? "맞추는 중…" : "AI 제안"}
               </Button>
             )
           ) : undefined
@@ -118,7 +126,7 @@ export function ScoreUpload({ classKey, className, rosterSize, exams, ai }: { cl
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[15px] font-bold">{file?.name ?? "성적 파일을 올려 주세요"}</div>
-                  <div className="text-[13px] text-mute">{p ? `${p.summary.total}행 읽음 · ${className}` : `xlsx · 2MB까지 · ${className}`}</div>
+                  <div className="text-[13px] text-mute">{previewing && !file?.name.toLowerCase().endsWith(".xlsx") ? "읽는 중이에요" : p ? `${p.summary.total}행 읽음 · ${className}` : `xlsx 또는 성적표 사진·PDF${ai ? "" : "(AI 필요)"} · ${className}`}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -137,7 +145,7 @@ export function ScoreUpload({ classKey, className, rosterSize, exams, ai }: { cl
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".xlsx"
+                  accept={ai ? ".xlsx,image/png,image/jpeg,image/webp,application/pdf" : ".xlsx"}
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0] ?? null;
@@ -231,9 +239,11 @@ export function ScoreUpload({ classKey, className, rosterSize, exams, ai }: { cl
             </Card>
           ) : (
             (p || showMapEditor) && (
-              <Card title="열 맞추기" action={p && !showMapEditor ? <Button size="sm" kind="ghost" onClick={() => setEditMap(p.map)}>고치기</Button> : undefined}>
+              <Card title={picture ? "읽은 성적" : "열 맞추기"} action={p && !showMapEditor && !picture ? <Button size="sm" kind="ghost" onClick={() => setEditMap(p.map)}>고치기</Button> : undefined}>
                 {showMapEditor ? (
                   <MapEditor headers={headers} map={currentMap} aiFields={aiMap && !aiMap.error ? aiMap.map : null} onChange={(m) => setEditMap(m)} />
+                ) : picture ? (
+                  <p className="text-[13px] text-sub">AI가 사진에서 번호와 등급을 옮겼어요. 왼쪽 표에서 숫자를 원본과 한 번 맞춰 본 뒤 반영해 주세요.</p>
                 ) : (
                   <dl>
                     {SCORE_FIELDS.map((f) => (
@@ -277,7 +287,7 @@ export function ScoreUpload({ classKey, className, rosterSize, exams, ai }: { cl
           {!p && !showMapEditor && !done && (
             <Card title="올리는 방법" className="flex-1">
               <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm text-sub">
-                <li>양식을 내려받아 등급(1~9)을 채워요</li>
+                <li>양식을 내려받아 등급(1~9)을 채워요{ai ? " · 성적표 사진·PDF도 돼요" : ""}</li>
                 <li>시험을 고르고 파일을 올려요</li>
                 <li>확인 필요 행을 보고 반영해요</li>
               </ol>

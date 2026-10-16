@@ -163,3 +163,56 @@ export function careerPicks(careerGoal: string | null, offerings: Offering[], n 
   }
   return out;
 }
+
+// ── 학생: 고른 과목 조합 점검 (AI 가 꺼져 있을 때 쓰는 규칙) ─────────
+
+export interface ComboNote {
+  tone: "ok" | "warn";
+  text: string;
+}
+
+/** 학점 · 진로 연계 · 분야 쏠림을 짧은 문장으로 */
+export function comboCheck(args: { picked: Offering[]; all: Offering[]; maxCredits: number; careerGoal: string | null }): ComboNote[] {
+  const { picked, all, maxCredits, careerGoal } = args;
+  const notes: ComboNote[] = [];
+  const credits = picked.reduce((n, o) => n + o.credits, 0);
+  if (credits > maxCredits) notes.push({ tone: "warn", text: `${credits}학점이에요. ${credits - maxCredits}학점을 빼야 해요` });
+  else if (credits < maxCredits) notes.push({ tone: "ok", text: `${credits} / ${maxCredits}학점 — ${maxCredits - credits}학점 더 담을 수 있어요` });
+  else notes.push({ tone: "ok", text: `${maxCredits}학점을 꽉 채웠어요` });
+
+  if (careerGoal) {
+    const fit = careerPicks(careerGoal, all, 5);
+    const have = picked.filter((o) => fit.includes(o.id));
+    const miss = all.filter((o) => fit.includes(o.id) && !picked.some((p) => p.id === o.id));
+    if (have.length) notes.push({ tone: "ok", text: `진로 연계: ${have.map((o) => o.subject).join("·")}` });
+    if (miss.length) notes.push({ tone: have.length ? "ok" : "warn", text: `${careerGoal} 진로라면 ${miss.slice(0, 2).map((o) => o.subject).join("·")}도 살펴봐요` });
+  }
+
+  const byField = new Map<string, number>();
+  for (const o of picked) byField.set(o.field, (byField.get(o.field) ?? 0) + 1);
+  const heavy = [...byField.entries()].find(([, n]) => picked.length >= 3 && n >= Math.ceil(picked.length * 0.75));
+  if (heavy) notes.push({ tone: "warn", text: `${heavy[0]} 분야에만 ${heavy[1]}과목이에요. 다른 분야도 하나 볼까요?` });
+  return notes;
+}
+
+// ── 관리자: 신청 예측 ─────────────────────────────────
+
+export interface DemandForecast {
+  offering: Offering;
+  count: number;
+  /** 아직 신청하지 않은 학생이 지금 비율대로 신청하면 */
+  projected: number;
+  seats: number;
+}
+
+/** 지금 신청 비율로 마감 때 신청 수를 어림한다. 정원을 넘을 것 같은 과목만 */
+export function forecastDemand(offerings: Offering[], counts: Record<string, number>, applicants: number, eligible: number): DemandForecast[] {
+  const scale = applicants > 0 && eligible > applicants ? eligible / applicants : 1;
+  return offerings
+    .map((o) => {
+      const count = counts[o.id] ?? 0;
+      return { offering: o, count, projected: Math.round(count * scale), seats: seats(o) };
+    })
+    .filter((x) => x.projected > x.seats)
+    .sort((a, b) => b.projected - b.seats - (a.projected - a.seats));
+}

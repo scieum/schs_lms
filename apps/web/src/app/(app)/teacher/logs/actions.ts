@@ -1,7 +1,9 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { canLog, isAreaOf } from "@/lib/domain/activity";
+import { canLog, homeroomStudents, isAreaOf } from "@/lib/domain/activity";
+import { maskIdentity } from "@/lib/domain/program";
+import { polishLog } from "@/lib/server/ai/teacher-ai";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 
@@ -45,4 +47,34 @@ export async function addLogs(_: LogState, form: FormData): Promise<LogState> {
   await repo.audit(v.accountId, "logs.add", `${area} ${n}명`);
   revalidatePath("/teacher/logs");
   return { added: n };
+}
+
+export type PolishResult = { ok: true; text: string; label: "AI" | "자동"; notice?: string } | { ok: false; error: string };
+
+/**
+ * "AI로 다듬기": 메모·받아쓰기 → 누가기록 문체 1~2문장. 저장하지 않고 돌려주기만 한다.
+ * 고른 학생 모두에게 같은 글이 들어가므로 학생 정보는 보내지 않고, 메모 속 이름·학번은 가린 뒤 보낸다.
+ */
+export async function polishLogMemo(input: { area: string; clubId?: string; text: string }): Promise<PolishResult> {
+  const v = await requireCan("logs.write");
+  const text = String(input.text ?? "").trim();
+  if (text.length < 2) return { ok: false, error: "메모를 먼저 적어 주세요" };
+  if (text.length > 1000) return { ok: false, error: "1000자까지 다듬을 수 있어요" };
+  if (!isAreaOf(input.area)) return { ok: false, error: "영역을 골라 주세요" };
+
+  // 이 화면에 나오는 학생(우리 반·내 동아리)의 이름·학번을 가린다
+  const all = await repo.listStudents();
+  let people = homeroomStudents(v, all);
+  if (input.area === "동아리" && input.clubId) {
+    const c = await repo.getClub(input.clubId);
+    if (c && c.advisorId === v.accountId) {
+      const ids = new Set(await repo.listClubMembers(c.id));
+      people = all.filter((s) => ids.has(s.id));
+    }
+  }
+  const masked = maskIdentity(text, people);
+  const r = await polishLog(masked, input.area);
+  if (r.label === "AI") await repo.audit(v.accountId, "logs.ai.polish", input.area);
+  if (!r.data) return { ok: false, error: "다듬을 내용을 찾지 못했어요. 직접 써 주세요" };
+  return { ok: true, text: r.data, label: r.label, notice: r.error ? `AI 대신 규칙으로 다듬었어요 (${r.error})` : masked !== text ? "이름·학번은 가린 뒤 다듬었어요" : undefined };
 }

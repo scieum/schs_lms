@@ -1,7 +1,8 @@
 import { Download } from "lucide-react";
 import { LinkChips, SearchBox } from "@/components/admin/chips";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { AiBanner, ButtonLink, Tag } from "@/components/ui";
+import { FlagExplainBanner } from "@/components/admin/ai-panels";
+import { ButtonLink, Tag } from "@/components/ui";
 import { kstDateLabel, kstTime } from "@/lib/domain/accounts";
 import { requireCan } from "@/lib/server/viewer";
 import { actionGroup, PERIODS, readPeriod } from "./labels";
@@ -46,15 +47,15 @@ export default async function AuditPage({ searchParams }: Props) {
         }
       />
       <PageBody>
-        <AiBanner
-          label="자동"
-          title="이상 접근 살펴보기"
+        <FlagExplainBanner
+          period={period}
+          has={!!latest}
           line={
             latest
               ? `평소와 다른 ${latest.flag} ${flagged.length}건 (${kstDateLabel(latest.at).split(" ")[0]} ${kstTime(latest.at)})`
               : "이 기간에 대량·야간 열람이 없어요"
           }
-          action={
+          link={
             latest ? (
               onlyFlagged ? (
                 <ButtonLink href={`/admin/audit?p=${period}`} kind="outline" size="sm">전체 보기</ButtonLink>

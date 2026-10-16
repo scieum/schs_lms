@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { UNIT_LABEL, type LengthRange } from "@/lib/domain/length";
 import type { Student } from "@/lib/domain/types";
-import { fitToMax, sampleDraft, scrubIdentity, type RecordArea } from "@/lib/domain/writing";
+import { fitToMax, plainMemo, sampleDraft, scrubIdentity, type RecordArea } from "@/lib/domain/writing";
 import { polishStyle } from "@/lib/domain/neis-style";
 import { aiEnabled, aiJson } from "./claude";
 import { recordSystemPrompt } from "./record-prompts";
@@ -32,6 +32,7 @@ const Out = z.object({ draft: z.string() });
 const APP_RULES = `
 앱 규칙:
 - 교사가 준 관찰 메모와 누가기록만 근거로 쓴다. 근거가 하나의 활동이면 (주제)와 (활동)으로, 여러 건이면 활동 블록 여러 개로 본다.
+- 관찰 메모가 (주제) (활동) (키워드) 형식이면 빈 줄로 나뉜 묶음 하나가 활동 하나다. (키워드)는 교사가 드러내고 싶은 역량이나 평가 강조점이므로 단어를 그대로 나열하지 말고 활동 장면 속 행동으로 풀어 쓴다.
 - 교외 수상, 공인 어학 성적, 기관·대학·회사 이름, 부모 직업은 쓰지 않는다.
 - 한 문단으로 쓰고 draft 에 최종본만 넣는다.`;
 
@@ -51,7 +52,7 @@ export async function writeRecord(input: WriteInput): Promise<WriteResult> {
   const fallback = (notice?: string): WriteResult => ({
     // 예시 초안은 서버 안에서만 만들므로 이름·학번을 지운 원문으로 만든다
     text: polishStyle(sampleDraft({
-      memo: scrubIdentity(input.memo, student).text,
+      memo: plainMemo(scrubIdentity(input.memo, student).text),
       logs: input.logs.map((l) => scrubIdentity(l.content, student).text),
       careerGoal: input.kind === "진로" || input.kind === "세특" ? student.careerGoal : null,
       range,

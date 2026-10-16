@@ -1,6 +1,8 @@
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { AiBanner, Card, Row, Segmented, StatTiles, Tag } from "@/components/ui";
+import { CurriculumImport } from "@/components/admin/curriculum-import";
+import { Card, Row, Segmented, StatTiles, Tag } from "@/components/ui";
 import { schoolYear, type Course } from "@/lib/domain/curriculum";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { archiveCourse } from "./actions";
@@ -28,7 +30,7 @@ export default async function CurriculumPage({ searchParams }: Props) {
       <PageHeader title={`${year}학년도 편제표`} />
       <PageBody>
         <StatTiles items={[["개설 과목", `${courses.length}개`], ["1학년", `${count(1)}개`], ["2학년", `${count(2)}개`], ["담당 교사 없음", `${unassigned}개`]]} />
-        <AiBanner label="자동" title="과목 이름 맞추기" line="2022 개정 과목과 이름이 다르면(띄어쓰기·Ⅰ/1) 자동으로 맞춰요" />
+        <CurriculumImport aiOn={aiEnabled()} />
         <Segmented
           active={grade - 1}
           items={[1, 2, 3].map((n) => ({ label: `${n}학년`, href: `/admin/curriculum?grade=${n}` }))}

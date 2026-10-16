@@ -1,5 +1,7 @@
 import "server-only";
-import { auditFlags, type AuditFlag, type AuditPeriod } from "@/lib/domain/accounts";
+import { accountStatus, auditFlags, type AuditFlag, type AuditPeriod, type DailyCheckInput } from "@/lib/domain/accounts";
+import { schoolYear } from "@/lib/domain/curriculum";
+import { seats } from "@/lib/domain/offering";
 import { repo } from "@/lib/server/repo";
 import { actionLabel, periodStart } from "./labels";
 
@@ -32,4 +34,29 @@ export async function loadAudit(period: AuditPeriod, q: string, onlyFlagged = fa
     .filter((r) => !onlyFlagged || r.flag)
     .filter((r) => !q || r.actor.includes(q) || r.label.includes(q) || r.action.includes(q) || (r.target ?? "").includes(q));
   return { rows, truncated: entries.length >= AUDIT_LIMIT };
+}
+
+/** 관리 홈 "오늘 점검" 재료: 초안 오류 · 계정 대기·잠김 · 최근 7일 이상 접근 · 정원 넘은 과목 */
+export async function loadDailyCheck(): Promise<DailyCheckInput & { errorReasons: string[] }> {
+  const now = new Date();
+  const [jobs, accounts, students, week] = await Promise.all([
+    repo.listDraftJobs({}), repo.adminListAccounts(), repo.listStudents(), loadAudit("week", "", true),
+  ]);
+  const pseudo = new Map(students.map((s) => [s.id, s.pseudonymId]));
+  const errors = jobs.filter((j) => j.state === "ERROR");
+  const overSubjects: string[] = [];
+  for (const grade of [1, 2, 3]) {
+    const round = await repo.offeringRound(schoolYear(), grade);
+    if (!round) continue;
+    const [offerings, counts] = await Promise.all([repo.offeringList(round.id), repo.offeringCounts(round.id)]);
+    overSubjects.push(...offerings.filter((o) => (counts[o.id] ?? 0) > seats(o)).map((o) => `${grade}학년 ${o.subject}`));
+  }
+  return {
+    errors: errors.length,
+    waiting: accounts.filter((a) => accountStatus(a, now) === "대기").length,
+    locked: accounts.filter((a) => accountStatus(a, now) === "잠김").length,
+    flagged: week.rows.filter((r) => r.flag && r.flag !== "잠김").length,
+    overSubjects,
+    errorReasons: errors.map((j) => `${pseudo.get(j.studentId) ?? "학생"} ${j.error ?? `${j.attempts}회 실패`}`.slice(0, 120)),
+  };
 }

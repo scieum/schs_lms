@@ -1,16 +1,16 @@
 "use client";
-import { startTransition, useActionState, useState } from "react";
+import { startTransition, useActionState, useRef, useState } from "react";
 import { Check, Link2, MessageSquare, ShieldCheck, X } from "lucide-react";
 import { LengthPicker } from "@/components/length-picker";
 import { Button, cx } from "@/components/ui";
 import { resolveLength, UNIT_LABEL, type DraftCategory, type LengthUnit } from "@/lib/domain/length";
-import { checkDraft, type EvidenceItem } from "@/lib/domain/program";
+import { checkDraft, similarSentences, type EvidenceItem, type SimilarHit } from "@/lib/domain/program";
 import { styleIssues } from "@/lib/domain/neis-style";
-import { regenerateDraft, reviewDraftAction, saveDraft, type RegenState, type ReviewState, type SaveState } from "./actions";
+import { regenerateDraft, rephraseAction, reviewDraftAction, saveDraft, type RegenState, type RephraseState, type ReviewState, type SaveState } from "./actions";
 
 // T4 초안 본문 편집 + 자동 검사 + 검토 도우미 + 반려·직접 수정·확정
 export function DraftEditor({
-  jobId, initial, unit, max, area, people, evidence, aiOn, finalized, tags,
+  jobId, initial, unit, max, area, people, evidence, peers, aiOn, finalized, tags,
 }: {
   jobId: string;
   initial: string;
@@ -19,6 +19,8 @@ export function DraftEditor({
   area: DraftCategory;
   people: { name: string; studentNo: string }[];
   evidence: EvidenceItem[];
+  /** 같은 프로그램 다른 학생 초안 (비슷한 문장 찾기) */
+  peers: { label: string; text: string }[];
   aiOn: boolean;
   finalized: boolean;
   tags: string[];
@@ -29,6 +31,11 @@ export function DraftEditor({
   const [text, setText] = useState(initial);
   const [reason, setReason] = useState("");
   const [applied, setApplied] = useState<string[]>([]);
+  const [re, reAction, rephrasing] = useActionState<RephraseState, FormData>(rephraseAction, {});
+  const [similar, setSimilar] = useState<SimilarHit[] | null>(null);
+  const [reDone, setReDone] = useState(-1);
+  const [pickMsg, setPickMsg] = useState<string | null>(null);
+  const area_ = useRef<HTMLTextAreaElement>(null);
   const range = resolveLength(area, { unit, max });
   const c = checkDraft(text, { range, people, evidence });
   const pct = Math.min(100, Math.round((c.length.value / range.max) * 100));
@@ -41,6 +48,30 @@ export function DraftEditor({
     fd.set("content", text);
     startTransition(() => reviewAction(fd));
   };
+  /** 고른 부분, 없으면 커서가 있는 문장 */
+  const pickedSentence = (): string => {
+    const el = area_.current;
+    if (!el) return "";
+    const [a, b] = [el.selectionStart ?? 0, el.selectionEnd ?? 0];
+    if (b > a) return text.slice(a, b).trim();
+    const from = text.lastIndexOf(".", Math.max(0, a - 1)) + 1;
+    const dot = text.indexOf(".", a);
+    return text.slice(from, dot < 0 ? text.length : dot + 1).trim();
+  };
+  const runRephrase = (sentence: string, avoid = "") => {
+    if (!sentence || !text.includes(sentence)) return setPickMsg("본문에서 바꿀 문장을 고르거나 그 문장에 커서를 두세요");
+    setPickMsg(null);
+    const fd = new FormData();
+    fd.set("jobId", jobId);
+    fd.set("sentence", sentence);
+    fd.set("content", text);
+    if (avoid) fd.set("avoid", avoid);
+    startTransition(() => reAction(fd));
+  };
+  const findSimilar = () => setSimilar(similarSentences(text, peers));
+  const hits = (similar ?? []).filter((h) => text.includes(h.sentence));
+  const reOpen = !!re.options?.length && reDone !== (re.n ?? 0) && !!re.sentence && text.includes(re.sentence);
+
   const apply = (phrase: string, suggestion: string) => {
     setText(text.replace(phrase, suggestion).replace(/\s{2,}/g, " ").trim());
     setApplied([...applied, phrase]);
@@ -82,13 +113,58 @@ export function DraftEditor({
         </ul>
       )}
 
+      <div className="flex flex-col gap-2.5 rounded-inner bg-soft px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className={cx("rounded-chip px-2.5 py-1 text-xs font-bold", (re.label ?? (aiOn ? "AI" : "자동")) === "AI" ? "bg-new-soft text-new" : "bg-key-soft text-key-strong")}>{re.label ?? (aiOn ? "AI" : "자동")}</span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[15px] font-bold">문장 도우미</div>
+            <div className="truncate text-[13px] text-sub">
+              {rephrasing ? "만드는 중이에요" : pickMsg ?? (similar ? (hits.length ? `다른 학생과 비슷한 문장 ${hits.length}개` : `같은 프로그램 초안 ${peers.length}개와 겹치는 문장이 없어요`) : "다른 학생과 겹치는 문장을 찾고, 고른 문장을 다르게 써요")}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" kind="outline" size="sm" onClick={findSimilar} disabled={!text.trim() || peers.length === 0}>비슷한 문장 찾기</Button>
+            <Button type="button" kind="outline" size="sm" onClick={() => runRephrase(pickedSentence())} disabled={rephrasing || !text.trim()}>{rephrasing ? "만드는 중…" : "선택 문장 다르게 쓰기"}</Button>
+          </div>
+        </div>
+        {hits.length > 0 && (
+          <ul className="flex flex-col gap-2">
+            {hits.map((h) => (
+              <li key={h.sentence} className="flex flex-col gap-1.5 rounded-inner bg-white p-3 text-[13px]">
+                <span className="font-bold text-wait">{h.peer} 초안과 {Math.round(h.score * 100)}% 비슷해요</span>
+                <span className="text-ink">{h.sentence}</span>
+                <span className="text-mute">↔ {h.peerSentence}</span>
+                <div className="flex gap-2 self-end">
+                  <Button type="button" size="sm" kind="ghost" onClick={() => setSimilar((similar ?? []).filter((x) => x !== h))}>무시</Button>
+                  <Button type="button" size="sm" kind="soft" disabled={rephrasing} onClick={() => runRephrase(h.sentence, h.peerSentence)}>다르게 쓰기</Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {re.error && !re.options?.length && <p className="text-[13px] text-bad" role="alert">{re.error}</p>}
+        {reOpen && (
+          <div className="flex flex-col gap-2 rounded-inner bg-new-soft p-3 text-[13px]">
+            <span className="font-bold text-new">다르게 쓴 안{re.error ? ` · AI 대신 규칙으로 바꿨어요 (${re.error})` : ""}</span>
+            <span className="text-sub"><s>{re.sentence}</s></span>
+            {re.options!.map((o) => (
+              <div key={o} className="flex items-center gap-2 rounded-inner bg-white px-3 py-2.5">
+                <span className="min-w-0 flex-1 text-[14px]">{o}</span>
+                <Button type="button" size="sm" kind="soft" onClick={() => { setText(text.replace(re.sentence!, o)); setReDone(re.n ?? 0); }}>확인 후 바꾸기</Button>
+              </div>
+            ))}
+            <Button type="button" size="sm" kind="ghost" className="self-end" onClick={() => setReDone(re.n ?? 0)}>그대로 두기</Button>
+          </div>
+        )}
+      </div>
+
       <form id={formId} action={saveAction} className="flex flex-col gap-3">
         <input type="hidden" name="jobId" value={jobId} />
         <div className="flex flex-wrap gap-1.5">
           {tags.map((t) => <span key={t} className={cx("rounded-chip px-2.5 py-1 text-xs font-medium", t === "예시" ? "bg-white text-mute" : "bg-soft text-sub")}>{t}</span>)}
         </div>
         <textarea
-          name="content" value={text} onChange={(e) => setText(e.target.value)} rows={10} maxLength={5000}
+          ref={area_} name="content" value={text} onChange={(e) => setText(e.target.value)} rows={10} maxLength={5000}
           className="w-full resize-y rounded-inner border border-line bg-white p-4 text-[15px] leading-8 outline-none focus:ring-2 focus:ring-key md:p-5"
           aria-label="초안 본문" placeholder="근거 자료를 보고 '~함.'으로 끝나는 문장으로 써 주세요"
         />

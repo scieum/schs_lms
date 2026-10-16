@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   cacheComponents: false,
   poweredByHeader: false,
   serverExternalPackages: ["exceljs", "bcryptjs"],
+  // 계획서·제출 서류·합본 PDF·성적표 사진을 서버 액션으로 올린다 (기본 1MB → 25MB)
+  experimental: { serverActions: { bodySizeLimit: "25mb" } },
   turbopack: {
     rules: {
       "*.css": {

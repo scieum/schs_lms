@@ -5,7 +5,8 @@ import {
   answeredCount, daysLeft, effectiveStatus, maskIdentity, MATERIAL_TYPES, usesDocs, usesSurvey, validateAnswers, type Program,
 } from "@/lib/domain/program";
 import type { Student } from "@/lib/domain/types";
-import { studentHints } from "@/lib/server/ai/program-ai";
+import type { DocCheck } from "@/lib/domain/student-assist";
+import { docCheck, followUps } from "@/lib/server/ai/student-ai";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { pdfPages } from "@/app/(app)/teacher/programs/_lib/pdf";
@@ -73,9 +74,9 @@ export async function uploadMyDoc(prev: DocState, form: FormData): Promise<DocSt
   return { done: "올렸어요", n };
 }
 
-export type HintState = { hints?: string[]; label?: "AI" | "자동"; error?: string; n?: number };
+export type HintState = { asks?: Record<string, string[]>; label?: "AI" | "자동"; error?: string; n?: number };
 
-/** 작성 도우미: 힌트만 준다 (대신 쓰지 않음, 제출되지 않음). 이름·학번은 가려서 보낸다 */
+/** 작성 도우미: 문항마다 "이 답에 더 쓸 수 있는 것" 질문 2개 (대신 쓰지 않음, 제출되지 않음). 이름·학번은 가려서 보낸다 */
 export async function hintAction(prev: HintState, form: FormData): Promise<HintState> {
   const n = (prev.n ?? 0) + 1;
   const ctx = await myOpenProgram(String(form.get("programId") ?? ""));
@@ -83,7 +84,25 @@ export async function hintAction(prev: HintState, form: FormData): Promise<HintS
   const { me, program } = ctx;
   const people = [{ name: me.name, studentNo: me.studentNo }];
   const answers = Object.fromEntries(program.questions.map((q) => [q.id, maskIdentity(String(form.get(`q_${q.id}`) ?? "").slice(0, 600), people)]));
-  const r = await studentHints(program.questions, answers);
+  const r = await followUps(program.questions, answers);
   await repo.audit(me.id, "survey.ai.hint", `${program.id} ${me.pseudonymId} ${r.label}`);
-  return { hints: r.hints, label: r.label, error: r.error, n };
+  return { asks: Object.fromEntries(r.items.map((x) => [x.id, x.asks])), label: r.label, error: r.error ? "AI가 답하지 않아 기본 질문을 보여 줘요" : undefined, n };
+}
+
+export type DocCheckState = { checks?: DocCheck[]; label?: "AI" | "자동"; error?: string; n?: number };
+
+/** 서류 빠진 항목 점검: 낸 서류 종류 대비. 본문은 TXT(가린 글)만 보내고, 파일 이름도 가린다 */
+export async function docCheckAction(prev: DocCheckState, form: FormData): Promise<DocCheckState> {
+  const n = (prev.n ?? 0) + 1;
+  const ctx = await myOpenProgram(String(form.get("programId") ?? ""));
+  if (typeof ctx === "string") return { error: ctx, n };
+  const { me, program } = ctx;
+  if (!usesDocs(program.source) || !program.requestDocs) return { error: "서류를 받지 않는 프로그램이에요", n };
+  const people = [{ name: me.name, studentNo: me.studentNo }];
+  const files = (await repo.listMaterialsByStudent(me.id))
+    .filter((m) => m.programId === program.id)
+    .map((m) => ({ name: maskIdentity(m.fileName, people), text: m.text ? maskIdentity(m.text, people) : null }));
+  const r = await docCheck(program.docKinds, files);
+  await repo.audit(me.id, "material.ai.check", `${program.id} ${me.pseudonymId} ${r.label}`);
+  return { checks: r.checks, label: r.label, error: r.error ? "AI가 답하지 않아 기본 점검을 보여 줘요" : undefined, n };
 }

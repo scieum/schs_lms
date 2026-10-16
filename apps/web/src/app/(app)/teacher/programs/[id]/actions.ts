@@ -2,10 +2,10 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { today } from "@/lib/domain/activity";
-import { effectiveStatus } from "@/lib/domain/program";
+import { effectiveStatus, maskIdentity, responseDigest } from "@/lib/domain/program";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { runDraftJobs } from "@/lib/server/ai/draft";
-import { reminderMessage } from "@/lib/server/ai/program-ai";
+import { analyzeResponses, reminderMessage } from "@/lib/server/ai/program-ai";
 import { repo } from "@/lib/server/repo";
 import { programRows, requireProgram } from "../_lib/data";
 
@@ -84,4 +84,50 @@ export async function generateDrafts(prev: GenState, form: FormData): Promise<Ge
   revalidatePath(`/teacher/programs/${program.id}`);
   revalidatePath("/teacher/drafts");
   return { started: `예시 초안 ${r.done}건을 만들었어요${r.failed ? ` · 실패 ${r.failed}건` : ""}`, n: (prev.n ?? 0) + 1 };
+}
+
+export type AnalyzeState = {
+  summary?: string | null;
+  themes?: string[];
+  highlights?: { who: string; note: string }[];
+  thin?: { who: string; note: string }[];
+  count?: number;
+  label?: "AI" | "자동";
+  error?: string;
+  n?: number;
+};
+
+/**
+ * T2 응답 분석: 제출된 설문 답을 가명ID로 묶어(이름·학번은 가림) 공통 주제·눈에 띄는 활동·근거 부족 학생을 요약한다.
+ * 화면에만 보여 주고 저장하지 않는다. 가명ID → 이름은 서버에서 바꿔 돌려준다.
+ */
+export async function analyzeResponsesAction(prev: AnalyzeState, form: FormData): Promise<AnalyzeState> {
+  const n = (prev.n ?? 0) + 1;
+  const { v, program } = await requireProgram(String(form.get("programId") ?? ""));
+  const { rows } = await programRows(program);
+  const people = rows.map((r) => ({ name: r.student.name, studentNo: r.student.studentNo }));
+  const sub = rows.filter((r) => r.response?.submittedAt);
+  if (sub.length === 0) return { error: "제출된 설문 응답이 아직 없어요", n };
+  const students = sub.map((r) => ({
+    pid: r.student.pseudonymId,
+    answers: program.questions.map((q) => maskIdentity((r.response!.answers[q.id] ?? "").trim(), people).slice(0, 600)),
+  }));
+  const rule = responseDigest(students);
+  const r = await analyzeResponses(program, students, rule);
+  const byPid = new Map(rows.map((x) => [x.student.pseudonymId, x.student]));
+  const who = (pid: string) => {
+    const s = byPid.get(pid);
+    return s ? `${s.grade}-${s.classNo}-${s.number} ${s.name}` : pid;
+  };
+  await repo.audit(v.accountId, "program.ai.analyze", `${program.id} ${sub.length}명 ${r.label}`);
+  return {
+    summary: r.digest.summary,
+    themes: r.digest.themes,
+    highlights: r.digest.highlights.map((x) => ({ who: who(x.pid), note: x.note })),
+    thin: r.digest.thin.map((x) => ({ who: who(x.pid), note: x.note })),
+    count: sub.length,
+    label: r.label,
+    error: r.error,
+    n,
+  };
 }

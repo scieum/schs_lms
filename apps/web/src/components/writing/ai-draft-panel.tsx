@@ -1,11 +1,15 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
-import { Copy, RotateCcw } from "lucide-react";
-import { Button, Tag } from "@/components/ui";
+import { Copy, Plus, RotateCcw, X } from "lucide-react";
+import { Button, Tag, cx } from "@/components/ui";
 import { measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
-import type { AiDraftResult } from "@/lib/domain/writing";
+import { composeKeywordMemo, parseKeywordMemo, type AiDraftResult, type KeywordBlock } from "@/lib/domain/writing";
+
+const EMPTY: KeywordBlock = { topic: "", activity: "", keywords: "" };
+const FIELD = "w-full rounded-field bg-soft px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-key";
 
 // "AI 초안" 패널 (Figma 영랑이 Y2 초안 카드와 같은 모양): 관찰 메모 → AI 초안 → 복사 / 다시 쓰기 / 본문에 넣기.
+// "키워드로" 탭: 속초고 세특 프롬프트(노션) 입력 형식 (주제)/(활동)/(키워드) 칸에 넣고 쓴다. 활동은 3개까지.
 // 결과는 본문(편집기)에 채우기만 하고 저장은 교사가 따로 누른다. 본문이 비어 있으면 바로 채운다.
 export function AiDraftPanel({
   initialMemo = "",
@@ -23,6 +27,10 @@ export function AiDraftPanel({
   onApply: (text: string) => void;
 }) {
   const [memo, setMemo] = useState(initialMemo);
+  const [blocks, setBlocks] = useState<KeywordBlock[]>(() => parseKeywordMemo(initialMemo) ?? [{ ...EMPTY }]);
+  const [mode, setMode] = useState<"memo" | "keywords">(() => (parseKeywordMemo(initialMemo) ? "keywords" : "memo"));
+  const input = mode === "keywords" ? composeKeywordMemo(blocks) : memo;
+  const setBlock = (i: number, k: keyof KeywordBlock, v: string) => setBlocks((bs) => bs.map((b, j) => (j === i ? { ...b, [k]: v } : b)));
   const [result, setResult] = useState<Extract<AiDraftResult, { ok: true }> | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
@@ -36,7 +44,7 @@ export function AiDraftPanel({
     start(async () => {
       let r: AiDraftResult;
       try {
-        r = await generate(memo);
+        r = await generate(input);
       } catch {
         r = { ok: false, error: "AI 처리 중 문제가 생겼어요. 직접 써 주세요" };
       }
@@ -68,15 +76,46 @@ export function AiDraftPanel({
         <span className="flex-1 text-[15px] font-bold">AI 초안</span>
         <span className="hidden text-[12px] text-mute md:inline">이름·학번은 가린 뒤 AI에 보내요</span>
       </div>
-      <textarea
-        value={memo}
-        onChange={(e) => setMemo(e.target.value)}
-        rows={3}
-        maxLength={2000}
-        placeholder={placeholder}
-        aria-label="관찰 메모"
-        className="w-full resize-y rounded-field bg-soft p-3 text-sm leading-6 outline-none focus:ring-2 focus:ring-key"
-      />
+      <div className="flex gap-1" role="tablist" aria-label="입력 방식">
+        {([["memo", "메모로"], ["keywords", "키워드로"]] as const).map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => setMode(k)}
+            className={cx("rounded-chip px-3 py-1.5 text-[13px]", mode === k ? "bg-key-soft font-bold text-key-strong" : "text-sub hover:bg-soft")}>{l}</button>
+        ))}
+      </div>
+      {mode === "memo" ? (
+        <textarea
+          value={memo}
+          onChange={(e) => setMemo(e.target.value)}
+          rows={3}
+          maxLength={2000}
+          placeholder={placeholder}
+          aria-label="관찰 메모"
+          className="w-full resize-y rounded-field bg-soft p-3 text-sm leading-6 outline-none focus:ring-2 focus:ring-key"
+        />
+      ) : (
+        <div className="flex flex-col gap-2">
+          {blocks.map((b, i) => (
+            <div key={i} className="flex flex-col gap-1.5 rounded-inner border border-line p-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] font-bold text-sub">활동 {i + 1}</span>
+                <span className="flex-1" />
+                {blocks.length > 1 && (
+                  <button type="button" aria-label={`활동 ${i + 1} 빼기`} onClick={() => setBlocks((bs) => bs.filter((_, j) => j !== i))} className="text-mute"><X size={14} /></button>
+                )}
+              </div>
+              <input value={b.topic} onChange={(e) => setBlock(i, "topic", e.target.value)} maxLength={100} placeholder="(주제) 예: 빗면에서 가속도 측정" aria-label={`활동 ${i + 1} 주제`} className={FIELD} />
+              <textarea value={b.activity} onChange={(e) => setBlock(i, "activity", e.target.value)} rows={2} maxLength={400}
+                placeholder="(활동) 예: 각도를 바꿔 측정, 오차 원인을 마찰로 분류, 반복 측정 제안" aria-label={`활동 ${i + 1} 활동`} className={cx(FIELD, "resize-y leading-6")} />
+              <input value={b.keywords} onChange={(e) => setBlock(i, "keywords", e.target.value)} maxLength={100} placeholder="(키워드) 예: 실험 설계, 오차 분석, 주도성" aria-label={`활동 ${i + 1} 키워드`} className={FIELD} />
+            </div>
+          ))}
+          {blocks.length < 3 && (
+            <button type="button" onClick={() => setBlocks((bs) => [...bs, { ...EMPTY }])} className="flex items-center gap-1 self-start text-[13px] font-medium text-key-strong">
+              <Plus size={14} /> 활동 추가
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex items-center gap-2">
         {pending ? (
           <>

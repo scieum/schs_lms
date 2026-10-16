@@ -1,7 +1,10 @@
 import "server-only";
 import { z } from "zod";
-import { md, sentences, type Program, type Question } from "@/lib/domain/program";
+import type { DraftCategory } from "@/lib/domain/length";
+import { md, rephraseRule, sentences, type Program, type Question, type ResponseDigest } from "@/lib/domain/program";
+import { EMPTY_PLAN, isYmd, targetClassesFromText, type PlanRead } from "@/lib/domain/program-plan";
 import { aiEnabled, aiJson, fileBlock, type AiResult } from "./claude";
+import { kindOfArea, recordSystemPrompt } from "./record-prompts";
 
 // 프로그램 화면의 버튼형 AI (docs/ai-features.md §3). 결과는 화면에서 사람이 확인한 뒤에만 반영한다.
 // 학생은 가명ID만 보낸다. 예외: T6·T7 서류 읽기(표지 이름으로 학생 연결) — 이름은 연결에만 쓰고 저장 전에 가린다.
@@ -111,4 +114,195 @@ export async function studentHints(questions: Question[], answers: Record<string
     content: questions.map((q, i) => `Q${i + 1} ${q.title} (${q.prompt})\n답: ${(answers[q.id] ?? "").trim() || "(비어 있음)"}`).join("\n\n"),
   });
   return r.ok ? { hints: r.data.hints.slice(0, 3), label: "AI" } : { hints: rule(), label: "자동", error: r.error };
+}
+
+// ---------- T3 계획서·기안문으로 채우기 ----------
+
+const Got = <T extends z.ZodType>(t: T) => z.object({ value: t.nullable(), from: z.string() });
+const GotList = z.object({ value: z.array(z.string()), from: z.string() });
+const PlanSchema = z.object({
+  title: Got(z.string()),
+  area: Got(z.enum(["세특", "창체-자율", "창체-동아리", "창체-진로"])),
+  subject: Got(z.string()),
+  startDate: Got(z.string()),
+  endDate: Got(z.string()),
+  overview: Got(z.string()),
+  target: Got(z.string()),
+  extraQuestions: GotList,
+  docKinds: GotList,
+  source: Got(z.enum(["survey", "docs", "both"])),
+});
+
+/**
+ * 계획서·기안문(PDF·캡처 이미지·글) → 프로그램 등록 칸. 교사 문서라 그대로 보낸다 (학생 개인정보 아님).
+ * 대상 표현은 학교 반 목록에 맞추고, 날짜는 실제 날짜만 남긴다.
+ */
+export async function readPlan(files: { bytes: Uint8Array; mime: string; name: string }[], ctx: { year: number; classes: string[] }): Promise<AiResult<PlanRead>> {
+  const blocks = files.map((f) =>
+    f.mime === "text/plain" ? ({ type: "text", text: `[${f.name}]\n${new TextDecoder().decode(f.bytes).slice(0, 20000)}` } as const) : fileBlock(f.bytes, f.mime),
+  );
+  const r = await aiJson(PlanSchema, {
+    model: "fast",
+    maxTokens: 3000,
+    system: `첨부한 문서는 고등학교 교사가 쓴 활동 계획서 또는 기안문(캡처 이미지일 수 있음)이다. 프로그램 등록 칸을 채운다.
+- title: 활동(프로그램) 이름만. "2026학년도", "운영 계획(안)", "기안" 같은 말은 뺀다 (60자 이내)
+- area: 생활기록부 기록 영역 추정. 교과 수업 활동이면 세특, 창의적 체험활동이면 창체-자율(자율·자치)/창체-동아리/창체-진로
+- subject: 담당 교과 과목 이름 (예: 통합과학). 창체면 보통 null
+- startDate, endDate: 활동 기간 YYYY-MM-DD. 연도가 없으면 ${ctx.year}년으로 본다. 하루짜리면 둘이 같다
+- overview: 무엇을 어떻게 하는 활동인지 3~5줄 요약 (줄바꿈으로 구분, 각 줄 60자 이내)
+- target: 대상 학년·반 표현을 문서 그대로 (예: "2학년 1~3반", "1학년 전체"). 없으면 null
+- extraQuestions: 학생 활동 설문에 넣을 추가 문항 후보 0~2개. 고정 문항(활동 내용·배운 점·느낀 점·후속 계획)과 겹치지 않게, 40자 이내 존댓말 의문문
+- docKinds: 학생이 낼 서류 종류 (예: 탐구 보고서, 활동지, 소감문). 없으면 빈 배열
+- source: 학생 근거 자료 방식 추정. 설문만 survey, 제출 서류만 docs, 둘 다 both
+- 모든 칸의 from: 어디서 읽었는지 아주 짧게 (예: "1쪽 제목", "3. 기간 항목", "추정"). 20자 이내`,
+    content: [...blocks, { type: "text", text: "이 문서로 프로그램 등록 칸을 채워 주세요." }],
+  });
+  if (!r.ok) return r;
+  const d = r.data;
+  const clip = (s: string | null, n: number) => (s ? s.trim().slice(0, n) || null : null);
+  const t = targetClassesFromText(d.target.value, ctx.classes);
+  const start = isYmd(d.startDate.value) ? d.startDate.value : null;
+  const end = isYmd(d.endDate.value) && (!start || d.endDate.value >= start) ? d.endDate.value : start;
+  const fields: PlanRead["fields"] = {
+    ...EMPTY_PLAN,
+    title: clip(d.title.value, 60),
+    area: d.area.value as DraftCategory | null,
+    subject: clip(d.subject.value, 30),
+    startDate: start,
+    endDate: end,
+    overview: clip(d.overview.value, 1000),
+    targetText: clip(d.target.value, 60),
+    targetClasses: t.keys,
+    extraQuestions: d.extraQuestions.value.map((q) => q.trim().slice(0, 100)).filter(Boolean).slice(0, 2),
+    docKinds: [...new Set(d.docKinds.value.map((k) => k.trim().slice(0, 20)).filter(Boolean))].slice(0, 8),
+    source: d.source.value,
+  };
+  const from: PlanRead["from"] = {};
+  const put = (k: keyof PlanRead["fields"], f: string) => {
+    const v = fields[k];
+    if (v !== null && !(Array.isArray(v) && v.length === 0)) from[k] = f.slice(0, 30);
+  };
+  put("title", d.title.from);
+  put("area", d.area.from);
+  put("subject", d.subject.from);
+  put("startDate", d.startDate.from);
+  put("endDate", d.endDate.from);
+  put("overview", d.overview.from);
+  put("targetClasses", d.target.from);
+  put("extraQuestions", d.extraQuestions.from);
+  put("docKinds", d.docKinds.from);
+  put("source", d.source.from);
+  return { ok: true, data: { fields, from } };
+}
+
+// ---------- T2 응답 분석 ----------
+
+/** 제출된 설문 답(가명ID·가린 글)으로 공통 주제·눈에 띄는 활동·근거 부족 학생을 요약한다. 꺼져 있으면 규칙 결과 */
+export async function analyzeResponses(
+  p: Pick<Program, "title" | "area" | "overview" | "questions">,
+  students: { pid: string; answers: string[] }[],
+  rule: ResponseDigest,
+): Promise<{ digest: ResponseDigest & { summary: string | null }; label: "AI" | "자동"; error?: string }> {
+  const fallback = { digest: { ...rule, summary: null }, label: "자동" as const };
+  if (!aiEnabled() || students.length === 0) return fallback;
+  const r = await aiJson(
+    z.object({
+      summary: z.string(),
+      themes: z.array(z.string()),
+      highlights: z.array(z.object({ pid: z.string(), note: z.string() })),
+      thin: z.array(z.object({ pid: z.string(), note: z.string() })),
+    }),
+    {
+      model: "fast",
+      maxTokens: 3000,
+      system: `너는 고등학교 교사가 학생 활동 설문 응답을 훑어보도록 돕는다. 학생은 가명ID로만 부른다.
+- summary: 전체 응답의 공통 흐름 한두 문장 (80자 이내)
+- themes: 여러 학생에게 공통으로 나온 주제 3~5개 (각 20자 이내)
+- highlights: 구체적인 과정·수치·시행착오가 있어 생기부 근거로 좋은 학생 최대 3명. note 는 무엇이 좋은지 40자 이내
+- thin: 답이 짧거나 막연해 근거가 부족한 학생 최대 5명. note 는 무엇이 부족한지 40자 이내
+pid 는 입력에 있는 가명ID 그대로 쓴다.`,
+      content: [
+        `프로그램: ${p.title} (${p.area})`,
+        `활동 개요: ${p.overview || "없음"}`,
+        `문항: ${p.questions.map((q, i) => `Q${i + 1} ${q.fixed ? q.title : q.prompt}`).join(" / ")}`,
+        "",
+        ...students.map((s) => `[${s.pid}] ${s.answers.map((a, i) => `Q${i + 1}: ${a || "(빈칸)"}`).join(" | ")}`),
+      ].join("\n").slice(0, 60000),
+    },
+  );
+  if (!r.ok) return { ...fallback, error: r.error };
+  const known = new Set(students.map((s) => s.pid));
+  return {
+    label: "AI",
+    digest: {
+      summary: r.data.summary.trim() || null,
+      themes: r.data.themes.map((t) => t.trim()).filter(Boolean).slice(0, 6),
+      highlights: r.data.highlights.filter((x) => known.has(x.pid)).slice(0, 3),
+      thin: r.data.thin.filter((x) => known.has(x.pid)).slice(0, 5),
+    },
+  };
+}
+
+// ---------- T4 문장 다르게 쓰기 ----------
+
+/** 초안 문장 하나를 문체 규칙(record-prompts)에 맞게 2~3안으로. 입력은 가린 글. 꺼져 있으면 규칙 안 */
+export async function rephraseSentence(
+  p: { area: string; subject: string | null },
+  sentence: string,
+  context: { draft: string; evidence: { label: string; text: string }[]; avoid?: string },
+): Promise<{ options: string[]; label: "AI" | "자동"; error?: string }> {
+  const rule = { options: rephraseRule(sentence), label: "자동" as const };
+  if (!aiEnabled()) return rule;
+  const r = await aiJson(z.object({ options: z.array(z.string()) }), {
+    model: "write",
+    maxTokens: 1500,
+    system: `${recordSystemPrompt(kindOfArea(p.area), p.subject)}
+
+이번 작업: 초안 전체가 아니라 지정한 문장 하나만 다르게 쓴 안 2~3개를 options 에 넣는다.
+- 뜻과 사실은 그대로 두고 표현과 문장 구조만 바꾼다. 근거 자료에 없는 사실을 더하지 않는다.
+- 위의 문체 규칙(명사형 어미, 마침표, 가운데 점 금지, 학생 주어 금지)을 지킨다.
+- 길이는 원래 문장과 비슷하게.${context.avoid ? "\n- 다른 학생 초안의 문장과 겹치지 않게 어휘와 구조를 확실히 바꾼다." : ""}`,
+    content: [
+      `바꿀 문장: ${sentence}`,
+      context.avoid ? `겹치면 안 되는 다른 학생 문장: ${context.avoid}` : "",
+      `초안 전체(문맥): ${context.draft}`,
+      "근거 자료:",
+      ...context.evidence.map((e) => `[${e.label}] ${e.text}`),
+    ].filter(Boolean).join("\n").slice(0, 20000),
+  });
+  if (!r.ok) return { ...rule, error: r.error };
+  const opts = [...new Set(r.data.options.map((o) => o.replace(/\s+/g, " ").trim()).filter((o) => o && o !== sentence.trim()))].slice(0, 3);
+  return opts.length ? { options: opts, label: "AI" } : rule;
+}
+
+// ---------- A4 실패 원인 → 해결 제안 ----------
+
+/** 규칙 조치 문장을 AI 가 상황에 맞게 다듬는다. 입력에 학생 정보는 없다 (원인·건수·오류 문구만) */
+export async function adviseErrors(rule: string[], errors: string[]): Promise<{ lines: string[]; label: "AI" | "자동"; error?: string }> {
+  if (!aiEnabled() || rule.length === 0) return { lines: rule, label: "자동" };
+  const r = await aiJson(z.object({ lines: z.array(z.string()) }), {
+    model: "fast",
+    system: `너는 학교 생활기록부 초안 자동 생성 시스템의 관리자를 돕는다. 실패 원인 요약과 오류 문구를 보고, 관리자가 이 화면에서 바로 할 수 있는 조치를 2~4줄로 쓴다.
+- 할 수 있는 조치: 다시 시도, 담당 교사에게 수동 작성 요청, 초안 보기(분량 바꿔 다시 만들기), 자료 관리에서 서류 확인, AI 키·사용량 확인
+- 각 줄 60자 이내, "~해요" 체, 원인 이름과 건수를 앞에 둔다`,
+    content: `규칙 요약:\n${rule.join("\n")}\n\n오류 문구(최대 20개):\n${errors.slice(0, 20).join("\n")}`,
+  });
+  if (!r.ok) return { lines: rule, label: "자동", error: r.error };
+  const lines = r.data.lines.map((l) => l.trim()).filter(Boolean).slice(0, 4);
+  return lines.length ? { lines, label: "AI" } : { lines: rule, label: "자동" };
+}
+
+// ---------- 프로그램 목록 "이번 주 할 일" ----------
+
+/** 규칙으로 뽑은 할 일 목록을 한 문장으로. 학생 정보 없음 */
+export async function weekTodoSentence(todos: string[]): Promise<{ text: string; label: "AI" | "자동"; error?: string }> {
+  const fallback = todos.slice(0, 3).join(" · ") || "이번 주 급한 일이 없어요";
+  if (!aiEnabled() || todos.length === 0) return { text: fallback, label: "자동" };
+  const r = await aiJson(z.object({ text: z.string() }), {
+    model: "fast",
+    system: `너는 교사의 이번 주 할 일을 한 문장(70자 이내, "~해요" 체)으로 정리한다. 가장 급한 것부터, 프로그램 이름과 숫자를 살린다.`,
+    content: todos.slice(0, 8).join("\n"),
+  });
+  if (!r.ok) return { text: fallback, label: "자동", error: r.error };
+  return r.data.text.trim() ? { text: r.data.text.trim().slice(0, 120), label: "AI" } : { text: fallback, label: "자동" };
 }

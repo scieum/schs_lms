@@ -5,7 +5,9 @@ import { LengthPicker } from "@/components/length-picker";
 import { Button, Card, Steps, Tag, Toggle, cx } from "@/components/ui";
 import { neisMax, UNIT_LABEL, type DraftCategory, type LengthUnit } from "@/lib/domain/length";
 import { AREA_LABEL, AREAS, DEFAULT_DOC_KINDS, FIXED_QUESTIONS, MAX_EXTRA_QUESTIONS, SOURCE_LABEL, md, type EvidenceSource } from "@/lib/domain/program";
+import type { PlanFields } from "@/lib/domain/program-plan";
 import { createProgramAction, suggestQuestionsAction, type CreateState, type SuggestState } from "./actions";
+import { PlanAutofill, type FillKey, type FormNow } from "./plan-autofill";
 
 export type PickStudent = { id: string; label: string; classKey: string; name: string };
 
@@ -25,6 +27,8 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
   const formRef = useRef<HTMLFormElement>(null);
 
   const [title, setTitle] = useState("");
+  const [subject, setSubject] = useState("");
+  const [overview, setOverview] = useState("");
   const [area, setArea] = useState<DraftCategory>("세특");
   const [len, setLen] = useState<{ unit: LengthUnit; max: number }>({ unit: "bytes", max: neisMax("세특", "bytes") });
   const [start, setStart] = useState(today);
@@ -57,6 +61,31 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
     const all = ids.every((id) => targets.includes(id));
     setTargets(all ? targets.filter((id) => !ids.includes(id)) : [...new Set([...targets, ...ids])]);
   };
+  // 계획서·기안문으로 채우기: 기본값 그대로인 칸은 "비어 있음"으로 본다
+  const now: FormNow = {
+    title: { dirty: !!title.trim(), text: title },
+    area: { dirty: area !== "세특", text: AREA_LABEL[area] },
+    subject: { dirty: !!subject.trim(), text: subject },
+    period: { dirty: start !== today || endDate !== end, text: `${md(start)} – ${md(endDate)}` },
+    overview: { dirty: !!overview.trim(), text: overview },
+    targets: { dirty: targets.length > 0, text: `${targets.length}명` },
+    extras: { dirty: extras.length > 0, text: extras.join(" / ") },
+    docKinds: { dirty: kinds.join() !== "탐구 보고서", text: kinds.join(", ") },
+    source: { dirty: source !== "survey", text: SOURCE_LABEL[source] },
+  };
+  const applyPlan = (keys: FillKey[], f: PlanFields) => {
+    const has = (k: FillKey) => keys.includes(k);
+    if (has("title") && f.title) setTitle(f.title.slice(0, 60));
+    if (has("area") && f.area) { setArea(f.area); setLen({ unit: len.unit, max: neisMax(f.area, len.unit) }); }
+    if (has("subject") && f.subject) setSubject(f.subject.slice(0, 30));
+    if (has("period") && f.startDate) { setStart(f.startDate); setEndDate(f.endDate && f.endDate >= f.startDate ? f.endDate : f.startDate); }
+    if (has("overview") && f.overview) setOverview(f.overview.slice(0, 1000));
+    if (has("targets") && f.targetClasses.length) setTargets(students.filter((s) => f.targetClasses.includes(s.classKey)).map((s) => s.id));
+    if (has("extras") && f.extraQuestions.length) setExtras(f.extraQuestions.slice(0, MAX_EXTRA_QUESTIONS));
+    if (has("docKinds") && f.docKinds.length) { setKindOptions([...new Set([...kindOptions, ...f.docKinds])]); setKinds(f.docKinds); }
+    if (has("source") && f.source) setSource(f.source);
+  };
+
   const runSuggest = () => {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
@@ -71,6 +100,8 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
   );
 
   return (
+    <div className="flex flex-col gap-4 md:gap-6">
+    <PlanAutofill aiOn={aiOn} now={now} onApply={applyPlan} />
     <form ref={formRef} action={action} className="flex flex-col gap-4 md:gap-6">
       <div className="flex items-center gap-3 rounded-inner bg-soft px-4 py-3.5 md:gap-4 md:px-5 md:py-4">
         <span className="rounded-chip bg-new-soft px-2.5 py-1 text-xs font-bold text-new">AI</span>
@@ -96,7 +127,7 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className={LABEL}>담당 교과{area !== "세특" && " (선택)"}</span>
-                  <input name="subject" maxLength={30} placeholder="예: 통합과학" className={INPUT} />
+                  <input name="subject" value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={30} placeholder="예: 통합과학" className={INPUT} />
                 </label>
               </div>
               <div className="flex flex-col gap-1.5">
@@ -117,7 +148,7 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
               </div>
               <label className="flex flex-col gap-1.5">
                 <span className={LABEL}>활동 개요</span>
-                <textarea name="overview" rows={3} maxLength={1000} placeholder="무엇을 어떻게 하는 활동인지 2~3문장 (AI 문항 추천·초안에 쓰여요)"
+                <textarea name="overview" value={overview} onChange={(e) => setOverview(e.target.value)} rows={3} maxLength={1000} placeholder="무엇을 어떻게 하는 활동인지 2~3문장 (AI 문항 추천·초안에 쓰여요)"
                   className="w-full resize-y rounded-field bg-white p-3.5 text-[15px] outline-none focus:ring-2 focus:ring-key" />
               </label>
             </div>
@@ -279,5 +310,6 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
         </aside>
       </div>
     </form>
+    </div>
   );
 }

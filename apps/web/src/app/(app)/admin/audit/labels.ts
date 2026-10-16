@@ -30,6 +30,18 @@ const LABEL: Record<string, string> = {
   "minimum.counsel.save": "상담 명단 저장", "minimum.export": "최저 판정 내보내기",
   "night.close": "야자 출석 마감", "night.export": "야자 출석 내보내기", "night.notice.send": "야자 확인 메시지",
   "night.request.approve": "야자 변경 승인", "night.request.reject": "야자 변경 반려",
+  // AI 기능
+  "program.ai.autofill": "AI 계획서 읽기", "program.ai.analyze": "AI 응답 분석", "program.ai.week": "AI 이번 주 할 일",
+  "draft.ai.rephrase": "AI 문장 다르게 쓰기", "pipeline.ai.advice": "AI 해결 제안",
+  "home.ai.briefing": "AI 오늘 브리핑", "logs.ai.polish": "AI 누가기록 다듬기", "subjects.ai.suggest": "AI 교과 추천",
+  "counsel.ai.questions": "AI 상담 질문 추천", "student.ai.columns": "AI 엑셀 열 맞추기", "student.ai.search": "AI 학생 찾기",
+  "homeroom.ai.briefing": "AI 우리 반 브리핑", "homeroom.ai.scores_trend": "AI 성적 해석", "homeroom.ai.night_line": "AI 야자 해석",
+  "scores.ai.picture": "AI 성적표 읽기", "scores.ai.columns": "AI 성적 열 맞추기", "minimum.ai.analyze": "AI 최저 분석",
+  "minimum.ai.rule": "AI 최저 기준 읽기", "night.ai.review": "AI 출결 살펴보기", "service.ai.summary": "AI 봉사 요약",
+  "student.ai.todo": "AI 할 일 정리", "material.ai.check": "AI 빠진 항목 점검", "scores.ai.analysis": "AI 성적 분석",
+  "record.ai.next": "AI 다음 학년 주제", "offering.ai.combo": "AI 과목 조합 점검", "offering.ai.recommend": "AI 진로 맞춤 과목",
+  "career.ai.keywords": "AI 진로 키워드", "admin.ai.daily": "AI 오늘 점검", "audit.ai.explain": "AI 이상 접근 설명",
+  "offering.ai.forecast": "AI 마감 예측", "account.ai.roster": "AI 명부 읽기", "course.ai.read": "AI 편제표 읽기",
 };
 
 export function actionLabel(action: string): string {

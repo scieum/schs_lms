@@ -1,8 +1,44 @@
 import { describe, expect, it } from "vitest";
 import {
-  accountStatus, auditFlags, checkRoleChange, checkSignup, csvCell, homeroomTakenBy, isStale, kstDateLabel,
-  lastSeenLabel, MANUAL_LOCK_UNTIL, normalizeRoles, periodStart, signupRoles,
+  accountStatus, auditFlags, checkRoleChange, checkSignup, csvCell, dailyCheck, homeroomTakenBy, isStale, kstDateLabel,
+  lastSeenLabel, MANUAL_LOCK_UNTIL, normalizeRoles, parseHomeroom, parseTeacherRoster, periodStart, signupRoles,
 } from "./accounts";
+
+describe("교사 명부 붙여넣기", () => {
+  const existing = [{ name: "최현우", homeroom: { grade: 1, classNo: 1 } }];
+  it("탭 표: 머리글 건너뛰고 이름·부서·담임 반", () => {
+    const rows = parseTeacherRoster("이름\t부서\t담임\n김민지\t국어과\t1-3\n박서준\t과학과\t담임 없음", existing);
+    expect(rows).toEqual([
+      { line: 2, name: "김민지", dept: "국어과", homeroom: { grade: 1, classNo: 3 }, error: null },
+      { line: 3, name: "박서준", dept: "과학과", homeroom: null, error: null },
+    ]);
+  });
+  it("공백·쉼표 줄, 2학년 3반, 순서가 달라도", () => {
+    const rows = parseTeacherRoster("수학과 이도윤 2학년 3반\n정하은, 영어과, 3-12", existing);
+    expect(rows.map((r) => [r.name, r.dept, r.homeroom])).toEqual([
+      ["이도윤", "수학과", { grade: 2, classNo: 3 }],
+      ["정하은", "영어과", { grade: 3, classNo: 12 }],
+    ]);
+  });
+  it("이미 있는 이름·담임 반, 명부 안 중복은 오류", () => {
+    const rows = parseTeacherRoster("최현우\t국어과\n한지민\t과학과\t1-1\n윤서연\t\t2-2\n강다은\t\t2-2\n윤서연", existing);
+    expect(rows.map((r) => r.error)).toEqual([
+      "이미 있는 이름이에요", "1학년 1반은 최현우 선생님이 담임이에요", null, "2학년 2반 담임이 명부에 두 명이에요", "명부에 두 번 있어요",
+    ]);
+  });
+  it("동명이인 숫자를 담임 반으로 읽지 않는다", () => {
+    expect(parseHomeroom("김민수2\t과학과")).toBeNull();
+    expect(parseHomeroom("2학년3반")).toEqual({ grade: 2, classNo: 3 });
+  });
+});
+
+describe("오늘 점검", () => {
+  it("급한 순서, 없는 항목은 뺀다", () => {
+    const items = dailyCheck({ errors: 2, waiting: 3, flagged: 0, overSubjects: ["2학년 기하"], locked: 1 });
+    expect(items.map((i) => i.key)).toEqual(["errors", "over", "locked", "waiting"]);
+    expect(dailyCheck({ errors: 0, waiting: 0, flagged: 0, overSubjects: [], locked: 0 })).toEqual([]);
+  });
+});
 
 const now = new Date("2026-10-16T03:00:00Z"); // 한국 12:00
 

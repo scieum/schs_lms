@@ -7,6 +7,7 @@ import { latestByStudent, statusLabel, studentsInCourse } from "@/lib/domain/set
 import { latestMemoByStudent } from "@/lib/domain/writing";
 import { schoolYear, type Course } from "@/lib/domain/curriculum";
 import { repo } from "@/lib/server/repo";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 import { SetukEditor } from "./editor";
 
@@ -75,7 +76,7 @@ export default async function SetukPage({ searchParams }: Props) {
           <Segmented active={myCourses.indexOf(course)} items={myCourses.map((c) => ({ label: short(c), href: `/teacher/setuk?course=${c.id}` }))} />
         )}
         <StatTiles items={[["학생", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
-        <AiBanner title="AI 세특 초안" line="관찰 메모를 적고 AI 초안을 누르면 NEIS 문장으로 채워요. 저장은 선생님이 해요" />
+        <AiBanner title="AI 세특 초안" label={aiEnabled() ? "AI" : "자동"} line="메모나 주제·활동·키워드 칸을 채우고 AI 초안을 누르면 NEIS 문장으로 채워요. 저장은 선생님이 해요" />
 
         {students.length === 0 ? (
           <Card>

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { classScope } from "@/components/scores/scope";
 import { absencePattern, addDays, cellStatus, DAY_LABEL, isAttend, seoulNow, weekDays, weekday, type AttendStatus, type Period } from "@/lib/domain/night";
-import { aiJson } from "@/lib/server/ai/claude";
+import { aiEnabled, aiJson } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 
@@ -97,6 +97,7 @@ export async function reviewAttendance(classKey: string): Promise<ReviewResult> 
     };
   });
 
+  if (!aiEnabled()) return { ok: true, summary: week.text, drafts: fallback, source: "자동" };
   const lines = [...watch].map((id) => {
     const recs = att.filter((a) => a.studentId === id).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
     return `${byId.get(id)?.pseudonymId}: ${recs.filter((a) => a.status !== "출석").map((a) => `${a.date.slice(5)}(${DAY_LABEL[weekday(a.date)]}) ${a.period}교시 ${a.status}`).join(", ")}`;
@@ -107,6 +108,7 @@ export async function reviewAttendance(classKey: string): Promise<ReviewResult> 
       "고등학교 담임교사를 돕는다. 야간 자율학습 4주 출결 기록(결석·조퇴만)을 보고 학생별 결석 패턴을 한 줄(30자 이내)로 정리하고, 학생에게 보낼 부드러운 확인 메시지 초안(80자 이내, 다정한 해요체, 꾸짖지 않기)을 쓴다. summary 는 반 전체 한 줄(50자 이내). 학생은 가명ID로만 부르고 메시지에 이름을 넣지 않는다.",
     content: `출결 기록 (가명ID: 날짜(요일) 교시 상태):\n${lines.join("\n")}`,
   });
+  await repo.audit(v.accountId, "night.ai.review", `${scope.key} ${watch.size}명`);
   if (!res.ok) return { ok: true, summary: `${week.text} (${res.error})`, drafts: fallback, source: "자동" };
   const pid = new Map(scope.students.map((s) => [s.pseudonymId, s.id]));
   const drafts = res.data.students

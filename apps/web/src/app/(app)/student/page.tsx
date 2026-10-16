@@ -2,11 +2,15 @@ import Link from "next/link";
 import { BookOpen, ClipboardList, Moon, Upload } from "lucide-react";
 import { redirect } from "next/navigation";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { AiBanner, ButtonLink, Card, Row, StatTiles, Tag } from "@/components/ui";
+import { ButtonLink, Card, Row, StatTiles, Tag } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
 import { ddayLabel } from "@/lib/domain/program";
+import { orderTodos } from "@/lib/domain/student-assist";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireViewer } from "@/lib/server/viewer";
+import { myTodoInputs } from "./_lib/todos";
+import { TodoPlan } from "./todo-plan";
 
 export const metadata = { title: "홈 · 속초고등학교 학생관리시스템" };
 
@@ -19,14 +23,16 @@ export default async function StudentHome() {
   if (v.kind !== "student") redirect("/");
   const s = v.student;
   const now = today();
-  const [todos, scores, night] = await Promise.all([
+  const [todos, scores, night, inputs] = await Promise.all([
     repo.listStudentTodos(s.id, now),
     repo.scoresStudentSummary(s.id),
     repo.nightStudentWeek(s.id),
+    myTodoInputs(s, now),
   ]);
   const surveys = todos.filter((t) => t.kind === "survey");
   const docs = todos.filter((t) => t.kind === "docs");
-  const first = todos[0];
+  const steps = orderTodos(inputs, now);
+  const planLine = steps.length ? `${steps[0].title}부터 · ${steps[0].why}` : "지금 낼 것이 없어요";
 
   return (
     <>
@@ -38,11 +44,7 @@ export default async function StudentHome() {
           [scores.latestExam ? `${scores.latestExam.month}월 모의 평균` : "모의 평균", scores.latestAverage === null ? "–" : `${scores.latestAverage.toFixed(1)}등급`],
           ["이번 주 야자", `${night.signed}일`],
         ]} />
-        <AiBanner
-          title="할 일 정리"
-          line={first ? `${first.title} ${first.kind === "survey" ? "설문" : "서류"}부터 · ${ddayLabel(first.endDate, now)}` : "지금 낼 것이 없어요"}
-          action={first ? <ButtonLink href={`/student/submit?p=${first.programId}`} size="sm" className="hidden md:inline-flex">이어서 쓰기</ButtonLink> : undefined}
-        />
+        <TodoPlan initial={{ steps, line: planLine }} aiOn={aiEnabled()} />
         <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
           <Card title="오늘 할 일">
             <div className="flex flex-col gap-2">

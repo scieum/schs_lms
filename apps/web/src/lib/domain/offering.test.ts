@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  careerPicks, checkApplication, deadlineLabel, fieldOf, isClosed, offeringStats, problemMessage, seatLabel, seatState,
+  careerPicks, checkApplication, comboCheck, deadlineLabel, forecastDemand, fieldOf, isClosed, offeringStats, problemMessage, seatLabel, seatState,
   sectionSuggestions, type Offering,
 } from "./offering";
 
@@ -10,6 +10,28 @@ const o = (id: string, subject: string, credits: number, capacity = 30, sections
 const list = [o("a", "미적분Ⅱ", 4), o("b", "기하", 4), o("c", "미술 창작", 2, 25, 1, "예술"), o("d", "정보", 2, 25, 1, "기술"), o("e", "물리학Ⅱ", 4, 30, 1, "과학")];
 const round = { deadline: "2026-10-30", maxCredits: 10 };
 const before = new Date("2026-10-16T03:00:00Z");
+
+describe("고른 과목 조합 점검", () => {
+  it("학점 · 진로 연계 · 놓친 진로 과목", () => {
+    const notes = comboCheck({ picked: [list[0]], all: list, maxCredits: 10, careerGoal: "기계공학" });
+    expect(notes[0].text).toContain("6학점 더");
+    expect(notes.some((n) => n.text === "진로 연계: 미적분Ⅱ")).toBe(true);
+    expect(notes.some((n) => n.text.includes("물리학Ⅱ"))).toBe(true);
+  });
+  it("학점 초과·분야 쏠림은 경고", () => {
+    const math = [o("m1", "기하", 4), o("m2", "미적분Ⅱ", 4), o("m3", "확률과 통계", 4)];
+    const notes = comboCheck({ picked: math, all: math, maxCredits: 10, careerGoal: null });
+    expect(notes[0]).toEqual({ tone: "warn", text: "12학점이에요. 2학점을 빼야 해요" });
+    expect(notes.at(-1)?.text).toContain("수학 분야에만 3과목");
+  });
+});
+
+describe("신청 예측", () => {
+  it("지금 비율로 어림해 정원 넘을 과목만", () => {
+    const f = forecastDemand([o("a", "기하", 4, 30), o("b", "정보", 2, 30)], { a: 20, b: 10 }, 50, 100);
+    expect(f.map((x) => [x.offering.subject, x.projected])).toEqual([["기하", 40]]);
+  });
+});
 
 describe("자리", () => {
   it("정원 × 반 수", () => {

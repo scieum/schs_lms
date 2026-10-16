@@ -108,6 +108,9 @@ export default async function DraftsPage({ searchParams }: Props) {
                 area={p.area}
                 people={[{ name: s.name, studentNo: s.studentNo }]}
                 evidence={evidence}
+                peers={items
+                  .filter((x) => x.program.id === p.id && x.job.id !== sel.job.id && x.latest && x.latest.status !== "rejected")
+                  .map((x) => ({ label: x.student!.name, text: x.latest!.content }))}
                 aiOn={aiEnabled()}
                 finalized={sel.status === "확정"}
                 tags={[`근거: ${SOURCE_LABEL[p.source]}`, `버전 ${jobVersions.length}`, ...(sel.latest?.source === "sample" ? ["예시"] : sel.latest?.source === "ai" ? ["AI 초안"] : [])]}

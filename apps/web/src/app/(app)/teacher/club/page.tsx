@@ -30,7 +30,7 @@ export default async function ClubPage({ searchParams }: Props) {
                 key={club.id}
                 clubId={club.id}
                 initial={members}
-                students={students.map((s) => ({ id: s.id, name: s.name, grade: s.grade, classNo: s.classNo, number: s.number }))}
+                students={students.map((s) => ({ id: s.id, name: s.name, grade: s.grade, classNo: s.classNo, number: s.number, studentNo: s.studentNo }))}
               />
             ) : (
               <p className="py-6 text-center text-sm text-mute">오른쪽에서 동아리를 먼저 만들어 주세요</p>

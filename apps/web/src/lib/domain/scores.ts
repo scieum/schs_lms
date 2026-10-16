@@ -472,3 +472,56 @@ export interface StudyPlan {
   items: string[];
   createdAt: string;
 }
+
+// ---------------------------------------------------------------- 사진·PDF 성적표 (AI 읽기)
+
+/** 이름 없이 번호·등급만 있는 행 (사진·PDF 성적표를 AI가 읽은 결과) */
+export type NumberedScoreRow = Record<Exclude<ScoreField, "name">, string>;
+
+/**
+ * 번호로 우리 반 명단의 이름을 채운다. AI에는 이름을 받지 않고 서버에서만 이름을 붙인다.
+ * 명단에 없는 번호는 이름을 비워 둔다 → checkScoreRows 가 '명단에 없음'으로 막는다.
+ */
+export function withRosterNames(rows: NumberedScoreRow[], roster: RosterEntry[]): Record<ScoreField, string>[] {
+  const byNumber = new Map(roster.map((r) => [r.number, r.name]));
+  return rows.map((r) => {
+    const n = Number(r.number.trim());
+    return { ...r, name: (r.number.trim() && Number.isInteger(n) ? byNumber.get(n) : undefined) ?? "" };
+  });
+}
+
+// ---------------------------------------------------------------- 모집요강 문구 → 최저 기준 (AI 대체 규칙)
+
+export type ParsedMinRule = Pick<MinRule, "pool" | "pick" | "maxSum" | "required" | "historyMax" | "inquiry"> & { found: boolean };
+
+const AREA_WORD: [Area, RegExp][] = [
+  ["ko", /국어|국(?=[\s,·/]|$)/],
+  ["ma", /수학|수(?=[\s,·/]|$)/],
+  ["en", /영어|영(?=[\s,·/]|$)/],
+  ["tam", /탐구|탐(?=[\s,·/]|$)/],
+];
+
+/**
+ * 모집요강 문구에서 최저 기준을 규칙으로 뽑는다 (AI가 꺼져 있을 때).
+ * 예: "국어, 수학, 영어, 탐구(1과목) 중 2개 영역 등급 합 5 이내, 한국사 4등급 이내"
+ * 대학·학과 이름은 뽑지 않는다. pick·maxSum 을 못 찾으면 found=false.
+ */
+export function parseMinRuleText(text: string): ParsedMinRule {
+  const t = text.replace(/\s+/g, " ");
+  const sum = t.match(/(\d)\s*개?\s*(?:영역|과목)?\s*(?:등급\s*)?합\s*(?:이|계)?\s*(\d+(?:\.\d+)?)/);
+  const before = sum ? t.slice(Math.max(0, (sum.index ?? 0) - 60), sum.index) : "";
+  const poolSeg = before.includes("중") ? before.slice(0, before.lastIndexOf("중")) : "";
+  const pool = AREAS.filter((a) => AREA_WORD.find(([x]) => x === a)![1].test(poolSeg));
+  const required = AREAS.filter((a) => new RegExp(AREA_LABEL[a] + String.raw`\s*\(?\s*(?:필수|포함|반드시)`).test(t));
+  const hist = t.match(/한국사\s*(\d)\s*등급/);
+  const inquiry: InquiryMode = /2\s*과목\s*평균/.test(t) ? (/절사|버림|소수점\s*이하\s*(?:절사|버림)/.test(t) ? "avgFloor" : "avg") : "best";
+  return {
+    pool: pool.length >= 2 ? pool : [...AREAS],
+    pick: sum ? Number(sum[1]) : 2,
+    maxSum: sum ? Number(sum[2]) : 5,
+    required,
+    historyMax: hist ? Number(hist[1]) : null,
+    inquiry,
+    found: !!sum,
+  };
+}

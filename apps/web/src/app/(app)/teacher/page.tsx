@@ -1,10 +1,15 @@
 import { redirect } from "next/navigation";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { AiBanner, Avatar, ButtonLink, Card, Row, StatTiles, Tag } from "@/components/ui";
+import { Avatar, ButtonLink, Card, Row, StatTiles, Tag } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
+import { counselStats } from "@/lib/domain/counsel";
 import { daysLeft, ddayLabel, effectiveStatus, latestVersion, reviewStatus } from "@/lib/domain/program";
+import { briefingRule } from "@/lib/domain/teacher-assist";
+import { aiEnabled } from "@/lib/server/ai/claude";
+import { loadAssigned, loadCounsel } from "@/lib/server/counsel";
 import { repo } from "@/lib/server/repo";
 import { requireViewer } from "@/lib/server/viewer";
+import { TodayBriefing } from "./briefing";
 
 export const metadata = { title: "홈 · 속초고등학교 학생관리시스템" };
 
@@ -32,17 +37,19 @@ export default async function TeacherHome() {
   const failed = jobs.filter((j) => j.state === "ERROR");
   const pending = jobs.filter((j) => reviewStatus(j, latestVersion(versions, j.id)) === "검토 대기");
   const queue = [...failed, ...pending].slice(0, 5);
+  const assigned = await loadAssigned(v);
+  const noCounsel = counselStats(assigned.map((s) => s.id), await loadCounsel(v, assigned)).none;
+  const rule = briefingRule({
+    failed: failed.length, waiting, noCounsel,
+    dueSoon: dueSoon.map(({ p, submitted }) => ({ id: p.id, title: p.title, dday: ddayLabel(p.endDate, now), missing: p.targetIds.length - submitted })),
+  });
 
   return (
     <>
       <PageHeader title={`안녕하세요, ${v.teacher.name} 선생님`} actions={<ButtonLink href="/teacher/programs/new" size="sm">새 프로그램</ButtonLink>} />
       <PageBody>
         <StatTiles items={[["검토 대기 초안", `${waiting}건`], ["평균 응답률", rate === null ? "–" : `${rate}%`], ["마감 임박", `${dueSoon.length}개`], ["생성 실패", `${failed.length}건`]]} />
-        <AiBanner
-          title="오늘 브리핑"
-          line={failed.length ? `생성 실패 ${failed.length}건은 직접 작성이 필요해요` : waiting ? `검토 대기 초안 ${waiting}건이 있어요` : "오늘 먼저 볼 일이 없어요"}
-          action={<ButtonLink href="/teacher/drafts" kind="outline" size="sm" className="hidden md:inline-flex">검토 시작</ButtonLink>}
-        />
+        <TodayBriefing line={rule[0]?.text ?? "오늘 먼저 볼 일이 없어요"} first={rule[0] ?? null} aiOn={aiEnabled()} />
         <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
           <Card title="검토할 초안" action={<ButtonLink href="/teacher/drafts" kind="ghost" size="sm">전체</ButtonLink>}>
             {queue.length === 0 ? (

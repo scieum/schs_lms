@@ -6,7 +6,7 @@ import { resolveLength, UNIT_LABEL } from "@/lib/domain/length";
 import { buildEvidence, checkDraft, maskIdentity } from "@/lib/domain/program";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { resetDraftJob, runDraftJobs } from "@/lib/server/ai/draft";
-import { reviewDraft, type ReviewItem } from "@/lib/server/ai/program-ai";
+import { rephraseSentence, reviewDraft, type ReviewItem } from "@/lib/server/ai/program-ai";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { canOwn } from "../programs/_lib/data";
@@ -110,4 +110,33 @@ export async function reviewDraftAction(prev: ReviewState, form: FormData): Prom
   const r = await reviewDraft(maskIdentity(draft, people), evidence);
   await repo.audit(ctx.v.accountId, "draft.ai.review", `${program.id} ${student.pseudonymId} ${r.label}`);
   return { items: r.items, label: r.label, error: r.error, n };
+}
+
+export type RephraseState = { sentence?: string; options?: string[]; label?: "AI" | "자동"; error?: string; n?: number };
+
+/**
+ * 선택 문장 다르게 쓰기: 문장 하나 → 문체 규칙(record-prompts)에 맞춘 2~3안. 저장하지 않는다.
+ * 교사가 고른 안만 화면 본문에 들어가고, 저장·확정은 교사가 한다. 이름·학번은 가린 뒤 보낸다.
+ */
+export async function rephraseAction(prev: RephraseState, form: FormData): Promise<RephraseState> {
+  const n = (prev.n ?? 0) + 1;
+  const ctx = await loadJob(String(form.get("jobId") ?? ""));
+  if (!ctx) return { error: "내 프로그램 초안만 다룰 수 있어요", n };
+  const { program, student } = ctx;
+  const sentence = String(form.get("sentence") ?? "").trim().slice(0, 600);
+  if (sentence.replace(/\s/g, "").length < 4) return { error: "바꿀 문장을 본문에서 골라 주세요", n };
+  const set = new Set(program.targetIds);
+  const people = (await repo.listStudents()).filter((s) => set.has(s.id) || s.id === student.id).map((s) => ({ name: s.name, studentNo: s.studentNo }));
+  const [response, materials] = await Promise.all([repo.getResponse(program.id, student.id), repo.listMaterials(program.id)]);
+  const evidence = buildEvidence(program, response, materials.filter((m) => m.studentId === student.id))
+    .map((e) => ({ label: maskIdentity(e.label, people), text: maskIdentity(e.text, people).slice(0, 1500) }));
+  const avoid = String(form.get("avoid") ?? "").trim().slice(0, 600);
+  const r = await rephraseSentence(program, maskIdentity(sentence, people), {
+    draft: maskIdentity(String(form.get("content") ?? "").slice(0, 5000), people),
+    evidence,
+    avoid: avoid ? maskIdentity(avoid, people) : undefined,
+  });
+  await repo.audit(ctx.v.accountId, "draft.ai.rephrase", `${program.id} ${student.pseudonymId} ${r.label}${avoid ? " 유사" : ""}`);
+  if (r.options.length === 0) return { sentence, options: [], label: r.label, error: r.error ?? "AI가 꺼져 있어 바꿀 안이 없어요. 직접 고쳐 주세요", n };
+  return { sentence, options: r.options, label: r.label, error: r.error, n };
 }

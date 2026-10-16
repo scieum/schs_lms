@@ -275,3 +275,72 @@ export function semesterOf(now = new Date()): 1 | 2 {
 
 /** "AI 초안" 버튼 결과 (세특·특기사항·행발 공통) */
 export type AiDraftResult = { ok: true; text: string; sample: boolean; notice?: string } | { ok: false; error: string };
+
+// ---------- 키워드로 쓰기: 속초고 세특 프롬프트 입력 형식 ----------
+
+/** 노션 프롬프트 입력 형식의 한 활동: (주제) / (활동) / (키워드) */
+export interface KeywordBlock {
+  topic: string;
+  activity: string;
+  keywords: string;
+}
+
+const MEMO_LABEL = /^\s*\((주제|활동|키워드)\)\s*/;
+
+/** 칸 입력 → 프롬프트 입력 형식 글. 빈 칸은 빼고, 활동 블록은 빈 줄로 나눈다 */
+export function composeKeywordMemo(blocks: KeywordBlock[]): string {
+  return blocks
+    .map((b) =>
+      [["주제", b.topic], ["활동", b.activity], ["키워드", b.keywords]]
+        .map(([k, v]) => [k, v.replace(/\s+/g, " ").trim()])
+        .filter(([, v]) => v)
+        .map(([k, v]) => `(${k}) ${v}`)
+        .join("\n"),
+    )
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/** 프롬프트 입력 형식 글 → 칸 (형식이 아니면 null) */
+export function parseKeywordMemo(memo: string): KeywordBlock[] | null {
+  if (!/^\s*\((주제|활동|키워드)\)/m.test(memo)) return null;
+  const blocks: KeywordBlock[] = [];
+  let cur: KeywordBlock | null = null;
+  for (const line of memo.replace(/\r\n/g, "\n").split("\n")) {
+    const m = line.match(MEMO_LABEL);
+    if (!m) {
+      if (!line.trim()) cur = null;
+      continue;
+    }
+    const key = m[1] === "주제" ? "topic" : m[1] === "활동" ? "activity" : "keywords";
+    if (!cur || cur[key]) {
+      cur = { topic: "", activity: "", keywords: "" };
+      blocks.push(cur);
+    }
+    cur[key] = line.replace(MEMO_LABEL, "").trim();
+  }
+  return blocks.length ? blocks : null;
+}
+
+/** 받침이 있나 (을/를 고르기) */
+function hasBatchim(word: string): boolean {
+  const c = word.trim().slice(-1).charCodeAt(0);
+  return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0;
+}
+
+/**
+ * 키 없을 때 예시 초안용: 형식 글을 평범한 메모로. (주제)와 (활동)은 "○○을 주제로 ~" 한 문장으로 잇고,
+ * (키워드)는 평가 강조어라 문장으로 만들지 않는다. 형식이 아니면 그대로 돌려준다.
+ */
+export function plainMemo(memo: string): string {
+  const blocks = parseKeywordMemo(memo);
+  if (!blocks) return memo;
+  return blocks
+    .map((b) => {
+      const act = b.activity.replace(/[.\s]+$/, "");
+      if (b.topic && act) return `${b.topic}${hasBatchim(b.topic) ? "을" : "를"} 주제로 ${act}`;
+      return act || (b.topic ? `${b.topic}${hasBatchim(b.topic) ? "을" : "를"} 주제로 탐구함` : "");
+    })
+    .filter(Boolean)
+    .join("\n");
+}

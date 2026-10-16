@@ -4,6 +4,7 @@ import { TabLinks } from "@/components/counsel/tab-links";
 import { Card, Segmented, StatTiles, Tag } from "@/components/ui";
 import { countByArea, gradeTabs, isRecordArea, RECORD_AREAS, yearOfGrade, type PastRecord, type RecordArea } from "@/lib/domain/counsel";
 import { schoolYear } from "@/lib/domain/curriculum";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { fmtDate, loadMyRecords, shortDate } from "@/lib/server/counsel";
 import { requireCan } from "@/lib/server/viewer";
 import { CorrectionForm, PrintButton, RecordAi } from "./client";
@@ -74,7 +75,7 @@ export default async function MyRecordPage({ searchParams }: Props) {
           </Card>
         ) : (
           <>
-            <RecordAi grade={grade} disabled={!records.length} />
+            <RecordAi grade={grade} disabled={!records.length} aiOn={aiEnabled()} />
             <div className="grid gap-4 md:grid-cols-[1fr_300px] md:gap-6">
               <div className="flex min-w-0 flex-col gap-4">
                 <div className="print:hidden">

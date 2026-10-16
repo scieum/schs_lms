@@ -10,6 +10,7 @@ import { latestByStudent, statusLabel, studentsInCourse } from "@/lib/domain/set
 import type { Student, Viewer } from "@/lib/domain/types";
 import { isRecordArea, latestRecordByStudent, RECORD_LABEL, RECORD_MAX_BYTES, recordStatus, type RecordArea } from "@/lib/domain/writing";
 import { repo } from "@/lib/server/repo";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 import { evidenceLogs } from "./data";
 import { RecordWorkspace } from "./workspace";
@@ -93,7 +94,7 @@ export default async function WritePage({ searchParams }: Props) {
       <PageHeader title="AI 기록 쓰기" actions={<ButtonLink href="/teacher/logs" kind="outline" size="sm">누가기록</ButtonLink>} />
       <PageBody>
         <StatTiles items={[["쓸 기록", `${spaces.length}곳`], ["확정", `${sum.확정}건`], ["작성 중", `${sum["작성 중"]}건`], ["미작성", `${sum.미작성}건`]]} />
-        <AiBanner title="AI 초안" line="관찰 메모·누가기록으로 초안을 만들고, 선생님이 고쳐서 확정해요" />
+        <AiBanner title="AI 초안" label={aiEnabled() ? "AI" : "자동"} line="관찰 메모나 주제·활동·키워드와 누가기록으로 초안을 만들고, 선생님이 고쳐서 확정해요" />
         {spaces.length === 0 ? (
           <Card>
             <div className="flex flex-col items-center gap-3 py-8 text-center">

@@ -3,6 +3,7 @@ import { Card, Row, StatTiles, Tag } from "@/components/ui";
 import {
   inquiryAverage, judgeMinimum, mockAverage, shortRule, sortExams, trendSummary, VERDICT_TONE, SUBJECTS, examLabel,
 } from "@/lib/domain/scores";
+import { minimumNeedLine } from "@/lib/domain/student-assist";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
@@ -96,6 +97,9 @@ export default async function MyScoresPage() {
                           <Tag tone={VERDICT_TONE[j.status]}>{j.status}</Tag>
                         </div>
                         <p className="mt-1.5 text-[13px] text-sub">{r ? `${shortRule(r)} · ${j.reason}` : "기준이 아직 없어요 · 담임 선생님께 알려 주세요"}</p>
+                        {r && j.status !== "충족" && j.status !== "판정 불가" && (
+                          <p className="mt-1 text-[13px] font-medium">{minimumNeedLine("필요한 것", r, j).replace(/^필요한 것: /, "")}</p>
+                        )}
                       </div>
                     );
                   })}

@@ -1,12 +1,13 @@
 import { RefreshCw } from "lucide-react";
 import { Bar } from "@/components/programs/meters";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { AiBanner, Button, ButtonLink, Card, StatTiles, Tag, cx } from "@/components/ui";
+import { ButtonLink, Card, StatTiles, Tag, cx } from "@/components/ui";
 import { programGates, programStage, STAGE_LABEL, summarizeErrors, type Stage } from "@/lib/domain/program";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { programRows } from "../../teacher/programs/_lib/data";
-import { retryDrafts } from "./actions";
+import { aiEnabled } from "@/lib/server/ai/claude";
+import { AdviceBanner } from "./advice";
 
 export const metadata = { title: "초안 생성 현황 · 속초고등학교 학생관리시스템" };
 
@@ -42,15 +43,11 @@ export default async function PipelinePage() {
           ["검사 통과율", `${passRate}%`],
           ["실패", `${errors.length}건`],
         ]} />
-        <AiBanner
-          label="자동"
+        <AdviceBanner
           title="실패 원인 요약"
           line={causes.length ? causes.map((c) => `${c.cause} ${c.n}건`).join(" · ") : "실패한 초안이 없어요"}
-          action={
-            <form action={retryDrafts}>
-              <Button size="sm" disabled={errors.length === 0}>다시 시도</Button>
-            </form>
-          }
+          failed={errors.length}
+          aiOn={aiEnabled()}
         />
         <Card title="단계별">
           <div className="grid grid-cols-5 gap-1.5 md:gap-2.5">

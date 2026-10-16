@@ -1,7 +1,8 @@
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Plus } from "lucide-react";
-import { AiBanner, ButtonLink, Card, Segmented, StatTiles, Tag, cx } from "@/components/ui";
+import { DemandBanner } from "@/components/admin/ai-panels";
+import { ButtonLink, Card, Segmented, StatTiles, Tag, cx } from "@/components/ui";
 import { schoolYear } from "@/lib/domain/curriculum";
 import { deadlineLabel, isClosed, offeringStats, seatState, sectionSuggestions } from "@/lib/domain/offering";
 import { repo } from "@/lib/server/repo";
@@ -60,9 +61,8 @@ export default async function OfferingsPage({ searchParams }: Props) {
             [closed ? "마감됨" : "마감", deadlineLabel(round.deadline)],
           ]}
         />
-        <AiBanner
-          label="자동"
-          title="신청 예측"
+        <DemandBanner
+          roundId={round.id}
           line={
             suggest.length
               ? `${suggest.map((x) => x.offering.subject).join("·")} 반을 ${oneEach ? "하나씩" : "더"} 늘리면 모두 들을 수 있어요`

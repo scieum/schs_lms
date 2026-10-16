@@ -1,8 +1,10 @@
 import { UserPlus } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { Avatar, ButtonLink, Card, Row, StatTiles } from "@/components/ui";
+import { ButtonLink, StatTiles } from "@/components/ui";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
+import { StudentSearch } from "./student-search";
 
 export const metadata = { title: "학생 · 속초고등학교 학생관리시스템" };
 
@@ -18,22 +20,10 @@ export default async function StudentsPage() {
       />
       <PageBody>
         <StatTiles items={[["전체", `${students.length}명`], ["1학년", `${byGrade[0]}명`], ["2학년", `${byGrade[1]}명`], ["3학년", `${byGrade[2]}명`]]} />
-        <Card>
-          {students.length === 0 ? (
-            <p className="py-6 text-center text-sm text-mute">아직 등록된 학생이 없어요</p>
-          ) : (
-            students.map((s, i) => (
-              <Row
-                key={s.id}
-                last={i === students.length - 1}
-                lead={<Avatar name={s.name} />}
-                title={s.name}
-                meta={`${s.grade}학년 ${s.classNo}반 ${s.number}번 · 학번 ${s.studentNo}`}
-                right={<span className="shrink-0 text-[13px] font-medium tabular-nums text-key-strong">{s.pseudonymId}</span>}
-              />
-            ))
-          )}
-        </Card>
+        <StudentSearch
+          aiOn={aiEnabled()}
+          students={students.map((s) => ({ id: s.id, name: s.name, grade: s.grade, classNo: s.classNo, number: s.number, gender: s.gender, studentNo: s.studentNo, pseudonymId: s.pseudonymId }))}
+        />
       </PageBody>
     </>
   );

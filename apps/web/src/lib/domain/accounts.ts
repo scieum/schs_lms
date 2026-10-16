@@ -179,3 +179,113 @@ export function csvCell(v: string): string {
   const safe = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
   return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
+
+// ── 교사 명부 붙여넣기 (계정 일괄 추가) ──────────────────
+
+export interface RosterRow {
+  /** 붙여넣은 줄 번호 (1부터) */
+  line: number;
+  name: string;
+  dept: string | null;
+  homeroom: { grade: number; classNo: number } | null;
+  /** 추가할 수 없는 이유. 없으면 null */
+  error: string | null;
+}
+
+const HOMEROOM_RE = /(?<![\d가-힣A-Za-z])([1-3])\s*(?:학년\s*(\d{1,2})\s*반?|[-./]\s*(\d{1,2})(?:\s*반)?|\s+(\d{1,2})\s*반)(?!\d)/;
+const HEADER_RE = /^(이름|성명|교사명?)$/;
+
+/** 한 칸 → 담임 반 (1~3학년, 1~20반). "2-3", "2학년 3반", "2학년3반" */
+export function parseHomeroom(cell: string): { grade: number; classNo: number } | null {
+  const m = cell.match(HOMEROOM_RE);
+  if (!m) return null;
+  const classNo = Number(m[2] ?? m[3] ?? m[4]);
+  return classNo >= 1 && classNo <= 20 ? { grade: Number(m[1]), classNo } : null;
+}
+
+/** 한 줄을 칸으로: 탭 > 쉼표 > 두 칸 이상 공백 > 한 칸 공백 */
+export function splitCells(line: string): string[] {
+  const sep = line.includes("\t") ? /\t/ : line.includes(",") ? /,/ : /\s{2,}/.test(line.trim()) ? /\s{2,}/ : /\s+/;
+  return line.split(sep).map((c) => c.trim()).filter(Boolean);
+}
+
+/** 이미 칸 역할이 정해진 줄을 행으로 만들고 검사한다 (AI 열 해석 결과도 이걸로 다시 검사) */
+export function checkRoster(
+  rows: { line: number; name: string; dept: string | null; homeroom: { grade: number; classNo: number } | null }[],
+  existing: { name: string; homeroom: { grade: number; classNo: number } | null }[],
+): RosterRow[] {
+  const names = new Set(existing.map((t) => t.name));
+  const rooms = new Map(existing.filter((t) => t.homeroom).map((t) => [`${t.homeroom!.grade}-${t.homeroom!.classNo}`, t.name]));
+  const seenName = new Set<string>();
+  const seenRoom = new Map<string, string>();
+  return rows.map((r) => {
+    const name = normalizeTeacherName(r.name);
+    const dept = r.dept?.trim().slice(0, 20) || null;
+    const key = r.homeroom ? `${r.homeroom.grade}-${r.homeroom.classNo}` : "";
+    let error = checkTeacherName(name);
+    if (!error && names.has(name)) error = "이미 있는 이름이에요";
+    if (!error && seenName.has(name)) error = "명부에 두 번 있어요";
+    if (!error && key && rooms.has(key)) error = `${key.replace("-", "학년 ")}반은 ${rooms.get(key)} 선생님이 담임이에요`;
+    if (!error && key && seenRoom.has(key)) error = `${key.replace("-", "학년 ")}반 담임이 명부에 두 명이에요`;
+    if (!error) {
+      seenName.add(name);
+      if (key) seenRoom.set(key, name);
+    }
+    return { line: r.line, name, dept, homeroom: r.homeroom, error };
+  });
+}
+
+/**
+ * 붙여넣은 교사 명부(이름·부서·담임 반) → 행. 규칙 파서.
+ * - 첫 줄이 머리글(이름·성명)이면 건너뛴다
+ * - 담임 반처럼 생긴 칸은 담임 반, 이름처럼 생긴 첫 칸은 이름, 남은 첫 칸은 부서
+ */
+export function parseTeacherRoster(
+  text: string,
+  existing: { name: string; homeroom: { grade: number; classNo: number } | null }[],
+  max = 100,
+): RosterRow[] {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n").map((l, i) => ({ line: i + 1, text: l })).filter((x) => x.text.trim());
+  const body = lines.length && HEADER_RE.test(splitCells(lines[0].text)[0] ?? "") ? lines.slice(1) : lines;
+  const rows = body.slice(0, max).map(({ line, text: l }) => {
+    const m = l.match(HOMEROOM_RE);
+    const homeroom = m ? parseHomeroom(m[0]) : null;
+    const rest = splitCells(homeroom && m ? l.replace(m[0], " ") : l).filter((c) => !/^(담임\s*)?(없음|-|x|X|해당\s*없음)$/.test(c));
+    const looksName = (c: string) => /^[가-힣]{2,5}\d?$/.test(c) || /^[A-Za-z][A-Za-z ]+$/.test(c);
+    const looksDept = (c: string) => /(과|부|팀|실|교과)$/.test(c);
+    const strict = rest.findIndex((c) => looksName(c) && !looksDept(c));
+    const nameIdx = strict >= 0 ? strict : rest.findIndex(looksName);
+    const at = nameIdx >= 0 ? nameIdx : 0;
+    return { line, name: rest[at] ?? "", dept: rest.find((_, i) => i !== at) ?? null, homeroom };
+  });
+  return checkRoster(rows, existing);
+}
+
+// ── 관리 홈 오늘 점검 ────────────────────────────────
+
+export interface DailyCheckInput {
+  errors: number;
+  waiting: number;
+  /** 대량·야간 열람 (최근 7일) */
+  flagged: number;
+  /** 정원 넘은 과목 */
+  overSubjects: string[];
+  locked: number;
+}
+
+export interface DailyCheckItem {
+  key: "errors" | "flagged" | "over" | "waiting" | "locked";
+  text: string;
+  href: string;
+}
+
+/** 오늘 점검 항목 (급한 순): 초안 오류 → 이상 접근 → 정원 초과 → 잠김 → 계정 대기 */
+export function dailyCheck(x: DailyCheckInput): DailyCheckItem[] {
+  const out: DailyCheckItem[] = [];
+  if (x.errors) out.push({ key: "errors", text: `초안 생성 실패 ${x.errors}건 — 재시도하거나 직접 작성을 요청해요`, href: "/admin/errors" });
+  if (x.flagged) out.push({ key: "flagged", text: `평소와 다른 열람 ${x.flagged}건 — 누가 왜 봤는지 확인해요`, href: "/admin/audit?p=week&flag=1" });
+  if (x.overSubjects.length) out.push({ key: "over", text: `정원 넘은 과목 ${x.overSubjects.length}개(${x.overSubjects.slice(0, 2).join("·")}) — 반 늘리기를 검토해요`, href: "/admin/offerings" });
+  if (x.locked) out.push({ key: "locked", text: `잠긴 계정 ${x.locked}개 — 본인 확인 뒤 풀어 줘요`, href: "/admin/accounts?f=locked" });
+  if (x.waiting) out.push({ key: "waiting", text: `첫 로그인 대기 ${x.waiting}명 — 인증코드를 다시 안내해요`, href: "/admin/accounts" });
+  return out;
+}

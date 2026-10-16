@@ -1,7 +1,11 @@
 "use server";
 import bcrypt from "bcryptjs";
+import ExcelJS from "exceljs";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { checkOne, checkRows, FIELD_LABEL, nextPseudonymIds, summarize, type CheckedRow, type Field } from "@/lib/domain/roster";
+import { cleanHeaderMap, parseStudentQuery, type StudentFilter } from "@/lib/domain/teacher-assist";
+import { mapRosterHeaders, parseStudentSearch } from "@/lib/server/ai/teacher-ai";
 import { env } from "@/lib/server/env";
 import { MAX_UPLOAD_BYTES, parseRoster } from "@/lib/server/excel";
 import { repo, type NewStudent } from "@/lib/server/repo";
@@ -10,6 +14,15 @@ import { requireCan } from "@/lib/server/viewer";
 export type PreviewState =
   | { kind: "idle" }
   | { kind: "error"; message: string }
+  | {
+      /** 양식과 열 이름이 달라 열을 맞춰야 한다 (AI 또는 규칙 제안 → 교사 확인) */
+      kind: "mapping";
+      fileName: string;
+      headers: string[];
+      map: Partial<Record<Field, number>>;
+      label: "AI" | "자동";
+      notice?: string;
+    }
   | {
       kind: "preview";
       fileName: string;
@@ -21,9 +34,47 @@ export type PreviewState =
 
 const XLSX_TYPES = ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ""];
 
-/** 1단계: 엑셀을 읽어 검사만 한다 (아직 저장 안 함) */
+function headerText(v: ExcelJS.CellValue): string {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "object" && !(v instanceof Date)) {
+    if ("richText" in v) return v.richText.map((t) => t.text).join("");
+    if ("text" in v && typeof v.text === "string") return v.text;
+    return "";
+  }
+  return String(v).trim();
+}
+
+/** 1행(열 제목)만 읽는다 */
+async function readHeaderRow(buf: ArrayBuffer): Promise<{ wb: ExcelJS.Workbook; headers: string[] }> {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  const ws = wb.worksheets[0];
+  if (!ws) throw new Error("시트를 찾지 못했어요");
+  const headers: string[] = [];
+  ws.getRow(1).eachCell({ includeEmpty: true }, (c, col) => (headers[col - 1] = headerText(c.value)));
+  return { wb, headers: Array.from(headers, (h) => h ?? "") };
+}
+
+/** 확인한 열 맞춤대로 1행 제목을 양식 이름으로 바꾼 파일을 만든다 (나머지 열은 겹치지 않게 비운다) */
+async function applyHeaderMap(buf: ArrayBuffer, map: Partial<Record<Field, number>>): Promise<{ buf: ArrayBuffer; renamed: { from: string; to: string }[] }> {
+  const { wb, headers } = await readHeaderRow(buf);
+  const row = wb.worksheets[0].getRow(1);
+  const byCol = new Map(Object.entries(map).map(([f, i]) => [i as number, f as Field]));
+  const renamed: { from: string; to: string }[] = [];
+  const width = Math.max(headers.length, ...[...byCol.keys()].map((i) => i + 1));
+  for (let i = 0; i < width; i++) {
+    const f = byCol.get(i);
+    row.getCell(i + 1).value = f ? FIELD_LABEL[f] : `-${i + 1}`;
+    if (f && headers[i] && headers[i] !== FIELD_LABEL[f]) renamed.push({ from: headers[i], to: FIELD_LABEL[f] });
+  }
+  return { buf: (await wb.xlsx.writeBuffer()) as ArrayBuffer, renamed };
+}
+
+const MapSchema = z.partialRecord(z.enum(["grade", "classNo", "number", "name", "gender", "track"]), z.number().int().min(0).max(200));
+
+/** 1단계: 엑셀을 읽어 검사만 한다 (아직 저장 안 함). 열 이름이 다르면 열 맞추기 제안부터 */
 export async function previewRoster(_: PreviewState, form: FormData): Promise<PreviewState> {
-  await requireCan("student.register");
+  const v = await requireCan("student.register");
   const file = form.get("file");
   if (!(file instanceof File) || file.size === 0) return { kind: "error", message: "엑셀 파일을 골라 주세요" };
   if (!file.name.toLowerCase().endsWith(".xlsx") || !XLSX_TYPES.includes(file.type)) {
@@ -32,13 +83,34 @@ export async function previewRoster(_: PreviewState, form: FormData): Promise<Pr
   if (file.size > MAX_UPLOAD_BYTES) return { kind: "error", message: "2MB까지 올릴 수 있어요" };
 
   try {
-    const { header, rows } = await parseRoster(await file.arrayBuffer());
+    let buf = await file.arrayBuffer();
+    let extra: { from: string; to: string }[] = [];
+    const rawMap = form.get("map");
+    if (typeof rawMap === "string" && rawMap) {
+      // 교사가 확인한 열 맞춤 적용
+      const parsed = MapSchema.safeParse(JSON.parse(rawMap));
+      if (!parsed.success) return { kind: "error", message: "열 맞춤을 읽지 못했어요. 다시 올려 주세요" };
+      const applied = await applyHeaderMap(buf, cleanHeaderMap(parsed.data, 200));
+      buf = applied.buf;
+      extra = applied.renamed;
+    }
+    const { header, rows } = await parseRoster(buf);
     if (header.missing.length) {
-      return { kind: "error", message: `양식에 없는 열이 있어요: ${header.missing.map((f) => FIELD_LABEL[f]).join(", ")}` };
+      if (extra.length || rawMap) {
+        return { kind: "error", message: `아직 맞추지 않은 열이 있어요: ${header.missing.map((f) => FIELD_LABEL[f]).join(", ")}` };
+      }
+      // 1행(열 제목)만 AI에 보낸다. 학생 행은 보내지 않는다
+      const { headers } = await readHeaderRow(await file.arrayBuffer());
+      const m = await mapRosterHeaders(headers.slice(0, 40));
+      if (m.label === "AI") await repo.audit(v.accountId, "student.ai.columns", `${headers.length}열`);
+      return {
+        kind: "mapping", fileName: file.name, headers: headers.slice(0, 40), map: m.data, label: m.label,
+        notice: m.error ? `AI 대신 열 이름으로 맞췄어요 (${m.error})` : undefined,
+      };
     }
     if (!rows.length) return { kind: "error", message: "학생 행이 없어요" };
     const checked = checkRows(rows, await repo.existingStudentNos());
-    return { kind: "preview", fileName: file.name, renamed: header.renamed, rows: checked, summary: summarize(checked) };
+    return { kind: "preview", fileName: file.name, renamed: extra.length ? extra : header.renamed, rows: checked, summary: summarize(checked) };
   } catch (e) {
     return { kind: "error", message: e instanceof Error ? e.message : "파일을 읽지 못했어요" };
   }
@@ -119,4 +191,21 @@ async function registerOneInner(form: FormData): Promise<{ error?: string; probl
   } catch (e) {
     return { error: e instanceof Error ? e.message : "추가하지 못했어요" };
   }
+}
+
+export type SearchResult = { filter: StudentFilter; label: "AI" | "자동"; notice?: string };
+
+/** 학생 목록 말로 찾기: 검색어 → 필터. 이름이 들어 있으면 AI에 보내지 않고 규칙만 쓴다 */
+export async function studentSearchFilter(q: string): Promise<SearchResult> {
+  const v = await requireCan("student.list");
+  const query = String(q ?? "").trim().slice(0, 100);
+  const rule = parseStudentQuery(query);
+  if (!query) return { filter: {}, label: "자동" };
+  const names = (await repo.listStudents()).map((s) => s.name).filter((n) => n.length >= 2);
+  if (rule.filter.name || names.some((n) => query.includes(n))) {
+    return { filter: rule.filter, label: "자동", notice: "이름이 들어 있어 AI 없이 찾았어요" };
+  }
+  const r = await parseStudentSearch(query);
+  if (r.label === "AI") await repo.audit(v.accountId, "student.ai.search", null);
+  return { filter: r.data, label: r.label, notice: r.error ? `AI 대신 규칙으로 찾았어요 (${r.error})` : undefined };
 }

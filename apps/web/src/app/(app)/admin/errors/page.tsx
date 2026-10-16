@@ -1,11 +1,13 @@
 import { AlertCircle } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { AiBanner, Button, ButtonLink, Card, StatTiles, Tag } from "@/components/ui";
+import { Button, ButtonLink, Card, StatTiles, Tag } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
 import { daysLeft, effectiveStatus, summarizeErrors } from "@/lib/domain/program";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { requestManual, retryDrafts } from "../pipeline/actions";
+import { AdviceBanner } from "../pipeline/advice";
 
 export const metadata = { title: "오류 처리 · 속초고등학교 학생관리시스템" };
 
@@ -36,8 +38,8 @@ export default async function ErrorsPage() {
       <PageHeader title="오류 처리" />
       <PageBody>
         <StatTiles items={[["생성 실패", `${failed.length}건`], ["수동 작성 요청", `${failed.filter((j) => j.manualRequestedAt).length}건`], ["확인 필요", `${checks.length}건`], ["진행 중 프로그램", `${open.length}개`]]} />
-        <AiBanner label="자동" title="오늘 점검" line={causes.length ? `${causes.map((c) => `${c.cause} ${c.n}건`).join(" · ")} — 다시 시도하거나 담당 교사에게 수동 작성을 요청해요` : "생성 실패가 없어요"}
-          action={<form action={retryDrafts}><Button size="sm" disabled={failed.length === 0}>모두 다시 시도</Button></form>} />
+        <AdviceBanner title="오늘 점검" failed={failed.length} aiOn={aiEnabled()} retryLabel="모두 다시 시도"
+          line={causes.length ? `${causes.map((c) => `${c.cause} ${c.n}건`).join(" · ")} — 다시 시도하거나 담당 교사에게 수동 작성을 요청해요` : "생성 실패가 없어요"} />
         <div className="grid gap-4 md:grid-cols-[1fr_360px] md:gap-6">
           <Card title="초안 생성 실패">
             {failed.length === 0 ? (

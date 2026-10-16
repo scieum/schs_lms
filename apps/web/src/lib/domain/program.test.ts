@@ -3,7 +3,7 @@ import { resolveLength } from "./length";
 import {
   addDays, afterAttempt, buildQuestions, checkDraft, ddayLabel, effectiveStatus, FIXED_QUESTIONS, findIdentity, keywords, latestVersion,
   maskIdentity, matchFileName, programGates, programStage, quickSplit, reviewStatus, sampleDraft, studentStage, summarizeErrors,
-  validateAnswers, validateRanges, type DraftJob, type DraftVersion,
+  validateAnswers, validateRanges, errorAdvice, weekTodos, responseDigest, similarSentences, similarity, rephraseRule, type DraftJob, type DraftVersion,
 } from "./program";
 import type { Student } from "./types";
 
@@ -130,5 +130,50 @@ describe("초안 자동 검사", () => {
     const c = checkDraft(a, { range: input.range, people, evidence: [] });
     expect(c.ending.ok).toBe(true);
     expect(c.length.reason).not.toBe("too_long");
+  });
+});
+
+describe("AI 보강 규칙 대체", () => {
+  it("실패 원인별 조치", () => {
+    expect(errorAdvice([{ cause: "근거 부족", n: 2 }, { cause: "모름", n: 1 }])).toEqual([
+      "근거 부족 2건 — 설문 미제출·서류 미연결 학생은 담당 교사에게 수동 작성을 요청해요",
+      "모름 1건 — 초안 보기에서 오류 내용을 확인하고 직접 작성을 요청해요",
+    ]);
+  });
+  it("이번 주 할 일: 실패·마감 임박이 먼저", () => {
+    const base = { status: "open" as const, targets: 10, submitted: 10, review: 0, failed: 0, drafts: 0 };
+    const t = weekTodos([
+      { ...base, id: "a", title: "A", endDate: "2026-10-20", submitted: 6 },
+      { ...base, id: "b", title: "B", endDate: "2026-12-01", review: 3, drafts: 3 },
+      { ...base, id: "c", title: "C", endDate: "2026-12-01", failed: 1, drafts: 1 },
+      { ...base, id: "d", title: "D", endDate: "2026-12-01", status: "draft" },
+      { ...base, id: "e", title: "E", endDate: "2026-12-01", submitted: 0 },
+    ], "2026-10-16");
+    expect(t.map((x) => x.text)).toEqual(["C 생성 실패 1건", "B 검토 대기 3건", "A D-4 · 미응답 4명", "D 발행 전"]);
+  });
+  it("응답 분석: 공통 낱말·근거가 얇은 학생", () => {
+    const long = "광합성 실험에서 빛의 세기를 바꿔 가며 산소 발생량을 측정했고 결과를 그래프로 정리했다 오차를 줄이려고 세 번 반복했다";
+    const d = responseDigest([
+      { pid: "S1", answers: [long, "광합성 그래프 해석이 어려웠다 다음엔 온도도 바꿔 보겠다 산소 발생량 비교 비커 전구 거리"] },
+      { pid: "S2", answers: ["광합성 실험 재밌었다", "짧음"] },
+      { pid: "S3", answers: ["광합성 관찰", "좋았다"] },
+    ]);
+    expect(d.themes[0]).toBe("광합성 (3명)");
+    expect(d.thin.map((x) => x.pid)).toEqual(["S3", "S2"]);
+    expect(d.highlights[0]?.pid).toBe("S1");
+  });
+  it("비슷한 문장 찾기", () => {
+    const mine = "광합성 실험에서 빛의 세기에 따른 산소 발생량을 비교하여 그래프로 정리함. 발표에 성실히 참여함.";
+    const hits = similarSentences(mine, [
+      { label: "S2", text: "광합성 실험에서 빛의 세기에 따른 산소 발생량을 비교하여 표로 정리함." },
+      { label: "S3", text: "역사 신문을 만들어 친구들과 공유함." },
+    ]);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ peer: "S2", sentence: "광합성 실험에서 빛의 세기에 따른 산소 발생량을 비교하여 그래프로 정리함." });
+    expect(similarity("가나다라", "마바사아")).toBe(0);
+  });
+  it("문장 다르게 쓰기(규칙)", () => {
+    expect(rephraseRule("실험 결과를 표로 정리했다.")).toEqual(["실험 결과를 표로 정리함.", "실험 결과를 표로 체계적으로 정리함."]);
+    expect(rephraseRule("결과를 발표함.")).toEqual(["결과를 설명함."]);
   });
 });

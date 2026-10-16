@@ -2,10 +2,14 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { resolveLength } from "@/lib/domain/length";
+import { today } from "@/lib/domain/activity";
 import { AREA_LABEL, buildQuestions, isArea, usesDocs, usesSurvey } from "@/lib/domain/program";
-import { suggestQuestions } from "@/lib/server/ai/program-ai";
+import { checkPlanFile, extractPlanHints, mergePlan, PLAN_MAX_FILES, type PlanRead } from "@/lib/domain/program-plan";
+import { aiEnabled } from "@/lib/server/ai/claude";
+import { readPlan, suggestQuestions } from "@/lib/server/ai/program-ai";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
+import { pdfInfo } from "../_lib/pdf";
 
 export type CreateState = { error?: string };
 
@@ -65,4 +69,48 @@ export async function suggestQuestionsAction(prev: SuggestState, form: FormData)
   const r = await suggestQuestions({ title, overview, area: isArea(area) ? AREA_LABEL[area] : area });
   await repo.audit(v.accountId, "program.ai.questions", r.ok ? "추천" : "실패");
   return r.ok ? { questions: r.data, n: (prev.n ?? 0) + 1 } : { error: r.error, n: (prev.n ?? 0) + 1 };
+}
+
+export type PlanState = { read?: PlanRead; label?: "AI" | "자동"; error?: string; note?: string; files?: string[]; n?: number };
+
+/**
+ * 계획서·기안문으로 채우기: 읽은 결과만 돌려준다. 교사가 "확인 후 채우기"를 눌러야 폼에 들어가고, 등록은 교사가 한다.
+ * AI 가 꺼져 있으면 파일 이름·PDF 문서 정보·글 파일에서 규칙으로 뽑는다 (label 자동).
+ */
+export async function readPlanAction(prev: PlanState, form: FormData): Promise<PlanState> {
+  const v = await requireCan("program.manage");
+  const n = (prev.n ?? 0) + 1;
+  const files = form.getAll("plan").filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length === 0) return { error: "계획서나 기안문 파일을 골라 주세요", n };
+  if (files.length > PLAN_MAX_FILES) return { error: `한 번에 ${PLAN_MAX_FILES}개까지 올릴 수 있어요`, n };
+  for (const f of files) {
+    const bad = checkPlanFile(f);
+    if (bad) return { error: bad, n };
+  }
+  const year = Number(today().slice(0, 4));
+  const classes = [...new Set((await repo.listStudents()).map((s) => `${s.grade}-${s.classNo}`))];
+  const loaded = await Promise.all(files.map(async (f) => ({ name: f.name.slice(0, 120), mime: f.type, bytes: new Uint8Array(await f.arrayBuffer()) })));
+
+  // 규칙 대체: 파일 이름 → PDF 문서 정보 → 글 파일
+  const segments: { label: string; text: string }[] = [];
+  for (const f of loaded) {
+    segments.push({ label: "파일 이름", text: f.name });
+    if (f.mime === "application/pdf") {
+      const info = await pdfInfo(f.bytes);
+      if (info) segments.push({ label: "PDF 정보", text: info });
+    } else if (f.mime === "text/plain") {
+      segments.push({ label: "본문", text: new TextDecoder().decode(f.bytes).slice(0, 20000) });
+    }
+  }
+  const rule = extractPlanHints(segments, { year, classes });
+  const names = loaded.map((f) => f.name);
+
+  if (!aiEnabled()) {
+    await repo.audit(v.accountId, "program.ai.autofill", `자동 ${files.length}개`);
+    return { read: rule, label: "자동", note: "AI가 꺼져 있어 파일 이름·문서 정보로만 채웠어요. 나머지는 직접 써 주세요", files: names, n };
+  }
+  const r = await readPlan(loaded, { year, classes });
+  await repo.audit(v.accountId, "program.ai.autofill", `${r.ok ? "AI" : "실패"} ${files.length}개`);
+  if (!r.ok) return { read: rule, label: "자동", error: r.error, note: "AI가 읽지 못해 파일 이름으로만 채웠어요", files: names, n };
+  return { read: mergePlan(r.data, rule), label: "AI", files: names, n };
 }

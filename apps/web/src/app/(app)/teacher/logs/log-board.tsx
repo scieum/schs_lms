@@ -1,9 +1,9 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { Check } from "lucide-react";
-import { Button, Card, cx } from "@/components/ui";
+import { Button, Card, Tag, cx } from "@/components/ui";
 import { neisBytes } from "@/lib/domain/length";
-import { addLogs, type LogState } from "./actions";
+import { addLogs, polishLogMemo, type LogState, type PolishResult } from "./actions";
 
 type S = { id: string; name: string; classNo: number; number: number; count: number };
 type L = { id: string; studentId: string; date: string; content: string };
@@ -13,6 +13,15 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
   const [state, action, pending] = useActionState<LogState, FormData>(addLogs, {});
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [text, setText] = useState("");
+  const [polish, setPolish] = useState<PolishResult | null>(null);
+  const [polishing, startPolish] = useTransition();
+  const runPolish = () => startPolish(async () => {
+    try {
+      setPolish(await polishLogMemo({ area, clubId, text }));
+    } catch {
+      setPolish({ ok: false, error: "다듬지 못했어요. 직접 써 주세요" });
+    }
+  });
   const nameOf = new Map(students.map((s) => [s.id, s.name]));
   const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const all = picked.size === students.length && students.length > 0;
@@ -55,12 +64,30 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
               <input type="date" name="date" defaultValue={today} required className="h-10 rounded-field bg-white px-3 text-[15px] outline-none focus:ring-2 focus:ring-key" />
             </label>
             <textarea name="content" value={text} onChange={(e) => setText(e.target.value)} rows={4} maxLength={1000} required
-              placeholder="관찰한 활동을 짧게 적어 주세요. 고른 학생 모두에게 같은 내용이 들어가요"
+              placeholder="관찰한 활동을 짧게 적거나 받아쓰기를 붙여 넣어 주세요. 고른 학생 모두에게 같은 내용이 들어가요"
               className="w-full resize-y rounded-field bg-white p-4 text-[15px] leading-7 outline-none focus:ring-2 focus:ring-key" aria-label="기록 내용" />
-            <div className="flex items-center justify-between text-[13px] text-mute">
-              <span>{text.length}자 · {neisBytes(text).toLocaleString()}바이트</span>
+            {polish?.ok && (
+              <div className="flex flex-col gap-2 rounded-inner border border-line bg-white p-3.5">
+                <div className="flex items-center gap-1.5">
+                  <Tag tone={polish.label === "AI" ? "bg-new-soft text-new" : "bg-key-soft text-key-strong"}>{polish.label}</Tag>
+                  <span className="flex-1 text-[13px] text-sub">다듬은 문장 · 같은 활동이라 모두에게 같은 글이 들어가요</span>
+                </div>
+                <p className="text-[15px] leading-7">{polish.text}</p>
+                {polish.notice && <p className="text-[12px] text-mute">{polish.notice}</p>}
+                <div className="flex justify-end gap-2">
+                  <Button type="button" kind="ghost" size="sm" onClick={() => setPolish(null)}>그대로 두기</Button>
+                  <Button type="button" kind="outline" size="sm" onClick={() => { setText(polish.text); setPolish(null); }}>확인 후 넣기</Button>
+                </div>
+              </div>
+            )}
+            {polish && !polish.ok && <p className="text-[13px] text-bad" role="alert">{polish.error}</p>}
+            <div className="flex items-center justify-between gap-2 text-[13px] text-mute">
+              <span className="flex-1">{text.length}자 · {neisBytes(text).toLocaleString()}바이트</span>
               {state.error && <span className="text-bad" role="alert">{state.error}</span>}
               {state.added && !state.error && <span className="text-ok" role="status">{state.added}명에게 추가했어요</span>}
+              <Button type="button" kind="outline" size="sm" onClick={runPolish} disabled={polishing || text.trim().length < 2}>
+                {polishing ? "다듬는 중…" : "AI로 다듬기"}
+              </Button>
             </div>
             <Button disabled={pending || picked.size === 0 || text.trim().length < 5}>
               {pending ? "추가하는 중…" : picked.size ? `${picked.size}명에게 추가` : "학생을 골라 주세요"}
