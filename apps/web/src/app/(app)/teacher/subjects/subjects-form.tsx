@@ -6,7 +6,7 @@ import { SUBJECT_GROUPS, type Course, type SubjectGroup, type TeacherCourse } fr
 import { saveSubjects, type SubjectsState } from "./actions";
 
 const chip = (on: boolean) =>
-  cx("rounded-control px-3.5 py-2 text-sm transition-colors", on ? "bg-key font-bold text-white" : "bg-white text-sub hover:bg-key-soft");
+  cx("rounded-full px-3.5 py-2 text-sm transition-colors", on ? "bg-key font-bold text-white" : "bg-white text-sub hover:bg-key-soft");
 
 // ① 교과 고르기 → ② 그 교과의 개설 과목 고르기 → ③ 과목마다 맡은 반 고르기
 export function SubjectsForm({
@@ -88,7 +88,7 @@ export function SubjectsForm({
                       <div className="mt-3 flex flex-wrap items-center gap-1.5 pl-9">
                         {classes.map((n) => (
                           <button key={n} type="button" aria-pressed={picked[c.id].includes(n)} onClick={() => toggleClass(c.id, n)}
-                            className={cx("min-w-11 rounded-chip px-2.5 py-1.5 text-[13px]", picked[c.id].includes(n) ? "bg-key-soft font-bold text-key-strong" : "bg-soft text-mute")}>
+                            className={cx("min-w-11 rounded-full px-2.5 py-1.5 text-[13px]", picked[c.id].includes(n) ? "bg-key-soft font-bold text-key-strong" : "bg-soft text-mute")}>
                             {n}반
                           </button>
                         ))}

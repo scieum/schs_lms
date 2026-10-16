@@ -1,9 +1,10 @@
 import "server-only";
 import bcrypt from "bcryptjs";
 import { schoolYear, type Course, type SubjectGroup, type TeacherCourse } from "@/lib/domain/curriculum";
+import type { ActivityLog, Club, ServiceRecord } from "@/lib/domain/activity";
 import type { SetukRecord } from "@/lib/domain/setuk";
 import type { Account, AuditEntry, Student, Teacher } from "@/lib/domain/types";
-import type { NewStudent, Repo } from "./types";
+import type { NewServiceRecord, NewStudent, Repo } from "./types";
 
 // 데모 저장소: 서버 메모리에만 있다. 서버를 다시 켜면 처음 상태로 돌아간다.
 // 데모 비밀번호는 모두 demo1234 (김민준만 첫 로그인 상태라 인증코드 schs-2026)
@@ -17,6 +18,11 @@ interface Store {
   teacherGroups: Map<string, SubjectGroup[]>;
   teacherCourses: TeacherCourse[];
   setuk: SetukRecord[];
+  clubs: (Club & { active: boolean })[];
+  clubMembers: Map<string, string[]>;
+  logs: ActivityLog[];
+  service: ServiceRecord[];
+  files: Map<string, Uint8Array>;
 }
 
 const g = globalThis as unknown as { __schsDemo?: Store };
@@ -38,17 +44,17 @@ function seed(): Store {
     teachers.set(id, { id, name, roles, homeroom, dept });
   }
 
-  const S: [string, number, number, number, string, string, boolean][] = [
-    ["s-1", 2, 3, 12, "김민준", "2009-03-14", true],
-    ["s-2", 2, 3, 1, "강예린", "2009-05-02", false],
-    ["s-3", 2, 3, 7, "박서준", "2009-01-21", false],
-    ["s-4", 2, 1, 11, "한지민", "2009-08-30", false],
-    ["s-5", 2, 2, 3, "최지우", "2009-11-09", false],
+  const S: [string, number, number, number, string, Student["gender"], boolean][] = [
+    ["s-1", 2, 3, 12, "김민준", "남", true],
+    ["s-2", 2, 3, 1, "강예린", "여", false],
+    ["s-3", 2, 3, 7, "박서준", "남", false],
+    ["s-4", 2, 1, 11, "한지민", "여", false],
+    ["s-5", 2, 2, 3, "최지우", "여", false],
   ];
-  S.forEach(([id, grade, classNo, number, name, birthDate, first], i) => {
+  S.forEach(([id, grade, classNo, number, name, gender, first], i) => {
     const studentNo = `${grade}${String(classNo).padStart(2, "0")}${String(number).padStart(2, "0")}`;
     accounts.set(id, { id, kind: "student", loginId: studentNo, passwordHash: first ? codeHash : demoHash, mustChangePassword: first, failedCount: 0, lockedUntil: null });
-    students.set(id, { id, pseudonymId: `S${String(i + 1).padStart(3, "0")}`, studentNo, grade, classNo, number, name, birthDate, careerGoal: i === 0 ? "산업디자인" : null });
+    students.set(id, { id, pseudonymId: `S${String(i + 1).padStart(3, "0")}`, studentNo, grade, classNo, number, name, gender, track: 1, careerGoal: i === 0 ? "산업디자인" : null });
   });
 
   // 편제표 예시 (올해): 1학년 공통과목, 2학년 선택과목
@@ -80,7 +86,15 @@ function seed(): Store {
     createdAt: new Date(Date.now() - 3600000).toISOString(),
   }];
 
-  return { accounts, teachers, students, audit: [], courses, teacherGroups, teacherCourses, setuk };
+  // 동아리 예시: 이서연 선생님의 과학탐구반 (2학년 3명)
+  const clubs = [{ id: "club-1", year: y, name: "과학탐구반", advisorId: "t-subject", active: true }];
+  const clubMembers = new Map<string, string[]>([["club-1", ["s-2", "s-3", "s-4"]]]);
+  const logs: ActivityLog[] = [{
+    id: "l-1", area: "진로", studentId: "s-1", authorId: "t-homeroom", clubId: null, date: "2026-10-08",
+    content: "진로 탐색 주간에 산업디자이너 인터뷰 영상을 보고 관심 분야를 정리함.", createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
+  }];
+
+  return { accounts, teachers, students, audit: [], courses, teacherGroups, teacherCourses, setuk, clubs, clubMembers, logs, service: [], files: new Map() };
 }
 
 function store(): Store {
@@ -123,7 +137,7 @@ export const demoRepo: Repo = {
     return rows.map((r) => {
       const id = crypto.randomUUID();
       s.accounts.set(id, { id, kind: "student", loginId: r.studentNo, passwordHash: r.passwordHash, mustChangePassword: true, failedCount: 0, lockedUntil: null });
-      const st: Student = { id, pseudonymId: r.pseudonymId, studentNo: r.studentNo, grade: r.grade, classNo: r.classNo, number: r.number, name: r.name, birthDate: r.birthDate, careerGoal: null };
+      const st: Student = { id, pseudonymId: r.pseudonymId, studentNo: r.studentNo, grade: r.grade, classNo: r.classNo, number: r.number, name: r.name, gender: r.gender, track: r.track, careerGoal: null };
       s.students.set(id, st);
       return st;
     });
@@ -177,6 +191,63 @@ export const demoRepo: Repo = {
     const row: SetukRecord = { ...r, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
     store().setuk.push(row);
     return row;
+  },
+  async listClubs(year) {
+    return store().clubs.filter((c) => c.active && c.year === year).map(({ active: _a, ...c }) => c);
+  },
+  async getClub(id) {
+    const c = store().clubs.find((x) => x.id === id && x.active);
+    if (!c) return null;
+    const { active: _a, ...rest } = c;
+    return rest;
+  },
+  async createClub(c) {
+    const s = store();
+    if (s.clubs.some((x) => x.active && x.year === c.year && x.name === c.name)) throw new Error("이미 같은 이름의 동아리가 있어요");
+    const row = { ...c, id: crypto.randomUUID(), active: true };
+    s.clubs.push(row);
+    const { active: _a, ...rest } = row;
+    return rest;
+  },
+  async listClubMembers(clubId) {
+    return [...(store().clubMembers.get(clubId) ?? [])];
+  },
+  async setClubMembers(clubId, ids) {
+    store().clubMembers.set(clubId, [...new Set(ids)]);
+  },
+  async listActivityLogs(area, studentIds) {
+    const set = new Set(studentIds);
+    return store().logs.filter((l) => l.area === area && set.has(l.studentId)).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+  },
+  async addActivityLogs(rows) {
+    const now = new Date().toISOString();
+    store().logs.push(...rows.map((r) => ({ ...r, id: crypto.randomUUID(), createdAt: now })));
+    return rows.length;
+  },
+  async addServiceRecord(r: NewServiceRecord, file) {
+    const s = store();
+    const id = crypto.randomUUID();
+    const filePath = `${r.studentId}/${id}`;
+    s.files.set(filePath, file);
+    const row: ServiceRecord = { ...r, id, filePath, status: "sent", confirmedBy: null, confirmedAt: null, createdAt: new Date().toISOString() };
+    s.service.push(row);
+    return row;
+  },
+  async listServiceRecords({ studentIds, uploaderId }) {
+    const set = studentIds ? new Set(studentIds) : null;
+    return store().service
+      .filter((r) => (!set || set.has(r.studentId)) && (!uploaderId || r.uploaderId === uploaderId))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+  async getServiceRecord(id) {
+    return store().service.find((r) => r.id === id) ?? null;
+  },
+  async getServiceFile(r) {
+    return store().files.get(r.filePath) ?? null;
+  },
+  async confirmService(id, by) {
+    const r = store().service.find((x) => x.id === id);
+    if (r && r.status === "sent") Object.assign(r, { status: "confirmed", confirmedBy: by, confirmedAt: new Date().toISOString() });
   },
   async audit(actorId, action, target) {
     store().audit.unshift({ id: crypto.randomUUID(), actorId, action, target, at: new Date().toISOString() });

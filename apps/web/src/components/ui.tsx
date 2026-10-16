@@ -142,16 +142,17 @@ export function Field({ label, error, className, ...p }: ComponentProps<"input">
   );
 }
 
+// 켜고 끄는 전환(세그먼트·토글)만 완전히 둥글게 (2026-10-16 "on/off는 더 둥글게"). 나머지는 낮은 모서리 유지.
 export function Segmented({ items, active }: { items: { label: string; href: string }[]; active: number }) {
   return (
-    <nav className="flex gap-1 rounded-control bg-soft p-1">
+    <nav className="flex gap-1 rounded-full bg-soft p-1">
       {items.map((it, i) => (
         <Link
           key={it.href}
           href={it.href}
           aria-current={i === active ? "page" : undefined}
           className={cx(
-            "flex-1 rounded-chip px-3 py-2.5 text-center text-sm",
+            "flex-1 rounded-full px-3 py-2.5 text-center text-sm",
             i === active ? "bg-key font-bold text-white" : "text-mute hover:text-sub",
           )}
         >
@@ -159,6 +160,45 @@ export function Segmented({ items, active }: { items: { label: string; href: str
         </Link>
       ))}
     </nav>
+  );
+}
+
+/** 폼 안의 전환 버튼 (학년·성별·단위 등). name 을 주면 hidden input 으로 값이 같이 전송된다 */
+export function Toggle({
+  name,
+  value,
+  onChange,
+  options,
+  tone = "white",
+  size = "md",
+}: {
+  name?: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: [value: string, label: string][];
+  tone?: "white" | "soft";
+  size?: "sm" | "md";
+}) {
+  return (
+    <div className={cx("flex gap-1 rounded-full p-1", tone === "white" ? "bg-white" : "bg-soft")} role="radiogroup">
+      {name && <input type="hidden" name={name} value={value} />}
+      {options.map(([v, label]) => (
+        <button
+          key={v}
+          type="button"
+          role="radio"
+          aria-checked={value === v}
+          onClick={() => onChange(v)}
+          className={cx(
+            "flex-1 rounded-full",
+            size === "sm" ? "px-3.5 py-1.5 text-[13px]" : "py-2.5 text-sm",
+            value === v ? "bg-key font-bold text-white" : "text-mute hover:text-sub",
+          )}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }
 

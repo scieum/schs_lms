@@ -68,7 +68,7 @@ export function ExcelUpload() {
                     title={r.input.name || `${r.line}행`}
                     meta={
                       r.status === "new"
-                        ? `${r.input.grade}학년 ${r.input.classNo}반 ${r.input.number}번 · ${r.input.birthDate}`
+                        ? `${r.input.grade}학년 ${r.input.classNo}반 ${r.input.number}번 · ${r.input.gender} · ${r.input.track}계열`
                         : `${r.line}행 · ${r.problems.join(" · ")}`
                     }
                     right={<Tag>{STATUS_LABEL[r.status]}</Tag>}
@@ -85,7 +85,7 @@ export function ExcelUpload() {
               last
               lead={<span className="flex size-10 shrink-0 items-center justify-center rounded-field bg-white"><FileSpreadsheet size={20} /></span>}
               title="학생등록_양식.xlsx"
-              meta="학년 · 반 · 번호 · 이름 · 생년월일"
+              meta="학년 · 반 · 번호 · 이름 · 성별 · 계열(비우면 1)"
               right={<ButtonLink href="/students/template" kind="soft" size="sm" prefetch={false}>받기</ButtonLink>}
             />
           </Card>

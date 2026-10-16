@@ -1,15 +1,20 @@
 // 학생 등록 규칙: 엑셀 열 맞추기, 행 검사, 학번·가명ID 만들기.
 // 엑셀 파일 읽기(exceljs)는 lib/server/excel.ts 에서 하고, 여기는 순수 함수만 둔다.
 
-export const TEMPLATE_COLUMNS = ["학년", "반", "번호", "이름", "생년월일"] as const;
-export type Field = "grade" | "classNo" | "number" | "name" | "birthDate";
+export const TEMPLATE_COLUMNS = ["학년", "반", "번호", "이름", "성별", "계열"] as const;
+export type Field = "grade" | "classNo" | "number" | "name" | "gender" | "track";
+/** 계열은 비워 두면 1 (속초고는 1로 통일) — 그래서 필수 열이 아니다 */
+const OPTIONAL: Field[] = ["track"];
+export const DEFAULT_TRACK = 1;
+export type Gender = "남" | "여";
 
 const ALIASES: Record<Field, string[]> = {
   grade: ["학년", "grade"],
   classNo: ["반", "학급", "class"],
   number: ["번호", "번", "출석번호", "number", "no"],
   name: ["이름", "성명", "학생명", "학생이름", "name"],
-  birthDate: ["생년월일", "생일", "출생일", "birth", "birthdate"],
+  gender: ["성별", "남녀", "gender", "sex"],
+  track: ["계열", "track"],
 };
 
 const norm = (s: string) => s.replace(/\s|\(.*?\)/g, "").toLowerCase();
@@ -38,7 +43,7 @@ export function matchHeaders(headers: string[]): HeaderMatch {
       }
     }
   });
-  const missing = (Object.keys(ALIASES) as Field[]).filter((f) => map[f] === undefined);
+  const missing = (Object.keys(ALIASES) as Field[]).filter((f) => map[f] === undefined && !OPTIONAL.includes(f));
   return { map, renamed, missing };
 }
 
@@ -47,7 +52,8 @@ export const FIELD_LABEL: Record<Field, string> = {
   classNo: "반",
   number: "번호",
   name: "이름",
-  birthDate: "생년월일",
+  gender: "성별",
+  track: "계열",
 };
 
 export interface RosterInput {
@@ -55,7 +61,8 @@ export interface RosterInput {
   classNo: number;
   number: number;
   name: string;
-  birthDate: string; // YYYY-MM-DD
+  gender: Gender;
+  track: number;
 }
 
 export type RowStatus = "new" | "duplicate" | "invalid";
@@ -75,19 +82,12 @@ function toInt(v: string): number | null {
   return Number.isInteger(n) ? n : null;
 }
 
-/** 2009-03-14 / 2009.03.14 / 2009/3/14 / 20090314 → 2009-03-14 */
-export function normalizeBirth(v: string): string | null {
-  const s = v.trim();
-  let y: number, m: number, d: number;
-  const sep = s.match(/^(\d{4})[.\-/년\s]+(\d{1,2})[.\-/월\s]+(\d{1,2})일?$/);
-  const compact = s.match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (sep) [y, m, d] = [Number(sep[1]), Number(sep[2]), Number(sep[3])];
-  else if (compact) [y, m, d] = [Number(compact[1]), Number(compact[2]), Number(compact[3])];
-  else return null;
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
-  if (y < 1990 || y > 2025) return null;
-  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+/** 남/남자/M/1 → 남, 여/여자/F/2 → 여 */
+export function normalizeGender(v: string): Gender | null {
+  const s = v.trim().toLowerCase();
+  if (/^(남|남자|남성|m|male|1)$/.test(s)) return "남";
+  if (/^(여|여자|여성|f|female|2)$/.test(s)) return "여";
+  return null;
 }
 
 /** 학번 = 학년 1자리 + 반 2자리 + 번호 2자리 (예: 2학년 3반 12번 → 20312) */
@@ -111,14 +111,17 @@ export function checkOne(raw: Record<Field, string>): { input: Partial<RosterInp
   const classNo = toInt(raw.classNo);
   const number = toInt(raw.number);
   const name = raw.name.trim();
-  const birthDate = raw.birthDate.trim() ? normalizeBirth(raw.birthDate) : null;
+  const gender = normalizeGender(raw.gender ?? "");
+  const trackRaw = (raw.track ?? "").trim();
+  const track = trackRaw ? toInt(trackRaw) : DEFAULT_TRACK;
 
   if (grade === null || grade < 1 || grade > 3) problems.push("학년은 1~3이에요");
   if (classNo === null || classNo < 1 || classNo > 20) problems.push("반 숫자를 확인해 주세요");
   if (number === null || number < 1 || number > 60) problems.push("번호 숫자를 확인해 주세요");
   if (name.length < 2 || name.length > 20) problems.push("이름을 확인해 주세요");
-  if (!raw.birthDate.trim()) problems.push("생년월일이 비어 있어요");
-  else if (!birthDate) problems.push("생년월일 형식 (예: 2009-03-14)");
+  if (!(raw.gender ?? "").trim()) problems.push("성별이 비어 있어요");
+  else if (!gender) problems.push("성별은 남·여로 써 주세요");
+  if (track === null || track < 1 || track > 9) problems.push("계열은 숫자 1~9 (비우면 1)");
 
   return {
     input: {
@@ -126,7 +129,8 @@ export function checkOne(raw: Record<Field, string>): { input: Partial<RosterInp
       classNo: classNo ?? undefined,
       number: number ?? undefined,
       name,
-      birthDate: birthDate ?? undefined,
+      gender: gender ?? undefined,
+      track: track ?? undefined,
     },
     problems,
   };

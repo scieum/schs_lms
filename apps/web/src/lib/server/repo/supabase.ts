@@ -1,10 +1,11 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Course, SubjectGroup, TeacherCourse } from "@/lib/domain/curriculum";
+import type { ActivityLog, Club, ServiceRecord } from "@/lib/domain/activity";
 import type { SetukRecord } from "@/lib/domain/setuk";
 import type { Account, Student, Teacher } from "@/lib/domain/types";
 import { env } from "../env";
-import type { NewStudent, Repo } from "./types";
+import type { NewServiceRecord, NewStudent, Repo } from "./types";
 
 // Supabase 저장소. service role 키로 서버에서만 접근한다.
 // 모든 테이블은 RLS가 켜져 있고 정책이 없어서, 브라우저(anon) 접근은 전부 막힌다.
@@ -16,11 +17,11 @@ function db() {
 }
 
 type AccountRow = { id: string; kind: Account["kind"]; login_id: string; password_hash: string; must_change_password: boolean; failed_count: number; locked_until: string | null };
-type StudentRow = { id: string; pseudonym_id: string; student_no: string; grade: number; class_no: number; number: number; name: string; birth_date: string; career_goal: string | null };
+type StudentRow = { id: string; pseudonym_id: string; student_no: string; grade: number; class_no: number; number: number; name: string; gender: Student["gender"]; track: number; career_goal: string | null };
 type TeacherRow = { id: string; name: string; roles: Teacher["roles"]; homeroom_grade: number | null; homeroom_class: number | null; dept: string | null };
 
 const toAccount = (r: AccountRow): Account => ({ id: r.id, kind: r.kind, loginId: r.login_id, passwordHash: r.password_hash, mustChangePassword: r.must_change_password, failedCount: r.failed_count, lockedUntil: r.locked_until });
-const toStudent = (r: StudentRow): Student => ({ id: r.id, pseudonymId: r.pseudonym_id, studentNo: r.student_no, grade: r.grade, classNo: r.class_no, number: r.number, name: r.name, birthDate: r.birth_date, careerGoal: r.career_goal });
+const toStudent = (r: StudentRow): Student => ({ id: r.id, pseudonymId: r.pseudonym_id, studentNo: r.student_no, grade: r.grade, classNo: r.class_no, number: r.number, name: r.name, gender: r.gender, track: r.track, careerGoal: r.career_goal });
 const toTeacher = (r: TeacherRow): Teacher => ({ id: r.id, name: r.name, roles: r.roles, homeroom: r.homeroom_grade && r.homeroom_class ? { grade: r.homeroom_grade, classNo: r.homeroom_class } : null, dept: r.dept });
 
 // 다른 환경(데모)에서 만든 세션 쿠키처럼 UUID가 아닌 id는 조회하지 않고 "없음"으로 본다
@@ -33,6 +34,20 @@ type SetukRow = { id: string; course_id: string; student_id: string; author_id: 
 const toCourse = (r: CourseRow): Course => ({ id: r.id, year: r.year, grade: r.grade, semester: r.semester, subject: r.subject, group: r.subject_group, type: r.course_type, credits: r.credits });
 const toTeacherCourse = (r: TeacherCourseRow): TeacherCourse => ({ teacherId: r.teacher_id, courseId: r.course_id, classes: r.classes });
 const toSetuk = (r: SetukRow): SetukRecord => ({ id: r.id, courseId: r.course_id, studentId: r.student_id, authorId: r.author_id, content: r.content, unit: r.unit, max: r.max_len, status: r.status, createdAt: r.created_at });
+
+type ClubRow = { id: string; year: number; name: string; advisor_id: string };
+type LogRow = { id: string; area: ActivityLog["area"]; student_id: string; author_id: string; club_id: string | null; date: string; content: string; created_at: string };
+type ServiceRow = {
+  id: string; student_id: string; uploader_id: string; date: string; hours: number | string; organization: string; activity: string;
+  file_path: string; file_name: string; mime: string; status: ServiceRecord["status"]; confirmed_by: string | null; confirmed_at: string | null; created_at: string;
+};
+const toClub = (r: ClubRow): Club => ({ id: r.id, year: r.year, name: r.name, advisorId: r.advisor_id });
+const toLog = (r: LogRow): ActivityLog => ({ id: r.id, area: r.area, studentId: r.student_id, authorId: r.author_id, clubId: r.club_id, date: r.date, content: r.content, createdAt: r.created_at });
+const toService = (r: ServiceRow): ServiceRecord => ({
+  id: r.id, studentId: r.student_id, uploaderId: r.uploader_id, date: r.date, hours: Number(r.hours), organization: r.organization, activity: r.activity,
+  filePath: r.file_path, fileName: r.file_name, mime: r.mime, status: r.status, confirmedBy: r.confirmed_by, confirmedAt: r.confirmed_at, createdAt: r.created_at,
+});
+const BUCKET = "service-docs";
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
@@ -83,7 +98,7 @@ export const supabaseRepo: Repo = {
     // 계정과 학생 정보를 한 트랜잭션으로 만든다 (DB 함수 register_students)
     const payload = rows.map((r) => ({
       pseudonym_id: r.pseudonymId, student_no: r.studentNo, grade: r.grade, class_no: r.classNo,
-      number: r.number, name: r.name, birth_date: r.birthDate, password_hash: r.passwordHash,
+      number: r.number, name: r.name, gender: r.gender, track: r.track, password_hash: r.passwordHash,
     }));
     const r = check(await db().rpc("register_students", { rows: payload }));
     return (r as StudentRow[]).map(toStudent);
@@ -144,6 +159,75 @@ export const supabaseRepo: Repo = {
       course_id: x.courseId, student_id: x.studentId, author_id: x.authorId, content: x.content, unit: x.unit, max_len: x.max, status: x.status,
     }).select("*").single());
     return toSetuk(r as SetukRow);
+  },
+  async listClubs(year) {
+    const r = check(await db().from("clubs").select("*").eq("year", year).eq("active", true).order("name"));
+    return (r as ClubRow[]).map(toClub);
+  },
+  async getClub(id) {
+    if (!isUuid(id)) return null;
+    const r = check(await db().from("clubs").select("*").eq("id", id).eq("active", true).maybeSingle());
+    return r ? toClub(r as ClubRow) : null;
+  },
+  async createClub(c) {
+    const res = await db().from("clubs").insert({ year: c.year, name: c.name, advisor_id: c.advisorId }).select("*").single();
+    if (res.error?.code === "23505") throw new Error("이미 같은 이름의 동아리가 있어요");
+    return toClub(check(res) as ClubRow);
+  },
+  async listClubMembers(clubId) {
+    if (!isUuid(clubId)) return [];
+    const r = check(await db().from("club_members").select("student_id").eq("club_id", clubId));
+    return (r as { student_id: string }[]).map((x) => x.student_id);
+  },
+  async setClubMembers(clubId, ids) {
+    check(await db().from("club_members").delete().eq("club_id", clubId));
+    const uniq = [...new Set(ids)];
+    if (uniq.length) check(await db().from("club_members").insert(uniq.map((student_id) => ({ club_id: clubId, student_id }))));
+  },
+  async listActivityLogs(area, studentIds) {
+    const ids = studentIds.filter(isUuid);
+    if (!ids.length) return [];
+    const r = check(await db().from("activity_logs").select("*").eq("area", area).in("student_id", ids).order("date", { ascending: false }).order("created_at", { ascending: false }));
+    return (r as LogRow[]).map(toLog);
+  },
+  async addActivityLogs(rows) {
+    if (!rows.length) return 0;
+    check(await db().from("activity_logs").insert(rows.map((x) => ({ area: x.area, student_id: x.studentId, author_id: x.authorId, club_id: x.clubId, date: x.date, content: x.content }))));
+    return rows.length;
+  },
+  async addServiceRecord(x: NewServiceRecord, file) {
+    const filePath = `${x.studentId}/${crypto.randomUUID()}`;
+    const up = await db().storage.from(BUCKET).upload(filePath, file, { contentType: x.mime, upsert: false });
+    if (up.error) throw new Error(up.error.message);
+    const r = check(await db().from("service_records").insert({
+      student_id: x.studentId, uploader_id: x.uploaderId, date: x.date, hours: x.hours, organization: x.organization, activity: x.activity,
+      file_path: filePath, file_name: x.fileName, mime: x.mime,
+    }).select("*").single());
+    return toService(r as ServiceRow);
+  },
+  async listServiceRecords({ studentIds, uploaderId }) {
+    let q = db().from("service_records").select("*").order("created_at", { ascending: false });
+    if (studentIds) {
+      const ids = studentIds.filter(isUuid);
+      if (!ids.length) return [];
+      q = q.in("student_id", ids);
+    }
+    if (uploaderId) q = q.eq("uploader_id", uploaderId);
+    return (check(await q) as ServiceRow[]).map(toService);
+  },
+  async getServiceRecord(id) {
+    if (!isUuid(id)) return null;
+    const r = check(await db().from("service_records").select("*").eq("id", id).maybeSingle());
+    return r ? toService(r as ServiceRow) : null;
+  },
+  async getServiceFile(r) {
+    const res = await db().storage.from(BUCKET).download(r.filePath);
+    if (res.error || !res.data) return null;
+    return new Uint8Array(await res.data.arrayBuffer());
+  },
+  async confirmService(id, by) {
+    if (!isUuid(id)) return;
+    check(await db().from("service_records").update({ status: "confirmed", confirmed_by: by, confirmed_at: new Date().toISOString() }).eq("id", id).eq("status", "sent"));
   },
   async audit(actorId, action, target) {
     check(await db().from("audit_logs").insert({ actor_id: actorId, action, target }));

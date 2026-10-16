@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ClipboardList, Lock, MessageCircle, Sparkles, type LucideIcon } from "lucide-react";
 import { Yeongrang } from "@/components/shell/yeongrang";
@@ -32,10 +33,10 @@ export default async function LoginPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-white">
       <header className="flex h-14 shrink-0 items-center px-4 lg:h-16 lg:border-b lg:border-hair lg:px-10">
-        <div className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5" aria-label="처음으로">
           <Image src="/face.png" alt="" width={30} height={32} priority />
           <Image src="/schs-logo.png" alt="속초고등학교 학생관리시스템" width={100} height={28} priority />
-        </div>
+        </Link>
       </header>
 
       <main className="flex flex-1 flex-col lg:grid lg:grid-cols-2">

@@ -16,7 +16,7 @@ export function LoginForm() {
   return (
     <form action={action} className="flex flex-col gap-6">
       <h1 className="text-[26px] font-bold lg:text-[28px]">로그인</h1>
-      <div className="flex gap-1 rounded-control bg-soft p-1" role="tablist">
+      <div className="flex gap-1 rounded-full bg-soft p-1" role="tablist">
         {(["student", "teacher"] as const).map((k) => (
           <button
             key={k}
@@ -24,7 +24,7 @@ export function LoginForm() {
             role="tab"
             aria-selected={kind === k}
             onClick={() => setKind(k)}
-            className={cx("h-11 flex-1 rounded-chip text-[15px]", kind === k ? "bg-white font-bold text-key" : "font-medium text-mute")}
+            className={cx("h-11 flex-1 rounded-full text-[15px]", kind === k ? "bg-white font-bold text-key" : "font-medium text-mute")}
           >
             {k === "student" ? "학생" : "선생님"}
           </button>

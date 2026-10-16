@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { LogOut } from "lucide-react";
 import type { Viewer } from "@/lib/domain/types";
@@ -15,10 +16,11 @@ export function AppShell({ viewer, children, demo }: { viewer: Viewer; children:
   return (
     <div className="min-h-dvh md:flex">
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col overflow-y-auto border-r border-line bg-white px-4 pb-5 pt-6 md:flex">
-        <div className="flex items-center gap-2.5 px-2 pb-5">
+        {/* 로고 = 홈으로 ("/" 가 역할별 홈으로 보낸다) */}
+        <Link href="/" className="flex items-center gap-2.5 px-2 pb-5" aria-label="홈으로">
           <Image src="/face.png" alt="" width={30} height={32} />
           <Image src="/schs-logo.png" alt="속초고등학교 학생관리시스템" width={100} height={28} priority />
-        </div>
+        </Link>
         <div className="flex items-center gap-2.5 rounded-control bg-soft py-2 pl-2 pr-3.5">
           <Avatar name={name} size={34} />
           <div className="min-w-0 flex-1">

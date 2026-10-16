@@ -32,7 +32,9 @@ export interface Student {
   classNo: number;
   number: number;
   name: string;
-  birthDate: string; // YYYY-MM-DD
+  gender: "남" | "여";
+  /** 계열 번호 (속초고는 1로 통일) */
+  track: number;
   careerGoal: string | null;
 }
 

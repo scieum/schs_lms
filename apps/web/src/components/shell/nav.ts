@@ -29,9 +29,12 @@ export function navFor(v: Viewer): NavGroup[] {
     { label: "업무", items: [
       { label: "홈", href: "/teacher", icon: "home", ready: true },
       { label: "교과 세특", href: "/teacher/setuk", icon: "book", ready: true },
+      { label: "누가기록", href: "/teacher/logs", icon: "file", ready: true },
+      { label: "봉사 확인서", href: "/teacher/service", icon: "clipboard", ready: true },
       { label: "초안 검토", href: "/teacher/drafts", icon: "file" },
       { label: "프로그램·자료", href: "/teacher/programs", icon: "clipboard" },
       { label: "내 교과·과목", href: "/teacher/subjects", icon: "list", ready: true },
+      { label: "내 동아리", href: "/teacher/club", icon: "users", ready: true },
     ] },
     { label: "학생", items: [
       { label: "담당 학생", href: "/students", icon: "users", ready: true },
@@ -42,6 +45,7 @@ export function navFor(v: Viewer): NavGroup[] {
   if (r.includes("homeroom")) {
     groups.push({ label: "우리 반", items: [
       { label: "우리 반 홈", href: "/homeroom", icon: "home", ready: true },
+      { label: "봉사 받은함", href: "/homeroom/service", icon: "shield", ready: true },
       { label: "성적 업로드", href: "/homeroom/scores", icon: "chart" },
       { label: "수능 최저", href: "/homeroom/minimum", icon: "target" },
       { label: "야간 자율학습", href: "/homeroom/night", icon: "moon" },

@@ -8,7 +8,10 @@ export type Action =
   | "audit.view" // 감사 로그
   | "curriculum.manage" // 편제표(학교 개설 과목) 관리
   | "subjects.assign" // 내 교과·과목 정하기 (관리자는 다른 교사 것도)
-  | "setuk.write"; // 교과 세특 쓰기 (배정받은 과목만 — 액션에서 한 번 더 확인)
+  | "setuk.write" // 교과 세특 쓰기 (배정받은 과목만 — 액션에서 한 번 더 확인)
+  | "logs.write" // 창체 누가기록 (동아리 지도교사·담임 — 학생별 권한은 activity.canLog)
+  | "service.upload" // 봉사 확인서 올리기 (담당 교사)
+  | "service.receive"; // 봉사 확인서 받기·확인 (담임)
 
 function hasRole(v: Viewer, role: TeacherRole) {
   return v.kind === "teacher" && v.teacher.roles.includes(role);
@@ -28,7 +31,11 @@ export function can(v: Viewer, action: Action): boolean {
       return v.kind === "teacher";
     case "subjects.assign":
     case "setuk.write":
+    case "logs.write":
+    case "service.upload":
       return v.kind === "teacher";
+    case "service.receive":
+      return v.kind === "teacher" && (!!v.teacher.homeroom || isAdmin(v));
     case "account.manage":
     case "audit.view":
     case "curriculum.manage":

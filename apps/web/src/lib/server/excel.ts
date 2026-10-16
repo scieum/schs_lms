@@ -10,16 +10,17 @@ export async function buildTemplate(): Promise<ArrayBuffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = "속초고등학교 학생관리시스템";
   const ws = wb.addWorksheet("학생 등록");
-  ws.columns = TEMPLATE_COLUMNS.map((h) => ({ header: h, key: h, width: h === "생년월일" ? 16 : 10 }));
+  ws.columns = TEMPLATE_COLUMNS.map((h) => ({ header: h, key: h, width: 10 }));
   const head = ws.getRow(1);
   head.font = { bold: true, color: { argb: "FFFFFFFF" } };
   head.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF536DFE" } };
   head.alignment = { horizontal: "center" };
-  ws.getCell("E1").note = "예: 2009-03-14";
-  // 학년 1~3만 입력되도록
+  ws.getCell("E1").note = "남 또는 여";
+  ws.getCell("F1").note = "비우면 1 (속초고는 1로 통일)";
+  // 학년 1~3, 성별 남/여만 입력되도록
   for (let r = 2; r <= MAX_ROWS + 1; r++) {
     ws.getCell(`A${r}`).dataValidation = { type: "whole", operator: "between", allowBlank: true, formulae: [1, 3], showErrorMessage: true, error: "학년은 1~3이에요" };
-    ws.getCell(`E${r}`).numFmt = "@"; // 날짜를 글자로 받아 형식이 바뀌지 않게
+    ws.getCell(`E${r}`).dataValidation = { type: "list", allowBlank: true, formulae: ['"남,여"'], showErrorMessage: true, error: "남 또는 여" };
   }
   ws.views = [{ state: "frozen", ySplit: 1 }];
 
@@ -27,7 +28,7 @@ export async function buildTemplate(): Promise<ArrayBuffer> {
   [
     ["1행 제목은 바꾸지 마세요"],
     ["학년 1~3, 반·번호는 숫자만"],
-    ["생년월일은 2009-03-14 처럼"],
+    ["성별은 남·여, 계열은 비우면 1"],
     ["학번은 학년·반·번호로 자동으로 만들어져요 (예: 20312)"],
   ].forEach((r) => guide.addRow(r));
   guide.getColumn(1).width = 50;
@@ -66,7 +67,10 @@ export async function parseRoster(buf: ArrayBuffer): Promise<ParsedSheet> {
   for (let r = 2; r <= ws.rowCount; r++) {
     const row = ws.getRow(r);
     const get = (f: Field) => cellText(row.getCell(header.map[f]! + 1).value).trim();
-    const rec = { grade: get("grade"), classNo: get("classNo"), number: get("number"), name: get("name"), birthDate: get("birthDate") };
+    const rec = {
+      grade: get("grade"), classNo: get("classNo"), number: get("number"), name: get("name"), gender: get("gender"),
+      track: header.map.track === undefined ? "" : get("track"), // 계열 열이 없으면 1
+    };
     if (Object.values(rec).every((x) => !x)) continue;
     rows.push(rec);
     if (rows.length > MAX_ROWS) throw new Error(`한 번에 ${MAX_ROWS}명까지 올릴 수 있어요`);

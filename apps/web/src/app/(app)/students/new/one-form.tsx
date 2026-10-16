@@ -1,11 +1,12 @@
 "use client";
 import { useActionState, useState } from "react";
-import { Avatar, Button, Card, Field, Row, Tag, cx } from "@/components/ui";
+import { Avatar, Button, Card, Field, Row, Tag, Toggle } from "@/components/ui";
 import { registerOne, type OneState } from "../actions";
 
 export function OneForm() {
   const [state, action, pending] = useActionState<OneState, FormData>(registerOne, { history: [] });
   const [grade, setGrade] = useState("2");
+  const [gender, setGender] = useState("");
   const added = state.history;
 
   return (
@@ -16,29 +17,22 @@ export function OneForm() {
           <Field name="name" label="이름" required maxLength={20} />
           <div className="flex flex-col gap-1.5">
             <span className="text-[13px] font-medium text-sub">학년</span>
-            <input type="hidden" name="grade" value={grade} />
-            <div className="flex gap-1 rounded-control bg-white p-1">
-              {["1", "2", "3"].map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => setGrade(g)}
-                  aria-pressed={grade === g}
-                  className={cx("flex-1 rounded-chip py-2.5 text-sm", grade === g ? "bg-key font-bold text-white" : "text-mute")}
-                >
-                  {g}학년
-                </button>
-              ))}
-            </div>
+            <Toggle name="grade" value={grade} onChange={setGrade} options={[["1", "1학년"], ["2", "2학년"], ["3", "3학년"]]} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field name="classNo" label="반" inputMode="numeric" required placeholder="3" />
             <Field name="number" label="번호" inputMode="numeric" required placeholder="31" />
           </div>
-          <Field name="birthDate" label="생년월일" required placeholder="2009-03-14" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-medium text-sub">성별</span>
+              <Toggle name="gender" value={gender} onChange={setGender} options={[["남", "남"], ["여", "여"]]} />
+            </div>
+            <Field name="track" label="계열" inputMode="numeric" defaultValue="1" maxLength={1} />
+          </div>
           {state.problems && <p className="text-sm text-bad" role="alert">{state.problems.join(" · ")}</p>}
           {state.error && <p className="text-sm text-bad" role="alert">{state.error}</p>}
-          <Button disabled={pending}>{pending ? "추가하는 중…" : "추가하기"}</Button>
+          <Button disabled={pending || !gender}>{pending ? "추가하는 중…" : "추가하기"}</Button>
           <p className="text-[13px] text-mute">첫 비밀번호는 공통 인증코드로 발급되고, 첫 로그인 때 바꾸게 돼요</p>
         </form>
       </Card>

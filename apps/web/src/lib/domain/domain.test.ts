@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { can, homePath } from "./policy";
 import { checkNewPassword } from "./password";
 import { afterFailure, afterSuccess, isLocked, MAX_FAILS } from "./lockout";
-import { checkRows, makeStudentNo, matchHeaders, nextPseudonymIds, normalizeBirth, summarize } from "./roster";
+import { checkRows, makeStudentNo, matchHeaders, nextPseudonymIds, normalizeGender, summarize } from "./roster";
 import type { Student, Teacher, Viewer } from "./types";
 
 const student: Student = {
   id: "s1", pseudonymId: "S001", studentNo: "20312", grade: 2, classNo: 3, number: 12,
-  name: "김민준", birthDate: "2009-03-14", careerGoal: null,
+  name: "김민준", gender: "남", track: 1, careerGoal: null,
 };
 const teacher = (roles: Teacher["roles"], homeroom: Teacher["homeroom"] = null): Viewer => ({
   kind: "teacher", accountId: "t", mustChangePassword: false,
@@ -69,19 +69,18 @@ describe("로그인 잠금", () => {
 
 describe("학생 등록 — 엑셀", () => {
   it("양식과 다른 열 이름도 맞춘다", () => {
-    const m = matchHeaders(["학년", "학급", "번호", "성명", "생일"]);
+    const m = matchHeaders(["학년", "학급", "번호", "성명", "남녀"]);
     expect(m.missing).toEqual([]);
-    expect(m.renamed.map((r) => r.from)).toEqual(["학급", "성명", "생일"]);
+    expect(m.renamed.map((r) => r.from)).toEqual(["학급", "성명", "남녀"]);
   });
-  it("없는 열을 알려준다", () => {
-    expect(matchHeaders(["학년", "반", "이름"]).missing).toEqual(["number", "birthDate"]);
+  it("없는 열을 알려준다 (계열은 없어도 됨)", () => {
+    expect(matchHeaders(["학년", "반", "이름"]).missing).toEqual(["number", "gender"]);
   });
-  it("생년월일 여러 형식", () => {
-    expect(normalizeBirth("2009.03.14")).toBe("2009-03-14");
-    expect(normalizeBirth("2009/3/4")).toBe("2009-03-04");
-    expect(normalizeBirth("20090314")).toBe("2009-03-14");
-    expect(normalizeBirth("2009-02-30")).toBeNull();
-    expect(normalizeBirth("09.03.14")).toBeNull();
+  it("성별 여러 표기", () => {
+    expect(normalizeGender("남자")).toBe("남");
+    expect(normalizeGender("F")).toBe("여");
+    expect(normalizeGender("2")).toBe("여");
+    expect(normalizeGender("기타")).toBeNull();
   });
   it("학번과 가명ID", () => {
     expect(makeStudentNo(2, 3, 12)).toBe("20312");
@@ -91,16 +90,17 @@ describe("학생 등록 — 엑셀", () => {
   it("새 학생·중복·오류를 나눈다", () => {
     const rows = checkRows(
       [
-        { grade: "2", classNo: "3", number: "31", name: "김하늘", birthDate: "2009.03.14" },
-        { grade: "2", classNo: "1", number: "7", name: "최지호", birthDate: "2009-05-01" },
-        { grade: "2", classNo: "2", number: "29", name: "정예린", birthDate: "2009년 13월 1일" },
-        { grade: "2", classNo: "3", number: "31", name: "김하늘2", birthDate: "2009-03-15" },
-        { grade: "5", classNo: "3", number: "1", name: "이도윤", birthDate: "2009-03-15" },
+        { grade: "2", classNo: "3", number: "31", name: "김하늘", gender: "여", track: "" },
+        { grade: "2", classNo: "1", number: "7", name: "최지호", gender: "남", track: "1" },
+        { grade: "2", classNo: "2", number: "29", name: "정예린", gender: "모름", track: "" },
+        { grade: "2", classNo: "3", number: "31", name: "김하늘2", gender: "여", track: "" },
+        { grade: "5", classNo: "3", number: "1", name: "이도윤", gender: "남", track: "" },
       ],
       new Set(["20107"]),
     );
     expect(rows.map((r) => r.status)).toEqual(["new", "duplicate", "invalid", "invalid", "invalid"]);
     expect(rows[0].studentNo).toBe("20331");
+    expect(rows[0].input.track).toBe(1); // 계열 비우면 1
     expect(rows[3].problems[0]).toContain("2행");
     expect(summarize(rows)).toEqual({ total: 5, ok: 1, duplicate: 1, invalid: 3 });
   });

@@ -9,7 +9,7 @@ const CUSTOM = "__custom__";
 
 function Pills({ name, options, value, onChange }: { name: string; options: [string, string][]; value: string; onChange: (v: string) => void }) {
   return (
-    <div className="flex gap-1 rounded-control bg-white p-1">
+    <div className="flex gap-1 rounded-full bg-white p-1">
       <input type="hidden" name={name} value={value} />
       {options.map(([v, label]) => (
         <button
@@ -17,7 +17,7 @@ function Pills({ name, options, value, onChange }: { name: string; options: [str
           type="button"
           aria-pressed={value === v}
           onClick={() => onChange(v)}
-          className={cx("flex-1 rounded-chip py-2 text-sm", value === v ? "bg-key font-bold text-white" : "text-mute")}
+          className={cx("flex-1 rounded-full py-2 text-sm", value === v ? "bg-key font-bold text-white" : "text-mute")}
         >
           {label}
         </button>

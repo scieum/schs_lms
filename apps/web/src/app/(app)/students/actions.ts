@@ -57,7 +57,8 @@ async function insert(raws: Record<Field, string>[], actorId: string) {
     classNo: r.input.classNo!,
     number: r.input.number!,
     name: r.input.name!,
-    birthDate: r.input.birthDate!,
+    gender: r.input.gender!,
+    track: r.input.track!,
     passwordHash: hash,
   }));
   const created = await repo.createStudents(rows);
@@ -103,7 +104,8 @@ async function registerOneInner(form: FormData): Promise<{ error?: string; probl
     classNo: String(form.get("classNo") ?? ""),
     number: String(form.get("number") ?? ""),
     name: String(form.get("name") ?? ""),
-    birthDate: String(form.get("birthDate") ?? ""),
+    gender: String(form.get("gender") ?? ""),
+    track: String(form.get("track") ?? ""),
   };
   const { problems } = checkOne(raw);
   if (problems.length) return { problems };

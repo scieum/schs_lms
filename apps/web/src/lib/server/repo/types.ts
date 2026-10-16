@@ -1,4 +1,5 @@
 import type { Course, SubjectGroup, TeacherCourse } from "@/lib/domain/curriculum";
+import type { ActivityArea, ActivityLog, Club, ServiceRecord } from "@/lib/domain/activity";
 import type { SetukRecord } from "@/lib/domain/setuk";
 import type { Account, AuditEntry, Student, Teacher } from "@/lib/domain/types";
 
@@ -9,9 +10,12 @@ export interface NewStudent {
   classNo: number;
   number: number;
   name: string;
-  birthDate: string;
+  gender: "남" | "여";
+  track: number;
   passwordHash: string;
 }
+
+export type NewServiceRecord = Omit<ServiceRecord, "id" | "createdAt" | "status" | "confirmedBy" | "confirmedAt" | "filePath">;
 
 /** 저장소. 데모(메모리)와 Supabase가 같은 모양을 지킨다. 서버 코드만 쓴다. */
 export interface Repo {
@@ -47,6 +51,25 @@ export interface Repo {
   // 교과 세특: 추가만 한다 (C4)
   listSetuk(courseId: string): Promise<SetukRecord[]>;
   addSetuk(r: Omit<SetukRecord, "id" | "createdAt">): Promise<SetukRecord>;
+
+  // 동아리
+  listClubs(year: number): Promise<Club[]>;
+  getClub(id: string): Promise<Club | null>;
+  /** 같은 학년도에 같은 이름이 있으면 실패 */
+  createClub(c: Omit<Club, "id">): Promise<Club>;
+  listClubMembers(clubId: string): Promise<string[]>;
+  setClubMembers(clubId: string, studentIds: string[]): Promise<void>;
+
+  // 창체 누가기록: 추가만 한다 (C4)
+  listActivityLogs(area: ActivityArea, studentIds: string[]): Promise<ActivityLog[]>;
+  addActivityLogs(rows: Omit<ActivityLog, "id" | "createdAt">[]): Promise<number>;
+
+  // 봉사 확인서
+  addServiceRecord(r: NewServiceRecord, file: Uint8Array): Promise<ServiceRecord>;
+  listServiceRecords(filter: { studentIds?: string[]; uploaderId?: string }): Promise<ServiceRecord[]>;
+  getServiceRecord(id: string): Promise<ServiceRecord | null>;
+  getServiceFile(r: ServiceRecord): Promise<Uint8Array | null>;
+  confirmService(id: string, by: string): Promise<void>;
 
   audit(actorId: string | null, action: string, target: string | null): Promise<void>;
   listAudit(limit: number): Promise<AuditEntry[]>;

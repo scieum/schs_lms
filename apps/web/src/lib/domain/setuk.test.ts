@@ -5,7 +5,7 @@ import type { Student } from "./types";
 
 const course: Course = { id: "c", year: 2026, grade: 2, semester: 1, subject: "물리학", group: "과학", type: "일반 선택", credits: 4 };
 const st = (id: string, grade: number, classNo: number, number: number) =>
-  ({ id, pseudonymId: id, studentNo: "", grade, classNo, number, name: id, birthDate: "2009-01-01", careerGoal: null }) as Student;
+  ({ id, pseudonymId: id, studentNo: "", grade, classNo, number, name: id, gender: "남", track: 1, careerGoal: null }) as Student;
 const rec = (studentId: string, at: string, status: SetukRecord["status"], content = "내용") =>
   ({ id: at, courseId: "c", studentId, authorId: "t", content, unit: "bytes", max: 1500, status, createdAt: at }) as SetukRecord;
 

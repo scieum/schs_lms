@@ -38,7 +38,7 @@ export function LengthPicker({
     <div className="flex flex-col gap-1.5">
       <span className="text-[13px] font-medium text-sub">초안 분량</span>
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1 rounded-control bg-soft p-1" role="tablist" aria-label="분량 단위">
+        <div className="flex gap-1 rounded-full bg-soft p-1" role="tablist" aria-label="분량 단위">
           {(["bytes", "chars"] as const).map((u) => (
             <button
               key={u}
@@ -46,7 +46,7 @@ export function LengthPicker({
               role="tab"
               aria-selected={unit === u}
               onClick={() => switchUnit(u)}
-              className={cx("rounded-chip px-4 py-2 text-sm", unit === u ? "bg-key font-bold text-white" : "text-mute")}
+              className={cx("rounded-full px-4 py-2 text-sm", unit === u ? "bg-key font-bold text-white" : "text-mute")}
             >
               {UNIT_LABEL[u]}
             </button>
