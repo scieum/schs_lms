@@ -50,7 +50,11 @@ export default async function OfferingsPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="과목 개설" actions={<ButtonLink href="#new-offering" kind="outline" size="sm"><Plus size={16} />과목 열기</ButtonLink>} />
+      <PageHeader
+        eyebrow={`${round.semester}학기 · ${deadlineLabel(round.deadline)} 마감`}
+        title="과목 개설"
+        actions={<ButtonLink href="#new-offering" kind="outline" size="sm" className="md:px-5 md:py-3 md:text-[15px]"><Plus size={16} />과목 열기</ButtonLink>}
+      />
       <PageBody>
         {tabs}
         <StatTiles
@@ -84,7 +88,7 @@ export default async function OfferingsPage({ searchParams }: Props) {
           }
         />
 
-        <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_340px] md:gap-6">
           <Card title="과목별 신청" action={<span className="text-[13px] text-mute">{round.semester}학기 · 최대 {round.maxCredits}학점</span>}>
             {offerings.length === 0 ? (
               <p className="py-4 text-center text-sm text-mute">아직 연 과목이 없어요</p>
@@ -106,7 +110,7 @@ export default async function OfferingsPage({ searchParams }: Props) {
                         <div className={cx("h-full rounded-full", s.over ? "bg-bad" : "bg-key")} style={{ width: `${pct}%` }} />
                       </div>
                     </div>
-                    <Tag>{s.over ? "초과" : s.full ? "마감" : "여유"}</Tag>
+                    <Tag tone={s.over || s.full ? undefined : "bg-ok-soft text-ok"}>{s.over ? "초과" : s.full ? "마감" : "여유"}</Tag>
                     <form action={archiveOffering}>
                       <input type="hidden" name="id" value={o.id} />
                       <input type="hidden" name="roundId" value={round.id} />

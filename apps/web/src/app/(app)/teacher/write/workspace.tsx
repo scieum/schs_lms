@@ -89,7 +89,7 @@ export function RecordWorkspace({
         </ul>
       </Card>
 
-      <section className="flex min-w-0 flex-col gap-4 rounded-card bg-soft p-5 md:p-6">
+      <section className="flex min-w-0 flex-col gap-4 surface rounded-card p-5 md:p-6">
         <div className="flex items-center gap-3">
           <Avatar name={selected.name} />
           <div className="min-w-0 flex-1">

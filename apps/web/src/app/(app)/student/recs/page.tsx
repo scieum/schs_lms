@@ -56,7 +56,7 @@ export default async function RecsPage({ searchParams }: Props) {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 md:gap-5 xl:grid-cols-3">
             {shown.map((it) => (
-              <article key={it.id} className="flex flex-col gap-3 rounded-card bg-soft p-5 md:p-6">
+              <article key={it.id} className="flex flex-col gap-3 surface rounded-card p-5 md:p-6">
                 <div className="flex items-start gap-1.5">
                   <KindIcon kind={it.kind} />
                   <span className="flex-1" />

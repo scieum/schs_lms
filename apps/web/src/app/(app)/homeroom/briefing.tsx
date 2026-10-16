@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { AiBanner, Button, ButtonLink, Card, Tag } from "@/components/ui";
 import { classBriefing, type BriefResult } from "./actions";
 
@@ -9,6 +10,7 @@ export function Briefing({ line, ai, names }: { line: string; ai: boolean; names
   const [pending, start] = useTransition();
   const [res, setRes] = useState<BriefResult | null>(null);
   const ok = res?.ok ? res : null;
+  const go = () => start(async () => setRes(await classBriefing()));
   return (
     <>
       <AiBanner
@@ -19,9 +21,14 @@ export function Briefing({ line, ai, names }: { line: string; ai: boolean; names
           ok ? (
             <Button size="sm" kind="ghost" onClick={() => setRes(null)}>닫기</Button>
           ) : (
-            <Button size="sm" kind="outline" disabled={pending} onClick={() => start(async () => setRes(await classBriefing()))}>
-              {pending ? "만드는 중…" : "먼저 볼 학생"}
-            </Button>
+            <>
+              <Button size="sm" kind="outline" className="max-md:hidden" disabled={pending} onClick={go}>
+                {pending ? "만드는 중…" : "먼저 볼 학생"}
+              </Button>
+              <button type="button" aria-label="먼저 볼 학생" disabled={pending} onClick={go} className="-mr-1 p-1 text-mute md:hidden">
+                <ChevronRight size={20} />
+              </button>
+            </>
           )
         }
       />

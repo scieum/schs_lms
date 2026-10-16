@@ -55,7 +55,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
         ) : (
           <>
             {rows.length > 1 && (
-              <nav className="-mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0">
+              <nav className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
                 {rows.map((x) => (
                   <Link key={x.p.id} href={`/student/submit?p=${x.p.id}`} aria-current={x === sel ? "page" : undefined}
                     className={cx("flex shrink-0 items-center gap-2 rounded-control px-3.5 py-2 text-[14px]", x === sel ? "bg-key font-bold text-white" : "bg-soft text-sub")}>

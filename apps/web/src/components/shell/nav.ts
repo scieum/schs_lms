@@ -5,10 +5,20 @@ export type IconName =
   | "home" | "file" | "clipboard" | "users" | "chat" | "userPlus" | "chart" | "target" | "moon"
   | "book" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user";
 
-export interface NavItem { label: string; href: string; icon: IconName; ready?: boolean }
+export interface NavItem { label: string; href: string; icon: IconName; ready?: boolean; badge?: number }
+/** 사이드바 숫자 배지 (Figma: 초안 검토 12, 오류 처리 2, 설문·서류 제출 2) — href 기준 */
+export type NavBadges = Record<string, number>;
 export interface NavGroup { label: string; items: NavItem[] }
 
-export function navFor(v: Viewer): NavGroup[] {
+export function navFor(v: Viewer, badges: NavBadges = {}): NavGroup[] {
+  return withBadges(baseNav(v), badges);
+}
+
+function withBadges(groups: NavGroup[], badges: NavBadges): NavGroup[] {
+  return groups.map((g) => ({ ...g, items: g.items.map((it) => (badges[it.href] ? { ...it, badge: badges[it.href] } : it)) }));
+}
+
+function baseNav(v: Viewer): NavGroup[] {
   if (v.kind === "student") {
     return [
       { label: "나의 기록", items: [
@@ -68,23 +78,41 @@ export function navFor(v: Viewer): NavGroup[] {
   return groups;
 }
 
-/** 모바일 하단 탭 (5개) */
+/** 모바일 하단 탭 (5개) — Figma 각 역할 모바일 시안의 탭 그대로 */
 export function tabsFor(v: Viewer): NavItem[] {
   if (v.kind === "student") {
     return [
-      { label: "홈", href: "/student", icon: "home", ready: true },
-      { label: "제출", href: "/student/submit", icon: "clipboard", ready: true },
-      { label: "성적", href: "/student/scores", icon: "chart", ready: true },
-      { label: "생기부", href: "/student/record", icon: "book", ready: true },
-      { label: "MY", href: "/me", icon: "user", ready: true },
+      { label: "홈", href: "/student", icon: "home" },
+      { label: "제출", href: "/student/submit", icon: "clipboard" },
+      { label: "성적", href: "/student/scores", icon: "chart" },
+      { label: "생기부", href: "/student/record", icon: "book" },
+      { label: "MY", href: "/me", icon: "user" },
     ];
   }
-  const home = v.teacher.roles.includes("admin") ? "/admin" : v.teacher.roles.includes("homeroom") ? "/homeroom" : "/teacher";
+  const r = v.teacher.roles;
+  if (r.includes("admin")) {
+    return [
+      { label: "홈", href: "/admin", icon: "home" },
+      { label: "오류", href: "/admin/errors", icon: "alert" },
+      { label: "계정", href: "/admin/accounts", icon: "users" },
+      { label: "과목", href: "/admin/offerings", icon: "list" },
+      { label: "MY", href: "/me", icon: "user" },
+    ];
+  }
+  if (r.includes("homeroom")) {
+    return [
+      { label: "홈", href: "/homeroom", icon: "home" },
+      { label: "학생", href: "/homeroom/students", icon: "users" },
+      { label: "초안", href: "/teacher/drafts", icon: "file" },
+      { label: "최저", href: "/homeroom/minimum", icon: "target" },
+      { label: "야자", href: "/homeroom/night", icon: "moon" },
+    ];
+  }
   return [
-    { label: "홈", href: home, icon: "home", ready: true },
-    { label: "세특", href: "/teacher/setuk", icon: "book", ready: true },
-    { label: "학생", href: "/students", icon: "users", ready: true },
-    { label: "등록", href: "/students/new", icon: "userPlus", ready: true },
-    { label: "MY", href: "/me", icon: "user", ready: true },
+    { label: "홈", href: "/teacher", icon: "home" },
+    { label: "초안", href: "/teacher/drafts", icon: "file" },
+    { label: "프로그램", href: "/teacher/programs", icon: "clipboard" },
+    { label: "학생", href: "/students", icon: "users" },
+    { label: "내 정보", href: "/me", icon: "user" },
   ];
 }

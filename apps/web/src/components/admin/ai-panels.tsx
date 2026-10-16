@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState, useTransition, type ReactNode } from "react";
 import { AiBanner, Button } from "@/components/ui";
+import { FoldButtons, FoldRow } from "./fold";
 import type { DailyCheckItem } from "@/lib/domain/accounts";
 import { dailyBriefAction, explainFlagsAction, type BriefResult, type FlagExplain } from "@/app/(app)/admin/audit/ai-actions";
 import { explainDemandAction, type DemandExplain } from "@/app/(app)/admin/offerings/ai-actions";
@@ -13,24 +14,28 @@ import { explainDemandAction, type DemandExplain } from "@/app/(app)/admin/offer
 export function DailyBrief({ initial, aiOn, link }: { initial: { line: string; items: DailyCheckItem[] }; aiOn: boolean; link?: ReactNode }) {
   const [pending, start] = useTransition();
   const [r, setR] = useState<BriefResult | null>(null);
+  const [fold, setFold] = useState(false);
   const items = r?.items ?? initial.items;
+  const buttons = (
+    <>
+      {items.length > 0 && (
+        <Button type="button" kind="outline" size="sm" disabled={pending} onClick={() => start(async () => setR(await dailyBriefAction()))}>
+          {pending ? "정리 중…" : r ? "다시 정리" : aiOn ? "AI로 정리" : "순서 정리"}
+        </Button>
+      )}
+      {link}
+    </>
+  );
+  const hasButtons = items.length > 0 || !!link;
   return (
     <div className="flex flex-col gap-2">
       <AiBanner
         title="오늘 점검"
         label={r ? r.label : "자동"}
         line={pending ? "읽는 중이에요" : r?.line ?? initial.line}
-        action={
-          <div className="flex shrink-0 gap-2">
-            {items.length > 0 && (
-              <Button type="button" kind="outline" size="sm" disabled={pending} onClick={() => start(async () => setR(await dailyBriefAction()))}>
-                {pending ? "정리 중…" : r ? "다시 정리" : aiOn ? "AI로 정리" : "순서 정리"}
-              </Button>
-            )}
-            {link}
-          </div>
-        }
+        action={hasButtons ? <FoldButtons open={fold} onToggle={() => setFold(!fold)}>{buttons}</FoldButtons> : undefined}
       />
+      <FoldRow open={fold}>{buttons}</FoldRow>
       {r && r.items.length > 0 && (
         <ol className="flex flex-col gap-1.5 px-1">
           {r.items.map((it, i) => (
@@ -52,23 +57,26 @@ export function DailyBrief({ initial, aiOn, link }: { initial: { line: string; i
 export function FlagExplainBanner({ line, period, has, link }: { line: string; period: string; has: boolean; link?: ReactNode }) {
   const [pending, start] = useTransition();
   const [r, setR] = useState<FlagExplain | null>(null);
+  const [fold, setFold] = useState(false);
+  const buttons = (
+    <>
+      {has && (
+        <Button type="button" kind="outline" size="sm" disabled={pending} onClick={() => start(async () => setR(await explainFlagsAction(period)))}>
+          {pending ? "읽는 중…" : r ? "다시 보기" : "설명 보기"}
+        </Button>
+      )}
+      {link}
+    </>
+  );
   return (
     <div className="flex flex-col gap-2">
       <AiBanner
         title="이상 접근 살펴보기"
         label={r ? r.label : "자동"}
         line={pending ? "읽는 중이에요" : r?.lines[0] ?? line}
-        action={
-          <div className="flex shrink-0 gap-2">
-            {has && (
-              <Button type="button" kind="outline" size="sm" disabled={pending} onClick={() => start(async () => setR(await explainFlagsAction(period)))}>
-                {pending ? "읽는 중…" : r ? "다시 보기" : "설명 보기"}
-              </Button>
-            )}
-            {link}
-          </div>
-        }
+        action={has || link ? <FoldButtons open={fold} onToggle={() => setFold(!fold)}>{buttons}</FoldButtons> : undefined}
       />
+      <FoldRow open={fold}>{buttons}</FoldRow>
       {r && r.lines.length > 1 && (
         <ul className="flex flex-col gap-1 px-1 text-[13px] text-sub">
           {r.lines.slice(1).map((l) => <li key={l}>· {l}</li>)}
@@ -83,21 +91,26 @@ export function FlagExplainBanner({ line, period, has, link }: { line: string; p
 export function DemandBanner({ line, roundId, action }: { line: string; roundId: string; action?: ReactNode }) {
   const [pending, start] = useTransition();
   const [r, setR] = useState<DemandExplain | null>(null);
+  const [fold, setFold] = useState(false);
+  const buttons = (
+    <>
+      {!r?.ok && (
+        <Button type="button" kind="outline" size="sm" disabled={pending} onClick={() => start(async () => setR(await explainDemandAction(roundId)))}>
+          {pending ? "보는 중…" : "마감 예측"}
+        </Button>
+      )}
+      {action}
+    </>
+  );
   return (
-    <AiBanner
-      title="신청 예측"
-      label={r?.ok ? r.label : "자동"}
-      line={pending ? "읽는 중이에요" : r ? (r.ok ? r.line : r.error) : line}
-      action={
-        <div className="flex shrink-0 gap-2">
-          {!r?.ok && (
-            <Button type="button" kind="outline" size="sm" disabled={pending} onClick={() => start(async () => setR(await explainDemandAction(roundId)))}>
-              {pending ? "보는 중…" : "마감 예측"}
-            </Button>
-          )}
-          {action}
-        </div>
-      }
-    />
+    <div className="flex flex-col gap-2">
+      <AiBanner
+        title="신청 예측"
+        label={r?.ok ? r.label : "자동"}
+        line={pending ? "읽는 중이에요" : r ? (r.ok ? r.line : r.error) : line}
+        action={!r?.ok || action ? <FoldButtons open={fold} onToggle={() => setFold(!fold)}>{buttons}</FoldButtons> : undefined}
+      />
+      <FoldRow open={fold}>{buttons}</FoldRow>
+    </div>
   );
 }

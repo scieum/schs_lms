@@ -76,16 +76,16 @@ export function SurveyForm({
               <input type="hidden" name="programId" value={programId} />
               <div>
                 <div className="flex justify-between text-[13px] font-bold"><span>설문 응답</span><span className="font-medium text-sub">{done} / {questions.length} 문항</span></div>
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-line"><div className="h-full rounded-full bg-key" style={{ width: `${(done / Math.max(1, questions.length)) * 100}%` }} /></div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line"><div className="h-full rounded-full bg-key" style={{ width: `${(done / Math.max(1, questions.length)) * 100}%` }} /></div>
               </div>
               {questions.map((q, i) => {
                 const a = answers[q.id] ?? "";
                 const err = state.errors?.[q.id];
                 return (
-                  <section key={q.id} className="rounded-card bg-soft p-5">
+                  <section key={q.id} className="surface rounded-card p-5 md:p-6">
                     <h3 className="flex items-baseline gap-2"><span className="text-[13px] font-bold text-mute">Q{i + 1}</span><span className="text-[17px] font-bold">{q.fixed ? q.title : q.prompt}</span></h3>
-                    {q.fixed && <p className="mt-1 text-[13px] text-sub">{q.prompt}</p>}
-                    <label className={cx("mt-3 flex flex-col rounded-field bg-white p-3.5 focus-within:ring-2 focus-within:ring-key", err && "ring-2 ring-bad")}>
+                    {q.fixed && <p className="mt-2 text-[14px] text-sub">{q.prompt}</p>}
+                    <label className={cx("mt-3 flex flex-col rounded-field bg-white p-4 focus-within:ring-2 focus-within:ring-key", err && "ring-2 ring-bad")}>
                       <textarea name={`q_${q.id}`} value={a} onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })} disabled={closed}
                         rows={3} maxLength={MAX_ANSWER_CHARS} placeholder="떠오르는 대로 편하게 적어도 괜찮아요" aria-label={`Q${i + 1} 답`}
                         className="w-full resize-y bg-transparent text-[15px] leading-7 outline-none placeholder:text-faint" />
@@ -107,14 +107,14 @@ export function SurveyForm({
           )}
 
           {docs && (
-            <section className="rounded-card bg-soft p-5">
+            <section className="surface rounded-card p-5 md:p-6">
               <h3 className="mb-3 text-[17px] font-bold">{docTitle} 제출</h3>
               {!closed && (
                 <form action={docAction} key={doc.n ?? 0} className="flex flex-col gap-2">
                   <input type="hidden" name="programId" value={programId} />
                   <label className={cx("flex cursor-pointer flex-col items-center gap-2 rounded-inner bg-white px-4 py-6 text-center", fileName && "ring-2 ring-key")}>
                     <span className="flex size-10 items-center justify-center rounded-field bg-soft"><Upload size={18} /></span>
-                    <span className="font-bold">{fileName || "파일을 골라 주세요"}</span>
+                    <span className="font-bold">{fileName || <><span className="hidden md:inline">파일을 끌어다 놓거나 선택하세요</span><span className="md:hidden">파일 선택 또는 사진 찍기</span></>}</span>
                     <span className="text-[12px] text-mute">PDF · JPG · PNG · 20MB까지</span>
                     <input type="file" name="file" required accept="application/pdf,image/jpeg,image/png,image/webp,text/plain" className="sr-only"
                       onChange={(e) => setPicked({ n: doc.n ?? 0, name: e.target.files?.[0]?.name ?? "" })} />
@@ -160,8 +160,10 @@ export function SurveyForm({
           )}
         </div>
 
-        <aside className="md:sticky md:top-6 md:self-start">
-          <section className="rounded-card bg-soft p-5">
+        {/* 좌우 카드 높이 맞춤: 카드는 끝까지, 안의 내용은 스크롤을 따라온다 */}
+        <aside>
+          <section className="h-full surface rounded-card p-5 md:p-6">
+            <div className="md:sticky md:top-6">
             <h3 className="mb-3 text-[17px] font-bold">제출 현황</h3>
             <dl className="flex flex-col gap-2.5 text-[14px]">
               {survey && <div className="flex justify-between"><dt className="text-mute">설문 응답</dt><dd className="font-bold">{submitted ? "제출 완료" : `${done} / ${questions.length} 문항`}</dd></div>}
@@ -170,12 +172,12 @@ export function SurveyForm({
             </dl>
             {state.error && <p className="mt-3 text-[13px] text-bad" role="alert">{state.error}</p>}
             {state.saved && <p className="mt-3 text-[13px] text-ok" role="status">{state.saved === "submit" ? "제출했어요. 마감 전까지 고칠 수 있어요" : "임시 저장했어요"}</p>}
-            {survey && <div className="mt-4 hidden flex-col gap-2 md:flex">{buttons()}</div>}
+            {survey && <div className="mt-4 flex flex-col gap-2">{buttons()}</div>}
             {closed && <p className="mt-3 text-[13px] text-mute">마감됐어요</p>}
+            </div>
           </section>
         </aside>
       </div>
-      {survey && !closed && <div className="sticky bottom-24 z-10 flex gap-2 md:hidden">{buttons("flex-1")}</div>}
     </div>
   );
 }

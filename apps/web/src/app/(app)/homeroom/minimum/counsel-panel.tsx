@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { AiBanner, Button, Card, cx, Tag } from "@/components/ui";
 import { analyzeMinimum, saveCounselList, type CounselItem, type SaveState } from "./actions";
 
@@ -28,7 +29,12 @@ export function CounselPanel({ classKey, examId, ai, nearCount, names }: { class
         line={error || (draft ? draft.summary : `한 과목만 1등급 올리면 충족되는 학생 ${nearCount}명 — 우선 상담 대상`)}
         action={
           !draft ? (
-            <Button size="sm" onClick={run} disabled={busy || !examId}>{busy ? (ai ? "분석하는 중…" : "고르는 중…") : "상담 명단 만들기"}</Button>
+            <>
+              <Button size="sm" kind="outline" className="max-md:hidden" onClick={run} disabled={busy || !examId}>{busy ? (ai ? "분석하는 중…" : "고르는 중…") : "상담 명단 만들기"}</Button>
+              <button type="button" aria-label="상담 명단 만들기" onClick={run} disabled={busy || !examId} className="-mr-1 p-1 text-mute md:hidden">
+                <ChevronRight size={20} />
+              </button>
+            </>
           ) : (
             <Button size="sm" kind="ghost" onClick={() => setDraft(null)}>닫기</Button>
           )

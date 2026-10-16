@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { AiBanner, Button, Card, cx, Tag } from "@/components/ui";
 import { reviewAttendance, sendNotices, type ReviewDraft, type SendState } from "./actions";
 
@@ -30,7 +31,12 @@ export function ReviewPanel({ classKey, line, ai, names }: { classKey: string; l
           draft ? (
             <Button size="sm" kind="ghost" onClick={() => setDraft(null)}>닫기</Button>
           ) : (
-            <Button kind="outline" size="sm" onClick={run} disabled={busy}>{busy ? "살펴보는 중…" : "메시지 만들기"}</Button>
+            <>
+              <Button kind="outline" size="sm" className="max-md:hidden" onClick={run} disabled={busy}>{busy ? "살펴보는 중…" : "메시지 만들기"}</Button>
+              <button type="button" aria-label="메시지 만들기" onClick={run} disabled={busy} className="-mr-1 p-1 text-mute md:hidden">
+                <ChevronRight size={20} />
+              </button>
+            </>
           )
         }
       />

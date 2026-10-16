@@ -24,7 +24,7 @@ export function RemindBox({ programId, missing, aiOn, last }: { programId: strin
             {sent.sent ?? (missing ? `미응답 ${missing}명에게 보낼 문구를 만들어요${last ? ` · 마지막 알림 ${last}` : ""}` : "미응답 학생이 없어요")}
           </div>
         </div>
-        <Button size="sm" disabled={!missing || drafting} className="hidden md:inline-flex">{drafting ? "만드는 중…" : "문구 만들기"}</Button>
+        <span className="hidden md:block"><Button size="sm" kind="outline" disabled={!missing || drafting}>{drafting ? "만드는 중…" : "문구 만들기"}</Button></span>
         <button disabled={!missing || drafting} aria-label="문구 만들기" className="text-mute md:hidden"><ChevronRight size={20} /></button>
       </form>
       {draft.error && <p className="mt-2 text-[13px] text-wait">AI 대신 기본 문구를 넣었어요 ({draft.error})</p>}
@@ -103,5 +103,15 @@ export function AnalyzeBox({ programId, submitted, aiOn }: { programId: string; 
         </div>
       )}
     </div>
+  );
+}
+
+/** 표 위 거르기 칸: 고르면 바로 적용 (찾기 버튼 없이) */
+export function AutoSelect({ name, value, label, options }: { name: string; value: string; label: string; options: [string, string][] }) {
+  return (
+    <select name={name} defaultValue={value} aria-label={label} onChange={(e) => e.currentTarget.form?.requestSubmit()}
+      className="h-9 shrink-0 rounded-field bg-white px-3 text-[13px] outline-none">
+      {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+    </select>
   );
 }

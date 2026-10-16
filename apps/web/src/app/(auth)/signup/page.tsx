@@ -56,7 +56,7 @@ export default async function SignupPage() {
           </ul>
         </aside>
       </main>
-      <Yeongrang />
+      <Yeongrang student />
     </div>
   );
 }

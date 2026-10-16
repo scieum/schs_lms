@@ -102,7 +102,7 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
   return (
     <div className="flex flex-col gap-4 md:gap-6">
     <PlanAutofill aiOn={aiOn} now={now} onApply={applyPlan} />
-    <form ref={formRef} action={action} className="flex flex-col gap-4 md:gap-6">
+    <form id="program-form" ref={formRef} action={action} className="flex flex-col gap-4 md:gap-6">
       <div className="flex items-center gap-3 rounded-inner bg-soft px-4 py-3.5 md:gap-4 md:px-5 md:py-4">
         <span className="rounded-chip bg-new-soft px-2.5 py-1 text-xs font-bold text-new">AI</span>
         <div className="min-w-0 flex-1">
@@ -159,10 +159,12 @@ export function ProgramForm({ students, today, end, aiOn }: { students: PickStud
             <div className="grid gap-2.5 md:grid-cols-3">
               {SOURCES.map(([v, t, d, I]) => (
                 <button key={v} type="button" onClick={() => setSource(v)} aria-pressed={source === v}
-                  className={cx("flex flex-col items-start gap-2 rounded-inner p-4 text-left", source === v ? "bg-key text-white" : "bg-white hover:bg-key-soft")}>
-                  <span className={cx("flex size-9 items-center justify-center rounded-field", source === v ? "bg-navy" : "bg-soft")}><I size={18} /></span>
-                  <span className="font-bold">{t}</span>
-                  <span className={cx("text-[13px]", source === v ? "text-white/80" : "text-mute")}>{d}</span>
+                  className={cx("flex items-center gap-3 rounded-inner p-4 text-left md:flex-col md:items-start md:gap-2", source === v ? "bg-key text-white" : "bg-white hover:bg-key-soft")}>
+                  <span className={cx("flex size-9 shrink-0 items-center justify-center rounded-field", source === v ? "bg-navy" : "bg-soft")}><I size={18} /></span>
+                  <span className="flex min-w-0 flex-col gap-0.5 md:gap-2">
+                    <span className="font-bold">{t}</span>
+                    <span className={cx("text-[13px]", source === v ? "text-white/80" : "text-mute")}>{d}</span>
+                  </span>
                 </button>
               ))}
             </div>

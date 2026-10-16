@@ -1,12 +1,12 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { ActivityList } from "@/components/counsel/activity-list";
 import { AiAttach } from "@/components/counsel/ai-attach";
 import { CounselList } from "@/components/counsel/counsel-list";
-import { TabLinks } from "@/components/counsel/tab-links";
 import { BarChart, KV } from "@/components/scores/parts";
-import { ButtonLink, Card, Row, StatTiles, Tag } from "@/components/ui";
+import { ButtonLink, Card, Row, StatTiles, Tag, cx } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
 import { SUBJECT_LABEL, SUBJECTS } from "@/lib/domain/scores";
 import { canViewStudentRecord, countByArea, RECORD_AREAS } from "@/lib/domain/counsel";
@@ -24,6 +24,7 @@ export const metadata = { title: "학생 기록 · 속초고등학교 학생관�
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> };
 const TABS = ["draft", "scores", "counsel", "night", "logs"] as const;
 type TabKey = (typeof TABS)[number];
+const VERDICT_TONE: Record<string, string> = { 충족: "bg-ok-soft text-ok", 근접: "bg-wait-soft text-wait", 미충족: "bg-bad-soft text-bad" };
 
 export default async function StudentRecordPage({ params, searchParams }: Props) {
   const v = await requireCan("homeroom.view");
@@ -49,6 +50,22 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
   const pastCount = countByArea(past);
   const now = today();
   const base = `/homeroom/students/${student.id}`;
+  // 받은 프로그램 확정본 + 올해 교과세특을 한 목록으로 (최신순)
+  const allDrafts = [
+    ...finals.map((d) => ({
+      key: `f-${d.programId}`, label: d.area === "세특" ? "교과세특" : d.area.replace("-", " "), title: d.programTitle,
+      meta: `${(d.authorId && names.get(d.authorId)) || "교사"} · ${d.content.length}자`, status: "확정", content: d.content, date: d.finalizedAt.slice(0, 10),
+    })),
+    ...drafts,
+  ].sort((a, b) => b.date.localeCompare(a.date));
+  const preview = allDrafts.find((d) => d.content);
+  const tabs = [
+    { key: "draft", label: `생기부 초안 ${allDrafts.length}`, short: "초안", href: base },
+    { key: "scores", label: "성적·수능 최저", short: "성적", href: `${base}?tab=scores` },
+    { key: "counsel", label: `상담 ${counsel.length}`, short: "상담", href: `${base}?tab=counsel` },
+    { key: "night", label: "야자", short: "야자", href: `${base}?tab=night` },
+    { key: "logs", label: `누가기록·봉사 ${logItems.length}`, short: "누가기록", href: `${base}?tab=logs` },
+  ];
 
   return (
     <>
@@ -60,40 +77,47 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
         <AiAttach title="기록 흐름 요약" line="1·2학년 기록에서 진로 키워드·보완점·겹치는 소재를 찾아요" run={summarizeFlow}
           studentId={student.id} today={now} attachLabel="상담 메모에 붙이기" topicsLabel="보완점" />
 
-        <TabLinks tone="none" active={tab} items={[
-          { key: "draft", label: `생기부 초안 ${drafts.length + finals.length}`, href: base },
-          { key: "scores", label: "성적", href: `${base}?tab=scores` },
-          { key: "counsel", label: `상담 ${counsel.length}`, href: `${base}?tab=counsel` },
-          { key: "night", label: "야자", href: `${base}?tab=night` },
-          { key: "logs", label: `누가기록·봉사 ${logItems.length}`, href: `${base}?tab=logs` },
-        ]} />
+        <nav className="flex gap-1 overflow-x-auto [scrollbar-width:none]" aria-label="학생 기록 탭">
+          {tabs.map((t) => (
+            <Link key={t.key} href={t.href} scroll={false} aria-current={t.key === tab ? "page" : undefined}
+              className={cx("min-w-fit flex-1 rounded-control px-3 py-2.5 text-center text-sm", t.key === tab ? "bg-key font-bold text-white" : "text-mute hover:text-sub")}>
+              <span className="md:hidden">{t.short}</span><span className="max-md:hidden">{t.label}</span>
+            </Link>
+          ))}
+        </nav>
 
         {tab === "draft" && (
-          <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
-            <div className="flex min-w-0 flex-col gap-4 md:gap-6">
-              <Card title="생기부 초안 모음" action={<span className="text-[13px] text-mute">올해 교과세특</span>}>
-                <ActivityList items={drafts} empty="올해 쓴 교과세특이 없어요" />
-              </Card>
-              <Card title="프로그램 초안" className="flex-1" action={<span className="text-[13px] text-mute">확정 {finals.length}건</span>}>
-                {finals.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-mute">확정된 프로그램 초안이 없어요</p>
-                ) : (
-                  <ul className="flex flex-col gap-2">
-                    {finals.map((d) => (
-                      <li key={d.programId} className="rounded-inner bg-white p-4">
-                        <div className="flex items-center gap-2">
-                          <span className="min-w-0 flex-1 truncate font-bold">{d.programTitle}</span>
-                          <Tag>확정</Tag>
-                        </div>
-                        <p className="mt-0.5 text-xs text-mute">{d.area}{d.subject ? ` · ${d.subject}` : ""} · {(d.authorId && names.get(d.authorId)) || "교사"} · {fmtDate(d.finalizedAt)}</p>
-                        <p className="mt-2 text-sm leading-relaxed text-sub">{d.content}</p>
-                      </li>
-                    ))}
-                  </ul>
+          <>
+            <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
+              <Card title="생기부 초안 모음" action={<span className="text-[13px] text-mute">{allDrafts.length}건</span>}>
+                <ActivityList items={allDrafts} empty="아직 받은 초안이 없어요" />
+                {preview && (
+                  <div className="mt-2 rounded-inner bg-white px-4 py-3.5">
+                    <div className="text-xs text-mute">{preview.title} · {preview.label}</div>
+                    <p className="mt-1.5 line-clamp-2 text-sm leading-6">{preview.content}</p>
+                  </div>
                 )}
               </Card>
+              <div className="flex flex-col gap-4 md:gap-6">
+                <Card title="모의고사 평균 등급" action={<span className="text-[13px] text-mute">{scores.latestExam?.name ?? ""}</span>}>
+                  {scores.trend.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-mute">아직 올린 성적이 없어요</p>
+                  ) : (
+                    <BarChart invert items={scores.trend.slice(-4).map((t) => ({ label: t.label, value: t.average }))} format={(n) => n.toFixed(1)} height={96} />
+                  )}
+                </Card>
+                <Card title="수능 최저 판정" className="flex-1" action={<span className="text-[13px] text-mute">{scores.latestExam ? `${scores.latestExam.name} 기준` : ""}</span>}>
+                  {scores.targets.length === 0 ? (
+                    <p className="py-4 text-center text-sm text-mute">목표 대학이 없어요</p>
+                  ) : (
+                    scores.targets.map((t, i) => (
+                      <Row key={t.rank} last={i === scores.targets.length - 1} title={`${t.university} ${t.major}`} meta={t.reason} right={<Tag tone={VERDICT_TONE[t.status]}>{t.status}</Tag>} />
+                    ))
+                  )}
+                </Card>
+              </div>
             </div>
-            <div className="flex flex-col gap-4 md:gap-6">
+            <div className="grid gap-4 md:grid-cols-2 md:gap-6">
               <Card title="지난 학년도 확정본">
                 {past.length === 0 ? (
                   <p className="py-4 text-center text-sm text-mute">확정본이 없어요</p>
@@ -103,7 +127,7 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
                   ))
                 )}
               </Card>
-              <Card title="정정 요청" className="flex-1" action={<span className="text-[13px] text-mute">{corrections.length}건</span>}>
+              <Card title="정정 요청" action={<span className="text-[13px] text-mute">{corrections.length}건</span>}>
                 {corrections.length === 0 ? (
                   <p className="py-4 text-center text-sm text-mute">받은 요청이 없어요</p>
                 ) : (
@@ -125,7 +149,7 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
                 )}
               </Card>
             </div>
-          </div>
+          </>
         )}
 
         {tab === "scores" && (
@@ -151,7 +175,7 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
                 <p className="py-6 text-center text-sm text-mute">목표 대학이 없어요</p>
               ) : (
                 scores.targets.map((t, i) => (
-                  <Row key={t.rank} last={i === scores.targets.length - 1} title={`${t.university} ${t.major}`} meta={t.reason} right={<Tag>{t.status}</Tag>} />
+                  <Row key={t.rank} last={i === scores.targets.length - 1} title={`${t.university} ${t.major}`} meta={t.reason} right={<Tag tone={VERDICT_TONE[t.status]}>{t.status}</Tag>} />
                 ))
               )}
             </Card>

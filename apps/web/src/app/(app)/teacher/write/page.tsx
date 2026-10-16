@@ -111,7 +111,7 @@ export default async function WritePage({ searchParams }: Props) {
             {spaces.map((s) => {
               const pct = s.counts.total ? Math.round((s.counts.확정 / s.counts.total) * 100) : 0;
               return (
-                <Link key={s.key} href={s.href} className="group flex flex-col gap-4 rounded-card bg-soft p-5 hover:bg-line md:p-6">
+                <Link key={s.key} href={s.href} className="group flex flex-col gap-4 surface rounded-card p-5 hover:bg-line md:p-6">
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="text-[17px] font-bold">{s.title}</div>

@@ -82,7 +82,7 @@ export default async function MyScoresPage() {
           </div>
 
           <div className="flex flex-col gap-4 md:gap-6">
-            <Card title="목표 대학 최저 기준">
+            <Card title="목표 대학 최저 기준" className="flex flex-col md:flex-1">
               {targets.length === 0 ? (
                 <p className="py-4 text-center text-sm text-mute">오른쪽 위 &lsquo;목표 대학 설정&rsquo;에서 정해 주세요</p>
               ) : (
@@ -105,6 +105,11 @@ export default async function MyScoresPage() {
                   })}
                 </div>
               )}
+              {latest && (
+                <p className="mt-4 text-xs text-mute md:mt-auto md:pt-4">
+                  {latestExam!.name} · 한국사 {latest.hi ?? "–"}등급 · 과목: {SUBJECTS.length}개 공통과목
+                </p>
+              )}
             </Card>
             {plan && (
               <Card title="내 공부 계획" action={<span className="text-[13px] text-mute">{new Date(plan.createdAt).toLocaleDateString("ko-KR")}</span>}>
@@ -114,11 +119,6 @@ export default async function MyScoresPage() {
                   ))}
                 </ul>
               </Card>
-            )}
-            {latest && (
-              <p className="px-1 text-xs text-mute">
-                {latestExam!.name} · 한국사 {latest.hi ?? "–"}등급 · 과목: {SUBJECTS.length}개 공통과목
-              </p>
             )}
           </div>
         </div>

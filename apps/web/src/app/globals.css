@@ -51,3 +51,13 @@ body {
   outline: 2px solid var(--color-key);
   outline-offset: 2px;
 }
+
+/* Figma D2: 회색 바탕 위 흰 카드(1px 선). 카드 안의 흰 블록은 회색으로 뒤집어 구분한다.
+   (예전 화면들은 "회색 카드 + 흰 블록"으로 짜여 있어서, 카드에 .surface 만 붙이면 시안 모양이 된다) */
+.surface {
+  background-color: #ffffff;
+  border: 1px solid var(--color-line);
+}
+.surface .bg-white {
+  background-color: var(--color-soft);
+}

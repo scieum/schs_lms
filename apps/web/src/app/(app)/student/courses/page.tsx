@@ -33,6 +33,7 @@ export default async function StudentCoursesPage() {
     <>
       <PageHeader title="과목 신청" />
       <PageBody>
+        <p className="-mt-2 text-[13px] text-mute md:hidden">{deadlineLabel(round.deadline)} 마감</p>
         <CoursePicker
           semester={round.semester}
           deadline={deadlineLabel(round.deadline)}

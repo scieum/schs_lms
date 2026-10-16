@@ -134,7 +134,7 @@ export function ApplyForm({ days, taken, current, pattern, past, deadline, ai, s
           </Card>
         </div>
 
-        <div className="flex flex-col gap-4 md:gap-6">
+        <div className="flex flex-col gap-4 md:gap-6 md:[&>section:last-child]:flex-1">
           <Card title="신청 요약">
             <dl>
               <KV k="요일" v={chosenDays} strong />

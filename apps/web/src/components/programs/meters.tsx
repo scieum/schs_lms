@@ -19,7 +19,7 @@ export function Ring({ pct, size = 76 }: { pct: number; size?: number }) {
 /** 얇은 진행 막대 */
 export function Bar({ pct, tone = "key", className }: { pct: number; tone?: "key" | "bad" | "wait"; className?: string }) {
   return (
-    <div className={cx("h-1.5 overflow-hidden rounded-full bg-line", className)} aria-hidden>
+    <div className={cx("h-1.5 overflow-hidden rounded-full bg-key-soft", className)} aria-hidden>
       <div className={cx("h-full rounded-full", tone === "bad" ? "bg-bad" : tone === "wait" ? "bg-wait" : "bg-key")} style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
     </div>
   );

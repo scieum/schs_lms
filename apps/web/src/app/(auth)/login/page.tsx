@@ -60,7 +60,7 @@ export default async function LoginPage() {
           </ul>
         </aside>
       </main>
-      <Yeongrang />
+      <Yeongrang student />
     </div>
   );
 }

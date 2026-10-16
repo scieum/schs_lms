@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { LinkChips, SearchBox } from "@/components/admin/chips";
 import { ConfirmButton } from "@/components/admin/confirm-button";
+import { FoldLink } from "@/components/admin/fold";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { AiBanner, Avatar, Button, ButtonLink, Card, Row, StatTiles, Tag } from "@/components/ui";
 import { accountStatus, isStale, lastSeenLabel, STALE_DAYS } from "@/lib/domain/accounts";
@@ -57,8 +58,9 @@ export default async function AccountsPage({ searchParams }: Props) {
   return (
     <>
       <PageHeader
+        eyebrow={`${all.length}명`}
         title="계정 관리"
-        actions={<ButtonLink href="/admin/accounts/new" size="sm"><Plus size={16} />계정 추가</ButtonLink>}
+        actions={<ButtonLink href="/admin/accounts/new" size="sm" className="md:px-5 md:py-3 md:text-[15px]"><Plus size={16} />계정 추가</ButtonLink>}
       />
       <PageBody>
         <StatTiles
@@ -73,7 +75,7 @@ export default async function AccountsPage({ searchParams }: Props) {
           label="자동"
           title="오래 쓰지 않은 계정"
           line={stale.length ? `${STALE_DAYS}일 넘게 접속 없는 계정 ${stale.length}개 — 잠금을 권해요` : `${STALE_DAYS}일 넘게 접속 없는 계정이 없어요`}
-          action={stale.length ? <ButtonLink href="/admin/accounts?stale=1" kind="outline" size="sm">확인 후 잠금</ButtonLink> : undefined}
+          action={stale.length ? <FoldLink href="/admin/accounts?stale=1"><ButtonLink href="/admin/accounts?stale=1" kind="outline" size="sm">확인 후 잠금</ButtonLink></FoldLink> : undefined}
         />
 
         {sp.stale === "1" && stale.length > 0 && (
@@ -105,7 +107,7 @@ export default async function AccountsPage({ searchParams }: Props) {
               const st = status(a);
               const seen = st === "대기" && !a.lastLoginAt ? "첫 로그인 대기" : lastSeenLabel(a.lastLoginAt, now);
               const title = a.teacher ? (
-                <Link href={`/admin/accounts/${a.id}`} className="hover:underline">{a.name}</Link>
+                <Link href={`/admin/accounts/${a.id}`} title="역할·담임 반·부서 바꾸기" className="hover:underline">{a.name}</Link>
               ) : a.name;
               return (
                 <div key={a.id} className={i === list.length - 1 ? "" : "border-b border-line"}>
@@ -113,7 +115,7 @@ export default async function AccountsPage({ searchParams }: Props) {
                     <Avatar name={a.name} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[15px] font-medium">{title}</div>
-                      <div className="truncate text-[13px] text-mute">{roleText(a)} · {seen}</div>
+                      <div className="truncate text-[13px] text-mute">{roleText(a)}<span className="hidden md:inline"> · {seen}</span></div>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
                       <Tag>{st}</Tag>
@@ -148,7 +150,6 @@ export default async function AccountsPage({ searchParams }: Props) {
             <p className="pt-3 text-center text-[13px] text-mute">{shown.length - PAGE}명 더 있어요 · 이름으로 찾아 주세요</p>
           )}
         </Card>
-        <p className="text-[13px] text-mute">교사 이름을 누르면 역할·담임 반·부서를 바꿔요</p>
       </PageBody>
     </>
   );

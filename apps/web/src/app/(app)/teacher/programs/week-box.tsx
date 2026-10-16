@@ -16,7 +16,7 @@ export function WeekBox({ line, href, all, aiOn }: { line: string; href: string;
         <div className="truncate text-[13px] text-sub" title={st.text ?? line}>{busy ? "만드는 중이에요" : st.text ?? line}</div>
       </div>
       {aiOn && !st.text && <Button size="sm" kind="outline" disabled={busy}>{busy ? "만드는 중…" : "AI로 정리"}</Button>}
-      <ButtonLink href={href} kind="outline" size="sm" className="hidden md:inline-flex">먼저 보기</ButtonLink>
+      <span className="hidden md:block"><ButtonLink href={href} kind="outline" size="sm">먼저 보기</ButtonLink></span>
     </form>
   );
 }

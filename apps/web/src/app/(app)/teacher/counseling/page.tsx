@@ -1,4 +1,5 @@
-import { Plus, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, Plus, ShieldCheck } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { ActivityList } from "@/components/counsel/activity-list";
 import { AiAttach } from "@/components/counsel/ai-attach";
@@ -70,6 +71,7 @@ export default async function CounselingPage({ searchParams }: Props) {
         ) : null}
 
         <div className="grid gap-4 md:grid-cols-[280px_1fr] md:gap-6 xl:grid-cols-[280px_1fr_300px]">
+          <div className={q.student ? "max-md:hidden" : undefined}>
           <StudentPicker
             selected={selected?.id ?? null}
             tab={tab}
@@ -77,9 +79,11 @@ export default async function CounselingPage({ searchParams }: Props) {
               id: s.id, name: s.name, label: `${s.grade}-${s.classNo}-${s.number}`, classKey: `${s.grade}-${s.classNo}`, count: counts.get(s.id) ?? 0,
             }))}
           />
+          </div>
 
           {selected ? (
             <Card className="min-w-0">
+              {q.student && <Link href="/teacher/counseling" className="-mt-1 mb-3 flex items-center gap-1 text-[13px] text-sub md:hidden"><ChevronLeft size={16} /> 학생 목록</Link>}
               <div className="mb-4 flex items-center gap-3">
                 <Avatar name={selected.name} size={48} />
                 <div className="min-w-0 flex-1">
@@ -122,8 +126,8 @@ export default async function CounselingPage({ searchParams }: Props) {
           )}
 
           {selected && (
-            <Card title="활동·초안" className="md:col-span-2 xl:col-span-1">
-              <ActivityList items={side} empty="아직 기록이 없어요" />
+            <Card title="활동·초안" className="hidden md:col-span-2 md:block xl:col-span-1">
+              <ActivityList items={side} empty="아직 기록이 없어요" compact />
             </Card>
           )}
         </div>

@@ -48,7 +48,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
         ) : (
           <div className="grid gap-4 md:grid-cols-2 md:gap-6">
             {summary.map((s) => (
-              <Link key={s.p.id} href={`/teacher/programs/${s.p.id}`} className="flex flex-col rounded-card bg-soft p-5 hover:bg-[#eceef1] md:p-6">
+              <Link key={s.p.id} href={`/teacher/programs/${s.p.id}`} className="flex flex-col surface rounded-card p-5 hover:bg-[#eceef1] md:p-6">
                 <div className="flex items-center gap-2">
                   <h2 className="min-w-0 flex-1 truncate text-[17px] font-bold">{s.p.title}</h2>
                   {s.status === "draft" ? <Tag>임시 저장</Tag> : s.status === "closed" ? <Tag tone="bg-white text-mute">마감</Tag> : <Tag>{ddayLabel(s.p.endDate, t)}</Tag>}

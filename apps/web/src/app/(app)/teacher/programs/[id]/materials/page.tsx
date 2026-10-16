@@ -75,7 +75,7 @@ export default async function MaterialsPage({ params, searchParams }: Props) {
         actions={
           <>
             <ButtonLink href={`/teacher/programs/${p.id}`} kind="outline" size="sm">{p.title}</ButtonLink>
-            <ButtonLink href={`/teacher/programs/${p.id}`} size="sm" className="hidden md:inline-flex">다음: 초안 만들기</ButtonLink>
+            <span className="hidden md:block"><ButtonLink href={`/teacher/programs/${p.id}`} size="sm">다음: 초안 만들기</ButtonLink></span>
           </>
         }
       />
@@ -90,16 +90,15 @@ export default async function MaterialsPage({ params, searchParams }: Props) {
                 <input type="hidden" name="programId" value={p.id} />
                 <input type="hidden" name="source" value={v} />
                 <button aria-pressed={p.source === v}
-                  className={cx("flex h-full w-full flex-col items-start gap-2 rounded-inner border-2 bg-white p-4 text-left", p.source === v ? "border-key" : "border-transparent hover:bg-key-soft")}>
-                  <span className="flex w-full items-center gap-2">
-                    <span className={cx("flex size-9 items-center justify-center rounded-field", p.source === v ? "bg-key text-white" : "bg-soft")}><I size={18} /></span>
-                    <span className="flex-1" />
-                    <span className={cx("flex size-5 items-center justify-center rounded-full border-2", p.source === v ? "border-key" : "border-hair")} aria-hidden>
-                      {p.source === v && <span className="size-2.5 rounded-full bg-key" />}
-                    </span>
+                  className={cx("grid h-full w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-inner border-2 bg-white p-4 text-left md:items-start", p.source === v ? "border-key" : "border-transparent hover:bg-key-soft")}>
+                  <span className={cx("col-start-1 row-start-1 flex size-9 items-center justify-center rounded-field", p.source === v ? "bg-key text-white" : "bg-soft")}><I size={18} /></span>
+                  <span className={cx("col-start-3 row-start-1 flex size-5 items-center justify-center rounded-full border-2", p.source === v ? "border-key" : "border-hair")} aria-hidden>
+                    {p.source === v && <span className="size-2.5 rounded-full bg-key" />}
                   </span>
-                  <span className="font-bold">{t}</span>
-                  <span className="text-[13px] text-mute">{d}</span>
+                  <span className="col-start-2 row-start-1 flex flex-col gap-1 md:col-span-3 md:col-start-1 md:row-start-2">
+                    <span className="font-bold">{t}</span>
+                    <span className="text-[13px] text-mute">{d}</span>
+                  </span>
                 </button>
               </form>
             ))}
@@ -108,10 +107,10 @@ export default async function MaterialsPage({ params, searchParams }: Props) {
 
         {docs ? (
           <Card title="학생 제출 서류 올리기">
-            <nav className="mb-4 flex w-fit gap-1 rounded-control bg-white p-1 text-[13px]">
+            <nav className="mb-4 flex gap-1 rounded-control bg-white p-1 text-[13px] md:w-fit">
               {MODES.map(([k, label]) => (
                 <Link key={k} href={`/teacher/programs/${p.id}/materials?mode=${k}`} aria-current={mode === k ? "page" : undefined}
-                  className={cx("rounded-chip px-3 py-1.5", mode === k ? "bg-soft font-bold text-ink" : "text-mute")}>{label}</Link>
+                  className={cx("flex-1 whitespace-nowrap rounded-chip px-2 py-1.5 text-center md:flex-none md:px-3", mode === k ? "bg-soft font-bold text-ink" : "text-mute")}>{label}</Link>
               ))}
             </nav>
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-6">

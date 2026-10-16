@@ -6,12 +6,12 @@ import type { Viewer } from "@/lib/domain/types";
 import { roleLabel } from "@/lib/domain/policy";
 import { logout } from "@/app/(auth)/actions";
 import { Avatar } from "@/components/ui";
-import { navFor, tabsFor } from "./nav";
+import { navFor, tabsFor, type NavBadges } from "./nav";
 import { SidebarLinks, TabBar } from "./nav-links";
-import { Yeongrang } from "./yeongrang";
+import { GuideButton, Yeongrang } from "./yeongrang";
 
 // D2 벤토 그리드: 흰 사이드바 + 흰 본문. 모바일은 하단 탭바.
-export function AppShell({ viewer, children, demo }: { viewer: Viewer; children: ReactNode; demo: boolean }) {
+export function AppShell({ viewer, children, demo, badges = {} }: { viewer: Viewer; children: ReactNode; demo: boolean; badges?: NavBadges }) {
   const name = viewer.kind === "student" ? viewer.student.name : `${viewer.teacher.name} 선생님`;
   return (
     <div className="min-h-dvh md:flex">
@@ -28,42 +28,51 @@ export function AppShell({ viewer, children, demo }: { viewer: Viewer; children:
             <div className="truncate text-xs text-mute">{roleLabel(viewer)}</div>
           </div>
         </div>
-        <SidebarLinks groups={navFor(viewer)} />
-        <form action={logout} className="mt-auto pt-6">
-          <button className="flex w-full items-center gap-2.5 rounded-control px-3.5 py-2.5 text-[15px] text-mute hover:bg-soft">
-            <LogOut size={20} strokeWidth={1.8} /> 로그아웃
-          </button>
-        </form>
+        <SidebarLinks groups={navFor(viewer, badges)} />
+        {/* 사용 가이드 (Figma 사이드바 아래 카드) → 영랑이 열기 */}
+        <div className="mt-auto pt-6">
+          <div className="rounded-inner bg-soft p-4">
+            <div className="text-[14px] font-bold">사용 가이드</div>
+            <div className="mt-0.5 text-[12px] text-mute">{viewer.kind === "student" ? "처음 쓰는 학생을 위한 안내" : "처음 쓰는 선생님을 위한 안내"}</div>
+            <GuideButton />
+          </div>
+          <form action={logout} className="pt-2">
+            <button className="flex w-full items-center gap-2.5 rounded-control px-3.5 py-2.5 text-[14px] text-mute hover:bg-soft">
+              <LogOut size={18} strokeWidth={1.8} /> 로그아웃
+            </button>
+          </form>
+        </div>
       </aside>
-      <div className="min-w-0 flex-1 pb-28 md:pb-0">
+      <div className="min-h-dvh min-w-0 flex-1 bg-bg pb-28 md:pb-0">
         {demo && (
           <div className="bg-wait-soft px-4 py-2 text-center text-xs text-[#9a6400]">
             데모 모드 · 가짜 데이터예요. 서버를 다시 켜면 처음 상태로 돌아가요
           </div>
         )}
-        {/* 모바일 머리: 로고 = 홈으로 */}
-        <div className="flex h-12 items-center border-b border-line bg-white px-4 md:hidden">
-          <Link href="/" className="flex items-center gap-2" aria-label="홈으로">
-            <Image src="/face.png" alt="" width={24} height={26} />
-            <Image src="/schs-logo.png" alt="속초고등학교 학생관리시스템" width={86} height={24} />
-          </Link>
-        </div>
         {children}
       </div>
       <TabBar tabs={tabsFor(viewer)} />
-      <Yeongrang />
+      <Yeongrang student={viewer.kind === "student"} />
     </div>
   );
 }
 
-/** 화면 머리: 제목 + 오른쪽 버튼. 경로 표시·부제는 쓰지 않는다 */
-export function PageHeader({ title, actions }: { title: string; actions?: ReactNode }) {
+/** 화면 머리: (작은 날짜·보조 줄) + 제목 + 오른쪽 버튼. Figma 홈 시안은 제목 위에 날짜("10월 16일 금요일")가 있다 */
+export function PageHeader({ title, actions, eyebrow }: { title: string; actions?: ReactNode; eyebrow?: string }) {
   return (
-    <header className="flex items-center gap-2.5 px-4 pb-2 pt-5 md:px-10 md:pt-8">
-      <h1 className="flex-1 text-xl font-bold md:text-[28px]">{title}</h1>
+    <header className="flex items-end gap-2.5 px-4 pb-2 pt-5 md:px-10 md:pt-8">
+      <div className="min-w-0 flex-1">
+        {eyebrow && <div className="mb-1 text-[13px] text-mute md:text-[14px]">{eyebrow}</div>}
+        <h1 className="text-xl font-bold md:text-[28px]">{title}</h1>
+      </div>
       {actions}
     </header>
   );
+}
+
+/** "10월 16일 금요일" (한국 시간) */
+export function todayLabel(now = new Date()): string {
+  return new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", weekday: "long" }).format(now);
 }
 
 export function PageBody({ children }: { children: ReactNode }) {

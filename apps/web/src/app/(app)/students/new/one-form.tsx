@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
+import { Plus } from "lucide-react";
 import { Avatar, Button, Card, Field, Row, Tag, Toggle } from "@/components/ui";
 import { registerOne, type OneState } from "../actions";
 
@@ -13,7 +14,7 @@ export function OneForm() {
     <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
       <Card title="학생 정보">
         {/* 추가에 성공하면 key가 바뀌어 입력칸이 비워진다 */}
-        <form key={added.length} action={action} className="flex flex-col gap-4">
+        <form id="one-form" key={added.length} action={action} className="flex flex-col gap-4">
           <Field name="name" label="이름" required maxLength={20} />
           <div className="flex flex-col gap-1.5">
             <span className="text-[13px] font-medium text-sub">학년</span>
@@ -32,10 +33,11 @@ export function OneForm() {
           </div>
           {state.problems && <p className="text-sm text-bad" role="alert">{state.problems.join(" · ")}</p>}
           {state.error && <p className="text-sm text-bad" role="alert">{state.error}</p>}
-          <Button disabled={pending || !gender}>{pending ? "추가하는 중…" : "추가하기"}</Button>
           <p className="text-[13px] text-mute">첫 비밀번호는 공통 인증코드로 발급되고, 첫 로그인 때 바꾸게 돼요</p>
         </form>
       </Card>
+      {/* 오른쪽 단 (Figma 78:3922): 방금 추가한 학생 → 가명ID·추가하기 */}
+      <div className="flex flex-col gap-4 md:gap-6">
       <Card title="방금 추가한 학생">
         {added.length === 0 ? (
           <p className="text-sm text-mute">아직 없어요</p>
@@ -45,6 +47,11 @@ export function OneForm() {
           ))
         )}
       </Card>
+      <Card>
+        <div className="flex text-sm"><span className="flex-1 text-mute">가명ID</span><span className="font-bold">자동 발급</span></div>
+        <Button form="one-form" className="mt-4 w-full" disabled={pending || !gender}><Plus size={16} /> {pending ? "추가하는 중…" : "추가하기"}</Button>
+      </Card>
+      </div>
     </div>
   );
 }

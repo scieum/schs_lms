@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useState, useTransition } from "react";
+import { Target } from "lucide-react";
 import { Button, Field, Tag } from "@/components/ui";
 import { careerKeywordsAction, changeMyPassword, updateCareer, type CareerKeywords, type MeState } from "./actions";
 
@@ -74,6 +75,6 @@ export function CareerToggle({ current, label = "희망 진로 바꾸기" }: { c
   return open ? (
     <div className="w-full max-w-sm"><CareerForm current={current} onDone={() => setOpen(false)} /></div>
   ) : (
-    <Button kind="outline" size="sm" onClick={() => setOpen(true)}>{label}</Button>
+    <Button kind="outline" size="sm" onClick={() => setOpen(true)} className="md:px-5 md:py-3 md:text-[15px]"><Target size={16} /> {label}</Button>
   );
 }

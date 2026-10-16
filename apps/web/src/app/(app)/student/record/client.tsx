@@ -7,7 +7,7 @@ import { nextYearAction, requestCorrection, summarizeMyRecord, type CorrectionSt
 
 export function PrintButton() {
   return (
-    <Button kind="outline" size="sm" onClick={() => window.print()} className="print:hidden">
+    <Button kind="outline" size="sm" onClick={() => window.print()} className="print:hidden md:px-5 md:py-3 md:text-[15px]">
       <Download size={16} /> PDF로 저장
     </Button>
   );

@@ -17,7 +17,7 @@ const MAX: Record<RecordArea, number> = { 자율활동: 500, 동아리활동: 50
 
 function RecordCard({ r }: { r: PastRecord }) {
   return (
-    <article className="rounded-card bg-soft p-5 md:p-6">
+    <article className="surface rounded-card p-5 md:p-6">
       <div className="mb-2 flex items-center gap-1.5">
         <Tag tone="bg-white text-sub">{r.area}</Tag>
         <Tag>확정</Tag>

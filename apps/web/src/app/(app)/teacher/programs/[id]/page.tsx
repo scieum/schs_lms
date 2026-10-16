@@ -1,29 +1,41 @@
 import Link from "next/link";
-import { ClipboardList, Download, FileText, Search, Upload } from "lucide-react";
-import { Bar } from "@/components/programs/meters";
+import { ClipboardList, Download, FileText, Search, Send, Upload } from "lucide-react";
+import { Bar, Ring } from "@/components/programs/meters";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { Avatar, Button, ButtonLink, Card, MetricTile, Tag, cx } from "@/components/ui";
+import { Avatar, Button, ButtonLink, Card, Tag, cx } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
 import { AREA_LABEL, ddayLabel, effectiveStatus, md, responseRate, usesDocs, usesSurvey } from "@/lib/domain/program";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { programRows, requireProgram, type StudentRow } from "../_lib/data";
 import { remindOne, setProgramStatus } from "./actions";
-import { AnalyzeBox, GenerateButton, RemindBox } from "./parts";
+import { AnalyzeBox, AutoSelect, GenerateButton, RemindBox } from "./parts";
 
 export const metadata = { title: "프로그램 상세 · 속초고등학교 학생관리시스템" };
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; cls?: string; q?: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; cls?: string; q?: string; src?: string; st?: string; page?: string }> };
 
 const TABS = [["all", "전체"], ["resp", "응답"], ["missing", "미제출"], ["failed", "생성 실패"]] as const;
+const PER_PAGE = 10;
 
-function statusTag(r: StudentRow) {
-  if (!r.hasEvidence) return r.missingReason ? <Tag tone="bg-white text-mute">사유 있음</Tag> : <Tag tone="bg-bad-soft text-bad">미제출</Tag>;
-  if (r.review === "검토 대기") return <Tag>생성 완료</Tag>;
-  if (r.review === "대기") return <Tag tone="bg-white text-mute">초안 전</Tag>;
-  return <Tag>{r.review}</Tag>;
+/** 초안 상태 이름 (태그·거르기 공통) */
+function statusName(r: StudentRow): string {
+  if (!r.hasEvidence) return r.missingReason ? "사유 있음" : "미제출";
+  if (r.review === "검토 대기") return "생성 완료";
+  if (r.review === "대기") return "초안 전";
+  return r.review;
 }
 
+function statusTag(r: StudentRow) {
+  const n = statusName(r);
+  if (n === "사유 있음" || n === "초안 전") return <Tag tone="bg-white text-mute">{n}</Tag>;
+  if (n === "미제출") return <Tag tone="bg-bad-soft text-bad">{n}</Tag>;
+  return <Tag>{n}</Tag>;
+}
+
+const pair = (o: string): [string, string] => [o, o];
+
+/** T2 프로그램 상세 (Figma 45:1636 PC · 45:1963 Mobile) */
 export default async function ProgramDetail({ params, searchParams }: Props) {
   const { id } = await params;
   const q = await searchParams;
@@ -51,30 +63,41 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
     if (tab === "missing" && r.hasEvidence) return false;
     if (tab === "failed" && r.review !== "생성 실패") return false;
     if (q.cls && `${r.student.grade}-${r.student.classNo}` !== q.cls) return false;
+    if (q.src && r.evidenceLabel !== q.src) return false;
+    if (q.st && statusName(r) !== q.st) return false;
     if (term && !r.student.name.includes(term)) return false;
     return true;
   });
+  const pages = Math.max(1, Math.ceil(shown.length / PER_PAGE));
+  const page = Math.min(pages, Math.max(1, Number(q.page) || 1));
+  const paged = shown.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const tabCount = { all: rows.length, resp: withEvidence, missing: rows.length - withEvidence, failed: failed.length };
-  const href = (k: string) => `/teacher/programs/${p.id}?tab=${k}${q.cls ? `&cls=${q.cls}` : ""}${term ? `&q=${encodeURIComponent(term)}` : ""}`;
+  const qs = (over: Record<string, string | undefined>) => {
+    const u = new URLSearchParams();
+    const all: Record<string, string | undefined> = { tab, cls: q.cls, src: q.src, st: q.st, q: term || undefined, ...over };
+    for (const [k, v] of Object.entries(all)) if (v) u.set(k, v);
+    return `/teacher/programs/${p.id}?${u.toString()}#status`;
+  };
   const lastReminder = reminders[0] ? new Date(reminders[0].createdAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
   const bundles = materials.filter((m) => m.status === "bundle").length;
   const needs = materials.filter((m) => m.status === "needs_review").length;
+  const qLabel = (i: number) => (p.questions[i].fixed ? `${p.questions[i].title} — ${p.questions[i].prompt}` : p.questions[i].prompt);
 
   return (
     <>
       <PageHeader
         title={p.title}
         actions={
-          <>
+          <div className="hidden gap-2 md:flex">
             <ButtonLink href={`/teacher/programs/${p.id}/materials`} kind="outline" size="sm"><ClipboardList size={14} /> 자료 관리</ButtonLink>
-            <ButtonLink href={`/teacher/drafts?program=${p.id}`} size="sm"><FileText size={14} /> <span className="hidden md:inline">초안 </span>검토<span className="hidden md:inline">하기</span></ButtonLink>
-          </>
+            <ButtonLink href={`/teacher/drafts?program=${p.id}`} size="sm"><FileText size={14} /> 초안 검토하기</ButtonLink>
+          </div>
         }
       />
       <PageBody>
-        <div className="-mt-2 flex flex-wrap items-center gap-1.5 text-[13px] text-mute md:-mt-4">
-          <span>{AREA_LABEL[p.area]}{p.subject ? ` ${p.subject}` : ""} · {md(p.startDate)} ~ {md(p.endDate)} · 대상 {rows.length}명</span>
-          {status === "draft" ? <Tag>임시 저장</Tag> : status === "closed" ? <Tag tone="bg-white text-mute">마감</Tag> : <Tag>{ddayLabel(p.endDate, t)}</Tag>}
+        <div className="-mt-3 flex flex-wrap items-center gap-1.5 text-[13px] text-mute md:-mt-6 md:text-sm md:text-sub">
+          <span>{AREA_LABEL[p.area]}{p.subject ? ` ${p.subject}` : ""}<span className="hidden md:inline"> · {md(p.startDate)} ~ {md(p.endDate)}</span> · 대상 {rows.length}명</span>
+          {status === "draft" ? <Tag>임시 저장</Tag> : status === "closed" ? <Tag tone="bg-soft text-mute">마감</Tag> : <Tag>{ddayLabel(p.endDate, t)}</Tag>}
         </div>
 
         {status === "draft" && (
@@ -86,19 +109,43 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
           </form>
         )}
 
-        {/* 숫자 타일 4개: 모두 같은 틀 (이름표 → 큰 숫자 → 한 줄 → 아래 버튼) */}
+        {/* 숫자 타일 4개: 응답률 고리 · 미응답 · 초안 상태 목록 · 근거 자료 목록 */}
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-4">
-          <MetricTile label={survey ? "응답률" : "제출률"} value={`${rate}`} unit="%" line={`${survey ? submitted : withEvidence} / ${rows.length}명`}
-            meter={<Bar pct={rate} className="w-full" />}
-            action={<ButtonLink href="#status" kind="outline" size="sm" className="w-full">학생별 현황</ButtonLink>} />
-          <MetricTile label="미응답" value={`${missing.length}`} unit="명" line={status === "open" ? `마감 ${ddayLabel(p.endDate, t)}` : status === "closed" ? "마감됨" : "발행 전"}
-            action={<ButtonLink href="#remind" kind="outline" size="sm" className="w-full">알림 보내기</ButtonLink>} />
-          <MetricTile label="초안" value={`${count("검토 대기") + count("확정") + count("반려")}`} unit="건"
-            line={<>생성 중 {count("생성 중")} · <span className={failed.length ? "font-bold text-bad" : ""}>실패 {failed.length}</span></>}
-            action={<GenerateButton programId={p.id} ready={ready} disabled={status === "draft"} />} />
-          <MetricTile label="근거 자료" value={`${withEvidence}`} unit="명"
-            line={[survey && `설문 ${submitted}`, docs && `서류 ${withDocs}`].filter(Boolean).join(" · ")}
-            action={<ButtonLink href={`/teacher/programs/${p.id}/materials`} kind="outline" size="sm" className="w-full">자료 관리</ButtonLink>} />
+          <div className="flex flex-col surface rounded-card p-4 md:px-5 md:py-5">
+            <div className="text-[13px] text-mute">{survey ? "응답률" : "제출률"}</div>
+            <div className="mt-3 flex items-center gap-4">
+              <Ring pct={rate} size={76} />
+              <div className="hidden md:block">
+                <div className="text-lg font-bold">{survey ? submitted : withEvidence} / {rows.length}명</div>
+                <div className="text-[12px] text-mute">{survey ? "설문 제출" : "자료 제출"} 기준</div>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col surface rounded-card p-4 md:px-5 md:py-5">
+            <div className="text-[13px] text-mute">미응답</div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-[28px] font-bold leading-tight md:text-[32px]">{missing.length}</span>
+              <span className="text-[15px] font-medium text-sub">명 · {status === "open" ? ddayLabel(p.endDate, t) : status === "closed" ? "마감" : "발행 전"}</span>
+            </div>
+            <div className="mt-auto hidden pt-3 md:block"><ButtonLink href="#remind" kind="outline" size="sm" className="w-full"><Send size={14} /> 알림 보내기</ButtonLink></div>
+          </div>
+          <div className="flex flex-col surface rounded-card p-4 md:px-5 md:py-5">
+            <div className="text-[13px] text-mute">초안 상태</div>
+            <dl className="mt-2 flex flex-col gap-1.5 text-[13px] md:text-sm">
+              <div className="flex"><dt className="flex-1 text-sub">생성 완료</dt><dd className="font-bold">{count("검토 대기") + count("확정") + count("반려")}건</dd></div>
+              <div className="flex"><dt className="flex-1 text-sub">생성 중</dt><dd className="font-bold">{count("생성 중")}건</dd></div>
+              <div className="flex"><dt className={cx("flex-1", failed.length ? "font-bold text-bad" : "text-sub")}>생성 실패</dt><dd className={cx("font-bold", failed.length > 0 && "text-bad")}>{failed.length}건</dd></div>
+            </dl>
+            <div className="mt-auto pt-3"><GenerateButton programId={p.id} ready={ready} disabled={status === "draft"} /></div>
+          </div>
+          <div className="flex flex-col surface rounded-card p-4 md:px-5 md:py-5">
+            <div className="text-[13px] text-mute">근거 자료</div>
+            <dl className="mt-2 flex flex-col gap-1.5 text-[13px] md:text-sm">
+              {survey && <div className="flex"><dt className="flex-1 text-sub">설문 응답</dt><dd className="font-bold">{submitted}명</dd></div>}
+              {docs && <div className="flex"><dt className="flex-1 text-sub">제출 서류</dt><dd className="font-bold">{withDocs}명</dd></div>}
+            </dl>
+            <Link href={`/teacher/programs/${p.id}/materials`} className="mt-auto hidden pt-3 text-[13px] font-medium text-sub md:block">자료 관리 ›</Link>
+          </div>
         </div>
 
         <RemindBox programId={p.id} missing={status === "open" ? missing.length : 0} aiOn={aiEnabled()} last={lastReminder} />
@@ -111,39 +158,39 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
         >
           <nav className="-mt-1 mb-3 flex gap-4 border-b border-line text-[14px]">
             {TABS.map(([k, label]) => (
-              <Link key={k} href={href(k)} aria-current={tab === k ? "page" : undefined}
-                className={cx("-mb-px border-b-2 pb-2", tab === k ? "border-key font-bold text-ink" : "border-transparent text-mute")}>
+              <Link key={k} href={qs({ tab: k, page: undefined })} aria-current={tab === k ? "page" : undefined}
+                className={cx("-mb-px border-b-2 pb-2", tab === k ? "border-key font-bold text-ink" : "border-transparent text-mute", k === "failed" && "hidden md:block")}>
                 {label} {tabCount[k]}
               </Link>
             ))}
           </nav>
-          <form className="mb-3 flex flex-wrap gap-2" action={`/teacher/programs/${p.id}`}>
+          <form className="mb-3 flex flex-wrap gap-2" action={`/teacher/programs/${p.id}#status`}>
             <input type="hidden" name="tab" value={tab} />
-            <select name="cls" defaultValue={q.cls ?? ""} className="h-10 rounded-field bg-white px-3 text-[13px] outline-none" aria-label="반">
-              <option value="">반: 전체</option>
-              {classes.map((c) => <option key={c} value={c}>{c.replace("-", "학년 ")}반</option>)}
-            </select>
-            <label className="flex h-10 min-w-40 flex-1 items-center gap-2 rounded-field bg-white px-3 md:max-w-72">
+            <div className="hidden gap-2 md:flex">
+              <AutoSelect name="cls" value={q.cls ?? ""} label="반" options={[["", "반: 전체"], ...classes.map((c): [string, string] => [c, `${c.replace("-", "학년 ")}반`])]} />
+              <AutoSelect name="src" value={q.src ?? ""} label="자료" options={[["", "자료: 전체"], ...[...new Set(rows.map((r) => r.evidenceLabel))].map(pair)]} />
+              <AutoSelect name="st" value={q.st ?? ""} label="초안 상태" options={[["", "초안 상태: 전체"], ...[...new Set(rows.map(statusName))].map(pair)]} />
+            </div>
+            <label className="flex h-9 min-w-40 flex-1 items-center gap-2 rounded-field bg-white px-3 md:max-w-64 md:flex-none md:w-64">
               <Search size={15} className="text-mute" />
               <input name="q" defaultValue={term} placeholder="학생 이름 검색" className="w-full bg-transparent text-[13px] outline-none" />
             </label>
-            <Button size="sm" kind="outline">찾기</Button>
           </form>
 
           <div className="hidden grid-cols-[minmax(0,1fr)_96px_72px_88px_168px_88px] items-center gap-3 rounded-inner bg-white px-4 py-2.5 text-[13px] text-mute md:grid">
             <span>학생</span><span className="text-center">근거 자료</span><span className="text-center">응답일</span><span className="text-center">초안 상태</span><span className="text-center">글자수</span><span />
           </div>
-          {shown.length === 0 ? (
+          {paged.length === 0 ? (
             <p className="py-8 text-center text-sm text-mute">해당하는 학생이 없어요</p>
           ) : (
             <ul>
-              {shown.map((r, i) => {
+              {paged.map((r, i) => {
                 const s = r.student;
                 const max = r.job?.max ?? p.max;
                 const unit = (r.job?.unit ?? p.unit) === "bytes" ? "B" : "자";
                 const draftHref = r.job ? `/teacher/drafts?d=${r.job.id}` : null;
                 return (
-                  <li key={s.id} className={cx("flex items-center gap-3 py-3 md:grid md:grid-cols-[minmax(0,1fr)_96px_72px_88px_168px_88px] md:px-4", i < shown.length - 1 && "border-b border-line")}>
+                  <li key={s.id} className={cx("flex items-center gap-3 py-3.5 md:grid md:grid-cols-[minmax(0,1fr)_96px_72px_88px_168px_88px] md:px-4", i < paged.length - 1 && "border-b border-line")}>
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <Avatar name={s.name} size={36} />
                       <div className="min-w-0">
@@ -166,7 +213,7 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
                     </div>
                     <div className="hidden justify-end md:flex">
                       {r.review === "생성 실패" && draftHref ? (
-                        <ButtonLink href={draftHref} size="sm" className="w-[76px] px-0">직접 작성</ButtonLink>
+                        <ButtonLink href={draftHref} size="sm" kind="soft" className="w-[76px] whitespace-nowrap px-0">직접 작성</ButtonLink>
                       ) : draftHref && r.latest ? (
                         <ButtonLink href={draftHref} size="sm" kind="outline" className="w-[76px] px-0">보기</ButtonLink>
                       ) : !r.hasEvidence && !r.missingReason && status === "open" ? (
@@ -182,6 +229,16 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
               })}
             </ul>
           )}
+          {pages > 1 && (
+            <nav className="mt-4 flex items-center justify-center gap-1 text-[13px]" aria-label="쪽 넘기기">
+              {page > 1 && <Link href={qs({ page: String(page - 1) })} className="px-2 py-1 text-mute" aria-label="앞 쪽">‹</Link>}
+              {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
+                <Link key={n} href={qs({ page: String(n) })} aria-current={n === page ? "page" : undefined}
+                  className={cx("flex size-8 items-center justify-center rounded-full", n === page ? "bg-key font-bold text-white" : "text-sub hover:bg-white")}>{n}</Link>
+              ))}
+              {page < pages && <Link href={qs({ page: String(page + 1) })} className="px-2 py-1 text-mute" aria-label="다음 쪽">›</Link>}
+            </nav>
+          )}
         </Card>
 
         <Card title="초안 근거 자료" action={<Link href={`/teacher/programs/${p.id}/materials`} className="text-[13px] font-medium text-sub">자료 관리 ›</Link>}>
@@ -190,9 +247,17 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
               <div className="flex flex-col gap-2.5 rounded-inner bg-white p-4">
                 <div className="flex items-center gap-2 font-bold"><ClipboardList size={16} /> <span className="flex-1">설문 응답</span><span>{submitted} / {rows.length}명</span></div>
                 <Bar pct={responseRate(rows.length, submitted)} />
-                <ol className="flex flex-col gap-1.5 text-[13px] text-sub">
-                  {p.questions.map((qq, i) => <li key={qq.id}>{i + 1}. {qq.fixed ? `${qq.title} — ${qq.prompt}` : qq.prompt}</li>)}
+                <ol className="hidden flex-col gap-1.5 text-[13px] text-sub md:flex">
+                  {p.questions.map((qq, i) => <li key={qq.id}>{i + 1}. {qLabel(i)}</li>)}
                 </ol>
+                {p.questions.length > 0 && (
+                  <div className="flex flex-col gap-1.5 text-[13px] text-sub md:hidden">
+                    <span>1. {qLabel(0)}</span>
+                    {p.questions.length > 1 && (
+                      <span>{p.questions.slice(1, 4).map((qq, i) => `${i + 2}. ${qq.fixed ? qq.title : qq.prompt.slice(0, 10)}`).join(" · ")}{p.questions.length > 4 ? ` 외 ${p.questions.length - 4}문항` : ""}</span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             {docs && (

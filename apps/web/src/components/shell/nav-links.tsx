@@ -25,11 +25,12 @@ export function SidebarLinks({ groups }: { groups: NavGroup[] }) {
                 aria-current={on ? "page" : undefined}
                 className={cx(
                   "flex items-center gap-2.5 rounded-control px-3.5 py-2.5 text-[15px]",
-                  on ? "bg-key-soft font-bold text-key-strong" : "text-sub hover:bg-soft",
+                  on ? "bg-soft font-bold text-ink" : "text-sub hover:bg-soft",
                 )}
               >
-                <Icon name={it.icon} className={on ? "text-key-strong" : "text-mute"} />
+                <Icon name={it.icon} className={on ? "text-ink" : "text-mute"} />
                 <span className="flex-1">{it.label}</span>
+                {it.badge ? <span className="min-w-6 rounded-full bg-key px-2 py-0.5 text-center text-[12px] font-bold text-white">{it.badge}</span> : null}
                 {!it.ready && <span className="text-[11px] text-faint">준비 중</span>}
               </Link>
             );
@@ -45,7 +46,7 @@ export function TabBar({ tabs }: { tabs: NavItem[] }) {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-white px-1.5 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2 md:hidden">
       {tabs.map((t) => {
-        const on = path === t.href;
+        const on = path === t.href || (t.href.split("/").length > 2 && path.startsWith(t.href + "/"));
         return (
           <Link key={t.href} href={t.href} className="flex flex-1 flex-col items-center gap-0.5 pt-1.5">
             <Icon name={t.icon} size={24} className={on ? "text-key" : "text-faint"} />

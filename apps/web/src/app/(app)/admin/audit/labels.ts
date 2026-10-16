@@ -41,7 +41,7 @@ const LABEL: Record<string, string> = {
   "student.ai.todo": "AI 할 일 정리", "material.ai.check": "AI 빠진 항목 점검", "scores.ai.analysis": "AI 성적 분석",
   "record.ai.next": "AI 다음 학년 주제", "offering.ai.combo": "AI 과목 조합 점검", "offering.ai.recommend": "AI 진로 맞춤 과목",
   "career.ai.keywords": "AI 진로 키워드", "admin.ai.daily": "AI 오늘 점검", "audit.ai.explain": "AI 이상 접근 설명",
-  "offering.ai.forecast": "AI 마감 예측", "account.ai.roster": "AI 명부 읽기", "course.ai.read": "AI 편제표 읽기",
+  "offering.ai.forecast": "AI 마감 예측", "account.ai.roster": "AI 명부 읽기", "course.ai.read": "AI 편제표 읽기", "yeongrang.ask": "영랑이 문의", "yeongrang.make": "영랑이 글 초안",
 };
 
 export function actionLabel(action: string): string {

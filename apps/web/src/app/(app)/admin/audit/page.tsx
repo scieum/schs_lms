@@ -39,9 +39,10 @@ export default async function AuditPage({ searchParams }: Props) {
   return (
     <>
       <PageHeader
+        eyebrow={period === "today" ? "오늘" : `최근 ${PERIODS.find(([k]) => k === period)?.[1] ?? ""}`}
         title="감사 로그"
         actions={
-          <ButtonLink href={`/admin/audit/export?${qs({})}`} prefetch={false} kind="outline" size="sm">
+          <ButtonLink href={`/admin/audit/export?${qs({})}`} prefetch={false} kind="outline" size="sm" className="md:px-5 md:py-3 md:text-[15px]">
             <Download size={16} />내보내기
           </ButtonLink>
         }
@@ -75,10 +76,10 @@ export default async function AuditPage({ searchParams }: Props) {
         </div>
 
         {days.length === 0 ? (
-          <section className="rounded-card bg-soft p-6 text-center text-sm text-mute">이 기간에 기록이 없어요</section>
+          <section className="surface rounded-card p-6 text-center text-sm text-mute">이 기간에 기록이 없어요</section>
         ) : (
           days.map(([day, list]) => (
-            <section key={day} className="rounded-card bg-soft p-5 md:p-6">
+            <section key={day} className="surface rounded-card p-5 md:p-6">
               <h2 className="mb-2 text-[17px] font-bold md:text-lg">{day}</h2>
               {list.map((r, i) => {
                 const group = actionGroup(r.action);

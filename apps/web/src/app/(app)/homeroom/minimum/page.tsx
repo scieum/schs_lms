@@ -3,7 +3,7 @@ import { Download, List } from "lucide-react";
 import { ClassPicker } from "@/components/scores/parts";
 import { classScope } from "@/components/scores/scope";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { ButtonLink, Card, Row, Segmented, StatTiles } from "@/components/ui";
+import { ButtonLink, Card, Row, Segmented } from "@/components/ui";
 import { countVerdicts, describeRule, examLabel, judgeMinimum, shortRule, sortExams, type Grades, type MinRule } from "@/lib/domain/scores";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
@@ -69,6 +69,14 @@ export default async function MinimumPage({ searchParams }: Props) {
   const c = countVerdicts(judged.map((r) => r.status));
   const nearCount = c["근접"];
   const nameOf = new Map(scope.students.map((s) => [s.id, s.name]));
+  const exportLink = exam ? `/homeroom/minimum/export?class=${scope.key}&exam=${exam.id}` : null;
+  const tiles: [string, string][] = [
+    ["판정 대상", `${judged.length}명`],
+    ["충족", `${c["충족"]}명`],
+    ["미충족", `${c["미충족"] + nearCount}명`],
+    ["자료 부족", `${c["자료 부족"] + c["판정 불가"]}명`],
+  ];
+  const activeExam = Math.max(0, withScores.findIndex((e) => e.id === exam?.id));
   const qs = (examId: string) => `/homeroom/minimum?class=${scope.key}&exam=${examId}`;
 
   return (
@@ -77,11 +85,6 @@ export default async function MinimumPage({ searchParams }: Props) {
         title="수능 최저 판정"
         actions={
           <>
-            {exam && (
-              <ButtonLink href={`/homeroom/minimum/export?class=${scope.key}&exam=${exam.id}`} kind="outline" size="sm" prefetch={false}>
-                <Download size={14} /> <span className="hidden md:inline">판정 결과 내려받기</span>
-              </ButtonLink>
-            )}
             <ButtonLink href="#rules" kind="outline" size="sm">
               <List size={14} /> <span className="hidden md:inline">대학 기준 관리</span>
             </ButtonLink>
@@ -90,14 +93,24 @@ export default async function MinimumPage({ searchParams }: Props) {
       />
       <PageBody>
         <ClassPicker classes={scope.classes} current={scope.key} path="/homeroom/minimum" />
-        <StatTiles
-          items={[
-            ["판정 대상", `${judged.length}명`],
-            ["충족", `${c["충족"]}명`],
-            ["미충족", `${c["미충족"] + nearCount}명`],
-            ["자료 부족", `${c["자료 부족"] + c["판정 불가"]}명`],
-          ]}
-        />
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-4">
+          {tiles.map(([k, val], i) => (
+            <div key={k} className="flex flex-col surface rounded-card p-4 md:px-[22px] md:py-5">
+              <div className="text-[13px] text-mute">{k}</div>
+              <div className="mt-1.5 text-[22px] font-bold md:text-[28px]">{val}</div>
+              {i === 0 && exportLink && (
+                <ButtonLink href={exportLink} size="sm" prefetch={false} className="mt-2.5 w-fit max-md:hidden">
+                  <Download size={14} /> 판정 결과 내려받기
+                </ButtonLink>
+              )}
+            </div>
+          ))}
+        </div>
+        {exportLink && (
+          <ButtonLink href={exportLink} prefetch={false} className="w-full md:hidden">
+            <Download size={16} /> 판정 결과 내려받기
+          </ButtonLink>
+        )}
         <CounselPanel
           classKey={scope.key}
           examId={exam?.id ?? ""}
@@ -106,16 +119,20 @@ export default async function MinimumPage({ searchParams }: Props) {
           names={Object.fromEntries(nameOf)}
         />
 
-        {withScores.length > 0 ? (
-          <div className="md:max-w-md">
-            <Segmented
-              active={Math.max(0, withScores.findIndex((e) => e.id === exam?.id))}
-              items={withScores.slice(0, 4).map((e, i) => ({ label: i === 0 ? e.name : examLabel(e), href: qs(e.id) }))}
-            />
-          </div>
-        ) : null}
-
-        <VerdictTable rows={rows} empty={!exam ? "아직 올린 모의고사 성적이 없어요" : null} />
+        <VerdictTable
+          rows={rows}
+          empty={!exam ? "아직 올린 모의고사 성적이 없어요" : null}
+          tabs={withScores.length > 0 ? (
+            <>
+              <div className="max-md:hidden">
+                <Segmented active={activeExam} items={withScores.slice(0, 4).map((e, i) => ({ label: i === 0 ? e.name : examLabel(e), href: qs(e.id) }))} />
+              </div>
+              <div className="md:hidden">
+                <Segmented active={Math.min(activeExam, 2)} items={withScores.slice(0, 3).map((e, i) => ({ label: i === 0 ? e.name : examLabel(e), href: qs(e.id) }))} />
+              </div>
+            </>
+          ) : undefined}
+        />
 
         {counsel && (
           <Card title="상담 명단" action={<span className="text-[13px] text-mute">{new Date(counsel.createdAt).toLocaleDateString("ko-KR")}</span>}>

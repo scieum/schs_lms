@@ -78,7 +78,7 @@ export default async function DraftsPage({ searchParams }: Props) {
 
     detail = (
       <>
-        <Card className="h-full min-w-0">
+        <Card className="pane-draft h-full min-w-0">
           <div className="mb-4 flex items-center gap-3">
             <Avatar name={s.name} size={40} />
             <div className="min-w-0 flex-1">
@@ -119,7 +119,7 @@ export default async function DraftsPage({ searchParams }: Props) {
           )}
         </Card>
 
-        <Card title="근거 자료" className="h-full min-w-0 md:col-start-2 xl:col-start-auto">
+        <Card title="근거 자료" className="pane-ev h-full min-w-0 md:col-start-2 xl:col-start-auto">
           {evidence.length === 0 && <p className="text-[13px] text-mute">근거 자료가 없어요</p>}
           {mats.length > 0 && (
             <div className="mb-4 flex flex-col gap-2">
@@ -194,8 +194,25 @@ export default async function DraftsPage({ searchParams }: Props) {
             </div>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)] md:gap-6 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
-            <Card title={`검토 ${TABS.find((t) => t[0] === tabKey)![1]} ${list.length}`} className="order-2 h-full md:order-none">
+          <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)] md:gap-6 xl:grid-cols-[260px_minmax(0,1fr)_300px] max-md:[&:has(#pane-ev:checked)_.pane-draft]:hidden max-md:[&:has(#pane-draft:checked)_.pane-ev]:hidden">
+            {/* 모바일: 대기 줄 + 초안/근거 자료 전환 (Figma 45:3106) */}
+            {sel && (
+              <div className="flex flex-col gap-2.5 md:hidden">
+                <div className="flex items-center text-[13px]">
+                  <a href="#queue" className="flex-1 truncate font-medium text-sub">{sel.student?.name ?? "학생"}{list.length > 1 ? ` 외 ${list.length - 1}명` : ""} {TABS.find((t) => t[0] === tabKey)![1]}</a>
+                  <span className="font-bold">{idx + 1} / {list.length}</span>
+                </div>
+                <div className="flex gap-1 rounded-full bg-soft p-1 text-sm" role="radiogroup">
+                  <label className="flex-1 cursor-pointer rounded-full py-2.5 text-center text-mute has-[:checked]:bg-white has-[:checked]:font-bold has-[:checked]:text-ink">
+                    <input type="radio" name="pane" id="pane-draft" defaultChecked className="sr-only" />초안
+                  </label>
+                  <label className="flex-1 cursor-pointer rounded-full py-2.5 text-center text-mute has-[:checked]:bg-white has-[:checked]:font-bold has-[:checked]:text-ink">
+                    <input type="radio" name="pane" id="pane-ev" className="sr-only" />근거 자료
+                  </label>
+                </div>
+              </div>
+            )}
+            <div id="queue" className="order-2 h-full scroll-mt-4 md:order-none"><Card title={`검토 ${TABS.find((t) => t[0] === tabKey)![1]} ${list.length}`} className="h-full">
               <nav className="mb-3 flex gap-1.5">
                 {TABS.map(([k, label]) => (
                   <Link key={k} href={base(`tab=${k}`)} className={cx("rounded-chip px-2.5 py-1.5 text-[13px]", tabKey === k ? "bg-key font-bold text-white" : "bg-white text-sub")}>{label} {count(k)}</Link>
@@ -223,7 +240,7 @@ export default async function DraftsPage({ searchParams }: Props) {
                   })}
                 </ul>
               )}
-            </Card>
+            </Card></div>
             {detail ?? <Card><p className="py-10 text-center text-sm text-mute">왼쪽에서 학생을 골라 주세요</p></Card>}
           </div>
         )}

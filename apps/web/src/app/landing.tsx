@@ -150,8 +150,8 @@ export function Landing() {
             <FloatCard title="생기부 초안 도착" line="30건 · 글자수 검사 통과" className="right-0 top-[30px]" />
             <FloatCard title="확정 대기" line="선생님 검토 3건" className="right-[24px] top-[230px]" />
             {/* 모바일 떠 있는 카드 2개 (Figma Mobile) */}
-            <MobileFloat title="진로 프로그램 설문" line="30명 중 30명 응답" className="left-[12px] top-[40px]" />
-            <MobileFloat title="생기부 초안 도착" line="30건 · 검사 통과" className="right-[58px] top-[150px]" />
+            <MobileFloat title="진로 프로그램 설문" line="30명 중 30명 응답" className="left-[4px] top-[8px]" />
+            <MobileFloat title="생기부 초안 도착" line="30건 · 검사 통과" className="right-[4px] top-[236px]" />
           </div>
         </div>
       </section>

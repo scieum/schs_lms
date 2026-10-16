@@ -92,13 +92,13 @@ export function SplitEditor({ programId, materialId, pages, students, aiOn, file
               </button>
               {ranges.length > 0 && <button type="button" onClick={() => setRanges([])} className="rounded-control px-2 py-1.5 text-mute">모두 지우기</button>}
             </div>
-            <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5">
+            <div className="grid grid-cols-4 gap-2 md:grid-cols-5 md:gap-2.5">
               {tiles.map((p) => {
                 const ri = covered.get(p);
                 const sel = p >= from && p <= to;
                 return (
                   <button key={p} type="button" onClick={() => clickPage(p)} className="flex flex-col items-center gap-1">
-                    <span className={cx("flex aspect-[3/4] w-full flex-col gap-1 rounded-inner border-2 bg-white p-2", sel ? "border-key" : ri !== undefined ? "border-key-soft" : "border-line")}>
+                    <span className={cx("flex aspect-[5/4] w-full flex-col gap-1 rounded-inner border-2 bg-white p-2", sel ? "border-key" : ri !== undefined ? "border-key-soft" : "border-line")}>
                       <span className={cx("h-1.5 w-2/3 rounded-full", ri !== undefined || sel ? "bg-[#c2caff]" : "bg-line")} />
                       {[0, 1, 2, 3].map((k) => <span key={k} className="h-1 w-full rounded-full bg-line" />)}
                       {ri !== undefined && <span className="mt-auto truncate text-[11px] font-medium text-key-strong">{byId.get(sorted[ri].studentId ?? "")?.label.split(" ").pop() ?? "미지정"}</span>}

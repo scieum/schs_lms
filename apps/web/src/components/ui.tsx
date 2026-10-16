@@ -7,7 +7,7 @@ const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).jo
 type BtnKind = "primary" | "outline" | "soft" | "ghost";
 const BTN: Record<BtnKind, string> = {
   primary: "bg-key text-white hover:bg-key-strong disabled:bg-faint",
-  outline: "bg-white text-ink border border-hair hover:bg-soft",
+  outline: "bg-[#fff] text-ink border border-hair hover:bg-soft",
   soft: "bg-key-soft text-key-strong hover:bg-[#e3e7ff]",
   ghost: "text-sub hover:bg-soft",
 };
@@ -22,7 +22,9 @@ export function Button({
     <button
       {...p}
       className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-control font-medium transition-colors disabled:cursor-not-allowed",
+        // "hidden md:inline-flex" 처럼 화면 크기별로 숨길 때는 기본 inline-flex 를 빼야 hidden 이 먹는다
+        /(^|\s)hidden(\s|$)/.test(className ?? "") ? "" : "inline-flex",
+        "items-center justify-center gap-1.5 rounded-control font-medium transition-colors disabled:cursor-not-allowed",
         size === "sm" ? "px-3.5 py-2 text-[13px]" : "px-5 py-3 text-[15px]",
         BTN[kind],
         className,
@@ -41,7 +43,9 @@ export function ButtonLink({
     <Link
       {...p}
       className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-control font-medium transition-colors",
+        // "hidden md:inline-flex" 처럼 화면 크기별로 숨길 때는 기본 inline-flex 를 빼야 hidden 이 먹는다
+        /(^|\s)hidden(\s|$)/.test(className ?? "") ? "" : "inline-flex",
+        "items-center justify-center gap-1.5 rounded-control font-medium transition-colors",
         size === "sm" ? "px-3.5 py-2 text-[13px]" : "px-5 py-3 text-[15px]",
         BTN[kind],
         className,
@@ -54,7 +58,7 @@ export function ButtonLink({
 const TONES: [RegExp, string][] = [
   [/실패|오류|잠김|누락|초과/, "bg-bad-soft text-bad"],
   [/^D-|마감/, "bg-due-soft text-due"],
-  [/중복|확인 필요|대기|생성 중/, "bg-wait-soft text-wait"],
+  [/중복|확인 필요|대기|생성 중|근접/, "bg-wait-soft text-wait"],
   [/완료|통과|정상|활성|확정|새로 추가/, "bg-ok-soft text-ok"],
   [/새로|AI|NEW/, "bg-new-soft text-new"],
 ];
@@ -65,7 +69,7 @@ export function Tag({ children, tone }: { children: string; tone?: string }) {
 
 export function Card({ title, action, children, className }: { title?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cx("rounded-card bg-soft p-5 md:p-6", className)}>
+    <section className={cx("surface rounded-card p-5 md:p-6", className)}>
       {title && (
         <div className="mb-4 flex items-center gap-2">
           <h2 className="flex-1 text-[17px] font-bold md:text-lg">{title}</h2>
@@ -82,7 +86,7 @@ export function StatTiles({ items }: { items: [string, string][] }) {
   return (
     <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-4">
       {items.map(([k, v]) => (
-        <div key={k} className="rounded-card bg-soft p-4 md:px-[22px] md:py-5">
+        <div key={k} className="surface rounded-card p-4 md:px-[22px] md:py-5">
           <div className="text-[13px] text-mute">{k}</div>
           <div className="mt-1.5 text-[22px] font-bold md:text-[28px]">{v}</div>
         </div>
@@ -95,7 +99,7 @@ export function StatTiles({ items }: { items: [string, string][] }) {
 /** 숫자 타일 (행동이 있는 것): 이름표 → 큰 숫자+단위 → 한 줄 → (막대) → 맨 아래 버튼. 한 줄에 놓인 타일은 모두 이것으로 써서 높이·위치를 맞춘다 */
 export function MetricTile({ label, value, unit, line, meter, action }: { label: string; value: string; unit?: string; line?: ReactNode; meter?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex min-h-[172px] flex-col rounded-card bg-soft p-4 md:px-[22px] md:py-5">
+    <div className="surface flex min-h-[172px] flex-col rounded-card p-4 md:px-[22px] md:py-5">
       <div className="text-[13px] text-mute">{label}</div>
       <div className="mt-1 text-[24px] font-bold leading-tight md:text-[28px]">{value}{unit && <span className="ml-0.5 text-[15px] font-medium text-sub">{unit}</span>}</div>
       <div className="mt-1 min-h-[19px] truncate text-[13px] text-sub">{line}</div>
@@ -107,7 +111,7 @@ export function MetricTile({ label, value, unit, line, meter, action }: { label:
 
 export function AiBanner({ title, line, action, label = "AI" }: { title: string; line: string; action?: ReactNode; label?: "AI" | "자동" }) {
   return (
-    <div className="flex items-center gap-3 rounded-inner bg-soft px-4 py-3.5 md:gap-4 md:px-5 md:py-4">
+    <div className="surface flex items-center gap-3 rounded-card px-4 py-3.5 md:gap-4 md:px-5 md:py-4">
       <span className={cx("rounded-chip px-2.5 py-1 text-xs font-bold", label === "AI" ? "bg-new-soft text-new" : "bg-key-soft text-key-strong")}>{label}</span>
       <div className="min-w-0 flex-1">
         <div className="text-[15px] font-bold">{title}</div>

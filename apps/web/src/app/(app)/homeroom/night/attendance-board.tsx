@@ -1,10 +1,9 @@
 "use client";
 import { useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check } from "lucide-react";
 import { Button, Card, cx, Tag } from "@/components/ui";
 import { nextAttend, PERIODS, type CellStatus, type Period } from "@/lib/domain/night";
-import { closeDay, markAttendance } from "./actions";
+import { markAttendance } from "./actions";
 
 type Cell = { id: string; name: string; number: number; status: CellStatus };
 
@@ -110,16 +109,10 @@ export function AttendanceBoard({ classKey, period, todayLabel, cells, closedAt,
       )}
 
       {error && <p className="mt-3 text-sm text-bad" role="alert">{error}</p>}
-      <div className="mt-4 flex items-center gap-3">
-        <p className="flex-1 text-[13px] text-mute">
+      <div className="mt-4">
+        <p className="text-[13px] text-mute">
           {locked ? `${todayLabel} 출석을 마감했어요` : unchecked > 0 ? `${todayLabel} · 아직 확인 안 한 학생 ${unchecked}명` : `${todayLabel} · 칸을 누르면 출석 → 결석 → 조퇴`}
         </p>
-        {!locked && !weekend && (
-          <form action={closeDay}>
-            <input type="hidden" name="class" value={classKey} />
-            <Button size="sm" disabled={pending}><Check size={14} /> 출석 마감하기</Button>
-          </form>
-        )}
       </div>
     </Card>
   );

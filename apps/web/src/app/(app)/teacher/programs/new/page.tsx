@@ -1,5 +1,5 @@
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { ButtonLink } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
 import { addDays } from "@/lib/domain/program";
 import { aiEnabled } from "@/lib/server/ai/claude";
@@ -16,7 +16,7 @@ export default async function NewProgramPage() {
   const end = addDays(t, 7);
   return (
     <>
-      <PageHeader title="프로그램 등록" actions={<ButtonLink href="/teacher/programs" kind="outline" size="sm">목록</ButtonLink>} />
+      <PageHeader title="프로그램 등록" actions={<span className="hidden md:block"><Button form="program-form" name="intent" value="draft" kind="outline" size="sm">임시 저장</Button></span>} />
       <PageBody>
         <ProgramForm
           today={t}

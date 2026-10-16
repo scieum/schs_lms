@@ -20,8 +20,8 @@ export function TargetEditor({ rules, initial }: { rules: Opt[]; initial: T[] })
 
   return (
     <>
-      <Button kind="outline" size="sm" onClick={() => setOpen(true)}>
-        <Target size={14} /> <span className="hidden md:inline">목표 대학 설정</span><span className="md:hidden">목표</span>
+      <Button kind="outline" size="sm" onClick={() => setOpen(true)} className="md:px-5 md:py-3 md:text-[15px]">
+        <Target size={16} /> <span className="hidden md:inline">목표 대학 설정</span><span className="md:hidden">목표</span>
       </Button>
       {open && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/30 md:items-center" role="dialog" aria-modal aria-label="목표 대학 설정">
