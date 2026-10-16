@@ -102,7 +102,7 @@ describe("초안 파이프라인", () => {
 describe("초안 자동 검사", () => {
   const range = resolveLength("세특", { unit: "chars", max: 100 });
   const people = [{ name: "김민준", studentNo: "20312" }];
-  const evidence = [{ label: "설문 Q1", text: "미세플라스틱 모래 시료를 현미경으로 관찰했어요" }];
+  const evidence = [{ label: "설문 Q1", text: "해변 세 곳의 모래 시료에서 미세플라스틱을 현미경으로 관찰하고 지점별 차이를 그래프로 정리해 발표했어요. 후속 조사도 하고 싶어요" }];
   it("통과하는 초안", () => {
     const t = "해변 세 곳의 모래 시료를 채취하여 미세플라스틱 입자를 현미경으로 관찰함. 지점별 차이를 그래프로 정리하여 발표함. 후속 조사 계획을 세움.";
     const c = checkDraft(t, { range, people, evidence });
@@ -115,6 +115,14 @@ describe("초안 자동 검사", () => {
     expect(c.ending.bad).toBe(2);
     expect(c.hardFail).toMatch(/실명/);
     expect(checkDraft("가".repeat(120) + "함.", { range, people, evidence }).hardFail).toBe("분량 초과");
+  });
+  it("프로그램 일반 설명만 쓴 초안은 근거 문장이 모자람", () => {
+    const t = "과학 탐구 발표 프로그램에 참여함. 모둠별로 주제를 정해 실험을 수행함. 성실하게 참여하는 모습을 보임.";
+    const c = checkDraft(t, { range, people, evidence });
+    expect(c.specific.grounded).toBeLessThan(2);
+    expect(c.specific.ok).toBe(false);
+    expect(c.weak).toBe(true);
+    expect(c.allOk).toBe(false);
   });
   it("낱말 뽑기", () => {
     expect(keywords("미세플라스틱을 현미경으로 관찰했어요")).toEqual(expect.arrayContaining(["미세플라스틱", "현미경"]));

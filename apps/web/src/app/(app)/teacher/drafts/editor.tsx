@@ -83,6 +83,7 @@ export function DraftEditor({
     [c.identity.ok, c.identity.ok ? "학번·실명 0건" : `${c.identity.found.join("·")} 있음`],
     [c.ending.ok, c.ending.ok ? "문장 어미 '~함.'" : `어미 확인 ${c.ending.bad}문장`],
     [c.evidence.ok, `근거 반영 ${c.evidence.hits.length}개`],
+    [c.specific.ok, `학생 근거 문장 ${c.specific.grounded}/${c.specific.total}`],
     [style.length === 0, style.length ? style.join(" · ") : "문체 규칙"],
   ];
 

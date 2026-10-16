@@ -383,12 +383,20 @@ export interface DraftCheck {
   identity: { ok: boolean; found: string[] };
   ending: { ok: boolean; bad: number; total: number };
   evidence: { ok: boolean; hits: string[]; total: number };
+  /** 학생 근거(설문 답·서류 글)의 낱말이 들어간 문장 수. 프로그램 일반 설명·상투어 문장은 여기서 빠진다 */
+  specific: { ok: boolean; grounded: number; total: number };
+  /** 근거는 넉넉한데 근거 문장이 너무 적다 → 다시 만들어 볼 만하다 */
+  weak: boolean;
   /** 다시 만들어야 하는 문제 (분량 초과·실명/학번·빈 글) */
   hardFail: string | null;
   allOk: boolean;
 }
 
 /** 초안 자동 검사: 글자수 범위 · 학번·실명 0건 · 어미 '~함.' · 근거 반영 */
+/** 근거 문장 비율: 이 아래면 검사에서 "확인 필요", 더 낮으면 다시 만든다 */
+export const SPECIFIC_MIN = 0.5;
+export const SPECIFIC_RETRY = 0.4;
+
 export function checkDraft(text: string, opts: { range: LengthRange; people: { name: string; studentNo: string }[]; evidence: EvidenceItem[] }): DraftCheck {
   const body = text.trim();
   const len = checkLength(body, opts.range);
@@ -398,15 +406,22 @@ export function checkDraft(text: string, opts: { range: LengthRange; people: { n
   const draftWords = new Set(keywords(body));
   const hits = opts.evidence.filter((e) => keywords(e.text).some((k) => draftWords.has(k) || body.includes(k))).map((e) => e.label);
   const needHits = Math.min(1, opts.evidence.length);
+  const evWords = new Set(opts.evidence.flatMap((e) => keywords(e.text)));
+  const grounded = ss.filter((s) => keywords(s).some((k) => evWords.has(k))).length;
+  const ratio = ss.length ? grounded / ss.length : 0;
+  const specific = { ok: evWords.size === 0 || ratio >= SPECIFIC_MIN, grounded, total: ss.length };
+  const weak = evWords.size >= 5 && ss.length > 0 && ratio < SPECIFIC_RETRY;
   const hardFail = !body ? "빈 초안" : len.reason === "too_long" ? "분량 초과" : found.length ? `${found.join("·")} 포함` : null;
   const result = {
     length: { ok: len.ok, value: len.value, reason: len.reason },
     identity: { ok: found.length === 0, found },
     ending: { ok: ss.length > 0 && bad === 0, bad, total: ss.length },
     evidence: { ok: hits.length >= needHits, hits, total: opts.evidence.length },
+    specific,
+    weak,
     hardFail,
   };
-  return { ...result, allOk: !hardFail && result.length.ok && result.ending.ok && result.evidence.ok };
+  return { ...result, allOk: !hardFail && result.length.ok && result.ending.ok && result.evidence.ok && specific.ok };
 }
 
 /** 분량을 넘으면 문장 단위로 뒤에서부터 잘라 맞춘다 (자르지 못하면 그대로) */
@@ -446,9 +461,7 @@ export function sampleDraft(input: {
   if (a2) out.push(`활동을 통해 '${clip(a2)}'라는 점을 배웠다고 밝힘.`);
   if (a3) out.push(`'${clip(a3)}'라는 소감에서 스스로 돌아보는 태도를 보임.`);
   if (a4) out.push(`후속 계획으로 '${clip(a4)}'를 제시하며 탐구를 이어가려는 의지를 보임.`);
-  if (input.careerGoal) out.push(`희망 진로인 ${input.careerGoal} 분야와 활동을 연결하여 의미를 해석함.`);
-  if (input.area === "세특") out.push("교과 개념을 실제 현상에 적용하여 설명하는 능력이 돋보임.");
-  else out.push("활동 전 과정에 성실하게 참여하는 모습을 보임.");
+  if (input.careerGoal && (a2 || a4)) out.push(`희망 진로인 ${input.careerGoal} 분야와 '${clip(a4 || a2, 30)}'를 연결하여 의미를 해석함.`);
   return fitToLength(out.join(" "), input.range);
 }
 

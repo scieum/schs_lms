@@ -73,7 +73,7 @@ export async function readMaterial(bytes: Uint8Array, mime: string): Promise<AiR
     model: "fast",
     system: `첨부한 문서는 고등학생이 낸 활동 서류(보고서·활동지·소감문)다.
 - studentName: 표지·머리말에 적힌 학생 이름, studentNo: 학번 숫자(예: 20312). 없으면 null
-- text: 본문 내용을 1200자 이내로 원문 표현을 살려 옮긴다 (요약하지 말고 중요한 문장 위주)`,
+- text: 본문 내용을 2500자 이내로 원문 표현을 살려 옮긴다. 요약하지 말고 학생이 고른 주제, 방법, 자료, 결과, 느낀 점·배운 점 문장 위주로`,
     content: [fileBlock(bytes, mime), { type: "text", text: "이 서류를 읽어 주세요." }],
   });
 }
