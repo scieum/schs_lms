@@ -42,6 +42,7 @@ export async function aiJson<S extends z.ZodType>(
       output_config: { format: zodOutputFormat(schema) },
     });
     if (res.stop_reason === "refusal") return { ok: false, error: "AI가 이 요청을 처리하지 못했어요. 직접 입력해 주세요" };
+    if (!res.parsed_output && res.stop_reason === "max_tokens") return { ok: false, error: "내용이 많아 AI 답이 중간에 끊겼어요. 쪽을 나눠 올려 주세요" };
     if (!res.parsed_output) return { ok: false, error: "AI 답을 읽지 못했어요. 다시 눌러 주세요" };
     return { ok: true, data: res.parsed_output as z.infer<S> };
   } catch (e) {

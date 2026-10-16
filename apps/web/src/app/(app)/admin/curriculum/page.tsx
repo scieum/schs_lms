@@ -9,6 +9,8 @@ import { archiveCourse } from "./actions";
 import { AddCourseForm } from "./add-course-form";
 
 export const metadata = { title: "편제표 · 속초고등학교 학생관리시스템" };
+// AI 편제표 읽기(서버 액션)가 오래 걸릴 수 있다 (웹 함수 기본 시간보다 길게)
+export const maxDuration = 300;
 
 type Props = { searchParams: Promise<{ grade?: string }> };
 

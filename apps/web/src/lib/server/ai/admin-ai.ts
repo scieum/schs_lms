@@ -92,8 +92,9 @@ export async function readCurriculum(bytes: Uint8Array, mime: string): Promise<A
   const r = await aiJson(
     z.object({ rows: z.array(z.object({ grade: z.number().int(), semester: z.number().int(), subject: z.string(), credits: z.number().int(), group: z.string().nullable() })) }),
     {
-      model: "fast",
-      maxTokens: 8000,
+      // 표가 촘촘하고 과목이 많아 정확한 모델 + 긴 답으로 읽는다
+      model: "write",
+      maxTokens: 16000,
       system: `첨부한 문서는 고등학교 교육과정 편제표다. 학년·학기별로 개설한 과목을 모두 뽑는다.
 - grade: 학년(1~3), semester: 학기(1~2), subject: 과목 이름(표에 적힌 그대로), credits: 그 학기 학점(단위 수)
 - group: 교과(군) — 국어, 수학, 영어, 사회, 과학, 체육, 예술, 기술·가정/정보, 제2외국어/한문, 교양 중 하나. 모르면 null

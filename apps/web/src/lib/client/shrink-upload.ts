@@ -1,0 +1,54 @@
+"use client";
+import { PDFDocument } from "pdf-lib";
+
+// 웹(Vercel)은 서버로 보내는 요청이 4.5MB를 넘으면 받지 못한다.
+// 큰 PDF는 쪽 단위로 나눠 여러 번 보내고, 큰 사진은 줄여서 보낸다. 각 조각은 LIMIT 아래로.
+export const UPLOAD_LIMIT = 3.5 * 1024 * 1024;
+
+/** PDF → LIMIT 아래 조각들 (쪽 순서 유지). 한 쪽이 LIMIT 를 넘으면 그 쪽만 따로 */
+export async function splitPdf(file: File, limit = UPLOAD_LIMIT): Promise<File[]> {
+  if (file.size <= limit) return [file];
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  const total = src.getPageCount();
+  const parts: File[] = [];
+  let start = 0;
+  while (start < total) {
+    let end = start + 1;
+    let best: Uint8Array | null = null;
+    // 한 쪽씩 늘려 보며 LIMIT 안에 들어가는 만큼 묶는다
+    while (end <= total) {
+      const doc = await PDFDocument.create();
+      const pages = await doc.copyPages(src, Array.from({ length: end - start }, (_, i) => start + i));
+      pages.forEach((p) => doc.addPage(p));
+      const bytes = await doc.save();
+      if (bytes.length > limit && best) break;
+      best = bytes;
+      if (bytes.length > limit) { end++; break; }
+      end++;
+    }
+    const last = end - 1;
+    parts.push(new File([best as BlobPart], `${file.name.replace(/\.pdf$/i, "")}_${start + 1}-${last}.pdf`, { type: "application/pdf" }));
+    start = last;
+  }
+  return parts;
+}
+
+/** 큰 사진 → 긴 변 2400px JPEG 로 줄이기 */
+export async function shrinkImage(file: File, limit = UPLOAD_LIMIT): Promise<File> {
+  if (file.size <= limit) return file;
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bmp.width * scale);
+  canvas.height = Math.round(bmp.height * scale);
+  canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.85));
+  return blob ? new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" }) : file;
+}
+
+/** 올릴 파일 → 보낼 조각들 */
+export async function prepareUpload(file: File): Promise<File[]> {
+  if (file.type === "application/pdf") return splitPdf(file);
+  if (file.type.startsWith("image/")) return [await shrinkImage(file)];
+  return [file];
+}

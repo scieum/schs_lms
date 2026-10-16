@@ -76,7 +76,7 @@ export async function readCurriculumAction(form: FormData): Promise<ImportPrevie
   const f = form.get("file");
   if (f instanceof File && f.size > 0) {
     if (!FILE_TYPES.includes(f.type)) return { ok: false, error: "PDF, JPG, PNG 파일만 읽을 수 있어요" };
-    if (f.size > MAX_BYTES) return { ok: false, error: "20MB까지 읽을 수 있어요" };
+    if (f.size > MAX_BYTES) return { ok: false, error: "파일이 너무 커요. 쪽을 나눠 올려 주세요" };
     if (!aiEnabled()) return { ok: false, error: "AI가 꺼져 있어요. 표를 글로 붙여 넣거나 한 과목씩 추가해 주세요" };
     const r = await readCurriculum(new Uint8Array(await f.arrayBuffer()), f.type);
     await repo.audit(v.accountId, "course.ai.read", `${r.ok ? r.data.length : 0}과목`);
