@@ -1,33 +1,32 @@
 import { LogOut } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { Avatar, Button, Card, Row } from "@/components/ui";
+import { Button, Card, Row } from "@/components/ui";
 import { roleLabel } from "@/lib/domain/policy";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireViewer } from "@/lib/server/viewer";
+import { repo } from "@/lib/server/repo";
+import { isLockedMenu, navFor } from "@/components/shell/nav";
+import { MenuToggles, ProfilePhoto } from "./settings";
 import { CareerForm, PasswordForm } from "./forms";
 
 export const metadata = { title: "내 정보 · 속초고등학교 학생관리시스템" };
 
-/** 내 정보 (학생·교사 공통): 이름·역할, 희망 진로(학생), 비밀번호, 로그아웃 */
+/** 내 정보 · 설정 (Figma N14, 학생·교사 공통): 프로필 사진, 이름·역할, 희망 진로(학생), 메뉴 보이기, 비밀번호, 로그아웃 */
 export default async function MePage() {
   const v = await requireViewer();
   const name = v.kind === "student" ? v.student.name : `${v.teacher.name} 선생님`;
+  const prefs = await repo.getPrefs(v.accountId).catch(() => ({ avatar: null, hiddenMenus: [] as string[] }));
+  const menus = navFor(v).map((g) => ({ label: g.label, items: g.items.map((it) => ({ label: it.label, href: it.href, icon: it.icon, locked: isLockedMenu(it) })) }));
 
   return (
     <>
-      <PageHeader title="내 정보" />
+      <PageHeader title="내 정보 · 설정" />
       <PageBody>
-        <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+        <div className={v.kind === "teacher" ? "grid items-start gap-4 md:grid-cols-[440px_1fr] md:gap-6" : "grid gap-4 md:grid-cols-2 md:gap-6"}>
           <div className="flex flex-col gap-4 md:gap-6">
             <Card>
-              <div className="flex items-center gap-3.5">
-                <Avatar name={name} size={52} />
-                <div className="min-w-0">
-                  <div className="truncate text-lg font-bold">{name}</div>
-                  <div className="truncate text-[13px] text-mute">{roleLabel(v)}</div>
-                </div>
-              </div>
+              <ProfilePhoto name={name} role={roleLabel(v)} avatar={prefs.avatar} />
               <div className="mt-4">
                 {v.kind === "student" ? (
                   <>
@@ -48,13 +47,18 @@ export default async function MePage() {
                 <CareerForm current={v.student.careerGoal} assist aiOn={aiEnabled()} />
               </Card>
             )}
+            <Card title="비밀번호 바꾸기">
+              <PasswordForm />
+            </Card>
             <form action={logout}>
               <Button kind="outline" className="w-full"><LogOut size={18} /> 로그아웃</Button>
             </form>
           </div>
-          <Card title="비밀번호 바꾸기" className="h-full">
-            <PasswordForm />
-          </Card>
+          {v.kind === "teacher" && (
+            <Card title="메뉴 보이기">
+              <MenuToggles groups={menus} hidden={prefs.hiddenMenus} />
+            </Card>
+          )}
         </div>
       </PageBody>
     </>

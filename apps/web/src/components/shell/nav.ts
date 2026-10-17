@@ -3,7 +3,7 @@ import type { Viewer } from "@/lib/domain/types";
 // 역할별 메뉴. 교사는 역할이 여러 개면 그룹이 합쳐진다 (관리자 = 모든 권한 교사).
 export type IconName =
   | "home" | "file" | "clipboard" | "users" | "chat" | "userPlus" | "chart" | "target" | "moon"
-  | "book" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user" | "calendar" | "presentation" | "send" | "share";
+  | "book" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user" | "calendar" | "presentation" | "send" | "share" | "layers";
 
 export interface NavItem { label: string; href: string; icon: IconName; ready?: boolean; badge?: number; /** 탭: 이 경로로 시작하면 켜짐 */ match?: string[] }
 /** 사이드바 숫자 배지 (Figma: 초안 검토 12, 오류 처리 2, 설문·서류 제출 2) — href 기준 */
@@ -65,6 +65,7 @@ function baseNav(v: Viewer): NavGroup[] {
       I("담당 학생", "/students", "users"),
       I("상담 기록", "/teacher/counseling", "chat"),
       I("누가기록", "/teacher/logs", "file"),
+      I("생기부 조각", "/teacher/pieces", "layers"),
       I("학생 등록", "/students/new", "userPlus"),
     ] },
   ];
@@ -136,3 +137,21 @@ export const HOMEROOM_MENU: { label: string; items: NavItem[] }[] = [
     { label: "야간 자율학습", href: "/homeroom/night", icon: "moon" },
   ] },
 ];
+
+// ---------- 메뉴 숨기기 (내 정보 · 설정, Figma N14) ----------
+// 숨긴 메뉴는 사이드바·탭바에서만 빠진다. 주소로는 그대로 들어갈 수 있다. 홈과 내 정보는 숨길 수 없다.
+
+export const isLockedMenu = (it: Pick<NavItem, "label" | "href">) => it.label === "홈" || it.href === "/me";
+
+export function hideMenus(groups: NavGroup[], hidden: string[]): NavGroup[] {
+  if (!hidden.length) return groups;
+  const h = new Set(hidden);
+  return groups
+    .map((g) => ({ ...g, items: g.items.filter((it) => isLockedMenu(it) || !h.has(it.href)) }))
+    .filter((g) => g.items.length);
+}
+
+export function hideTabs(tabs: NavItem[], hidden: string[]): NavItem[] {
+  const h = new Set(hidden);
+  return tabs.filter((t) => isLockedMenu(t) || t.label === "MY" || !h.has(t.href));
+}

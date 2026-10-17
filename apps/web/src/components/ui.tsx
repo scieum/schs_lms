@@ -135,7 +135,10 @@ export function Row({ lead, title, meta, right, last }: { lead?: ReactNode; titl
   );
 }
 
-export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
+export function Avatar({ name, size = 40, src }: { name: string; size?: number; src?: string | null }) {
+  // 프로필 사진 (내 정보 · 설정에서 올린 256px 정사각 이미지)
+  // eslint-disable-next-line @next/next/no-img-element
+  if (src) return <img src={src} alt="" width={size} height={size} className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />;
   return (
     <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-white font-bold text-sub" style={{ width: size, height: size, fontSize: size * 0.4 }}>
       {name.slice(0, 1)}

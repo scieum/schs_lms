@@ -1,5 +1,6 @@
 "use client";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import { Combine, Copy, Plus, RotateCcw, X } from "lucide-react";
 import { Button, Tag, cx } from "@/components/ui";
 import { measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
@@ -40,7 +41,9 @@ export function AiDraftPanel({
 }) {
   const [memo, setMemo] = useState(initialMemo);
   const [blocks, setBlocks] = useState<KeywordBlock[]>(() => parseKeywordMemo(initialMemo) ?? [{ ...EMPTY }]);
-  const [mode, setMode] = useState<"memo" | "keywords" | "files" | "merge">(() => (parseKeywordMemo(initialMemo) ? "keywords" : "memo"));
+  // ?panel=merge 로 들어오면(생기부 조각 화면의 '합치기') 합치기 탭을 열어 둔다
+  const startMerge = useSearchParams().get("panel") === "merge" && !!merge;
+  const [mode, setMode] = useState<"memo" | "keywords" | "files" | "merge">(() => (startMerge ? "merge" : parseKeywordMemo(initialMemo) ? "keywords" : "memo"));
   const [files, setFiles] = useState<EvidenceItem[]>([]);
   const [extra, setExtra] = useState("");
   const reading = files.some((f) => f.state === "reading");
@@ -55,7 +58,12 @@ export function AiDraftPanel({
     setMode("merge");
     if (pieces || !merge) return;
     merge.load().then((ps) => { setPieces(ps); setPicked(new Set(["body", ...ps.map((x) => x.id)])); }).catch(() => setPieces([]));
-  }
+  }  useEffect(() => {
+    if (startMerge && !pieces) merge!.load().then((ps) => { setPieces(ps); setPicked(new Set(["body", ...ps.map((x) => x.id)])); }).catch(() => setPieces([]));
+    // 처음 한 번만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const input = mode === "keywords" ? composeKeywordMemo(blocks) : mode === "files" ? [extra.trim(), evidenceMemo(files)].filter(Boolean).join("\n\n") : memo;
   const setBlock = (i: number, k: keyof KeywordBlock, v: string) => setBlocks((bs) => bs.map((b, j) => (j === i ? { ...b, [k]: v } : b)));
   const [result, setResult] = useState<Extract<AiDraftResult, { ok: true }> | null>(null);

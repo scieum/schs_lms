@@ -8,6 +8,7 @@ import { careerKeywords } from "@/lib/server/ai/student-ai";
 import { env } from "@/lib/server/env";
 import { repo } from "@/lib/server/repo";
 import { requireCan, requireViewer } from "@/lib/server/viewer";
+import { isLockedMenu, navFor } from "@/components/shell/nav";
 
 export type MeState = { error?: string; ok?: number };
 
@@ -52,4 +53,37 @@ export async function careerKeywordsAction(text: string): Promise<CareerKeywords
   await repo.audit(v.accountId, "career.ai.keywords", `${v.student.pseudonymId} ${r.label}`);
   if (!r.fields.length && !r.goal) return { ok: false, error: "맞는 분야를 찾지 못했어요. 조금 더 구체적으로 써 볼까요?" };
   return { ok: true, fields: r.fields, goal: r.goal, label: r.label, note: r.error ? "AI가 답하지 않아 규칙으로 정리했어요" : undefined };
+}
+
+// ---------- 설정 (Figma N14): 프로필 사진 · 메뉴 보이기 ----------
+
+export type PrefsResult = { ok: true } | { ok: false; error: string };
+
+/** 프로필 사진: 브라우저가 256px 정사각으로 줄인 data URL. null 이면 지운다 */
+export async function saveAvatar(avatar: string | null): Promise<PrefsResult> {
+  const v = await requireViewer();
+  if (avatar !== null && (!/^data:image\/(webp|png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(avatar) || avatar.length > 300_000)) {
+    return { ok: false, error: "사진을 읽지 못했어요. 다른 사진으로 해 주세요" };
+  }
+  try {
+    await repo.setAvatar(v.accountId, avatar);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "저장하지 못했어요" };
+  }
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** 숨긴 메뉴: 내 사이드바에 있는 메뉴만, 홈·내 정보는 뺀다 */
+export async function saveHiddenMenus(hrefs: string[]): Promise<PrefsResult> {
+  const v = await requireViewer();
+  const allowed = new Set(navFor(v).flatMap((g) => g.items).filter((it) => !isLockedMenu(it)).map((it) => it.href));
+  const clean = [...new Set(hrefs)].filter((h) => allowed.has(h)).slice(0, 100);
+  try {
+    await repo.setHiddenMenus(v.accountId, clean);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "저장하지 못했어요" };
+  }
+  revalidatePath("/", "layout");
+  return { ok: true };
 }

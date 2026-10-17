@@ -7,7 +7,8 @@ import type { Viewer } from "@/lib/domain/types";
 import { roleLabel } from "@/lib/domain/policy";
 import { logout } from "@/app/(auth)/actions";
 import { Avatar } from "@/components/ui";
-import { navFor, tabsFor, type NavBadges } from "./nav";
+import { hideMenus, hideTabs, navFor, tabsFor, type NavBadges } from "./nav";
+import { repo } from "@/lib/server/repo";
 import { SidebarLinks, TabBar } from "./nav-links";
 import { SIDEBAR_COOKIE, SidebarFrame } from "./sidebar-frame";
 import { GuideButton, Yeongrang } from "./yeongrang";
@@ -16,6 +17,8 @@ import { GuideButton, Yeongrang } from "./yeongrang";
 export async function AppShell({ viewer, children, demo, badges = {} }: { viewer: Viewer; children: ReactNode; demo: boolean; badges?: NavBadges }) {
   const mini = (await cookies()).get(SIDEBAR_COOKIE)?.value === "mini";
   const name = viewer.kind === "student" ? viewer.student.name : `${viewer.teacher.name} 선생님`;
+  // 프로필 사진·숨긴 메뉴 (내 정보 · 설정). DB 업데이트(0018) 전이면 빈 설정
+  const prefs = await repo.getPrefs(viewer.accountId).catch(() => ({ avatar: null, hiddenMenus: [] as string[] }));
   return (
     <div className="min-h-dvh md:flex">
       <SidebarFrame initialMini={mini}>
@@ -25,13 +28,13 @@ export async function AppShell({ viewer, children, demo, badges = {} }: { viewer
           <Image src="/schs-logo.png" alt="속초고등학교 학생관리시스템" width={100} height={28} priority className="group-data-[mini=true]/side:hidden" />
         </Link>
         <div className="flex items-center gap-2.5 rounded-control bg-soft py-2 pl-2 pr-3.5 group-data-[mini=true]/side:hidden">
-          <Avatar name={name} size={34} />
+          <Avatar name={name} size={34} src={prefs.avatar} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-bold">{name}</div>
             <div className="truncate text-xs text-mute">{roleLabel(viewer)}</div>
           </div>
         </div>
-        <SidebarLinks groups={navFor(viewer, badges)} />
+        <SidebarLinks groups={hideMenus(navFor(viewer, badges), prefs.hiddenMenus)} />
         {/* 사용 가이드 (Figma 사이드바 아래 카드) → 영랑이 열기 */}
         <div className="mt-auto pt-6">
           <div className="rounded-inner bg-soft p-4 group-data-[mini=true]/side:hidden">
@@ -55,7 +58,7 @@ export async function AppShell({ viewer, children, demo, badges = {} }: { viewer
         )}
         {children}
       </div>
-      <TabBar tabs={tabsFor(viewer)} />
+      <TabBar tabs={hideTabs(tabsFor(viewer), prefs.hiddenMenus)} />
       <Yeongrang student={viewer.kind === "student"} />
     </div>
   );
