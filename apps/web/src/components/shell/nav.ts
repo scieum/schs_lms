@@ -3,7 +3,7 @@ import type { Viewer } from "@/lib/domain/types";
 // 역할별 메뉴. 교사는 역할이 여러 개면 그룹이 합쳐진다 (관리자 = 모든 권한 교사).
 export type IconName =
   | "home" | "file" | "clipboard" | "users" | "chat" | "userPlus" | "chart" | "target" | "moon"
-  | "book" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user" | "calendar" | "presentation";
+  | "book" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user" | "calendar" | "presentation" | "send";
 
 export interface NavItem { label: string; href: string; icon: IconName; ready?: boolean; badge?: number; /** 탭: 이 경로로 시작하면 켜짐 */ match?: string[] }
 /** 사이드바 숫자 배지 (Figma: 초안 검토 12, 오류 처리 2, 설문·서류 제출 2) — href 기준 */
@@ -50,6 +50,7 @@ function baseNav(v: Viewer): NavGroup[] {
       I("홈", home, "home"),
       I("학사일정", "/schedule", "calendar"),
       I("초안 검토", "/teacher/drafts", "file"),
+      I("나이스 입력", "/teacher/neis", "send"),
       I("프로그램", "/teacher/programs", "clipboard"),
       I("봉사 확인서", "/teacher/service", "shield"),
     ] },

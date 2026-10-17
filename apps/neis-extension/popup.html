@@ -6,54 +6,63 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
+  <!-- Figma N9-2 213:2215 (빈 상태) · 213:2239 (불러온 상태) -->
   <header>
-    <img src="icon128.png" alt="" width="28" height="28" />
+    <span class="logo" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 21.7a.5.5 0 0 0 .9-.1l6.5-19a.5.5 0 0 0-.6-.6l-19 6.5a.5.5 0 0 0-.1.9l7.9 3.2a2 2 0 0 1 1.2 1.2z"/><path d="m21.9 2.1-10.9 10.9"/></svg></span>
     <strong>나이스 입력 도우미</strong>
+    <span class="ver" id="ver">v0.2</span>
+    <button id="clear" class="ghost" type="button" hidden>지우기</button>
   </header>
 
-  <section id="load">
-    <label class="file">
-      <input type="file" id="file" accept=".json,application/json" />
-      <span>내보낸 세특 파일 불러오기</span>
-    </label>
-    <p class="hint">학생관리시스템 › 교과 세특 › 나이스로 내보내기</p>
-  </section>
+  <main>
+    <section id="load">
+      <div class="tiles">
+        <button id="paste" type="button" class="tile key">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+          붙여넣기
+        </button>
+        <label class="tile">
+          <input type="file" id="file" accept=".json,application/json" />
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>
+          파일 불러오기
+        </label>
+      </div>
+      <p class="hint">학생관리시스템 › 나이스 입력 › 복사</p>
+      <div id="loadMsg" class="msg"></div>
+    </section>
 
-  <section id="data" hidden>
-    <div class="card">
-      <div class="row"><b id="subject"></b><button id="clear" class="ghost" type="button">지우기</button></div>
-      <div class="muted" id="meta"></div>
-    </div>
+    <section id="data" hidden>
+      <div class="card">
+        <div class="row"><b id="subject"></b><span class="chip" id="kind"></span></div>
+        <div class="muted" id="meta"></div>
+      </div>
 
-    <label class="field">반
-      <select id="classNo"></select>
-    </label>
+      <div class="controls">
+        <label class="select" id="classField"><span>반</span><select id="classNo"></select></label>
+        <div class="seg" role="radiogroup" aria-label="넣는 방식">
+          <label><input type="radio" name="mode" value="overwrite" checked /> 덮어쓰기</label>
+          <label><input type="radio" name="mode" value="append" /> 이어쓰기</label>
+        </div>
+      </div>
 
-    <div class="seg" role="radiogroup" aria-label="넣는 방식">
-      <label><input type="radio" name="mode" value="overwrite" checked /> 덮어쓰기</label>
-      <label><input type="radio" name="mode" value="append" /> 이어쓰기</label>
-    </div>
+      <div class="listHead"><span>학생 <b id="count"></b></span><label>최대 <input type="number" id="maxBytes" min="1" />B</label></div>
+      <ul id="list"></ul>
 
-    <label class="field">최대 바이트
-      <input type="number" id="maxBytes" min="1" />
-    </label>
+      <button id="fill" type="button" class="primary">한 번에 채우기</button>
+      <button id="step" type="button" class="outline">한 명씩 넣기</button>
+      <div id="result" role="status"></div>
 
-    <ul id="list"></ul>
+      <details>
+        <summary>화면 찾기 설정 (한 번에 채우기가 안 될 때)</summary>
+        <label class="field">학생 줄 선택자 <input id="rowSelector" placeholder="tr, [role=row]" /></label>
+        <label class="field">입력칸 선택자 <input id="fieldSelector" placeholder="textarea, [contenteditable=true]" /></label>
+        <label class="check"><input type="checkbox" id="checkName" checked /> 이름까지 맞는 줄에만 넣기</label>
+        <label class="check"><input type="checkbox" id="mainWorld" /> 페이지 환경에서 실행 (값이 저장 안 될 때)</label>
+      </details>
+    </section>
+  </main>
 
-    <details>
-      <summary>화면 찾기 설정 (나이스 화면이 바뀌면)</summary>
-      <label class="field">학생 줄 선택자 <input id="rowSelector" placeholder="tr, [role=row]" /></label>
-      <label class="field">입력칸 선택자 <input id="fieldSelector" placeholder="textarea, [contenteditable=true]" /></label>
-      <label class="check"><input type="checkbox" id="checkName" checked /> 이름까지 맞는 줄에만 넣기</label>
-      <label class="check"><input type="checkbox" id="mainWorld" /> 페이지 환경에서 실행 (값이 저장 안 될 때)</label>
-    </details>
-
-    <button id="fill" type="button" class="primary">지금 화면에 채우기</button>
-    <p class="hint">채운 뒤 내용을 확인하고 <b>나이스 저장 버튼은 직접</b> 눌러 주세요.</p>
-    <div id="result" role="status"></div>
-  </section>
-
-  <footer>불러온 자료는 30분 뒤 자동으로 지워져요</footer>
+  <footer><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/></svg> 30분 뒤 자동 삭제</footer>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -25,6 +25,7 @@ export async function GET(req: Request) {
   const body = {
     format: "schs-neis/1",
     kind: "교과세특",
+    section: new URL(req.url).searchParams.get("section"),
     subject: course.subject,
     year: course.year,
     grade: course.grade,
