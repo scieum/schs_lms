@@ -1,5 +1,5 @@
 import "server-only";
-import { compact, mergeDays, nextMealDay, parseMeals, parseSchedule, type Meal, type SchoolEvent } from "@/lib/domain/school-info";
+import { compact, dropNeisDuplicates, mergeDays, nextMealDay, parseMeals, parseSchedule, type Meal, type SchoolEvent } from "@/lib/domain/school-info";
 import { repo } from "@/lib/server/repo";
 
 // 나이스 교육정보 개방 포털: 키 없이도 조회된다(건수 제한). NEIS_API_KEY 를 넣으면 제한이 풀린다.
@@ -40,11 +40,12 @@ export async function getEvents(from: string, to: string): Promise<{ events: Sch
   const [neis, custom, teachers] = await Promise.all([getSchedule(from, to), repo.listCustomEvents(from, to), repo.listTeachers()]);
   const names = new Map(teachers.map((t) => [t.id, `${t.name} 선생님`]));
   const mine: SchoolEvent[] = custom.map((c) => ({
-    date: c.startDate, endDate: c.endDate, name: c.title, grades: c.grades, holiday: false,
+    date: c.startDate, endDate: c.endDate, name: c.title, grades: c.grades, holiday: c.holiday,
     // 학생이 올린 일정은 이름 대신 "학생"으로 (다른 학생에게 이름이 보이지 않게)
-    custom: { id: c.id, authorId: c.authorId, authorName: names.get(c.authorId) ?? "학생", memo: c.memo },
+    custom: { id: c.id, authorId: c.authorId, authorName: names.get(c.authorId) ?? "학생", memo: c.memo, dept: c.dept, imported: !!c.source },
   }));
-  return { events: [...mergeDays(neis ?? []), ...mine].sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name)), neisOk: !!neis };
+  const fromNeis = dropNeisDuplicates(mergeDays(neis ?? []), mine);
+  return { events: [...fromNeis, ...mine].sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name)), neisOk: !!neis };
 }
 
 /** 급식 하루치: dir 0 = 이날(없으면 그다음), 1 = 다음 급식일, -1 = 이전 급식일 (2주 안에서 찾음) */

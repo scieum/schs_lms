@@ -7,7 +7,7 @@ export interface Meal { date: string; kind: MealKind; dishes: Dish[]; kcal: stri
 /** 학사일정 한 건. date~endDate 기간 (하루면 같음). custom 이면 교사·학생이 직접 추가한 일정 */
 export interface SchoolEvent {
   date: string; endDate: string; name: string; grades: number[]; holiday: boolean;
-  custom?: { id: string; authorId: string; authorName: string; memo: string | null };
+  custom?: { id: string; authorId: string; authorName: string; memo: string | null; dept: string | null; imported: boolean };
 }
 
 /** 알레르기 번호 (식품 알레르기 표시 기준) */
@@ -95,6 +95,16 @@ export function eventStatus(e: Pick<SchoolEvent, "date" | "endDate" | "holiday">
   if (e.endDate < today) return "완료";
   if (e.date > today) return "시작 전";
   return "진행 중";
+}
+
+const norm = (s: string) => s.replace(/[\s·()]/g, "");
+
+/**
+ * 나이스 일정과 직접(또는 온라인 교무실에서) 넣은 일정이 겹치면 한 번만 보인다:
+ * 같은 날 같은 이름, 또는 같은 날 둘 다 휴업일이면 나이스 쪽을 뺀다
+ */
+export function dropNeisDuplicates(neis: SchoolEvent[], custom: SchoolEvent[]): SchoolEvent[] {
+  return neis.filter((n) => !custom.some((c) => c.date <= n.date && c.endDate >= n.date && (norm(c.name) === norm(n.name) || (c.holiday && n.holiday) || norm(c.name).includes(norm(n.name)))));
 }
 
 /** 학년 거르기: 학생은 자기 학년(또는 전체) 일정만 */

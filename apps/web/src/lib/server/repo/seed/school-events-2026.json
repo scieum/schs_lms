@@ -1,0 +1,1155 @@
+[
+{
+"title": "대체공휴일",
+"startDate": "2026-03-02",
+"endDate": "2026-03-02",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "입학식",
+"startDate": "2026-03-03",
+"endDate": "2026-03-03",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "자율·자치 시간(6, 7교시)",
+"startDate": "2026-03-04",
+"endDate": "2026-03-04",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "방과후학교 개설",
+"startDate": "2026-03-04",
+"endDate": "2026-03-06",
+"dept": "연구부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "공동교육과정(학교간, 온라인, 대학연계) 신청",
+"startDate": "2026-03-05",
+"endDate": "2026-03-09",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "스공학 신청",
+"startDate": "2026-03-09",
+"endDate": "2026-03-09",
+"dept": "연구부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "창체 동아리 개설(교사 신청 마감)",
+"startDate": "2026-03-09",
+"endDate": "2026-03-09",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "학금임원선출(6교시) 및 동아리 홍보",
+"startDate": "2026-03-11",
+"endDate": "2026-03-11",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "창체 동아리 신청(학생)",
+"startDate": "2026-03-12",
+"endDate": "2026-03-16",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "기초학력진단평가(1학년 전교생)",
+"startDate": "2026-03-12",
+"endDate": "2026-03-12",
+"dept": "연구부",
+"holiday": false,
+"memo": "기준 미도달시 기초학력대상자로 선정",
+"grades": [
+1
+]
+},
+{
+"title": "창체 동아리 면접",
+"startDate": "2026-03-12",
+"endDate": "2026-03-13",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "방과후 지도계획서 및 부교재 선정안 제출",
+"startDate": "2026-03-12",
+"endDate": "2026-03-12",
+"dept": "연구부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "창체 동아리 조정",
+"startDate": "2026-03-17",
+"endDate": "2026-03-17",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "73기 학생회장/부회장 선거",
+"startDate": "2026-03-18",
+"endDate": "2026-03-18",
+"dept": "학생생활부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "창체 동아리 계획서 제출(교사)",
+"startDate": "2026-03-19",
+"endDate": "2026-03-20",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "평가계획서 마감",
+"startDate": "2026-03-24",
+"endDate": "2026-03-24",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "1~3학년 3월 학력평가",
+"startDate": "2026-03-24",
+"endDate": "2026-03-24",
+"dept": "연구부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "동아리 1회차",
+"startDate": "2026-03-25",
+"endDate": "2026-03-25",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "부서별 학교교육계획서 제출",
+"startDate": "2026-03-25",
+"endDate": "2026-03-25",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "학교설명회 및 학부모총회",
+"startDate": "2026-03-27",
+"endDate": "2026-03-27",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "제1회 추경 예산 요구서 제출",
+"startDate": "2026-03-30",
+"endDate": "2026-03-30",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "동아리 2회차",
+"startDate": "2026-04-01",
+"endDate": "2026-04-01",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "학교운영위원회 심의안건 제출",
+"startDate": "2026-04-02",
+"endDate": "2026-04-02",
+"dept": "행정실",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "동아리 운영계획서 제출",
+"startDate": "2026-04-02",
+"endDate": "2026-04-02",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "공시 자료 제출 마감",
+"startDate": "2026-04-06",
+"endDate": "2026-04-06",
+"dept": "행정실",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "영어듣기평가 (1학년)",
+"startDate": "2026-04-07",
+"endDate": "2026-04-07",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": [
+1
+]
+},
+{
+"title": "환경정화활동",
+"startDate": "2026-04-08",
+"endDate": "2026-04-08",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "영어듣기평가 (2학년)",
+"startDate": "2026-04-08",
+"endDate": "2026-04-08",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": [
+2
+]
+},
+{
+"title": "영어듣기평가 (3학년)",
+"startDate": "2026-04-09",
+"endDate": "2026-04-09",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": [
+3
+]
+},
+{
+"title": "교직원 결핵검진(홀수년도 출생자) 및 2,3학년의 별도 검사",
+"startDate": "2026-04-10",
+"endDate": "2026-04-10",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": [
+2,
+3
+]
+},
+{
+"title": "1회고사 원안지 제출",
+"startDate": "2026-04-13",
+"endDate": "2026-04-13",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "동아리 3회차",
+"startDate": "2026-04-15",
+"endDate": "2026-04-15",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "캠핑과 트래킹 과목 설명회(7교시)",
+"startDate": "2026-04-15",
+"endDate": "2026-04-15",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "제1차 학교운영위원회",
+"startDate": "2026-04-16",
+"endDate": "2026-04-16",
+"dept": "행정실",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "제4차 성적관리위원회(13시)",
+"startDate": "2026-04-16",
+"endDate": "2026-04-16",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "PAPS 및 스포츠한마당",
+"startDate": "2026-04-16",
+"endDate": "2026-04-17",
+"dept": "체육부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "1회고사 연수(7교시)",
+"startDate": "2026-04-21",
+"endDate": "2026-04-21",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "1학기 1회고사",
+"startDate": "2026-04-24",
+"endDate": "2026-04-30",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "심폐소생술 연수",
+"startDate": "2026-04-27",
+"endDate": "2026-04-27",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "노동절",
+"startDate": "2026-05-01",
+"endDate": "2026-05-01",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "어린이날 · 부처님오신날",
+"startDate": "2026-05-05",
+"endDate": "2026-05-05",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "동아리 4회차",
+"startDate": "2026-05-06",
+"endDate": "2026-05-06",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "3학년 학력평가",
+"startDate": "2026-05-07",
+"endDate": "2026-05-07",
+"dept": "연구부",
+"holiday": false,
+"memo": null,
+"grades": [
+3
+]
+},
+{
+"title": "진로독서",
+"startDate": "2026-05-13",
+"endDate": "2026-05-13",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "2학년 테마학습여행",
+"startDate": "2026-05-19",
+"endDate": "2026-05-22",
+"dept": "2학년부",
+"holiday": false,
+"memo": null,
+"grades": [
+2
+]
+},
+{
+"title": "3학년 현장학습",
+"startDate": "2026-05-20",
+"endDate": "2026-05-20",
+"dept": "3학년부",
+"holiday": false,
+"memo": null,
+"grades": [
+3
+]
+},
+{
+"title": "1학년 수련활동",
+"startDate": "2026-05-20",
+"endDate": "2026-05-21",
+"dept": "1학년부",
+"holiday": false,
+"memo": null,
+"grades": [
+1
+]
+},
+{
+"title": "대체공휴일",
+"startDate": "2026-05-25",
+"endDate": "2026-05-25",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "동아리 5회차",
+"startDate": "2026-05-27",
+"endDate": "2026-05-27",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "수업 공개의 날",
+"startDate": "2026-05-29",
+"endDate": "2026-05-29",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "재량휴업일",
+"startDate": "2026-06-01",
+"endDate": "2026-06-01",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "개교기념일",
+"startDate": "2026-06-02",
+"endDate": "2026-06-02",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "지방선거일",
+"startDate": "2026-06-03",
+"endDate": "2026-06-03",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "1,2학년 학력평가 및 3학년 모의평가",
+"startDate": "2026-06-04",
+"endDate": "2026-06-04",
+"dept": "연구부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "2027학년도 2, 3학년 선택과목 1차 수요조사",
+"startDate": "2026-06-08",
+"endDate": "2026-06-12",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": [
+2,
+3
+]
+},
+{
+"title": "동아리 6회차",
+"startDate": "2026-06-10",
+"endDate": "2026-06-10",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "동아리 7회차",
+"startDate": "2026-06-17",
+"endDate": "2026-06-17",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "1학기 2회고사 원안지 제출",
+"startDate": "2026-06-17",
+"endDate": "2026-06-17",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "학급 특색",
+"startDate": "2026-06-24",
+"endDate": "2026-06-24",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "1학기 2회고사",
+"startDate": "2026-07-01",
+"endDate": "2026-07-07",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "3학년 학력평가",
+"startDate": "2026-07-08",
+"endDate": "2026-07-08",
+"dept": "연구부",
+"holiday": false,
+"memo": null,
+"grades": [
+3
+]
+},
+{
+"title": "1, 2학년 교육과정 박람회",
+"startDate": "2026-07-10",
+"endDate": "2026-07-10",
+"dept": "교육과정부",
+"holiday": false,
+"memo": null,
+"grades": [
+1,
+2
+]
+},
+{
+"title": "74기 학생회장/부회장 선거",
+"startDate": "2026-07-13",
+"endDate": "2026-07-13",
+"dept": "학생생활부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "영랑제",
+"startDate": "2026-07-15",
+"endDate": "2026-07-15",
+"dept": "학생생활부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "3학년 자율적 교육과정 운영",
+"startDate": "2026-07-16",
+"endDate": "2026-07-16",
+"dept": "3학년부",
+"holiday": false,
+"memo": null,
+"grades": [
+3
+]
+},
+{
+"title": "제헌절",
+"startDate": "2026-07-17",
+"endDate": "2026-07-17",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "여름방학식",
+"startDate": "2026-07-20",
+"endDate": "2026-07-20",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "2학기 개학",
+"startDate": "2026-08-14",
+"endDate": "2026-08-14",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 진로",
+"startDate": "2026-08-14",
+"endDate": "2026-08-14",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "개학",
+"startDate": "2026-08-14",
+"endDate": "2026-08-14",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "대체 공휴일",
+"startDate": "2026-08-17",
+"endDate": "2026-08-17",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/수] 자율·자치",
+"startDate": "2026-08-19",
+"endDate": "2026-08-19",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 진로: 1학년 오디세이 8차시 / 2학년 오디세이 7차시 / 3학년 직업안전",
+"startDate": "2026-08-21",
+"endDate": "2026-08-21",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "2학기 평가계획서 제출",
+"startDate": "2026-08-24",
+"endDate": "2026-08-24",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "부교재 선정안 제출",
+"startDate": "2026-08-26",
+"endDate": "2026-08-26",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/수] 동아리",
+"startDate": "2026-08-26",
+"endDate": "2026-08-26",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "방과후학교 지도계획서 제출",
+"startDate": "2026-08-26",
+"endDate": "2026-08-26",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 디지털 역량 교육(레몬교실)_대면(전학년)",
+"startDate": "2026-08-28",
+"endDate": "2026-08-28",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "1,2학년 학력평가·3학년 모의평가",
+"startDate": "2026-09-02",
+"endDate": "2026-09-02",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 장애인식 개선 교육(전학년)",
+"startDate": "2026-09-04",
+"endDate": "2026-09-04",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "영어듣기평가",
+"startDate": "2026-09-08",
+"endDate": "2026-09-10",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/수] 동아리",
+"startDate": "2026-09-09",
+"endDate": "2026-09-09",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 진로: 1학년 오디세이 9차시 / 2학년 오디세이 8차시 / 3학년 재난안전",
+"startDate": "2026-09-11",
+"endDate": "2026-09-11",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/수] 자율·자치",
+"startDate": "2026-09-16",
+"endDate": "2026-09-16",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 성매매 예방 교육(전학년)",
+"startDate": "2026-09-18",
+"endDate": "2026-09-18",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "1회고사 문항 제출",
+"startDate": "2026-09-18",
+"endDate": "2026-09-18",
+"dept": "교무부",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "제2차 학교운영위원회",
+"startDate": "2026-09-18",
+"endDate": "2026-09-18",
+"dept": "행정실",
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "재량휴업일",
+"startDate": "2026-09-23",
+"endDate": "2026-09-23",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "추석연휴",
+"startDate": "2026-09-24",
+"endDate": "2026-09-25",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/수] 동아리",
+"startDate": "2026-09-30",
+"endDate": "2026-09-30",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 진로: 1학년 오디세이 10차시 / 2학년 오디세이 9차시",
+"startDate": "2026-10-02",
+"endDate": "2026-10-02",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "재량휴업일",
+"startDate": "2026-10-05",
+"endDate": "2026-10-05",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/수] 동아리",
+"startDate": "2026-10-07",
+"endDate": "2026-10-07",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "한글날",
+"startDate": "2026-10-09",
+"endDate": "2026-10-09",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "2학기 1회고사",
+"startDate": "2026-10-12",
+"endDate": "2026-10-16",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "2027학년도 수강신청 변경기간(공식)",
+"startDate": "2026-10-19",
+"endDate": "2026-10-21",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "학력평가(전학년)",
+"startDate": "2026-10-20",
+"endDate": "2026-10-20",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "전학년 현장체험학습",
+"startDate": "2026-10-21",
+"endDate": "2026-10-21",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 진로: 1학년 오디세이 11차시 / 2학년 오디세이 10차시",
+"startDate": "2026-10-23",
+"endDate": "2026-10-23",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "학생독립운동기념일 행사",
+"startDate": "2026-10-28",
+"endDate": "2026-10-28",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 약물 및 사이버 중독예방(전학년)",
+"startDate": "2026-10-30",
+"endDate": "2026-10-30",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "수업 공개의 날",
+"startDate": "2026-10-30",
+"endDate": "2026-10-30",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/수] 동아리",
+"startDate": "2026-11-04",
+"endDate": "2026-11-04",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 폭력예방 및 신변보호(전학년)",
+"startDate": "2026-11-06",
+"endDate": "2026-11-06",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/수] (봉사)수능대청소",
+"startDate": "2026-11-11",
+"endDate": "2026-11-11",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 진로: 1학년 오디세이 12차시 / 2학년 오디세이 11차시",
+"startDate": "2026-11-13",
+"endDate": "2026-11-13",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "대학수학능력시험(재량휴업일)",
+"startDate": "2026-11-19",
+"endDate": "2026-11-19",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 심폐소생술 교육(전학년)",
+"startDate": "2026-11-20",
+"endDate": "2026-11-20",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "2학기 2회고사(3학년)",
+"startDate": "2026-11-23",
+"endDate": "2026-11-26",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": [
+3
+]
+},
+{
+"title": "[창체/수] 동아리(1,2학년)",
+"startDate": "2026-11-25",
+"endDate": "2026-11-25",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": [
+1,
+2
+]
+},
+{
+"title": "[창체/금] 진로: 1학년 오디세이 13차시 / 2학년 오디세이 12차시",
+"startDate": "2026-11-27",
+"endDate": "2026-11-27",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/수] 동아리",
+"startDate": "2026-12-02",
+"endDate": "2026-12-02",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 진로: 1학년 오디세이 14차시 / 2학년 오디세이 13차시",
+"startDate": "2026-12-04",
+"endDate": "2026-12-04",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/수] 자율·자치",
+"startDate": "2026-12-09",
+"endDate": "2026-12-09",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/금] 자율·자치",
+"startDate": "2026-12-11",
+"endDate": "2026-12-11",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "2학기 2회고사(1,2학년)",
+"startDate": "2026-12-14",
+"endDate": "2026-12-18",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": [
+1,
+2
+]
+},
+{
+"title": "[창체/수] 진로",
+"startDate": "2026-12-23",
+"endDate": "2026-12-23",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "졸업사정회",
+"startDate": "2026-12-23",
+"endDate": "2026-12-23",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "성탄절",
+"startDate": "2026-12-25",
+"endDate": "2026-12-25",
+"dept": null,
+"holiday": true,
+"memo": null,
+"grades": []
+},
+{
+"title": "진급사정회",
+"startDate": "2026-12-30",
+"endDate": "2026-12-30",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/수] 진로",
+"startDate": "2026-12-30",
+"endDate": "2026-12-30",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "교육과정 평가회",
+"startDate": "2027-01-05",
+"endDate": "2027-01-05",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "[창체/수] 자율·자치",
+"startDate": "2027-01-06",
+"endDate": "2027-01-06",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+},
+{
+"title": "졸업식 및 종업식",
+"startDate": "2027-01-07",
+"endDate": "2027-01-07",
+"dept": null,
+"holiday": false,
+"memo": null,
+"grades": []
+}
+]

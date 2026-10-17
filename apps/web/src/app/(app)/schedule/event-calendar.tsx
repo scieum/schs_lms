@@ -89,7 +89,7 @@ export function EventCalendar({ events, month, today, me, admin, neisOk }: {
                         )}
                       >
                         <span className="min-w-0 flex-1 truncate">{b.starts || b.from === 0 ? e.name + (!b.starts ? ` (~${md(e.endDate)})` : "") : ""}</span>
-                        {e.custom && b.ends && <span className="shrink-0 whitespace-nowrap rounded-[4px] bg-[#fff]/70 px-1 text-[10px] text-sub">추가</span>}
+                        {e.custom && !e.custom.imported && b.ends && <span className="shrink-0 whitespace-nowrap rounded-[4px] bg-[#fff]/70 px-1 text-[10px] text-sub">추가</span>}
                       </button>
                     );
                   })}
@@ -115,7 +115,7 @@ export function EventCalendar({ events, month, today, me, admin, neisOk }: {
             <li key={e.id}>
               <button type="button" onClick={() => setOpen(open === e.id ? null : e.id)} className="flex w-full items-center gap-3 py-2.5 text-left">
                 <span className="w-16 shrink-0 text-[13px] tabular-nums text-sub">{md(e.date)}{e.endDate !== e.date && "~"}</span>
-                <span className="min-w-0 flex-1 text-[14px]">{e.name}{e.custom && <span className="ml-1 rounded-[4px] bg-soft px-1 text-[10px] text-sub">추가</span>}</span>
+                <span className="min-w-0 flex-1 text-[14px]">{e.name}{e.custom && !e.custom.imported && <span className="ml-1 rounded-[4px] bg-soft px-1 text-[10px] text-sub">추가</span>}</span>
                 <span className={cx("shrink-0 rounded-chip px-1.5 py-0.5 text-[11px] font-bold", STATUS_CHIP[status])}>{status}</span>
               </button>
               {open === e.id && <div className="pb-3"><Detail e={e} today={today} canEdit={canEdit(e)} onEdit={() => { setEditing(e); setOpen(null); }} /></div>}
@@ -154,9 +154,9 @@ function Detail({ e, today, canEdit, onEdit, onClose }: { e: SchoolEvent; today:
         <span className={cx("shrink-0 rounded-chip px-1.5 py-0.5 text-[11px] font-bold", STATUS_CHIP[status])}>{status}</span>
         {onClose && <button type="button" onClick={onClose} aria-label="닫기" className="text-mute"><X size={16} /></button>}
       </div>
-      <div className="text-[13px] text-sub">{full(e.date)}{e.endDate !== e.date && ` ~ ${full(e.endDate)}`} · {gradeText(e.grades)}</div>
+      <div className="text-[13px] text-sub">{full(e.date)}{e.endDate !== e.date && ` ~ ${full(e.endDate)}`} · {gradeText(e.grades)}{e.custom?.dept && ` · ${e.custom.dept}`}</div>
       {e.custom?.memo && <p className="rounded-inner bg-soft px-3 py-2 text-[13px]">{e.custom.memo}</p>}
-      <div className="text-[12px] text-mute">{e.custom ? `${e.custom.authorName}이 추가 · 나이스 일정 아님` : "나이스 학사일정"}</div>
+      <div className="text-[12px] text-mute">{!e.custom ? "나이스 학사일정" : e.custom.imported ? "온라인 교무실 학사일정에서 옮김" : `${e.custom.authorName}이 추가 · 나이스 일정 아님`}</div>
       {err && <p className="text-[13px] text-bad">{err}</p>}
       {canEdit && (
         <div className="flex gap-2">

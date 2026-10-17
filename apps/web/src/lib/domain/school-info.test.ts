@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventStatus, mergeDays, nextMealDay, parseDish, parseMeals, parseSchedule } from "./school-info";
+import { dropNeisDuplicates, eventStatus, mergeDays, nextMealDay, parseDish, parseMeals, parseSchedule } from "./school-info";
 
 const meals = {
   mealServiceDietInfo: [
@@ -48,5 +48,14 @@ describe("학사일정 기간·상태", () => {
     expect(eventStatus(ev("2026-10-20", "a"), "2026-10-17")).toBe("시작 전");
     expect(eventStatus(ev("2026-10-12", "a", "2026-10-14"), "2026-10-17")).toBe("완료");
     expect(eventStatus({ date: "2026-10-09", endDate: "2026-10-09", holiday: true }, "2026-10-17")).toBe("휴업일");
+  });
+});
+
+describe("나이스·직접 일정 겹침", () => {
+  const ev = (date: string, name: string, holiday = false, endDate = date) => ({ date, endDate, name, grades: [], holiday });
+  it("같은 날 같은 이름·둘 다 휴업일이면 나이스 쪽을 뺀다", () => {
+    const neis = [ev("2026-10-09", "한글날", true), ev("2026-10-20", "전국연합학력평가"), ev("2026-10-12", "2학기 1회고사", false, "2026-10-14")];
+    const custom = [ev("2026-10-09", "한글날", true), ev("2026-10-12", "2학기 1회고사", false, "2026-10-16")];
+    expect(dropNeisDuplicates(neis, custom).map((e) => e.name)).toEqual(["전국연합학력평가"]);
   });
 });
