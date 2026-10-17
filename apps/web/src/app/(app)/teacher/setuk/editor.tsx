@@ -4,8 +4,9 @@ import { LengthPicker } from "@/components/length-picker";
 import { Button } from "@/components/ui";
 import { AiDraftPanel } from "@/components/writing/ai-draft-panel";
 import { RecordChecks, type Who } from "@/components/writing/record-checks";
-import { checkLength, resolveLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
-import { aiSetukDraft, readSetukFile, saveSetuk, type SetukState } from "./actions";
+import { checkLength, MIN_RATIO, NEIS_MAX_BYTES, neisMax, resolveLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
+import { BodyCard } from "@/components/writing/competency-view";
+import { aiSetukDraft, fitSetuk, listSetukPieces, mergeSetuk, readSetukFile, saveSetuk, tagSetuk, type SetukState } from "./actions";
 import { OverApproval } from "@/components/writing/over-approval";
 
 // 세특 쓰기: AI 초안(관찰 메모) + 본문 + 자동 검사·분량(단위·최대) + 임시 저장 / 확정.
@@ -19,6 +20,7 @@ export function SetukEditor({
   confirmed,
   who,
   memo,
+  shared,
 }: {
   who: Who;
   memo: string;
@@ -28,11 +30,17 @@ export function SetukEditor({
   unit: LengthUnit;
   max: number;
   confirmed: boolean;
+  /** 공통과목 1·2 합산: 다른 학기에 쓴 바이트 */
+  shared?: { other: 1 | 2; bytes: number };
 }) {
   const [state, action, pending] = useActionState<SetukState, FormData>(saveSetuk, {});
   const [text, setText] = useState(initial);
   const [len, setLen] = useState({ unit: initialUnit, max: initialMax });
-  const range = resolveLength("세특", len);
+  const full = resolveLength("세특", len);
+  // 공통과목은 다른 학기에 쓴 만큼 이 학기 최대가 줄어든다 (2026 기재요령 208쪽)
+  const cap = shared ? Math.max(0, NEIS_MAX_BYTES["세특"] - shared.bytes) : null;
+  const capMax = cap == null ? full.max : Math.min(full.max, full.unit === "bytes" ? cap : Math.floor(cap / 3));
+  const range = { ...full, max: capMax, min: Math.min(full.min, Math.ceil(capMax * MIN_RATIO)) };
   const length = checkLength(text, range);
   const over = length.reason === "too_long";
   const [allowOver, setAllowOver] = useState(false);
@@ -46,22 +54,35 @@ export function SetukEditor({
         bodyEmpty={!text.trim()}
         generate={(m) => aiSetukDraft({ courseId, studentId, memo: m, unit: range.unit, max: range.max })}
         readFile={(fd) => { fd.set("courseId", courseId); fd.set("studentId", studentId); return readSetukFile(fd); }}
+        merge={{
+          load: () => listSetukPieces({ courseId, studentId }),
+          body: text,
+          neisMax: Math.min(neisMax("세특", range.unit), capMax),
+          run: (pieces, max) => mergeSetuk({ courseId, studentId, pieces, unit: range.unit, max }),
+        }}
         onApply={setText}
       />
       <form action={action} className="flex flex-col gap-4">
         <input type="hidden" name="courseId" value={courseId} />
         <input type="hidden" name="studentId" value={studentId} />
-        <textarea
-          name="content"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={9}
-          maxLength={5000}
-          placeholder="수업 중 관찰한 활동·탐구·태도를 '~함.'으로 끝나는 문장으로 써 주세요"
-          className="w-full resize-y rounded-field bg-white p-4 text-[15px] leading-7 outline-none focus:ring-2 focus:ring-key"
-          aria-label="세특 내용"
-        />
-        <RecordChecks text={text} range={range} who={who}>
+        <BodyCard text={text} tag={(t) => tagSetuk({ courseId, studentId, text: t })}>
+          <textarea
+            name="content"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={9}
+            maxLength={5000}
+            placeholder="수업 중 관찰한 활동·탐구·태도를 '~함.'으로 끝나는 문장으로 써 주세요"
+            className="w-full resize-y rounded-field bg-white p-4 text-[15px] leading-7 outline-none focus:ring-2 focus:ring-key"
+            aria-label="세특 내용"
+          />
+        </BodyCard>
+        {shared && (
+          <p className="rounded-control bg-key-soft px-3.5 py-2.5 text-[13px] text-key-strong">
+            공통과목은 1·2학기 합산 500자 · {shared.other}학기 {shared.bytes.toLocaleString()}바이트 → 이 학기 최대 {capMax.toLocaleString()}{UNIT_LABEL[range.unit]}
+          </p>
+        )}
+        <RecordChecks text={text} range={range} who={who} fit={{ run: () => fitSetuk({ courseId, studentId, text, unit: range.unit, max: range.max }), onApply: setText }}>
           <LengthPicker category="세특" defaultUnit={initialUnit} defaultMax={initialMax} onChange={setLen} />
         </RecordChecks>
 

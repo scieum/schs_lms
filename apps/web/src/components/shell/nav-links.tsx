@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
+import { useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { cx } from "@/components/ui";
 import { Icon } from "./icon";
 import type { NavGroup, NavItem } from "./nav";
@@ -9,8 +11,32 @@ function isActive(path: string, href: string) {
   return path === href || (href !== "/" && path.startsWith(href + "/") && href.split("/").length > 2);
 }
 
+// 대분류(업무·수업·학생·관리) 접고 펴기: 고른 것은 이 브라우저에 기억한다. 접은 묶음에 지금 화면이 있으면 점으로 알린다.
+// 사이드바를 접은(mini) 상태에서는 묶음 머리가 선으로만 보이므로 늘 펼친다.
+const FOLD_KEY = "schs-nav-closed";
+const FOLD_EVENT = "schs-nav-fold";
+
+// 접힌 묶음 이름들을 localStorage 에서 읽는다. 서버 렌더에서는 null(= 저장 없음)
+function subscribe(cb: () => void) {
+  window.addEventListener("storage", cb);
+  window.addEventListener(FOLD_EVENT, cb);
+  return () => { window.removeEventListener("storage", cb); window.removeEventListener(FOLD_EVENT, cb); };
+}
+function snapshot(): string | null {
+  try { return localStorage.getItem(FOLD_KEY); } catch { return null; }
+}
+
 export function SidebarLinks({ groups }: { groups: NavGroup[] }) {
   const path = usePathname();
+  const raw = useSyncExternalStore(subscribe, snapshot, () => null);
+  let saved: string[];
+  try { saved = raw ? (JSON.parse(raw) as string[]) : groups.filter((g) => g.fold).map((g) => g.label); } catch { saved = []; }
+  const toggle = (label: string) => {
+    const next = new Set(saved);
+    if (next.has(label)) next.delete(label); else next.add(label);
+    try { localStorage.setItem(FOLD_KEY, JSON.stringify([...next])); } catch {}
+    window.dispatchEvent(new Event(FOLD_EVENT));
+  };
   return (
     <nav className="flex flex-col gap-0.5">
       {groups.map((g) => {
@@ -35,18 +61,17 @@ export function SidebarLinks({ groups }: { groups: NavGroup[] }) {
               </Link>
             );
           });
-        return g.fold ? (
-          <details key={g.label} open={inside} className="group">
-            <summary className="flex cursor-pointer list-none items-center px-3 pb-2 pt-5 text-xs font-medium text-mute group-data-[mini=true]/side:justify-center group-data-[mini=true]/side:px-0 group-data-[mini=true]/side:text-[10px]">
-              <span className="flex-1 group-data-[mini=true]/side:text-center">{g.label}</span>
-              <span className="transition-transform group-open:rotate-180 group-data-[mini=true]/side:hidden">⌄</span>
-            </summary>
-            {links}
-          </details>
-        ) : (
+        // 접어 둔 묶음에 지금 화면이 있으면 머리에 점을 찍는다
+        const open = !saved.includes(g.label);
+        return (
           <div key={g.label}>
-            <div className="px-3 pb-2 pt-5 text-xs font-medium text-mute group-data-[mini=true]/side:mx-2 group-data-[mini=true]/side:mb-2 group-data-[mini=true]/side:h-0 group-data-[mini=true]/side:overflow-hidden group-data-[mini=true]/side:border-t group-data-[mini=true]/side:border-line group-data-[mini=true]/side:p-0 group-data-[mini=true]/side:pt-0">{g.label}</div>
-            {links}
+            <button type="button" onClick={() => toggle(g.label)} aria-expanded={open}
+              className="group/fold flex w-full items-center rounded-control px-3 pb-2 pt-5 text-left text-xs font-medium text-mute hover:text-sub group-data-[mini=true]/side:pointer-events-none group-data-[mini=true]/side:mx-2 group-data-[mini=true]/side:mb-2 group-data-[mini=true]/side:h-0 group-data-[mini=true]/side:w-auto group-data-[mini=true]/side:overflow-hidden group-data-[mini=true]/side:border-t group-data-[mini=true]/side:border-line group-data-[mini=true]/side:p-0">
+              <span className="flex-1">{g.label}</span>
+              {!open && inside && <span className="mr-1.5 size-1.5 rounded-full bg-key" aria-label="지금 화면" />}
+              <ChevronDown size={14} className={cx("transition-transform", !open && "-rotate-90")} />
+            </button>
+            <div className={cx(!open && "hidden group-data-[mini=true]/side:block")}>{links}</div>
           </div>
         );
       })}

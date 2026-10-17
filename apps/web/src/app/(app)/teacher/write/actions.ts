@@ -11,6 +11,10 @@ import { requireCan } from "@/lib/server/viewer";
 import { evidenceLogs } from "./data";
 import { forbiddenBlock } from "@/lib/domain/forbidden";
 import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence";
+import { fitRecord, mergeRecord, tagCompetency } from "@/lib/server/ai/merge-record";
+import { logPieces, memoPieces, programPieces } from "@/lib/server/merge-pieces";
+import { fitRange, type MergePiece } from "@/lib/domain/merge";
+import type { TaggedSentence } from "@/lib/domain/competency";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
 
 // 창체 특기사항(자율·자치/동아리/진로)·행발: AI 초안 → 교사 수정 → 저장(새 버전) → 확정
@@ -116,4 +120,67 @@ export async function readRecordFile(form: FormData): Promise<EvidenceResult> {
   const r = await readEvidence(file, { mode: "record", kind: RECORD_LABEL[area], context: t.clubName, people: peopleAround(t.student, await repo.listStudents()) });
   await repo.audit(v.accountId, "record.ai_read_file", `${area} ${t.student.pseudonymId}`);
   return r;
+}
+
+// ---------- 합치기 · 맞추기 · 역량 보기 (Figma N11) ----------
+
+const MergeSchema = z.object({
+  pieces: z.array(z.object({ id: z.string(), source: z.enum(["누가기록", "메모", "본문", "특색 활동"]), date: z.string().nullable(), text: z.string().max(6000) })).min(1, "합칠 조각을 골라 주세요").max(80),
+  unit: z.enum(["bytes", "chars"]),
+  max: z.number().int().min(1),
+});
+const FitSchema = z.object({ text: z.string().min(1, "본문이 비어 있어요").max(6000), unit: z.enum(["bytes", "chars"]), max: z.number().int().min(1) });
+const toDraft = (r: { text: string; sample: boolean; notice?: string }): AiDraftResult =>
+  r.text ? { ok: true, text: r.text, sample: r.sample, notice: r.notice } : { ok: false, error: r.notice ?? "만들지 못했어요. 직접 고쳐 주세요" };
+
+async function recordTarget(area: string, studentId: string, clubId?: string | null) {
+  const v = await requireCan("record.write");
+  if (!isRecordArea(area)) return { error: "영역을 골라 주세요" };
+  const t = await target(v, area, studentId, clubId);
+  if ("error" in t) return t;
+  return { v, area, ...t };
+}
+
+// 담임 영역에 붙는 특색 활동 초안의 영역 (동아리 특기사항은 지도교사가, 행발은 담임이 직접 쓴다)
+const PROGRAM_AREA = { "자율·자치": "창체-자율", 진로: "창체-진로" } as const;
+
+/** 합칠 조각: 이 영역 누가기록(행발은 세 영역) + 관찰 메모 + (자율·자치·진로) 받은 특색 활동 초안 */
+export async function listRecordPieces(input: { area: string; studentId: string; clubId?: string | null }): Promise<MergePiece[]> {
+  const t = await recordTarget(input.area, input.studentId, input.clubId);
+  if ("error" in t) return [];
+  const programArea = t.area === "자율·자치" || t.area === "진로" ? PROGRAM_AREA[t.area] : null;
+  const [logs, memos, drafts] = await Promise.all([
+    evidenceLogs(t.area, [input.studentId], input.clubId),
+    repo.listRecordMemos(t.area, [input.studentId]),
+    programArea ? repo.listDraftsForStudents([input.studentId]) : Promise.resolve([]),
+  ]);
+  return [...programPieces(drafts.filter((d) => d.area === programArea)), ...logPieces(logs), ...memoPieces(memos)];
+}
+
+export async function mergeRecordAction(input: { area: string; studentId: string; clubId?: string | null } & z.input<typeof MergeSchema>): Promise<AiDraftResult> {
+  const t = await recordTarget(input.area, input.studentId, input.clubId);
+  if ("error" in t) return { ok: false, error: t.error };
+  const p = MergeSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
+  const range = fitRange(resolveRecordLength(t.area, { unit: p.data.unit, max: p.data.max }));
+  const r = await mergeRecord({ kind: t.area, context: t.clubName, student: t.student, pieces: p.data.pieces, range });
+  await repo.audit(t.v.accountId, "record.ai_merge", `${t.area} ${t.student.pseudonymId} ${p.data.pieces.length}조각`);
+  return toDraft(r);
+}
+
+export async function fitRecordAction(input: { area: string; studentId: string; clubId?: string | null } & z.input<typeof FitSchema>): Promise<AiDraftResult> {
+  const t = await recordTarget(input.area, input.studentId, input.clubId);
+  if ("error" in t) return { ok: false, error: t.error };
+  const p = FitSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
+  const range = fitRange(resolveRecordLength(t.area, { unit: p.data.unit, max: p.data.max }));
+  const r = await fitRecord({ kind: t.area, context: t.clubName, student: t.student, text: p.data.text, range });
+  await repo.audit(t.v.accountId, "record.ai_fit", `${t.area} ${t.student.pseudonymId}`);
+  return toDraft(r);
+}
+
+export async function tagRecord(input: { area: string; studentId: string; clubId?: string | null; text: string }): Promise<{ tags: TaggedSentence[]; label: "AI" | "자동" } | { error: string }> {
+  const t = await recordTarget(input.area, input.studentId, input.clubId);
+  if ("error" in t) return { error: t.error };
+  return tagCompetency(String(input.text ?? "").slice(0, 6000), t.student);
 }

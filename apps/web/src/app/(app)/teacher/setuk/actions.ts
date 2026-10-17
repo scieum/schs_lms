@@ -9,6 +9,10 @@ import { writeRecord } from "@/lib/server/ai/write-record";
 import { findIdentity, latestMemoByStudent, type AiDraftResult } from "@/lib/domain/writing";
 import { forbiddenBlock } from "@/lib/domain/forbidden";
 import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence";
+import { fitRecord, mergeRecord, tagCompetency } from "@/lib/server/ai/merge-record";
+import { memoPieces } from "@/lib/server/merge-pieces";
+import { fitRange, type MergePiece } from "@/lib/domain/merge";
+import type { TaggedSentence } from "@/lib/domain/competency";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
 
 export type SetukState = { error?: string; saved?: "draft" | "confirmed"; at?: string };
@@ -112,4 +116,59 @@ export async function readSetukFile(form: FormData): Promise<EvidenceResult> {
   const r = await readEvidence(file, { mode: "record", kind: "교과 세특", context: course.subject, people: peopleAround(student, await repo.listStudents()) });
   await repo.audit(v.accountId, "setuk.ai_read_file", `${course.subject} ${student.pseudonymId}`);
   return r;
+}
+
+// ---------- 합치기 · 맞추기 · 역량 보기 (Figma N11) ----------
+
+const MergeSchema = z.object({
+  pieces: z.array(z.object({ id: z.string(), source: z.enum(["누가기록", "메모", "본문", "특색 활동"]), date: z.string().nullable(), text: z.string().max(6000) })).min(1, "합칠 조각을 골라 주세요").max(80),
+  unit: z.enum(["bytes", "chars"]),
+  max: z.number().int().min(1),
+});
+const FitSchema = z.object({ text: z.string().min(1, "본문이 비어 있어요").max(6000), unit: z.enum(["bytes", "chars"]), max: z.number().int().min(1) });
+const toDraft = (r: { text: string; sample: boolean; notice?: string }): AiDraftResult =>
+  r.text ? { ok: true, text: r.text, sample: r.sample, notice: r.notice } : { ok: false, error: r.notice ?? "만들지 못했어요. 직접 고쳐 주세요" };
+
+/** 내 담당 과목·반 학생인지 서버에서 다시 확인 */
+async function setukTarget(courseId: string, studentId: string) {
+  const v = await requireCan("setuk.write");
+  const [course, mine, student, roster] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getStudent(studentId), repo.getCourseRosters(v.accountId, courseId)]);
+  const assignment = mine.find((a) => a.courseId === courseId);
+  if (!course || !assignment || !student || !studentsInCourse([student], course, assignment, roster).length) return null;
+  return { v, course, student };
+}
+
+/** 합칠 조각: 이 과목에 남긴 관찰 메모 (새 것부터) */
+export async function listSetukPieces(input: { courseId: string; studentId: string }): Promise<MergePiece[]> {
+  const t = await setukTarget(input.courseId, input.studentId);
+  if (!t) return [];
+  return memoPieces(await repo.listRecordMemos(`세특:${input.courseId}`, [input.studentId]));
+}
+
+export async function mergeSetuk(input: { courseId: string; studentId: string } & z.input<typeof MergeSchema>): Promise<AiDraftResult> {
+  const t = await setukTarget(input.courseId, input.studentId);
+  if (!t) return { ok: false, error: "내 담당 과목·반 학생만 쓸 수 있어요" };
+  const p = MergeSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
+  const range = fitRange(resolveLength("세특", { unit: p.data.unit, max: p.data.max }));
+  const r = await mergeRecord({ kind: "세특", context: t.course.subject, student: t.student, pieces: p.data.pieces, range });
+  await repo.audit(t.v.accountId, "setuk.ai_merge", `${t.course.subject} ${t.student.pseudonymId} ${p.data.pieces.length}조각`);
+  return toDraft(r);
+}
+
+export async function fitSetuk(input: { courseId: string; studentId: string } & z.input<typeof FitSchema>): Promise<AiDraftResult> {
+  const t = await setukTarget(input.courseId, input.studentId);
+  if (!t) return { ok: false, error: "내 담당 과목·반 학생만 쓸 수 있어요" };
+  const p = FitSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
+  const range = fitRange(resolveLength("세특", { unit: p.data.unit, max: p.data.max }));
+  const r = await fitRecord({ kind: "세특", context: t.course.subject, student: t.student, text: p.data.text, range });
+  await repo.audit(t.v.accountId, "setuk.ai_fit", `${t.course.subject} ${t.student.pseudonymId}`);
+  return toDraft(r);
+}
+
+export async function tagSetuk(input: { courseId: string; studentId: string; text: string }): Promise<{ tags: TaggedSentence[]; label: "AI" | "자동" } | { error: string }> {
+  const t = await setukTarget(input.courseId, input.studentId);
+  if (!t) return { error: "내 담당 과목·반 학생만 볼 수 있어요" };
+  return tagCompetency(String(input.text ?? "").slice(0, 6000), t.student);
 }

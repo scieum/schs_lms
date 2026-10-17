@@ -5,7 +5,8 @@ import { AiBanner, ButtonLink, Card, Segmented, StatTiles, Tag, cx } from "@/com
 import { measure, neisMax, UNIT_LABEL } from "@/lib/domain/length";
 import { latestByStudent, statusLabel, studentsInCourse } from "@/lib/domain/setuk";
 import { latestMemoByStudent } from "@/lib/domain/writing";
-import { schoolYear, type Course } from "@/lib/domain/curriculum";
+import { commonSiblings, schoolYear, type Course } from "@/lib/domain/curriculum";
+import { neisBytes } from "@/lib/domain/length";
 import { repo } from "@/lib/server/repo";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
@@ -58,6 +59,13 @@ export default async function SetukPage({ searchParams }: Props) {
   const students = studentsInCourse(allStudents, course, assignment, rosters.filter((r) => r.courseId === course.id), tab.section);
   const latest = latestByStudent(records);
   const selected = students.find((s) => s.id === q.student) ?? students.find((s) => statusLabel(latest.get(s.id)) !== "확정") ?? students[0];
+  // 공통과목(2022 개정)은 1·2학기 세특을 합쳐 1,500바이트 — 다른 학기에 쓴 분량만큼 이 학기 한도가 줄어든다
+  const siblings = commonSiblings(course, offered);
+  const otherBytes = siblings.length && selected
+    ? (await Promise.all(siblings.map(async (sib) => latestByStudent(await repo.listSetuk(sib.id)).get(selected.id)?.content ?? "")))
+        .reduce((n, t) => n + neisBytes(t), 0)
+    : 0;
+  const shared = siblings.length ? { other: siblings[0].semester, bytes: otherBytes } : undefined;
   const counts = { 확정: 0, "작성 중": 0, 미작성: 0 };
   for (const s of students) counts[statusLabel(latest.get(s.id))]++;
   const cur = selected ? latest.get(selected.id) : undefined;
@@ -130,6 +138,7 @@ export default async function SetukPage({ searchParams }: Props) {
                 action={cur ? <span className="text-[13px] text-mute">{new Date(cur.createdAt).toLocaleDateString("ko-KR")} 저장</span> : undefined}
               >
                 <SetukEditor
+                  shared={shared}
                   key={`${course.id}-${selected.id}`}
                   courseId={course.id}
                   studentId={selected.id}

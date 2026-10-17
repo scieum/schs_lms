@@ -1,10 +1,12 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
-import { Copy, Plus, RotateCcw, X } from "lucide-react";
+import { Combine, Copy, Plus, RotateCcw, X } from "lucide-react";
 import { Button, Tag, cx } from "@/components/ui";
 import { measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import type { EvidenceResult } from "@/lib/server/ai/read-evidence";
 import { EvidenceFiles, evidenceMemo, type EvidenceItem } from "./evidence-files";
+import { MergeList } from "./merge-list";
+import type { MergePiece } from "@/lib/domain/merge";
 import { composeKeywordMemo, parseKeywordMemo, type AiDraftResult, type KeywordBlock } from "@/lib/domain/writing";
 
 const EMPTY: KeywordBlock = { topic: "", activity: "", keywords: "" };
@@ -12,6 +14,7 @@ const FIELD = "w-full rounded-field bg-soft px-3 py-2 text-sm outline-none focus
 
 // "AI 초안" 패널 (Figma 영랑이 Y2 초안 카드와 같은 모양): 관찰 메모 → AI 초안 → 복사 / 다시 쓰기 / 본문에 넣기.
 // "자료로" 탭 (Figma N10): 학생 자료 파일을 AI가 읽어 (주제)(활동)(키워드) 근거로 만들고, 한 줄 메모와 함께 초안에 쓴다.
+// "합치기" 탭 (Figma N11 224:2564): 학기 동안 따로 쌓인 조각(누가기록·메모·본문·특색 활동)을 골라 한 문단으로 합치고 목표 분량(NEIS 최대)에 맞춘다.
 // "키워드로" 탭: 속초고 세특 프롬프트(노션) 입력 형식 (주제)/(활동)/(키워드) 칸에 넣고 쓴다. 활동은 3개까지.
 // 결과는 본문(편집기)에 채우기만 하고 저장은 교사가 따로 누른다. 본문이 비어 있으면 바로 채운다.
 export function AiDraftPanel({
@@ -21,6 +24,7 @@ export function AiDraftPanel({
   bodyEmpty,
   generate,
   readFile,
+  merge,
   onApply,
 }: {
   initialMemo?: string;
@@ -30,14 +34,28 @@ export function AiDraftPanel({
   generate: (memo: string) => Promise<AiDraftResult>;
   /** 자료 파일 하나 읽기 (없으면 '자료로' 탭을 숨긴다) */
   readFile?: (form: FormData) => Promise<EvidenceResult>;
+  /** 합치기 (없으면 탭을 숨긴다): 조각 불러오기 · 지금 본문 · NEIS 최대 · 합치기 */
+  merge?: { load: () => Promise<MergePiece[]>; body: string; neisMax: number; run: (pieces: MergePiece[], max: number) => Promise<AiDraftResult> };
   onApply: (text: string) => void;
 }) {
   const [memo, setMemo] = useState(initialMemo);
   const [blocks, setBlocks] = useState<KeywordBlock[]>(() => parseKeywordMemo(initialMemo) ?? [{ ...EMPTY }]);
-  const [mode, setMode] = useState<"memo" | "keywords" | "files">(() => (parseKeywordMemo(initialMemo) ? "keywords" : "memo"));
+  const [mode, setMode] = useState<"memo" | "keywords" | "files" | "merge">(() => (parseKeywordMemo(initialMemo) ? "keywords" : "memo"));
   const [files, setFiles] = useState<EvidenceItem[]>([]);
   const [extra, setExtra] = useState("");
   const reading = files.some((f) => f.state === "reading");
+  const [pieces, setPieces] = useState<MergePiece[] | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [target, setTarget] = useState(merge?.neisMax ?? 0);
+  const [mergedCount, setMergedCount] = useState(0);
+  // 지금 본문도 조각 하나 (맨 위)
+  const bodyPiece: MergePiece[] = merge?.body.trim() ? [{ id: "body", source: "본문", date: null, text: merge.body.trim() }] : [];
+  const allPieces = [...bodyPiece, ...(pieces ?? [])];
+  function openMerge() {
+    setMode("merge");
+    if (pieces || !merge) return;
+    merge.load().then((ps) => { setPieces(ps); setPicked(new Set(["body", ...ps.map((x) => x.id)])); }).catch(() => setPieces([]));
+  }
   const input = mode === "keywords" ? composeKeywordMemo(blocks) : mode === "files" ? [extra.trim(), evidenceMemo(files)].filter(Boolean).join("\n\n") : memo;
   const setBlock = (i: number, k: keyof KeywordBlock, v: string) => setBlocks((bs) => bs.map((b, j) => (j === i ? { ...b, [k]: v } : b)));
   const [result, setResult] = useState<Extract<AiDraftResult, { ok: true }> | null>(null);
@@ -53,7 +71,13 @@ export function AiDraftPanel({
     start(async () => {
       let r: AiDraftResult;
       try {
-        r = await generate(input);
+        if (mode === "merge" && merge) {
+          const chosen = allPieces.filter((x) => picked.has(x.id));
+          setMergedCount(chosen.length);
+          r = chosen.length ? await merge.run(chosen, target) : { ok: false, error: "합칠 조각을 골라 주세요" };
+        } else {
+          r = await generate(input);
+        }
       } catch {
         r = { ok: false, error: "AI 처리 중 문제가 생겼어요. 직접 써 주세요" };
       }
@@ -86,12 +110,18 @@ export function AiDraftPanel({
         <span className="hidden text-[12px] text-mute md:inline">이름·학번은 가린 뒤 AI에 보내요</span>
       </div>
       <div className="flex gap-1" role="tablist" aria-label="입력 방식">
-        {([["memo", "메모로"], ["keywords", "키워드로"], ...(readFile ? [["files", "자료로"] as const] : [])] as const).map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => setMode(k)}
+        {([["memo", "메모로"], ["keywords", "키워드로"], ...(readFile ? [["files", "자료로"] as const] : []), ...(merge ? [["merge", "합치기"] as const] : [])] as const).map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => (k === "merge" ? openMerge() : setMode(k))}
             className={cx("rounded-chip px-3 py-1.5 text-[13px]", mode === k ? "bg-key-soft font-bold text-key-strong" : "text-sub hover:bg-soft")}>{l}</button>
         ))}
       </div>
-      {mode === "files" && readFile ? (
+      {mode === "merge" && merge ? (
+        pieces === null ? (
+          <p className="py-6 text-center text-[13px] text-mute" role="status">조각을 모으는 중이에요</p>
+        ) : (
+          <MergeList pieces={allPieces} selected={picked} setSelected={setPicked} unit={unit} neisMax={merge.neisMax} target={target} setTarget={setTarget} />
+        )
+      ) : mode === "files" && readFile ? (
         <div className="flex flex-col gap-2">
           <EvidenceFiles items={files} setItems={setFiles} read={readFile} />
           <input value={extra} onChange={(e) => setExtra(e.target.value)} maxLength={500} placeholder="더 넣을 말 (선택)" aria-label="더 넣을 말"
@@ -142,8 +172,12 @@ export function AiDraftPanel({
           </>
         ) : (
           <>
-            <span className="flex-1 text-[12px] text-mute">{mode === "files" ? (reading ? "자료를 읽고 있어요" : "자료·메모·누가기록으로 써요") : "메모·누가기록만 근거로 써요"}</span>
-            <Button type="button" kind="soft" size="sm" onClick={run} disabled={mode === "files" && (reading || !input)}>{result ? "다시 쓰기" : "AI 초안"}</Button>
+            <span className="flex-1 text-[12px] text-mute">{mode === "merge" ? "겹치는 내용은 빼고 한 문단으로" : mode === "files" ? (reading ? "자료를 읽고 있어요" : "자료·메모·누가기록으로 써요") : "메모·누가기록만 근거로 써요"}</span>
+            {mode === "merge" ? (
+              <Button type="button" kind="soft" size="sm" onClick={run} disabled={!picked.size || pieces === null}><Combine size={14} /> 합치기</Button>
+            ) : (
+              <Button type="button" kind="soft" size="sm" onClick={run} disabled={mode === "files" && (reading || !input)}>{result ? "다시 쓰기" : "AI 초안"}</Button>
+            )}
           </>
         )}
       </div>
@@ -154,6 +188,7 @@ export function AiDraftPanel({
           <div className="flex flex-wrap items-center gap-1.5">
             <Tag tone="bg-new-soft text-new">초안</Tag>
             {result.sample && <Tag tone="bg-soft text-mute">예시</Tag>}
+            {mode === "merge" && mergedCount > 0 && <Tag tone="bg-soft text-sub">{`조각 ${mergedCount}개`}</Tag>}
             <Tag tone="bg-soft text-sub">{`${measure(result.text, unit).toLocaleString()}${UNIT_LABEL[unit]}`}</Tag>
           </div>
           <p className="text-sm leading-6 whitespace-pre-wrap">{result.text}</p>

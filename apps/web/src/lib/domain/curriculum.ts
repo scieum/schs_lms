@@ -154,3 +154,27 @@ export function nextSection(sections: string[]): string {
 export function schoolYear(now = new Date()): number {
   return now.getMonth() >= 2 ? now.getFullYear() : now.getFullYear() - 1;
 }
+
+// ---------- 공통과목 1·2 합산 (2026 기재요령 208쪽) ----------
+// 2022 개정 교육과정 공통과목은 1학기·2학기 세특을 합쳐 500자(1,500바이트) 안에서 쓴다.
+// 2022 개정은 2025학년도 입학생부터 (2026학년도 1~2학년).
+
+const COMMON_SUBJECTS = ["공통국어", "공통수학", "공통영어", "통합사회", "통합과학", "한국사", "과학탐구실험"];
+
+/** 공통과목이면 1·2 번호를 뗀 이름 (공통국어1 → 공통국어), 아니면 null */
+export function commonBase(subject: string): string | null {
+  const s = subject.replace(/\s/g, "").replace(/([12]|Ⅰ|Ⅱ)$/, "");
+  return COMMON_SUBJECTS.includes(s) ? s : null;
+}
+
+/** 1·2학기 세특 분량을 함께 쓰는 과목인가 */
+export function sharesCommonLimit(c: Pick<Course, "subject" | "year" | "grade">): boolean {
+  return !!commonBase(c.subject) && c.year - c.grade + 1 >= 2025;
+}
+
+/** 같은 학년·같은 공통과목의 다른 학기 과목 */
+export function commonSiblings(c: Course, all: Course[]): Course[] {
+  if (!sharesCommonLimit(c)) return [];
+  const base = commonBase(c.subject);
+  return all.filter((x) => x.id !== c.id && x.year === c.year && x.grade === c.grade && x.semester !== c.semester && commonBase(x.subject) === base);
+}

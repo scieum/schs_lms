@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CURRICULUM_2022, matchSubject, schoolYear, subjectsOf } from "./curriculum";
+import { commonBase, commonSiblings, CURRICULUM_2022, matchSubject, schoolYear, sharesCommonLimit, subjectsOf } from "./curriculum";
 
 describe("2022 개정 과목 목록", () => {
   it("과목 이름이 겹치지 않는다", () => {
@@ -31,5 +31,20 @@ describe("학년도", () => {
   it("3월에 바뀐다", () => {
     expect(schoolYear(new Date(2027, 1, 20))).toBe(2026);
     expect(schoolYear(new Date(2027, 2, 2))).toBe(2027);
+  });
+});
+
+describe("공통과목 1·2 합산", () => {
+  const C = (id: string, subject: string, semester: 1 | 2, grade = 1, year = 2026) => ({ id, subject, semester, grade, year }) as unknown as import("./curriculum").Course;
+  it("공통과목 이름을 알아본다", () => {
+    expect(commonBase("공통국어1")).toBe("공통국어");
+    expect(commonBase("통합 과학")).toBe("통합과학");
+    expect(commonBase("물리학")).toBeNull();
+  });
+  it("2025 입학생부터 1·2학기를 함께 센다", () => {
+    expect(sharesCommonLimit(C("a", "공통수학1", 1))).toBe(true);
+    expect(sharesCommonLimit(C("a", "공통수학1", 1, 3, 2026))).toBe(false);
+    const all = [C("a", "공통국어1", 1), C("b", "공통국어2", 2), C("c", "공통수학1", 1), C("d", "공통국어2", 2, 2)];
+    expect(commonSiblings(all[0], all).map((x) => x.id)).toEqual(["b"]);
   });
 });

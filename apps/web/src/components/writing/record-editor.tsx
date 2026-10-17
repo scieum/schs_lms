@@ -2,8 +2,9 @@
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui";
 import { checkLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
-import { resolveRecordLength, type RecordArea } from "@/lib/domain/writing";
-import { aiRecordDraft, readRecordFile, saveRecord, type RecordState } from "@/app/(app)/teacher/write/actions";
+import { recordMax, resolveRecordLength, type RecordArea } from "@/lib/domain/writing";
+import { BodyCard } from "./competency-view";
+import { aiRecordDraft, fitRecordAction, listRecordPieces, mergeRecordAction, readRecordFile, saveRecord, tagRecord, type RecordState } from "@/app/(app)/teacher/write/actions";
 import { AiDraftPanel } from "./ai-draft-panel";
 import { RecordChecks, type Who } from "./record-checks";
 import { RecordLengthPicker } from "./record-length-picker";
@@ -55,23 +56,31 @@ export function RecordEditor({
         bodyEmpty={!text.trim()}
         generate={(m) => aiRecordDraft({ area, studentId, clubId, memo: m, unit: range.unit, max: range.max })}
         readFile={(fd) => { fd.set("area", area); fd.set("studentId", studentId); if (clubId) fd.set("clubId", clubId); return readRecordFile(fd); }}
+        merge={{
+          load: () => listRecordPieces({ area, studentId, clubId }),
+          body: text,
+          neisMax: recordMax(area, range.unit),
+          run: (pieces, max) => mergeRecordAction({ area, studentId, clubId, pieces, unit: range.unit, max }),
+        }}
         onApply={setText}
       />
       <form action={action} className="flex flex-col gap-4">
         <input type="hidden" name="area" value={area} />
         <input type="hidden" name="studentId" value={studentId} />
         {clubId && <input type="hidden" name="clubId" value={clubId} />}
-        <textarea
-          name="content"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={9}
-          maxLength={5000}
-          placeholder="AI 초안을 넣거나 직접 써 주세요. 문장은 '~함.'으로 끝내요"
-          className="w-full resize-y rounded-field bg-white p-4 text-[15px] leading-7 outline-none focus:ring-2 focus:ring-key"
-          aria-label="기록 내용"
-        />
-        <RecordChecks text={text} range={range} who={who}>
+        <BodyCard text={text} tag={(t) => tagRecord({ area, studentId, clubId, text: t })}>
+          <textarea
+            name="content"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={9}
+            maxLength={5000}
+            placeholder="AI 초안을 넣거나 직접 써 주세요. 문장은 '~함.'으로 끝내요"
+            className="w-full resize-y rounded-field bg-white p-4 text-[15px] leading-7 outline-none focus:ring-2 focus:ring-key"
+            aria-label="기록 내용"
+          />
+        </BodyCard>
+        <RecordChecks text={text} range={range} who={who} fit={{ run: () => fitRecordAction({ area, studentId, clubId, text, unit: range.unit, max: range.max }), onApply: setText }}>
           <RecordLengthPicker area={area} defaultUnit={initialUnit} defaultMax={initialMax} onChange={setLen} />
         </RecordChecks>
 
