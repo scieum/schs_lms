@@ -4,23 +4,25 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { STATUS_CHIP, STATUS_DOT, STATUSES } from "@/components/event-style";
 import { Button, Card, cx } from "@/components/ui";
-import { monthGrid, shiftMonth, weekBars } from "@/lib/domain/program";
+import { addDays, monthGrid, shiftMonth, weekBars, weekOf } from "@/lib/domain/program";
 import { eventStatus, type SchoolEvent } from "@/lib/domain/school-info";
 import { addEvent, deleteEvent, updateEvent, type EventState } from "./actions";
 
 // 학사일정 (Figma N1 182:1522 / N1-2 183:1529): 이어진 날은 막대 하나, 상태 색, 막대를 누르면 정보(직접 추가한 일정은 수정·삭제),
 // "+ 일정 추가"는 누구나 (PC 가운데 창 · 모바일 아래 시트)
 
-const DOW = ["월", "화", "수", "목", "금", "토", "일"];
+const DOW = ["일", "월", "화", "수", "목", "금", "토"];
 const MAX_LANES = 3;
+export type ScheduleView = "list" | "week" | "month";
+const VIEWS: [ScheduleView, string][] = [["list", "목록"], ["week", "이번 주"], ["month", "이번 달"]];
 const md = (d: string) => `${+d.slice(5, 7)}.${String(+d.slice(8)).padStart(2, "0")}`;
 const W = ["일", "월", "화", "수", "목", "금", "토"];
 const full = (d: string) => `${md(d)} (${W[new Date(`${d}T00:00:00Z`).getUTCDay()]})`;
 const keyOf = (e: SchoolEvent) => e.custom?.id ?? `${e.name}|${e.date}`;
 const gradeText = (g: number[]) => (!g.length || g.length === 3 ? "전체 학년" : `${g.join("·")}학년`);
 
-export function EventCalendar({ events, month, today, me, admin, neisOk }: {
-  events: SchoolEvent[]; month: string; today: string; me: string; admin: boolean; neisOk: boolean;
+export function EventCalendar({ events, month, anchor, view, today, me, admin, neisOk }: {
+  events: SchoolEvent[]; month: string; anchor: string; view: ScheduleView; today: string; me: string; admin: boolean; neisOk: boolean;
 }) {
   const [open, setOpen] = useState<string | null>(null);
   // 팝업 위치: 누른 막대 바로 아래 (달력 틀 기준). 아래 공간이 모자라면 막대 위로
@@ -40,53 +42,60 @@ export function EventCalendar({ events, month, today, me, admin, neisOk }: {
     }
     setOpen(id);
   };
-  const weeks = monthGrid(month);
+  // 이번 주: anchor 가 든 주 한 줄 · 이번 달·목록: 그 달 (일요일 시작)
+  const weeks = view === "week" ? [weekOf(anchor)] : monthGrid(month);
+  const lanesMax = view === "week" ? 8 : MAX_LANES;
   const items = events.map((e) => ({ ...e, id: keyOf(e), startDate: e.date }));
   const picked = items.find((e) => e.id === open) ?? null;
-  const inMonth = items.filter((e) => e.date <= `${month}-31` && e.endDate >= `${month}-01`);
+  const from = view === "week" ? weeks[0][0] : `${month}-01`;
+  const to = view === "week" ? weeks[0][6] : `${month}-31`;
+  const inMonth = items.filter((e) => e.date <= to && e.endDate >= from);
   const [y, m] = month.split("-");
-  const nav = (n: number) => `/schedule?month=${shiftMonth(month, n)}`;
+  const nav = (n: number) => (view === "week" ? `/schedule?view=week&date=${addDays(anchor, n * 7)}` : `/schedule?view=${view}&month=${shiftMonth(month, n)}`);
+  const title = view === "week" ? `${md(weeks[0][0])} ~ ${md(weeks[0][6])}` : `${y}년 ${+m}월`;
+  const hrefOf = (v: ScheduleView) => (v === "week" ? `/schedule?view=week&date=${view === "week" ? anchor : month === today.slice(0, 7) ? today : `${month}-01`}` : `/schedule?view=${v}&month=${view === "week" ? anchor.slice(0, 7) : month}`);
   const canEdit = (e: SchoolEvent) => !!e.custom && (e.custom.authorId === me || admin);
 
   return (
     <Card
-      title={`${y}년 ${+m}월`}
+      title={title}
       action={
-        <div className="flex items-center gap-1.5">
-          <Link href={nav(-1)} aria-label="이전 달" className="rounded-control border border-hair p-1 text-sub hover:bg-soft"><ChevronLeft size={16} /></Link>
-          <Link href="/schedule" className="rounded-control px-2 py-1 text-[13px] text-sub hover:bg-soft">오늘</Link>
-          <Link href={nav(1)} aria-label="다음 달" className="rounded-control border border-hair p-1 text-sub hover:bg-soft"><ChevronRight size={16} /></Link>
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <ViewToggle view={view} hrefOf={hrefOf} />
+          <Link href={nav(-1)} aria-label={view === "week" ? "이전 주" : "이전 달"} className="rounded-control border border-hair p-1 text-sub hover:bg-soft"><ChevronLeft size={16} /></Link>
+          <Link href={`/schedule?view=${view}`} className="rounded-control px-2 py-1 text-[13px] text-sub hover:bg-soft">오늘</Link>
+          <Link href={nav(1)} aria-label={view === "week" ? "다음 주" : "다음 달"} className="rounded-control border border-hair p-1 text-sub hover:bg-soft"><ChevronRight size={16} /></Link>
           <Button type="button" size="sm" onClick={() => setEditing("new")} className="ml-1"><Plus size={14} /> 일정 추가</Button>
         </div>
       }
     >
       {!neisOk && <p className="mb-2 rounded-inner bg-wait-soft px-3 py-2 text-[13px] text-[#9a6400]">나이스 일정을 불러오지 못했어요. 직접 추가한 일정만 보여요</p>}
       {/* PC: 주마다 이어진 막대 */}
-      <div ref={box} className="relative hidden md:block">
+      <div ref={box} className={cx("relative hidden", view !== "list" && "md:block")}>
         <div className="grid grid-cols-7 text-center text-[12px] text-mute">
-          {DOW.map((d, i) => <div key={d} className={cx("pb-2", i === 6 && "text-bad")}>{d}</div>)}
+          {DOW.map((d, i) => <div key={d} className={cx("pb-2", i === 0 && "text-bad")}>{d}</div>)}
         </div>
         <div className="overflow-hidden rounded-inner border border-line">
           {weeks.map((week, wi) => {
             const bars = weekBars(week, inMonth);
-            const lanes = Math.max(1, Math.min(MAX_LANES, Math.max(0, ...bars.map((b) => b.lane + 1))));
-            const hidden = (i: number) => bars.filter((b) => b.lane >= MAX_LANES && b.from <= i && b.to >= i).length;
+            const lanes = Math.max(view === "week" ? 4 : 1, Math.min(lanesMax, Math.max(0, ...bars.map((b) => b.lane + 1))));
+            const hidden = (i: number) => bars.filter((b) => b.lane >= lanesMax && b.from <= i && b.to >= i).length;
             return (
               <div key={week[0]} className={cx("relative", wi > 0 && "border-t border-line")} style={{ minHeight: 34 + lanes * 26 + 12 }}>
                 <div className="absolute inset-0 grid grid-cols-7">
                   {week.map((d, i) => {
-                    const out = !d.startsWith(month);
+                    const out = view === "month" && !d.startsWith(month);
                     const holiday = items.some((e) => e.holiday && e.date <= d && e.endDate >= d);
                     return (
                       <div key={d} className={cx("px-2 pt-1.5", i > 0 && "border-l border-line", out && "bg-soft/60")}>
-                        <span className={cx("text-[12px] tabular-nums", d === today ? "rounded-chip bg-key px-1.5 py-0.5 font-bold text-white" : out ? "text-faint" : i === 6 || holiday ? "text-bad" : "text-sub")}>{+d.slice(8)}</span>
+                        <span className={cx("text-[12px] tabular-nums", d === today ? "rounded-chip bg-key px-1.5 py-0.5 font-bold text-white" : out ? "text-faint" : i === 0 || holiday ? "text-bad" : "text-sub")}>{+d.slice(8)}</span>
                         {hidden(i) > 0 && <span className="ml-1 text-[11px] text-mute">+{hidden(i)}</span>}
                       </div>
                     );
                   })}
                 </div>
                 <div className="relative grid grid-cols-7 gap-y-1 px-0.5 pt-8" style={{ gridTemplateRows: `repeat(${lanes}, 22px)` }}>
-                  {bars.filter((b) => b.lane < MAX_LANES).map((b) => {
+                  {bars.filter((b) => b.lane < lanesMax).map((b) => {
                     const e = items.find((x) => x.id === b.id)!;
                     const status = eventStatus(e, today);
                     return (
@@ -123,14 +132,14 @@ export function EventCalendar({ events, month, today, me, admin, neisOk }: {
       </div>
 
       {/* 모바일: 이 달 목록 (누르면 펼침) */}
-      <ul className="flex flex-col divide-y divide-line md:hidden">
-        {inMonth.length === 0 && <li className="py-6 text-center text-sm text-mute">이 달에는 일정이 없어요</li>}
+      <ul className={cx("flex flex-col divide-y divide-line", view !== "list" && "md:hidden")}>
+        {inMonth.length === 0 && <li className="py-6 text-center text-sm text-mute">{view === "week" ? "이번 주에는 일정이 없어요" : "이 달에는 일정이 없어요"}</li>}
         {inMonth.map((e) => {
           const status = eventStatus(e, today);
           return (
             <li key={e.id}>
               <button type="button" onClick={() => setOpen(open === e.id ? null : e.id)} className="flex w-full items-center gap-3 py-2.5 text-left">
-                <span className="w-16 shrink-0 text-[13px] tabular-nums text-sub">{md(e.date)}{e.endDate !== e.date && "~"}</span>
+                <span className="w-24 shrink-0 text-[13px] tabular-nums text-sub">{full(e.date)}{e.endDate !== e.date && "~"}</span>
                 <span className="min-w-0 flex-1 text-[14px]">{e.name}{e.custom && !e.custom.imported && <span className="ml-1 rounded-[4px] bg-soft px-1 text-[10px] text-sub">추가</span>}</span>
                 <span className={cx("shrink-0 rounded-chip px-1.5 py-0.5 text-[11px] font-bold", STATUS_CHIP[status])}>{status}</span>
               </button>
@@ -139,7 +148,7 @@ export function EventCalendar({ events, month, today, me, admin, neisOk }: {
           );
         })}
       </ul>
-      <div className="md:hidden"><Legend /></div>
+      <div className={cx(view !== "list" && "md:hidden")}><Legend /></div>
       <p className="mt-1 text-[12px] text-mute">나이스 학사일정 기준 · 빨간 날은 휴업일·공휴일 · 직접 추가한 일정은 올린 사람이 고치거나 지울 수 있어요</p>
 
       {editing && <EventForm event={editing === "new" ? null : editing} today={today} onClose={() => setEditing(null)} />}
@@ -241,5 +250,19 @@ function EventForm({ event, today, onClose }: { event: SchoolEvent | null; today
         </div>
       </form>
     </div>
+  );
+}
+
+/** 목록 | 이번 주 | 이번 달 (흰 바탕 + 테두리, 고른 쪽 인디고 연한 바탕) */
+function ViewToggle({ view, hrefOf }: { view: ScheduleView; hrefOf: (v: ScheduleView) => string }) {
+  return (
+    <nav className="flex rounded-full border border-hair bg-[#fff] p-0.5 text-[12px]" aria-label="보기">
+      {VIEWS.map(([v, label]) => (
+        <Link key={v} href={hrefOf(v)} aria-current={v === view ? "page" : undefined}
+          className={cx("rounded-full px-2.5 py-1", v === view ? "bg-key-soft font-bold text-key-strong" : "text-mute hover:text-sub")}>
+          {label}
+        </Link>
+      ))}
+    </nav>
   );
 }

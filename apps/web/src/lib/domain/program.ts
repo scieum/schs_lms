@@ -650,11 +650,11 @@ export function rephraseRule(sentence: string): string[] {
 
 // ---------- 전체 일정 (목록·캘린더) ----------
 
-/** "2026-10" → 그 달을 덮는 주(월~일) 목록. 칸은 YYYY-MM-DD, 앞뒤 달 날짜도 채운다 */
+/** "2026-10" → 그 달을 덮는 주(일~토, 2026-10-17 사용자 결정: 일요일 시작) 목록. 칸은 YYYY-MM-DD, 앞뒤 달 날짜도 채운다 */
 export function monthGrid(ym: string): string[][] {
   const [y, m] = ym.split("-").map(Number);
   const first = `${ym}-01`;
-  const dow = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7; // 월=0
+  const dow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(); // 일=0
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const weeks: string[][] = [];
   let d = addDays(first, -dow);
@@ -697,4 +697,11 @@ export function weekBars(week: string[], list: Pick<Program, "id" | "startDate" 
       if (lane === -1) { lane = lanes.length; lanes.push(to); } else lanes[lane] = to;
       return { id: p.id, from, to, lane, starts: p.startDate >= first, ends: p.endDate <= last };
     });
+}
+
+/** 그 날이 들어 있는 주 (일~토 7칸) */
+export function weekOf(ymd: string): string[] {
+  const dow = new Date(`${ymd}T00:00:00Z`).getUTCDay();
+  const start = addDays(ymd, -dow);
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }

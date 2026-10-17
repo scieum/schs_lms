@@ -6,7 +6,7 @@ import { Card, Tag, cx } from "@/components/ui";
 import { AREA_LABEL, md, monthGrid, programsInMonth, shiftMonth, weekBars } from "@/lib/domain/program";
 import type { ScheduleItem } from "./schedule";
 
-const DOW = ["월", "화", "수", "목", "금", "토", "일"];
+const DOW = ["일", "월", "화", "수", "목", "금", "토"];
 const MAX_LANES = 4;
 // 영역마다 막대 색 (인디고 계열 + 중립. 상태 색과 겹치지 않게)
 const BAR: Record<ScheduleItem["area"], string> = {

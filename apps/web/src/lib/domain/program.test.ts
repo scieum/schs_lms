@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveLength } from "./length";
 import {
-  addDays, afterAttempt, monthGrid, programsInMonth, shiftMonth, weekBars, buildQuestions, checkDraft, ddayLabel, effectiveStatus, FIXED_QUESTIONS, findIdentity, keywords, latestVersion,
+  addDays, afterAttempt, monthGrid, programsInMonth, shiftMonth, weekBars, weekOf, buildQuestions, checkDraft, ddayLabel, effectiveStatus, FIXED_QUESTIONS, findIdentity, keywords, latestVersion,
   maskIdentity, matchFileName, programGates, programStage, quickSplit, reviewStatus, sampleDraft, studentStage, summarizeErrors,
   validateAnswers, validateRanges, errorAdvice, weekTodos, responseDigest, similarSentences, similarity, rephraseRule, type DraftJob, type DraftVersion,
 } from "./program";
@@ -187,10 +187,10 @@ describe("AI 보강 규칙 대체", () => {
 });
 
 describe("전체 일정 캘린더", () => {
-  it("2026년 10월은 9.28(월)부터 11.1(일)까지 5주", () => {
+  it("2026년 10월은 9.27(일)부터 10.31(토)까지 5주 (일요일 시작)", () => {
     const g = monthGrid("2026-10");
-    expect(g[0][0]).toBe("2026-09-28");
-    expect(g.at(-1)?.at(-1)).toBe("2026-11-01");
+    expect(g[0][0]).toBe("2026-09-27");
+    expect(g.at(-1)?.at(-1)).toBe("2026-10-31");
     expect(g).toHaveLength(5);
   });
   it("달과 겹치는 프로그램만, 달 이동", () => {
@@ -202,7 +202,7 @@ describe("전체 일정 캘린더", () => {
 });
 
 describe("캘린더 막대", () => {
-  const week = ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18"];
+  const week = ["2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17"];
   it("주를 넘는 프로그램은 잘려 이어지고, 겹치면 다른 줄", () => {
     const bars = weekBars(week, [
       { id: "a", startDate: "2026-10-07", endDate: "2026-10-26" },
@@ -211,9 +211,16 @@ describe("캘린더 막대", () => {
     ]);
     const by = Object.fromEntries(bars.map((b) => [b.id, b]));
     expect(by.a).toMatchObject({ from: 0, to: 6, starts: false, ends: false });
-    expect(by.b).toMatchObject({ from: 2, to: 6, starts: true, ends: false });
-    expect(by.c).toMatchObject({ from: 0, to: 1, starts: true, ends: true });
+    expect(by.b).toMatchObject({ from: 3, to: 6, starts: true, ends: false });
+    expect(by.c).toMatchObject({ from: 1, to: 2, starts: true, ends: true });
     expect(by.c.lane).toBe(1);
     expect(by.b.lane).toBe(1);
+  });
+});
+
+describe("이번 주", () => {
+  it("일요일부터 토요일까지", () => {
+    expect(weekOf("2026-10-17")).toEqual(["2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17"]);
+    expect(weekOf("2026-10-18")[0]).toBe("2026-10-18");
   });
 });
