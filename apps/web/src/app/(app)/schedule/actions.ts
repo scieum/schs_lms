@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { isAdmin } from "@/lib/domain/policy";
+import { syncNotionSchedule, type SyncResult } from "@/lib/server/notion-sync";
 import { getMealDay } from "@/lib/server/school-info";
 import { repo } from "@/lib/server/repo";
 import { requireViewer } from "@/lib/server/viewer";
@@ -82,4 +83,14 @@ export async function mealDayAction(date: string, dir: -1 | 0 | 1) {
   await requireViewer();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "error" as const;
   return getMealDay(date, dir);
+}
+
+/** 관리자: 노션 학사일정 지금 가져오기 */
+export async function syncNotionNow(): Promise<SyncResult> {
+  const v = await requireViewer();
+  if (!isAdmin(v)) return { ok: false, error: "관리자만 할 수 있어요" };
+  const r = await syncNotionSchedule();
+  await repo.audit(v.accountId, "event.notion_sync", r.ok ? `+${r.added} ~${r.updated} -${r.removed}` : "실패");
+  revalidatePath("/schedule");
+  return r;
 }
