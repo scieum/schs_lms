@@ -71,8 +71,9 @@ export function Card({ title, action, children, className }: { title?: string; a
   return (
     <section className={cx("surface rounded-card p-5 md:p-6", className)}>
       {title && (
-        <div className="mb-4 flex items-center gap-2">
-          <h2 className="flex-1 text-[17px] font-bold md:text-lg">{title}</h2>
+        // 좁은 화면에서 제목 옆 버튼이 넘치면 다음 줄로 내린다 (카드가 화면 밖으로 밀리지 않게)
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <h2 className="min-w-0 flex-1 text-[17px] font-bold md:text-lg">{title}</h2>
           {action}
         </div>
       )}

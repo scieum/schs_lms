@@ -30,7 +30,7 @@ export async function ScheduleCard({ today, grade }: { today: string; grade?: nu
 /** 홈 아래에 급식·학사일정 두 칸 */
 export function SchoolInfoRow({ today, grade }: { today: string; grade?: number }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 [&>*]:min-w-0">
       <MealCard today={today} />
       <ScheduleCard today={today} grade={grade} />
     </div>
