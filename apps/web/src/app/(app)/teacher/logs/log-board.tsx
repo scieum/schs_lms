@@ -1,9 +1,11 @@
 "use client";
-import { useActionState, useState, useTransition } from "react";
-import { Check } from "lucide-react";
+import { useActionState, useRef, useState, useTransition } from "react";
+import { Check, Paperclip } from "lucide-react";
+import { prepareUpload } from "@/lib/client/shrink-upload";
+import { ACCEPT } from "@/components/writing/evidence-files";
 import { Button, Card, Tag, cx } from "@/components/ui";
 import { neisBytes } from "@/lib/domain/length";
-import { addLogs, polishLogMemo, type LogState, type PolishResult } from "./actions";
+import { addLogs, polishLogMemo, readLogFile, type LogState, type PolishResult } from "./actions";
 import { makeStudentNo } from "@/lib/domain/roster";
 
 type S = { id: string; name: string; grade: number; classNo: number; number: number; count: number };
@@ -18,9 +20,33 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
   const [polishing, startPolish] = useTransition();
   const runPolish = () => startPolish(async () => {
     try {
+      setSource(null);
       setPolish(await polishLogMemo({ area, clubId, text }));
     } catch {
       setPolish({ ok: false, error: "다듬지 못했어요. 직접 써 주세요" });
+    }
+  });
+  // 파일로 쓰기 (Figma N10): 활동지·보고서·사진 → 누가기록 한두 문장 제안. 큰 PDF는 쪽을 나눠 읽고 이어 붙인다
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [source, setSource] = useState<string | null>(null);
+  const runFile = (f: File) => startPolish(async () => {
+    try {
+      const texts: string[] = [];
+      let label: "AI" | "자동" = "AI";
+      for (const part of await prepareUpload(f)) {
+        const fd = new FormData();
+        fd.set("file", part);
+        fd.set("area", area);
+        if (clubId) fd.set("clubId", clubId);
+        const r = await readLogFile(fd);
+        if (!r.ok) { setSource(null); setPolish(r); return; }
+        texts.push(r.text);
+        label = r.label;
+      }
+      setSource(f.name);
+      setPolish({ ok: true, text: texts.join(" ").slice(0, 1000), label });
+    } catch {
+      setPolish({ ok: false, error: "파일을 읽지 못했어요. 직접 써 주세요" });
     }
   });
   const nameOf = new Map(students.map((s) => [s.id, s.name]));
@@ -71,7 +97,7 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
               <div className="flex flex-col gap-2 rounded-inner border border-line bg-white p-3.5">
                 <div className="flex items-center gap-1.5">
                   <Tag tone={polish.label === "AI" ? "bg-new-soft text-new" : "bg-key-soft text-key-strong"}>{polish.label}</Tag>
-                  <span className="flex-1 text-[13px] text-sub">다듬은 문장 · 같은 활동이라 모두에게 같은 글이 들어가요</span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-sub">{source ? `${source}에서` : "다듬은 문장"} · 모두에게 같은 글이 들어가요</span>
                 </div>
                 <p className="text-[15px] leading-7">{polish.text}</p>
                 {polish.notice && <p className="text-[12px] text-mute">{polish.notice}</p>}
@@ -86,8 +112,12 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
               <span className="flex-1">{text.length}자 · {neisBytes(text).toLocaleString()}바이트</span>
               {state.error && <span className="text-bad" role="alert">{state.error}</span>}
               {state.added && !state.error && <span className="text-ok" role="status">{state.added}명에게 추가했어요</span>}
+              <input ref={fileInput} type="file" accept={ACCEPT} hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) runFile(f); e.target.value = ""; }} />
+              <Button type="button" kind="outline" size="sm" onClick={() => fileInput.current?.click()} disabled={polishing}>
+                <Paperclip size={13} /> 파일로 쓰기
+              </Button>
               <Button type="button" kind="outline" size="sm" onClick={runPolish} disabled={polishing || text.trim().length < 2}>
-                {polishing ? "다듬는 중…" : "AI로 다듬기"}
+                {polishing ? "읽는 중…" : "AI로 다듬기"}
               </Button>
             </div>
             <Button disabled={pending || picked.size === 0 || text.trim().length < 5}>

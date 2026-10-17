@@ -6,6 +6,8 @@ import { maskIdentity } from "@/lib/domain/program";
 import { polishLog } from "@/lib/server/ai/teacher-ai";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
+import { readEvidence } from "@/lib/server/ai/read-evidence";
+import { takeEvidenceFile } from "@/lib/server/evidence-upload";
 
 export type LogState = { error?: string; added?: number };
 
@@ -49,6 +51,20 @@ export async function addLogs(_: LogState, form: FormData): Promise<LogState> {
   return { added: n };
 }
 
+/** 이 화면에 나오는 학생(우리 반·내 동아리) — AI에 보내기 전에 이름·학번을 가린다 */
+async function boardPeople(v: Awaited<ReturnType<typeof requireCan>>, area: string, clubId?: string) {
+  const all = await repo.listStudents();
+  let people = homeroomStudents(v, all);
+  if (area === "동아리" && clubId) {
+    const c = await repo.getClub(clubId);
+    if (c && c.advisorId === v.accountId) {
+      const ids = new Set(await repo.listClubMembers(c.id));
+      people = all.filter((s) => ids.has(s.id));
+    }
+  }
+  return people;
+}
+
 export type PolishResult = { ok: true; text: string; label: "AI" | "자동"; notice?: string } | { ok: false; error: string };
 
 /**
@@ -62,19 +78,27 @@ export async function polishLogMemo(input: { area: string; clubId?: string; text
   if (text.length > 1000) return { ok: false, error: "1000자까지 다듬을 수 있어요" };
   if (!isAreaOf(input.area)) return { ok: false, error: "영역을 골라 주세요" };
 
-  // 이 화면에 나오는 학생(우리 반·내 동아리)의 이름·학번을 가린다
-  const all = await repo.listStudents();
-  let people = homeroomStudents(v, all);
-  if (input.area === "동아리" && input.clubId) {
-    const c = await repo.getClub(input.clubId);
-    if (c && c.advisorId === v.accountId) {
-      const ids = new Set(await repo.listClubMembers(c.id));
-      people = all.filter((s) => ids.has(s.id));
-    }
-  }
+  const people = await boardPeople(v, input.area, input.clubId);
   const masked = maskIdentity(text, people);
   const r = await polishLog(masked, input.area);
   if (r.label === "AI") await repo.audit(v.accountId, "logs.ai.polish", input.area);
   if (!r.data) return { ok: false, error: "다듬을 내용을 찾지 못했어요. 직접 써 주세요" };
   return { ok: true, text: r.data, label: r.label, notice: r.error ? `AI 대신 규칙으로 다듬었어요 (${r.error})` : masked !== text ? "이름·학번은 가린 뒤 다듬었어요" : undefined };
+}
+
+/**
+ * "파일로 쓰기" (Figma N10): 활동지·보고서·사진 → 누가기록 한두 문장. 저장하지 않고 돌려주기만 한다.
+ * 고른 학생 모두에게 같은 글이 들어가므로 이름·학번은 가린다.
+ */
+export async function readLogFile(form: FormData): Promise<PolishResult> {
+  const v = await requireCan("logs.write");
+  const area = String(form.get("area") ?? "");
+  if (!isAreaOf(area)) return { ok: false, error: "영역을 골라 주세요" };
+  const file = await takeEvidenceFile(form);
+  if (typeof file === "string") return { ok: false, error: file };
+  const people = (await boardPeople(v, area, String(form.get("clubId") ?? "") || undefined)).map((s) => ({ name: s.name, studentNo: s.studentNo }));
+  const r = await readEvidence(file, { mode: "log", kind: area, people });
+  if (!r.ok) return r;
+  await repo.audit(v.accountId, "logs.ai.read_file", area);
+  return { ok: true, text: r.text.slice(0, 1000), label: r.label, notice: `${file.name}에서` };
 }

@@ -3,7 +3,7 @@ import { useActionState, useState } from "react";
 import { Button } from "@/components/ui";
 import { checkLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import { resolveRecordLength, type RecordArea } from "@/lib/domain/writing";
-import { aiRecordDraft, saveRecord, type RecordState } from "@/app/(app)/teacher/write/actions";
+import { aiRecordDraft, readRecordFile, saveRecord, type RecordState } from "@/app/(app)/teacher/write/actions";
 import { AiDraftPanel } from "./ai-draft-panel";
 import { RecordChecks, type Who } from "./record-checks";
 import { RecordLengthPicker } from "./record-length-picker";
@@ -54,6 +54,7 @@ export function RecordEditor({
         unit={range.unit}
         bodyEmpty={!text.trim()}
         generate={(m) => aiRecordDraft({ area, studentId, clubId, memo: m, unit: range.unit, max: range.max })}
+        readFile={(fd) => { fd.set("area", area); fd.set("studentId", studentId); if (clubId) fd.set("clubId", clubId); return readRecordFile(fd); }}
         onApply={setText}
       />
       <form action={action} className="flex flex-col gap-4">

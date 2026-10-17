@@ -3,12 +3,15 @@ import { useRef, useState, useTransition } from "react";
 import { Copy, Plus, RotateCcw, X } from "lucide-react";
 import { Button, Tag, cx } from "@/components/ui";
 import { measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
+import type { EvidenceResult } from "@/lib/server/ai/read-evidence";
+import { EvidenceFiles, evidenceMemo, type EvidenceItem } from "./evidence-files";
 import { composeKeywordMemo, parseKeywordMemo, type AiDraftResult, type KeywordBlock } from "@/lib/domain/writing";
 
 const EMPTY: KeywordBlock = { topic: "", activity: "", keywords: "" };
 const FIELD = "w-full rounded-field bg-soft px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-key";
 
 // "AI 초안" 패널 (Figma 영랑이 Y2 초안 카드와 같은 모양): 관찰 메모 → AI 초안 → 복사 / 다시 쓰기 / 본문에 넣기.
+// "자료로" 탭 (Figma N10): 학생 자료 파일을 AI가 읽어 (주제)(활동)(키워드) 근거로 만들고, 한 줄 메모와 함께 초안에 쓴다.
 // "키워드로" 탭: 속초고 세특 프롬프트(노션) 입력 형식 (주제)/(활동)/(키워드) 칸에 넣고 쓴다. 활동은 3개까지.
 // 결과는 본문(편집기)에 채우기만 하고 저장은 교사가 따로 누른다. 본문이 비어 있으면 바로 채운다.
 export function AiDraftPanel({
@@ -17,6 +20,7 @@ export function AiDraftPanel({
   unit,
   bodyEmpty,
   generate,
+  readFile,
   onApply,
 }: {
   initialMemo?: string;
@@ -24,12 +28,17 @@ export function AiDraftPanel({
   unit: LengthUnit;
   bodyEmpty: boolean;
   generate: (memo: string) => Promise<AiDraftResult>;
+  /** 자료 파일 하나 읽기 (없으면 '자료로' 탭을 숨긴다) */
+  readFile?: (form: FormData) => Promise<EvidenceResult>;
   onApply: (text: string) => void;
 }) {
   const [memo, setMemo] = useState(initialMemo);
   const [blocks, setBlocks] = useState<KeywordBlock[]>(() => parseKeywordMemo(initialMemo) ?? [{ ...EMPTY }]);
-  const [mode, setMode] = useState<"memo" | "keywords">(() => (parseKeywordMemo(initialMemo) ? "keywords" : "memo"));
-  const input = mode === "keywords" ? composeKeywordMemo(blocks) : memo;
+  const [mode, setMode] = useState<"memo" | "keywords" | "files">(() => (parseKeywordMemo(initialMemo) ? "keywords" : "memo"));
+  const [files, setFiles] = useState<EvidenceItem[]>([]);
+  const [extra, setExtra] = useState("");
+  const reading = files.some((f) => f.state === "reading");
+  const input = mode === "keywords" ? composeKeywordMemo(blocks) : mode === "files" ? [extra.trim(), evidenceMemo(files)].filter(Boolean).join("\n\n") : memo;
   const setBlock = (i: number, k: keyof KeywordBlock, v: string) => setBlocks((bs) => bs.map((b, j) => (j === i ? { ...b, [k]: v } : b)));
   const [result, setResult] = useState<Extract<AiDraftResult, { ok: true }> | null>(null);
   const [error, setError] = useState("");
@@ -77,17 +86,23 @@ export function AiDraftPanel({
         <span className="hidden text-[12px] text-mute md:inline">이름·학번은 가린 뒤 AI에 보내요</span>
       </div>
       <div className="flex gap-1" role="tablist" aria-label="입력 방식">
-        {([["memo", "메모로"], ["keywords", "키워드로"]] as const).map(([k, l]) => (
+        {([["memo", "메모로"], ["keywords", "키워드로"], ...(readFile ? [["files", "자료로"] as const] : [])] as const).map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => setMode(k)}
             className={cx("rounded-chip px-3 py-1.5 text-[13px]", mode === k ? "bg-key-soft font-bold text-key-strong" : "text-sub hover:bg-soft")}>{l}</button>
         ))}
       </div>
-      {mode === "memo" ? (
+      {mode === "files" && readFile ? (
+        <div className="flex flex-col gap-2">
+          <EvidenceFiles items={files} setItems={setFiles} read={readFile} />
+          <input value={extra} onChange={(e) => setExtra(e.target.value)} maxLength={500} placeholder="더 넣을 말 (선택)" aria-label="더 넣을 말"
+            className="w-full rounded-control bg-[#fff] px-3.5 py-3 text-sm outline-none focus:ring-2 focus:ring-key" />
+        </div>
+      ) : mode === "memo" ? (
         <textarea
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
           rows={3}
-          maxLength={2000}
+          maxLength={6000}
           placeholder={placeholder}
           aria-label="관찰 메모"
           className="w-full resize-y rounded-field bg-soft p-3 text-sm leading-6 outline-none focus:ring-2 focus:ring-key"
@@ -127,8 +142,8 @@ export function AiDraftPanel({
           </>
         ) : (
           <>
-            <span className="flex-1 text-[12px] text-mute">메모·누가기록만 근거로 써요</span>
-            <Button type="button" kind="soft" size="sm" onClick={run}>{result ? "다시 쓰기" : "AI 초안"}</Button>
+            <span className="flex-1 text-[12px] text-mute">{mode === "files" ? (reading ? "자료를 읽고 있어요" : "자료·메모·누가기록으로 써요") : "메모·누가기록만 근거로 써요"}</span>
+            <Button type="button" kind="soft" size="sm" onClick={run} disabled={mode === "files" && (reading || !input)}>{result ? "다시 쓰기" : "AI 초안"}</Button>
           </>
         )}
       </div>

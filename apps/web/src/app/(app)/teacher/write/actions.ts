@@ -4,12 +4,14 @@ import { z } from "zod";
 import { schoolYear } from "@/lib/domain/curriculum";
 import { checkLength, UNIT_LABEL } from "@/lib/domain/length";
 import type { Student, Viewer } from "@/lib/domain/types";
-import { canWriteRecord, findIdentity, isRecordArea, latestMemoByStudent, resolveRecordLength, type AiDraftResult, type RecordArea } from "@/lib/domain/writing";
+import { canWriteRecord, findIdentity, isRecordArea, latestMemoByStudent, RECORD_LABEL, resolveRecordLength, type AiDraftResult, type RecordArea } from "@/lib/domain/writing";
 import { writeRecord } from "@/lib/server/ai/write-record";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { evidenceLogs } from "./data";
 import { forbiddenBlock } from "@/lib/domain/forbidden";
+import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence";
+import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
 
 // 창체 특기사항(자율·자치/동아리/진로)·행발: AI 초안 → 교사 수정 → 저장(새 버전) → 확정
 
@@ -33,7 +35,7 @@ const AiSchema = z.object({
   area: z.string(),
   studentId: z.string().min(1),
   clubId: z.string().nullish(),
-  memo: z.string().max(2000, "메모는 2000자까지예요"),
+  memo: z.string().max(6000, "메모·자료는 6000자까지예요"),
   unit: z.enum(["bytes", "chars"]),
   max: z.number().int().min(1),
 });
@@ -100,4 +102,18 @@ export async function saveRecord(_: RecordState, form: FormData): Promise<Record
   await repo.audit(v.accountId, intent === "confirmed" ? "record.confirm" : "record.save", `${area} ${t.student.pseudonymId}`);
   revalidatePath(area === "행발" ? "/homeroom/behavior" : "/teacher/write");
   return { saved: intent, at: r.createdAt };
+}
+
+/** 자료로 쓰기 (Figma N10): 학생 자료 파일 하나 → (주제)(활동)(키워드) 근거. 저장하지 않는다 */
+export async function readRecordFile(form: FormData): Promise<EvidenceResult> {
+  const v = await requireCan("record.write");
+  const area = String(form.get("area") ?? "");
+  if (!isRecordArea(area)) return { ok: false, error: "영역을 골라 주세요" };
+  const t = await target(v, area, String(form.get("studentId") ?? ""), String(form.get("clubId") ?? "") || null);
+  if ("error" in t) return { ok: false, error: t.error };
+  const file = await takeEvidenceFile(form);
+  if (typeof file === "string") return { ok: false, error: file };
+  const r = await readEvidence(file, { mode: "record", kind: RECORD_LABEL[area], context: t.clubName, people: peopleAround(t.student, await repo.listStudents()) });
+  await repo.audit(v.accountId, "record.ai_read_file", `${area} ${t.student.pseudonymId}`);
+  return r;
 }

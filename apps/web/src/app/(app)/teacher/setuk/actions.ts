@@ -8,6 +8,8 @@ import { requireCan } from "@/lib/server/viewer";
 import { writeRecord } from "@/lib/server/ai/write-record";
 import { findIdentity, latestMemoByStudent, type AiDraftResult } from "@/lib/domain/writing";
 import { forbiddenBlock } from "@/lib/domain/forbidden";
+import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence";
+import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
 
 export type SetukState = { error?: string; saved?: "draft" | "confirmed"; at?: string };
 
@@ -57,7 +59,7 @@ export async function saveSetuk(_: SetukState, form: FormData): Promise<SetukSta
 const AiSchema = z.object({
   courseId: z.string().min(1),
   studentId: z.string().min(1),
-  memo: z.string().max(2000, "메모는 2000자까지예요"),
+  memo: z.string().max(6000, "메모·자료는 6000자까지예요"),
   unit: z.enum(["bytes", "chars"]),
   max: z.number().int().min(1),
 });
@@ -90,4 +92,24 @@ export async function aiSetukDraft(input: z.input<typeof AiSchema>): Promise<AiD
   await repo.audit(v.accountId, "setuk.ai_draft", `${course.subject} ${student.pseudonymId}`);
   if (!r.text) return { ok: false, error: r.notice ?? "초안을 만들지 못했어요. 직접 써 주세요" };
   return { ok: true, text: r.text, sample: r.sample, notice: r.notice };
+}
+
+/**
+ * 자료로 쓰기 (Figma N10): 학생 자료 파일 하나 → (주제)(활동)(키워드) 근거. 저장하지 않고 돌려주기만 한다.
+ * 패널이 이 근거를 메모와 함께 AI 초안에 넣는다.
+ */
+export async function readSetukFile(form: FormData): Promise<EvidenceResult> {
+  const v = await requireCan("setuk.write");
+  const courseId = String(form.get("courseId") ?? "");
+  const studentId = String(form.get("studentId") ?? "");
+  const [course, mine, student, roster] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getStudent(studentId), repo.getCourseRosters(v.accountId, courseId)]);
+  const assignment = mine.find((a) => a.courseId === courseId);
+  if (!course || !assignment || !student || !studentsInCourse([student], course, assignment, roster).length) {
+    return { ok: false, error: "내 담당 과목·반 학생만 쓸 수 있어요" };
+  }
+  const file = await takeEvidenceFile(form);
+  if (typeof file === "string") return { ok: false, error: file };
+  const r = await readEvidence(file, { mode: "record", kind: "교과 세특", context: course.subject, people: peopleAround(student, await repo.listStudents()) });
+  await repo.audit(v.accountId, "setuk.ai_read_file", `${course.subject} ${student.pseudonymId}`);
+  return r;
 }

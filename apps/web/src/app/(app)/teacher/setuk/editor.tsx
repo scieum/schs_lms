@@ -5,7 +5,7 @@ import { Button } from "@/components/ui";
 import { AiDraftPanel } from "@/components/writing/ai-draft-panel";
 import { RecordChecks, type Who } from "@/components/writing/record-checks";
 import { checkLength, resolveLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
-import { aiSetukDraft, saveSetuk, type SetukState } from "./actions";
+import { aiSetukDraft, readSetukFile, saveSetuk, type SetukState } from "./actions";
 import { OverApproval } from "@/components/writing/over-approval";
 
 // 세특 쓰기: AI 초안(관찰 메모) + 본문 + 자동 검사·분량(단위·최대) + 임시 저장 / 확정.
@@ -45,6 +45,7 @@ export function SetukEditor({
         unit={range.unit}
         bodyEmpty={!text.trim()}
         generate={(m) => aiSetukDraft({ courseId, studentId, memo: m, unit: range.unit, max: range.max })}
+        readFile={(fd) => { fd.set("courseId", courseId); fd.set("studentId", studentId); return readSetukFile(fd); }}
         onApply={setText}
       />
       <form action={action} className="flex flex-col gap-4">
