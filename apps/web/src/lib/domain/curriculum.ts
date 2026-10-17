@@ -126,10 +126,28 @@ export function courseLabel(c: Pick<Course, "grade" | "semester" | "subject">): 
 }
 
 /** 담당 교사의 과목 배정: 과목 + 맡은 반 */
+/** 고정반 = 학생 등록의 반 그대로 / 이동반 = 선택과목처럼 반이 섞여 분반마다 명단으로 정함 */
+export type ClassMode = "fixed" | "moving";
+
 export interface TeacherCourse {
   teacherId: string;
   courseId: string;
+  /** 고정반일 때 맡은 반 */
   classes: number[];
+  /** 없으면 고정반 (예전 데이터) */
+  mode?: ClassMode;
+  /** 이동반일 때 분반 이름 (예: "1분반", "2분반") */
+  sections?: string[];
+}
+
+/** 처음 고를 때 기본: 1학년·공통 과목은 고정반, 2·3학년 선택 과목은 이동반 */
+export function defaultClassMode(c: Pick<Course, "grade" | "type">): ClassMode {
+  return c.grade === 1 || c.type === "공통" ? "fixed" : "moving";
+}
+
+/** 다음 분반 이름: 1분반, 2분반, … (빈 번호부터) */
+export function nextSection(sections: string[]): string {
+  for (let i = 1; ; i++) if (!sections.includes(`${i}분반`)) return `${i}분반`;
 }
 
 /** 현재 학년도: 3월에 바뀐다 */

@@ -28,11 +28,14 @@ const toTeacher = (r: TeacherRow): Teacher => ({ id: r.id, name: r.name, roles: 
 export const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
 type CourseRow = { id: string; year: number; grade: number; semester: 1 | 2; subject: string; subject_group: SubjectGroup; course_type: Course["type"]; credits: number };
-type TeacherCourseRow = { teacher_id: string; course_id: string; classes: number[] };
+type TeacherCourseRow = { teacher_id: string; course_id: string; classes: number[]; mode?: string | null; sections?: string[] | null };
 type SetukRow = { id: string; course_id: string; student_id: string; author_id: string; content: string; unit: SetukRecord["unit"]; max_len: number; status: SetukRecord["status"]; created_at: string };
 
 const toCourse = (r: CourseRow): Course => ({ id: r.id, year: r.year, grade: r.grade, semester: r.semester, subject: r.subject, group: r.subject_group, type: r.course_type, credits: r.credits });
-const toTeacherCourse = (r: TeacherCourseRow): TeacherCourse => ({ teacherId: r.teacher_id, courseId: r.course_id, classes: r.classes });
+const toTeacherCourse = (r: TeacherCourseRow): TeacherCourse => ({
+  teacherId: r.teacher_id, courseId: r.course_id, classes: r.classes ?? [],
+  mode: r.mode === "moving" ? "moving" : "fixed", sections: r.sections ?? [],
+});
 const toSetuk = (r: SetukRow): SetukRecord => ({ id: r.id, courseId: r.course_id, studentId: r.student_id, authorId: r.author_id, content: r.content, unit: r.unit, max: r.max_len, status: r.status, createdAt: r.created_at });
 
 type ClubRow = { id: string; year: number; name: string; advisor_id: string };
@@ -147,7 +150,16 @@ export const supabaseRepo: Repo = {
   async setTeacherCourses(teacherId, rows) {
     // 지우고 다시 넣는다 (배정은 기록이 아니라 설정이라 C4 대상 아님). 실패하면 그대로 오류
     check(await db().from("teacher_courses").delete().eq("teacher_id", teacherId));
-    if (rows.length) check(await db().from("teacher_courses").insert(rows.map((r) => ({ teacher_id: teacherId, course_id: r.courseId, classes: r.classes }))));
+    if (!rows.length) return;
+    const full = rows.map((r) => ({ teacher_id: teacherId, course_id: r.courseId, classes: r.classes, mode: r.mode ?? "fixed", sections: r.sections ?? [] }));
+    const res = await db().from("teacher_courses").insert(full);
+    // 0016(mode·sections) 적용 전 DB: 고정반만 저장할 수 있다
+    if (res.error && /mode|sections/.test(res.error.message)) {
+      if (rows.some((r) => r.mode === "moving")) throw new Error("이동반을 저장하려면 DB 업데이트(0016)가 필요해요. 관리자에게 알려 주세요");
+      check(await db().from("teacher_courses").insert(rows.map((r) => ({ teacher_id: teacherId, course_id: r.courseId, classes: r.classes }))));
+      return;
+    }
+    check(res);
   },
   async listSetuk(courseId) {
     if (!isUuid(courseId)) return [];

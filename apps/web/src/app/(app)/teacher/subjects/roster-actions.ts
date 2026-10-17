@@ -67,9 +67,12 @@ export async function previewRoster(prev: RosterPreview, form: FormData): Promis
   const n = (prev.n ?? 0) + 1;
   const teacherId = String(form.get("teacherId") ?? "");
   const courseId = String(form.get("courseId") ?? "");
+  const section = String(form.get("section") ?? "");
   if (!(await who(teacherId))) return { error: "내 과목만 바꿀 수 있어요", n };
   const course = await repo.getCourse(courseId);
-  if (!course || !(await repo.listTeacherCourses(teacherId)).some((a) => a.courseId === courseId)) return { error: "맡은 과목을 먼저 저장해 주세요", n };
+  const a = (await repo.listTeacherCourses(teacherId)).find((x) => x.courseId === courseId);
+  if (!course || !a) return { error: "맡은 과목을 먼저 저장해 주세요", n };
+  if (a.mode !== "moving" || !a.sections?.includes(section)) return { error: "이동반 분반을 먼저 저장해 주세요", n };
 
   const pasted = String(form.get("pasted") ?? "").trim();
   const f = form.get("file");
@@ -100,18 +103,20 @@ export async function saveRoster(prev: RosterSave, form: FormData): Promise<Rost
   const n = (prev.n ?? 0) + 1;
   const teacherId = String(form.get("teacherId") ?? "");
   const courseId = String(form.get("courseId") ?? "");
+  const section = String(form.get("section") ?? "");
   const v = await who(teacherId);
   if (!v) return { error: "내 과목만 바꿀 수 있어요", n };
-  if (!(await repo.listTeacherCourses(teacherId)).some((a) => a.courseId === courseId)) return { error: "맡은 과목이 아니에요", n };
+  const a = (await repo.listTeacherCourses(teacherId)).find((x) => x.courseId === courseId);
+  if (!a || a.mode !== "moving" || !a.sections?.includes(section)) return { error: "이동반 분반이 아니에요", n };
   const known = new Set((await repo.listStudents()).map((s) => s.id));
   const ids = [...new Set(form.getAll("studentId").map(String))].filter((id) => known.has(id));
   try {
-    await repo.setCourseRoster(teacherId, courseId, ids);
+    await repo.setCourseRoster(teacherId, courseId, section, ids);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "저장하지 못했어요", n };
   }
-  await repo.audit(v.accountId, "subjects.roster", `${courseId} ${ids.length}명`);
+  await repo.audit(v.accountId, "subjects.roster", `${courseId} ${section} ${ids.length}명`);
   revalidatePath("/teacher/subjects");
   revalidatePath("/teacher/setuk");
-  return { done: ids.length ? `이동반 명단 ${ids.length}명을 저장했어요` : "반 기준으로 되돌렸어요", n };
+  return { done: ids.length ? `${section} 명단 ${ids.length}명을 저장했어요` : `${section} 명단을 비웠어요`, n };
 }

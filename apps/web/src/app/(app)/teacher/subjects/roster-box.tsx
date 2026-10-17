@@ -4,35 +4,49 @@ import { FileUp, Users } from "lucide-react";
 import { Button, Card, cx } from "@/components/ui";
 import { previewRoster, saveRoster, type RosterPreview, type RosterSave } from "./roster-actions";
 
-export type RosterCourse = { id: string; label: string; grade: number; classes: number[]; count: number; updatedAt: string | null };
+export type RosterSection = { name: string; count: number };
+export type RosterCourse = { id: string; label: string; meta: string; sections: RosterSection[] };
 
-// 이동반 명단 (2·3학년 선택 과목): 나이스 명단 파일을 올리거나 표를 붙여 넣으면 학생을 자동으로 찾는다 → 확인 후 저장
-export function RosterBox({ teacherId, courses }: { teacherId: string; courses: RosterCourse[] }) {
+// 이동반 분반 명단 (Figma N2 179:1456): 이동반 과목 → 분반마다 나이스 명단 파일을 올리거나 표를 붙여 넣으면 학생을 자동으로 찾는다 → 확인 후 저장
+export function RosterBox({ teacherId, courses, fixedNote }: { teacherId: string; courses: RosterCourse[]; fixedNote: string | null }) {
   const [open, setOpen] = useState<string | null>(null);
   if (!courses.length) return null;
   return (
-    <Card title="이동반 명단" action={<span className="text-[13px] text-mute">선택 과목은 반 대신 명단으로</span>}>
-      <ul className="flex flex-col gap-2">
+    <Card title="이동반 명단" action={<span className="text-[13px] text-mute">이동반 과목만 · 분반마다 나이스 명단</span>}>
+      <div className="flex flex-col gap-4">
         {courses.map((c) => (
-          <li key={c.id} className="rounded-inner bg-white p-3.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="min-w-0 flex-1 font-bold">{c.label}</span>
-              <span className={cx("rounded-chip px-2 py-0.5 text-[12px]", c.count ? "bg-key-soft text-key-strong" : "bg-soft text-mute")}>
-                {c.count ? `명단 ${c.count}명` : c.classes.length ? `반 기준 · ${c.classes.join(", ")}반` : "반·명단 없음"}
-              </span>
-              <Button type="button" size="sm" kind="outline" onClick={() => setOpen(open === c.id ? null : c.id)}>
-                <Users size={14} /> {c.count ? "명단 바꾸기" : "명단 올리기"}
-              </Button>
+          <div key={c.id} className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2 text-[14px]">
+              <span className="font-bold">{c.label}</span>
+              <span className="text-[12px] text-mute">{c.meta}</span>
+              <span className="rounded-chip bg-key-soft px-2 py-0.5 text-[12px] font-bold text-key-strong">이동반 · {c.sections.length}분반</span>
             </div>
-            {open === c.id && <RosterEditor key={c.id} teacherId={teacherId} course={c} onDone={() => setOpen(null)} />}
-          </li>
+            <ul className="flex flex-col gap-2">
+              {c.sections.map((s) => {
+                const key = `${c.id}|${s.name}`;
+                return (
+                  <li key={key} className="rounded-inner bg-white p-3.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1 font-bold">{c.label} · {s.name}</span>
+                      <span className={cx("rounded-chip px-2 py-0.5 text-[12px]", s.count ? "bg-key-soft text-key-strong" : "bg-soft text-mute")}>{s.count ? `명단 ${s.count}명` : "명단 없음"}</span>
+                      <Button type="button" size="sm" kind="outline" onClick={() => setOpen(open === key ? null : key)}>
+                        <Users size={14} /> {s.count ? "명단 바꾸기" : "명단 올리기"}
+                      </Button>
+                    </div>
+                    {open === key && <RosterEditor key={key} teacherId={teacherId} courseId={c.id} section={s.name} count={s.count} onDone={() => setOpen(null)} />}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         ))}
-      </ul>
+        {fixedNote && <p className="text-[12px] text-mute">고정반 과목은 학생 등록의 반 명단을 그대로 써요 · {fixedNote}</p>}
+      </div>
     </Card>
   );
 }
 
-function RosterEditor({ teacherId, course, onDone }: { teacherId: string; course: RosterCourse; onDone: () => void }) {
+function RosterEditor({ teacherId, courseId, section, count, onDone }: { teacherId: string; courseId: string; section: string; count: number; onDone: () => void }) {
   const [preview, previewAction, reading] = useActionState<RosterPreview, FormData>(previewRoster, {});
   const [save, saveAction, saving] = useActionState<RosterSave, FormData>(saveRoster, {});
   const [fileName, setFileName] = useState("");
@@ -43,7 +57,8 @@ function RosterEditor({ teacherId, course, onDone }: { teacherId: string; course
     <div className="mt-3 flex flex-col gap-3 border-t border-line pt-3">
       <form action={previewAction} className="flex flex-col gap-2.5">
         <input type="hidden" name="teacherId" value={teacherId} />
-        <input type="hidden" name="courseId" value={course.id} />
+        <input type="hidden" name="courseId" value={courseId} />
+        <input type="hidden" name="section" value={section} />
         <label className={cx("flex cursor-pointer items-center gap-3 rounded-inner border-2 border-dashed border-hair bg-soft px-4 py-3.5", fileName && "border-key")}>
           <FileUp size={20} className="shrink-0 text-key" />
           <span className="min-w-0 flex-1">
@@ -60,7 +75,8 @@ function RosterEditor({ teacherId, course, onDone }: { teacherId: string; course
       {preview.matched && (
         <form action={saveAction} className="flex flex-col gap-2.5">
           <input type="hidden" name="teacherId" value={teacherId} />
-          <input type="hidden" name="courseId" value={course.id} />
+          <input type="hidden" name="courseId" value={courseId} />
+        <input type="hidden" name="section" value={section} />
           <div className="flex flex-wrap items-center gap-2 text-[13px]">
             <span className="font-bold text-ok">찾음 {matched.length - drop.size}명</span>
             {(preview.unmatched?.length ?? 0) > 0 && <span className="font-bold text-wait">못 찾음 {preview.unmatched!.length}명</span>}
@@ -85,10 +101,10 @@ function RosterEditor({ teacherId, course, onDone }: { teacherId: string; course
           {save.error && <p className="text-sm text-bad" role="alert">{save.error}</p>}
           {save.done && <p className="text-sm text-ok" role="status">{save.done}</p>}
           <div className="flex justify-end gap-2">
-            {course.count > 0 && (
+            {count > 0 && (
               <Button type="button" size="sm" kind="outline" disabled={saving}
-                onClick={() => { const fd = new FormData(); fd.set("teacherId", teacherId); fd.set("courseId", course.id); startTransition(() => saveAction(fd)); }}>
-                반 기준으로 되돌리기
+                onClick={() => { const fd = new FormData(); fd.set("teacherId", teacherId); fd.set("courseId", courseId); fd.set("section", section); startTransition(() => saveAction(fd)); }}>
+                명단 비우기
               </Button>
             )}
             <Button size="sm" disabled={saving || matched.length - drop.size === 0}>{saving ? "저장 중…" : `${matched.length - drop.size}명 명단 저장`}</Button>

@@ -1,3 +1,4 @@
+import { defaultClassMode, nextSection } from "./curriculum";
 import { describe, expect, it } from "vitest";
 import type { Course } from "./curriculum";
 import { latestByStudent, statusLabel, studentsInCourse, type SetukRecord } from "./setuk";
@@ -25,5 +26,25 @@ describe("교과 세특", () => {
     expect(statusLabel(rec("a", "x", "draft", "  "))).toBe("미작성");
     expect(statusLabel(rec("a", "x", "draft"))).toBe("작성 중");
     expect(statusLabel(rec("a", "x", "confirmed"))).toBe("확정");
+  });
+});
+
+describe("이동반 분반", () => {
+  const course = { id: "c", year: 2026, grade: 2, semester: 1, subject: "물리학", group: "과학", type: "일반 선택", credits: 4 } as const;
+  const s = (id: string, classNo: number, number: number) => ({ id, pseudonymId: id, studentNo: `2${String(classNo).padStart(2, "0")}${String(number).padStart(2, "0")}`, grade: 2, classNo, number, name: id, gender: "남", track: 1, careerGoal: null });
+  const list = [s("a", 1, 1), s("b", 4, 2), s("c", 6, 3)] as never[];
+  const moving = { teacherId: "t", courseId: "c", classes: [], mode: "moving" as const, sections: ["1분반", "2분반"] };
+  const rosters = [{ section: "1분반", studentIds: ["c", "a"] }, { section: "2분반", studentIds: ["b"] }, { section: "옛분반", studentIds: ["x"] }];
+  it("분반을 고르면 그 분반만, 안 고르면 모든 분반을 합쳐서", () => {
+    expect(studentsInCourse(list, course as never, moving, rosters, "1분반").map((x: { id: string }) => x.id)).toEqual(["a", "c"]);
+    expect(studentsInCourse(list, course as never, moving, rosters).map((x: { id: string }) => x.id)).toEqual(["a", "b", "c"]);
+  });
+  it("고정반은 명단이 있어도 반 기준", () => {
+    expect(studentsInCourse(list, course as never, { teacherId: "t", courseId: "c", classes: [4] }, rosters).map((x: { id: string }) => x.id)).toEqual(["b"]);
+  });
+  it("기본 방식과 다음 분반 이름", () => {
+    expect(defaultClassMode({ grade: 1, type: "공통" })).toBe("fixed");
+    expect(defaultClassMode({ grade: 2, type: "일반 선택" })).toBe("moving");
+    expect(nextSection(["1분반", "3분반"])).toBe("2분반");
   });
 });

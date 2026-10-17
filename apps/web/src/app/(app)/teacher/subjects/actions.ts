@@ -12,7 +12,12 @@ export type SubjectsState = { error?: string; saved?: boolean };
 const Payload = z.object({
   teacherId: z.string().min(1),
   groups: z.array(z.string()).max(10),
-  courses: z.array(z.object({ courseId: z.string(), classes: z.array(z.number().int().min(1).max(20)).max(20) })).max(40),
+  courses: z.array(z.object({
+    courseId: z.string(),
+    classes: z.array(z.number().int().min(1).max(20)).max(20),
+    mode: z.enum(["fixed", "moving"]).optional().default("fixed"),
+    sections: z.array(z.string().trim().min(1).max(20)).max(12).optional().default([]),
+  })).max(40),
 });
 
 /** 내 교과와 담당 과목·반 저장. 관리자는 다른 교사 것도 정할 수 있다 */
@@ -32,13 +37,24 @@ export async function saveSubjects(_: SubjectsState, form: FormData): Promise<Su
   const rows: TeacherCourse[] = [];
   for (const r of data.courses) {
     const c = offered.get(r.courseId);
-    // 고른 교과에 속하고 편제표에 있는 과목만, 반을 하나 이상 고른 것만 저장
-    if (!c || !groups.includes(c.group) || r.classes.length === 0) continue;
-    rows.push({ teacherId: data.teacherId, courseId: c.id, classes: [...new Set(r.classes)].sort((a, b) => a - b) });
+    // 고른 교과에 속하고 편제표에 있는 과목만. 고정반은 반을, 이동반은 분반을 하나 이상 고른 것만 저장
+    if (!c || !groups.includes(c.group)) continue;
+    if (r.mode === "moving") {
+      const sections = [...new Set(r.sections)];
+      if (!sections.length) continue;
+      rows.push({ teacherId: data.teacherId, courseId: c.id, classes: [], mode: "moving", sections });
+    } else {
+      if (r.classes.length === 0) continue;
+      rows.push({ teacherId: data.teacherId, courseId: c.id, classes: [...new Set(r.classes)].sort((a, b) => a - b), mode: "fixed", sections: [] });
+    }
   }
 
   await repo.setTeacherGroups(data.teacherId, groups);
-  await repo.setTeacherCourses(data.teacherId, rows);
+  try {
+    await repo.setTeacherCourses(data.teacherId, rows);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "저장하지 못했어요" };
+  }
   await repo.audit(v.accountId, "subjects.assign", `${groups.join("·") || "교과 없음"} / 과목 ${rows.length}개`);
   revalidatePath("/teacher/subjects");
   revalidatePath("/teacher/setuk");

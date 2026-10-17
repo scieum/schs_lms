@@ -14,7 +14,7 @@ import { makeStudentNo } from "@/lib/domain/roster";
 
 export const metadata = { title: "교과 세특 · 속초고등학교 학생관리시스템" };
 
-type Props = { searchParams: Promise<{ course?: string; student?: string }> };
+type Props = { searchParams: Promise<{ course?: string; section?: string; student?: string }> };
 
 const short = (c: Course) => `${c.subject} ${c.grade}-${c.semester}`;
 
@@ -41,17 +41,29 @@ export default async function SetukPage({ searchParams }: Props) {
     );
   }
 
-  const course = myCourses.find((c) => c.id === q.course) ?? myCourses[0];
+  const allStudents = await repo.listStudents();
+  // 탭: 고정반 과목은 과목 하나, 이동반 과목은 분반마다 하나 (Figma N4 185:1666)
+  const tabs = myCourses.flatMap((c) => {
+    const a = mine.find((x) => x.courseId === c.id)!;
+    const rs = rosters.filter((r) => r.courseId === c.id);
+    if (a.mode === "moving" && a.sections?.length) {
+      return a.sections.map((sec) => ({ course: c, section: sec as string | null, label: `${c.subject} ${sec} · ${studentsInCourse(allStudents, c, a, rs, sec).length}명` }));
+    }
+    return [{ course: c, section: null as string | null, label: `${short(c)} · ${a.classes.join(", ")}반` }];
+  });
+  const tab = tabs.find((t) => t.course.id === q.course && (t.section ?? "") === (q.section ?? "")) ?? tabs.find((t) => t.course.id === q.course) ?? tabs[0];
+  const course = tab.course;
   const assignment = mine.find((a) => a.courseId === course.id);
-  const [allStudents, records] = await Promise.all([repo.listStudents(), repo.listSetuk(course.id)]);
-  const students = studentsInCourse(allStudents, course, assignment, rosters.find((r) => r.courseId === course.id)?.studentIds);
+  const records = await repo.listSetuk(course.id);
+  const students = studentsInCourse(allStudents, course, assignment, rosters.filter((r) => r.courseId === course.id), tab.section);
   const latest = latestByStudent(records);
   const selected = students.find((s) => s.id === q.student) ?? students.find((s) => statusLabel(latest.get(s.id)) !== "확정") ?? students[0];
   const counts = { 확정: 0, "작성 중": 0, 미작성: 0 };
   for (const s of students) counts[statusLabel(latest.get(s.id))]++;
   const cur = selected ? latest.get(selected.id) : undefined;
   const memo = selected ? latestMemoByStudent(await repo.listRecordMemos(`세특:${course.id}`, [selected.id])).get(selected.id) : undefined;
-  const href = (studentId?: string) => `/teacher/setuk?course=${course.id}${studentId ? `&student=${studentId}` : ""}`;
+  const sec = tab.section ? `&section=${encodeURIComponent(tab.section)}` : "";
+  const href = (studentId?: string) => `/teacher/setuk?course=${course.id}${sec}${studentId ? `&student=${studentId}` : ""}`;
 
   return (
     <>
@@ -62,7 +74,7 @@ export default async function SetukPage({ searchParams }: Props) {
             <ButtonLink href="/teacher/subjects" kind="outline" size="sm">내 과목</ButtonLink>
             {/* 일반 a 태그: 미리 불러오기(prefetch)로 내보내기가 실행되지 않게 */}
             <a
-              href={`/teacher/setuk/export?course=${course.id}`}
+              href={`/teacher/setuk/export?course=${course.id}${sec}`}
               download
               aria-disabled={counts.확정 === 0}
               className={cx("inline-flex items-center gap-1.5 rounded-control px-3.5 py-2 text-[13px] font-medium", counts.확정 ? "border border-hair bg-white text-ink hover:bg-soft" : "pointer-events-none border border-hair bg-white text-faint")}
@@ -73,8 +85,11 @@ export default async function SetukPage({ searchParams }: Props) {
         }
       />
       <PageBody>
-        {myCourses.length > 1 && (
-          <Segmented active={myCourses.indexOf(course)} items={myCourses.map((c) => ({ label: short(c), href: `/teacher/setuk?course=${c.id}` }))} />
+        {tabs.length > 1 && (
+          <Segmented active={tabs.indexOf(tab)} items={tabs.map((t) => ({ label: t.label, href: `/teacher/setuk?course=${t.course.id}${t.section ? `&section=${encodeURIComponent(t.section)}` : ""}` }))} />
+        )}
+        {assignment?.mode === "moving" && students.length === 0 && (
+          <p className="rounded-inner bg-wait-soft px-4 py-3 text-[13px] text-[#9a6400]">이 분반 명단이 아직 없어요. 내 수업 → 이동반 명단에서 나이스 명단을 올려 주세요</p>
         )}
         <StatTiles items={[["학생", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
         <AiBanner title="AI 세특 초안" label={aiEnabled() ? "AI" : "자동"} line="메모나 주제·활동·키워드 칸을 채우고 AI 초안을 누르면 NEIS 문장으로 채워요. 저장은 선생님이 해요" />
@@ -85,7 +100,7 @@ export default async function SetukPage({ searchParams }: Props) {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-[300px_1fr] md:gap-6">
-            <Card title={`${course.subject} · ${assignment?.classes.join("·")}반`}>
+            <Card title={tab.section ? `${course.subject} ${tab.section} · 이동반` : `${course.subject} · ${assignment?.classes.join("·")}반`}>
               <ul className="-mx-2 flex max-h-[560px] flex-col overflow-y-auto">
                 {students.map((s) => {
                   const r = latest.get(s.id);

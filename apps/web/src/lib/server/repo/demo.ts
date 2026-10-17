@@ -83,7 +83,7 @@ function seed(): Store {
   const courses = C.map(([id, grade, semester, subject, group, type, credits]) => ({ id, year: y, grade, semester, subject, group, type, credits, active: true }));
   const teacherGroups = new Map<string, SubjectGroup[]>([["t-subject", ["과학"]], ["t-homeroom", ["국어"]]]);
   const teacherCourses: TeacherCourse[] = [
-    { teacherId: "t-subject", courseId: "c-4", classes: [1, 2, 3] },
+    { teacherId: "t-subject", courseId: "c-4", classes: [], mode: "moving", sections: ["1분반", "2분반"] },
     { teacherId: "t-subject", courseId: "c-5", classes: [3] },
     { teacherId: "t-homeroom", courseId: "c-7", classes: [3] },
   ];
@@ -187,7 +187,7 @@ export const demoRepo: Repo = {
     store().teacherGroups.set(teacherId, [...groups]);
   },
   async listTeacherCourses(teacherId) {
-    return store().teacherCourses.filter((t) => t.teacherId === teacherId).map((t) => ({ ...t, classes: [...t.classes] }));
+    return store().teacherCourses.filter((t) => t.teacherId === teacherId).map((t) => ({ ...t, classes: [...t.classes], sections: [...(t.sections ?? [])] }));
   },
   async listAllTeacherCourses() {
     return store().teacherCourses.map((t) => ({ ...t, classes: [...t.classes] }));

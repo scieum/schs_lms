@@ -11,13 +11,13 @@ export async function GET(req: Request) {
   if (!v || !can(v, "setuk.write")) return new Response("권한이 없어요", { status: 403, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
   const courseId = new URL(req.url).searchParams.get("course") ?? "";
-  const [course, mine, roster] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getCourseRoster(v.accountId, courseId)]);
+  const [course, mine, roster] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getCourseRosters(v.accountId, courseId)]);
   const assignment = mine.find((a) => a.courseId === courseId);
   if (!course || !assignment) return new Response("내 담당 과목이 아니에요", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
   const [students, records] = await Promise.all([repo.listStudents(), repo.listSetuk(course.id)]);
   const latest = latestByStudent(records);
-  const rows = studentsInCourse(students, course, assignment, roster?.studentIds)
+  const rows = studentsInCourse(students, course, assignment, roster, new URL(req.url).searchParams.get("section"))
     .map((s) => ({ s, r: latest.get(s.id) }))
     .filter(({ r }) => r?.status === "confirmed" && r.content.trim())
     .map(({ s, r }) => ({ grade: s.grade, classNo: s.classNo, number: s.number, name: s.name, content: r!.content, bytes: neisBytes(r!.content) }));

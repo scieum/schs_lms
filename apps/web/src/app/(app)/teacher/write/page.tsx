@@ -49,7 +49,7 @@ async function spacesFor(v: Viewer): Promise<Space[]> {
     const c = blank();
     for (const course of myCourses) {
       const latest = latestByStudent(await repo.listSetuk(course.id));
-      for (const s of studentsInCourse(all, course, mine.find((a) => a.courseId === course.id), rosters.find((r) => r.courseId === course.id)?.studentIds)) {
+      for (const s of studentsInCourse(all, course, mine.find((a) => a.courseId === course.id), rosters.filter((r) => r.courseId === course.id))) {
         c.total++;
         c[statusLabel(latest.get(s.id))]++;
       }

@@ -27,13 +27,17 @@ export default async function SubjectsPage({ searchParams }: Props) {
     repo.listStudents(),
     repo.listCourseRosters(target),
   ]);
-  // 이동반 명단 칸: 저장된 담당 과목마다 (학년·학기 순)
+  // 이동반 명단 칸: 이동반 과목마다 분반별 (학년·학기 순)
   const rosterCourses: RosterCourse[] = assigned.flatMap((a) => {
     const c = courses.find((x) => x.id === a.courseId);
-    if (!c) return [];
-    const r = rosters.find((x) => x.courseId === c.id);
-    return [{ id: c.id, label: `${c.grade}학년 ${c.semester}학기 · ${c.subject}`, grade: c.grade, classes: a.classes, count: r?.studentIds.length ?? 0, updatedAt: r?.updatedAt ?? null }];
-  }).sort((x, y) => x.label.localeCompare(y.label, "ko"));
+    if (!c || a.mode !== "moving" || !a.sections?.length) return [];
+    const rs = rosters.filter((x) => x.courseId === c.id);
+    return [{ id: c.id, label: c.subject, meta: `${c.grade}학년 ${c.semester}학기 · ${c.type ?? "직접 입력"}`, sections: a.sections.map((name) => ({ name, count: rs.find((r) => r.section === name)?.studentIds.length ?? 0 })) }];
+  });
+  const fixed = assigned.filter((a) => a.mode !== "moving").map((a) => {
+    const c = courses.find((x) => x.id === a.courseId);
+    return c ? `${c.subject} ${a.classes.join(", ")}반` : null;
+  }).filter(Boolean);
   // 학년별 반 목록: 등록된 학생 기준, 없으면 1~8반
   const classesByGrade: Record<number, number[]> = {};
   for (const g of [1, 2, 3]) {
@@ -55,7 +59,7 @@ export default async function SubjectsPage({ searchParams }: Props) {
           </p>
         )}
         {/* key: 교사를 바꾸면 폼 상태를 새로 시작 */}
-        <RosterBox teacherId={target} courses={rosterCourses} />
+        <RosterBox teacherId={target} courses={rosterCourses} fixedNote={fixed.length ? fixed.join(" · ") : null} />
         <SubjectsForm key={target} teacherId={target} initialGroups={groups} initialCourses={assigned} courses={courses} classesByGrade={classesByGrade} />
       </PageBody>
     </>
