@@ -1,5 +1,5 @@
 "use client";
-import { startTransition, useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { STATUS_CHIP, STATUS_DOT, STATUSES } from "@/components/event-style";
@@ -23,7 +23,23 @@ export function EventCalendar({ events, month, today, me, admin, neisOk }: {
   events: SchoolEvent[]; month: string; today: string; me: string; admin: boolean; neisOk: boolean;
 }) {
   const [open, setOpen] = useState<string | null>(null);
+  // 팝업 위치: 누른 막대 바로 아래 (달력 틀 기준). 아래 공간이 모자라면 막대 위로
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const box = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<SchoolEvent | "new" | null>(null);
+  const openAt = (id: string, el: HTMLElement) => {
+    if (open === id) { setOpen(null); return; }
+    const frame = box.current?.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    if (frame) {
+      const W = 300, H = 190;
+      const left = Math.max(0, Math.min(r.left - frame.left, frame.width - W));
+      const below = r.bottom - frame.top + 6;
+      const top = below + H > frame.height && r.top - frame.top - H - 6 > 0 ? r.top - frame.top - H - 6 : below;
+      setPos({ top, left });
+    }
+    setOpen(id);
+  };
   const weeks = monthGrid(month);
   const items = events.map((e) => ({ ...e, id: keyOf(e), startDate: e.date }));
   const picked = items.find((e) => e.id === open) ?? null;
@@ -46,7 +62,7 @@ export function EventCalendar({ events, month, today, me, admin, neisOk }: {
     >
       {!neisOk && <p className="mb-2 rounded-inner bg-wait-soft px-3 py-2 text-[13px] text-[#9a6400]">나이스 일정을 불러오지 못했어요. 직접 추가한 일정만 보여요</p>}
       {/* PC: 주마다 이어진 막대 */}
-      <div className="relative hidden md:block">
+      <div ref={box} className="relative hidden md:block">
         <div className="grid grid-cols-7 text-center text-[12px] text-mute">
           {DOW.map((d, i) => <div key={d} className={cx("pb-2", i === 6 && "text-bad")}>{d}</div>)}
         </div>
@@ -77,7 +93,7 @@ export function EventCalendar({ events, month, today, me, admin, neisOk }: {
                       <button
                         key={b.id}
                         type="button"
-                        onClick={() => setOpen(open === b.id ? null : b.id)}
+                        onClick={(ev) => openAt(b.id, ev.currentTarget)}
                         title={`${e.name} · ${md(e.date)}${e.endDate !== e.date ? `~${md(e.endDate)}` : ""}`}
                         style={{ gridColumn: `${b.from + 1} / ${b.to + 2}`, gridRow: b.lane + 1 }}
                         className={cx(
@@ -99,7 +115,7 @@ export function EventCalendar({ events, month, today, me, admin, neisOk }: {
           })}
         </div>
         {picked && (
-          <div className="absolute bottom-12 right-4 z-10 w-[300px] rounded-card border border-line bg-[#fff] p-4">
+          <div className="absolute z-10 w-[300px] rounded-card border border-line bg-[#fff] p-4" style={pos ?? { right: 16, bottom: 48 }}>
             <Detail e={picked} today={today} canEdit={canEdit(picked)} onEdit={() => { setEditing(picked); setOpen(null); }} onClose={() => setOpen(null)} />
           </div>
         )}
