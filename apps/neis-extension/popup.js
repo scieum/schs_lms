@@ -21,7 +21,8 @@ async function loadSaved() {
 }
 
 async function loadSettings() {
-  const s = await chrome.storage.local.get(["rowSelector", "fieldSelector", "checkName", "mainWorld"]);
+  const s = await chrome.storage.local.get(["rowSelector", "fieldSelector", "checkName", "mainWorld", "order"]);
+  $("order").checked = s.order !== false;
   $("rowSelector").value = s.rowSelector || "";
   $("fieldSelector").value = s.fieldSelector || "";
   $("checkName").checked = s.checkName !== false;
@@ -34,6 +35,7 @@ function saveSettings() {
     fieldSelector: $("fieldSelector").value.trim(),
     checkName: $("checkName").checked,
     mainWorld: $("mainWorld").checked,
+    order: $("order").checked,
   });
 }
 
@@ -46,8 +48,15 @@ function currentStudents() {
   return list.sort((a, b) => a.grade - b.grade || a.classNo - b.classNo || a.number - b.number);
 }
 
-// 결과 표시: 한 반이면 '3번', 여러 반이면 '2-3번' (fill.js 는 '반-번호' 로 돌려준다)
-const label = (keys) => keys.map((k) => (byClass() ? k.split("-")[1] : k)).join(", ");
+// 학번 (학년 1자리 + 반 2자리 + 번호 2자리, 예: 20314) — 동아리처럼 여러 학년·반이 섞일 때 쓴다
+const studentNo = (s) => `${s.grade}${String(s.classNo).padStart(2, "0")}${String(s.number).padStart(2, "0")}`;
+const noOf = (s) => (byClass() ? String(s.number) : studentNo(s));
+// 결과 표시: 한 반이면 '3번', 여러 반이면 학번 (fill.js 는 '학년-반-번호' 로 돌려준다)
+const label = (keys) => keys.map((k) => {
+  const [g, c, n] = k.split("-").map(Number);
+  const s = data.students.find((x) => x.grade === g && x.classNo === c && x.number === n);
+  return s ? noOf(s) : k;
+}).join(", ");
 const mode = () => document.querySelector("input[name=mode]:checked").value;
 const maxBytes = () => Number($("maxBytes").value) || data.maxBytes;
 
@@ -61,7 +70,7 @@ function renderList() {
       const b = neisBytes(s.content);
       if (b > max) li.className = "over";
       li.innerHTML = `<span class="n"></span><span class="name"></span><span class="b"></span>`;
-      li.querySelector(".n").textContent = byClass() ? s.number : `${s.classNo}-${s.number}`;
+      li.querySelector(".n").textContent = noOf(s);
       li.querySelector(".name").textContent = s.name;
       li.querySelector(".b").textContent = `${b.toLocaleString()}B`;
       return li;
@@ -77,7 +86,7 @@ function render() {
   if (!data) return;
   $("subject").textContent = data.subject;
   $("kind").textContent = data.kind.replace(/^창체-/, "");
-  $("meta").textContent = [`${data.grade}학년${data.semester ? ` ${data.semester}학기` : ""}`, data.section, `확정 ${data.students.length}명`].filter(Boolean).join(" · ");
+  $("meta").textContent = [byClass() ? `${data.grade}학년${data.semester ? ` ${data.semester}학기` : ""}` : null, data.section, `확정 ${data.students.length}명`].filter(Boolean).join(" · ");
   const classes = [...new Set(data.students.map((s) => s.classNo))].sort((a, b) => a - b);
   $("classNo").replaceChildren(...classes.map((c) => new Option(`${c}반`, String(c))));
   $("classField").hidden = !byClass();
@@ -126,7 +135,7 @@ $("clear").addEventListener("click", async () => {
 
 $("classNo").addEventListener("change", renderList);
 $("maxBytes").addEventListener("input", renderList);
-for (const id of ["rowSelector", "fieldSelector", "checkName", "mainWorld"]) $(id).addEventListener("change", saveSettings);
+for (const id of ["rowSelector", "fieldSelector", "checkName", "mainWorld", "order"]) $(id).addEventListener("change", saveSettings);
 
 async function activeTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -150,6 +159,7 @@ $("fill").addEventListener("click", async () => {
       rowSelector: $("rowSelector").value.trim(),
       fieldSelector: $("fieldSelector").value.trim(),
       checkName: $("checkName").checked,
+      order: $("order").checked,
     };
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["fill.js"], world });
     const [{ result: r }] = await chrome.scripting.executeScript({
@@ -158,7 +168,9 @@ $("fill").addEventListener("click", async () => {
       func: (p) => window.__schsNeisFill(p),
       args: [payload],
     });
-    const parts = [`<span class="ok">${r.filled.length}명 채움</span>`];
+    const n = payload.students.length;
+    const parts = [`<span class="ok">${r.ordered ? "순서대로 " : ""}${r.filled.length}명 채움</span>`];
+    if (r.ordered) parts.push(`<span class="warn">${r.fieldsSeen === n ? "이름을 확인해 주세요" : `칸 ${r.fieldsSeen}개 · 학생 ${n}명, 이름을 확인해 주세요`}</span>`);
     if (r.overLimit.length) parts.push(`<span class="bad">바이트 초과 ${label(r.overLimit)}번</span>`);
     if (r.nameMismatch.length) parts.push(`<span class="warn">이름 불일치 ${label(r.nameMismatch)}번</span>`);
     if (r.notFound.length) parts.push(`<span class="warn">화면에 없음 ${label(r.notFound)}번</span>`);

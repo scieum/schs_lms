@@ -81,7 +81,7 @@
     return { s: byNum[0], mismatch: null };
   }
 
-  const keyOf = (s) => `${s.classNo}-${s.number}`;
+  const keyOf = (s) => `${s.grade}-${s.classNo}-${s.number}`;
 
   window.__schsNeis = { neisBytes, isEditable, typeInto, getValue, matchRow, keyOf, norm };
 
@@ -89,7 +89,7 @@
     const fieldSel = p.fieldSelector || "textarea, [contenteditable=true]";
     const rowSel = p.rowSelector || "tr, [role=row]";
     const fields = [...document.querySelectorAll(fieldSel)].filter((el) => !el.disabled && !el.readOnly);
-    const report = { filled: [], overLimit: [], nameMismatch: [], notFound: [], rowsWithoutStudent: 0, fieldsSeen: fields.length };
+    const report = { filled: [], overLimit: [], nameMismatch: [], notFound: [], rowsWithoutStudent: 0, fieldsSeen: fields.length, ordered: false };
     const done = new Set();
 
     for (const el of fields) {
@@ -106,6 +106,25 @@
       el.style.outline = "2px solid #536DFE";
       el.style.outlineOffset = "1px";
       report.filled.push(keyOf(s));
+    }
+    // 순서대로 넣기: 줄에서 이름을 하나도 못 찾았으면(나이스 그리드가 이름과 입력칸을 따로 그리는 경우)
+    // 화면에 보이는 입력칸에 확정 학생을 위에서부터 차례로 넣는다. 결과에 '순서대로'를 알려 이름을 확인하게 한다
+    if (p.order !== false && !report.filled.length && !report.nameMismatch.length && !report.overLimit.length) {
+      const visible = fields.filter((el) => el.offsetParent !== null || el.getClientRects().length);
+      report.ordered = true;
+      report.fieldsSeen = visible.length;
+      p.students.forEach((s, i) => {
+        const el = visible[i];
+        if (!el) return;
+        const before = getValue(el);
+        const next = p.mode === "append" && before.trim() ? `${before.trimEnd()} ${s.content}` : s.content;
+        done.add(keyOf(s));
+        if (neisBytes(next) > p.maxBytes) { report.overLimit.push(keyOf(s)); return; }
+        setValue(el, next);
+        el.style.outline = "2px solid #536DFE";
+        el.style.outlineOffset = "1px";
+        report.filled.push(keyOf(s));
+      });
     }
     report.notFound = p.students.filter((s) => !done.has(keyOf(s))).map(keyOf);
     return report;
