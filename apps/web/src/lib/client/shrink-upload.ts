@@ -52,3 +52,22 @@ export async function prepareUpload(file: File): Promise<File[]> {
   if (file.type.startsWith("image/")) return [await shrinkImage(file)];
   return [file];
 }
+
+/** 파일들을 한 번에 보낼 묶음으로 (묶음마다 합계가 limit 아래). 큰 파일 하나는 혼자 한 묶음 */
+export function batchBySize(files: File[], limit = UPLOAD_LIMIT): File[][] {
+  const out: File[][] = [];
+  let cur: File[] = [];
+  let size = 0;
+  for (const f of files) {
+    if (cur.length && size + f.size > limit) { out.push(cur); cur = []; size = 0; }
+    cur.push(f);
+    size += f.size;
+  }
+  if (cur.length) out.push(cur);
+  return out;
+}
+
+/** 여러 파일을 보낼 조각으로 (PDF 나누기 · 사진 줄이기) */
+export async function prepareUploads(files: File[]): Promise<File[]> {
+  return (await Promise.all(files.map(prepareUpload))).flat();
+}

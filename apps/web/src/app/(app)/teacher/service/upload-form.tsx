@@ -1,7 +1,8 @@
 "use client";
-import { startTransition, useActionState, useState } from "react";
+import { useState, useTransition } from "react";
 import { FileUp, Plus, Sparkles, X } from "lucide-react";
 import { Button, cx } from "@/components/ui";
+import { batchBySize, prepareUploads } from "@/lib/client/shrink-upload";
 import { scanServiceDocs, sendServices, type ScanState, type SendState, type ServiceRowDraft } from "./actions";
 
 const INPUT = "h-10 w-full min-w-0 rounded-field bg-white px-3 text-[14px] outline-none focus:ring-2 focus:ring-key";
@@ -9,8 +10,11 @@ type S = { id: string; label: string };
 
 // 확인서 여러 장 올리기 → AI가 읽고 학생 자동 매칭 → 표에서 확인·수정 → 모두 보내기
 export function ServiceUploadForm({ students, aiOn, today }: { students: S[]; aiOn: boolean; today: string }) {
-  const [scan, scanAction, scanning] = useActionState<ScanState, FormData>(scanServiceDocs, {});
-  const [send, sendAction, sending] = useActionState<SendState, FormData>(sendServices, {});
+  // 읽기·보내기는 파일을 3.5MB 묶음으로 나눠 차례로 부른다 (웹 4.5MB 제한)
+  const [scan, setScan] = useState<ScanState>({});
+  const [scanning, startScan] = useTransition();
+  const [send, setSend] = useState<SendState>({});
+  const [sending, startSend] = useTransition();
   // 보낸 뒤(send.n 이 바뀌면) 고른 파일·표를 비운다
   const [picked, setPicked] = useState<{ n: number; v: number; files: File[]; manual: number }>({ n: 0, v: 0, files: [], manual: 0 });
   // 마지막으로 읽은 파일 묶음 (파일을 다시 고르면 이전 표는 숨긴다)
@@ -18,14 +22,52 @@ export function ServiceUploadForm({ students, aiOn, today }: { students: S[]; ai
   const done = send.sent !== undefined && picked.n !== (send.n ?? 0);
   const files = done ? [] : picked.files;
 
-  const pick = (list: FileList | null) => setPicked({ n: send.n ?? 0, v: picked.v + 1, files: [...files, ...Array.from(list ?? [])].slice(0, 20), manual: 0 });
-  const formOf = (extra?: (fd: FormData) => void) => {
-    const fd = new FormData();
-    files.forEach((f) => fd.append("file", f));
-    extra?.(fd);
-    return fd;
+  // 큰 PDF 는 쪽 단위로 나누고 큰 사진은 줄인다 (웹은 한 번에 4.5MB까지만 받음)
+  const pick = async (list: FileList | null) => {
+    const ready = await prepareUploads(Array.from(list ?? []));
+    setPicked({ n: send.n ?? 0, v: picked.v + 1, files: [...files, ...ready].slice(0, 20), manual: 0 });
   };
-  const runScan = () => { setScannedV(picked.v); startTransition(() => scanAction(formOf())); };
+  const batches = () => {
+    let at = 0;
+    return batchBySize(files).map((b) => { const start = at; at += b.length; return { files: b, start }; });
+  };
+  const runScan = () => {
+    setScannedV(picked.v);
+    startScan(async () => {
+      const rows: ServiceRowDraft[] = [];
+      try {
+        for (const b of batches()) {
+          const fd = new FormData();
+          b.files.forEach((f) => fd.append("file", f));
+          const r = await scanServiceDocs({}, fd);
+          if (r.error) { setScan({ error: r.error, n: (scan.n ?? 0) + 1 }); return; }
+          rows.push(...(r.rows ?? []).map((x) => ({ ...x, fileIndex: x.fileIndex + b.start, key: `${x.fileIndex + b.start}-${x.key}` })));
+        }
+        setScan({ rows, n: (scan.n ?? 0) + 1 });
+      } catch {
+        setScan({ error: "파일을 보내지 못했어요. 파일 수를 줄여 다시 해 주세요", n: (scan.n ?? 0) + 1 });
+      }
+    });
+  };
+  type SendRow = { fileIndex: number; studentId: string; date: string; endDate: string; hours: string; organization: string; activity: string };
+  const runSend = (payload: SendRow[]) => startSend(async () => {
+    let sent = 0;
+    try {
+      for (const b of batches()) {
+        const mine = payload.filter((r) => r.fileIndex >= b.start && r.fileIndex < b.start + b.files.length).map((r) => ({ ...r, fileIndex: r.fileIndex - b.start }));
+        if (!mine.length) continue;
+        const fd = new FormData();
+        b.files.forEach((f) => fd.append("file", f));
+        fd.set("rows", JSON.stringify(mine));
+        const r = await sendServices({}, fd);
+        if (r.error) { setSend({ error: sent ? `${sent}건은 보냈고, 나머지에서 멈췄어요: ${r.error}` : r.error, n: (send.n ?? 0) + 1 }); return; }
+        sent += mine.length;
+      }
+      setSend({ sent: `${sent}건을 담임 선생님께 보냈어요`, n: (send.n ?? 0) + 1 });
+    } catch {
+      setSend({ error: "보내지 못했어요. 잠시 뒤 다시 해 주세요", n: (send.n ?? 0) + 1 });
+    }
+  });
   // AI 없이: 파일마다 빈 줄 하나
   const manualRows: ServiceRowDraft[] = files.map((f, i) => ({
     key: `m${i}`, fileIndex: i, fileName: f.name, studentId: null, studentHint: null, date: today, endDate: today, hours: null, organization: "", activity: "", error: null,
@@ -40,7 +82,7 @@ export function ServiceUploadForm({ students, aiOn, today }: { students: S[]; ai
           <span className="block font-medium">{files.length ? `확인서 ${files.length}개 골랐어요` : "확인서 파일 고르기 (여러 개 가능)"}</span>
           <span className="block truncate text-[13px] text-mute">{files.length ? files.map((f) => f.name).join(", ") : "PDF · JPG · PNG, 한 번에 20개 · 단체 확인서도 돼요"}</span>
         </span>
-        <input type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => { pick(e.target.files); e.target.value = ""; }} />
+        <input type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => { void pick(e.target.files); e.target.value = ""; }} />
       </label>
 
       <div className="flex flex-wrap items-center gap-3 rounded-inner bg-new-soft px-4 py-3">
@@ -67,7 +109,7 @@ export function ServiceUploadForm({ students, aiOn, today }: { students: S[]; ai
           students={students}
           sending={sending}
           error={send.error}
-          onSend={(payload) => startTransition(() => sendAction(formOf((fd) => fd.set("rows", JSON.stringify(payload)))))}
+          onSend={runSend}
         />
       )}
     </div>

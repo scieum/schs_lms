@@ -1,5 +1,6 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
+import { prepareUploads } from "@/lib/client/shrink-upload";
 import { FileUp, ShieldCheck, Sparkles } from "lucide-react";
 import { Button, cx } from "@/components/ui";
 import { confirmReads, readMaterialsAction, uploadMaterials, type ReadState, type UploadState } from "./actions";
@@ -9,11 +10,35 @@ const SELECT = "h-10 w-full rounded-field bg-white px-3 text-[14px] outline-none
 
 /** 일괄·개별·합본 업로드 */
 export function UploadBox({ programId, mode, students }: { programId: string; mode: "bulk" | "one" | "bundle"; students: Opt[] }) {
-  const [state, action, pending] = useActionState<UploadState, FormData>(uploadMaterials, {});
+  const [state, setState] = useState<UploadState>({});
+  const [pending, start] = useTransition();
+  const [progress, setProgress] = useState("");
   const [picked, setPicked] = useState<{ n: number; names: string[] }>({ n: 0, names: [] });
   const names = picked.n === (state.n ?? 0) ? picked.names : [];
+  // 웹은 한 번에 4.5MB까지만 받는다 → 한 파일씩(큰 PDF 는 쪽 단위 조각으로, 큰 사진은 줄여서) 차례로 올린다
+  const submit = (form: FormData) => start(async () => {
+    const n = (state.n ?? 0) + 1;
+    try {
+      const parts = await prepareUploads(form.getAll("files").filter((f): f is File => f instanceof File && f.size > 0));
+      const done: string[] = [];
+      for (const [i, part] of parts.entries()) {
+        if (parts.length > 1) setProgress(`${i + 1}/${parts.length}`);
+        const fd = new FormData();
+        for (const k of ["programId", "mode", "studentId"]) { const v = form.get(k); if (v) fd.set(k, v); }
+        fd.append("files", part);
+        const r = await uploadMaterials({}, fd);
+        if (r.error) { setState({ error: done.length ? `${done.length}개 올린 뒤 멈췄어요: ${r.error}` : r.error, n }); return; }
+        if (r.done) done.push(r.done);
+      }
+      setState({ done: parts.length > 1 ? `${parts.length}개 조각을 올렸어요 (큰 파일은 쪽 단위로 나눠 올렸어요)` : done[0], n });
+    } catch {
+      setState({ error: "올리지 못했어요. 잠시 뒤 다시 해 주세요", n });
+    } finally {
+      setProgress("");
+    }
+  });
   return (
-    <form action={action} className="flex flex-col gap-3" key={state.n ?? 0}>
+    <form action={submit} className="flex flex-col gap-3" key={state.n ?? 0}>
       <input type="hidden" name="programId" value={programId} />
       <input type="hidden" name="mode" value={mode} />
       {mode === "one" && (
@@ -42,7 +67,7 @@ export function UploadBox({ programId, mode, students }: { programId: string; mo
       </p>
       {state.error && <p className="text-sm text-bad" role="alert">{state.error}</p>}
       {state.done && <p className="text-sm text-ok" role="status">{state.done}</p>}
-      <Button kind="outline" disabled={pending || names.length === 0}>{pending ? "올리는 중…" : "올리기"}</Button>
+      <Button kind="outline" disabled={pending || names.length === 0}>{pending ? `올리는 중…${progress ? ` ${progress}` : ""}` : "올리기"}</Button>
     </form>
   );
 }

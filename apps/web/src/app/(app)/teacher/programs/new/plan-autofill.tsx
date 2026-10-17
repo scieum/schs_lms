@@ -4,6 +4,7 @@ import { FileText, Upload, X } from "lucide-react";
 import { Button, cx } from "@/components/ui";
 import { AREA_LABEL, md, SOURCE_LABEL } from "@/lib/domain/program";
 import { checkPlanFile, classesLabel, PLAN_MAX_FILES, type PlanFields, type PlanKey } from "@/lib/domain/program-plan";
+import { splitPdf, UPLOAD_LIMIT } from "@/lib/client/shrink-upload";
 import { readPlanAction, type PlanState } from "./actions";
 
 /** 폼에 채울 단위 (기간은 시작·끝을 한 줄로) */
@@ -66,8 +67,20 @@ export function PlanAutofill({ aiOn, now, onApply }: { aiOn: boolean; now: FormN
   const add = async (list: File[]) => {
     const bad = list.map((f) => checkPlanFile(f)).find(Boolean);
     setWarn(bad ?? null);
-    const ok = await Promise.all(list.filter((f) => !checkPlanFile(f)).map(shrink));
-    setFiles((cur) => [...cur, ...ok].slice(0, PLAN_MAX_FILES));
+    const ok = await Promise.all(list.filter((f) => !checkPlanFile(f)).map(async (f) => {
+      // 웹은 한 번에 4.5MB까지만 받는다: 큰 PDF 는 앞쪽 쪽들만 (계획서 핵심은 보통 앞에 있다)
+      if (f.type === "application/pdf" && f.size > UPLOAD_LIMIT) {
+        const first = (await splitPdf(f))[0];
+        setWarn(`${f.name}: 파일이 커서 앞쪽(${first.name.match(/_(\d+-\d+)\.pdf$/)?.[1] ?? "일부"}쪽)만 읽어요`);
+        return first;
+      }
+      return shrink(f);
+    }));
+    setFiles((cur) => {
+      const next = [...cur, ...ok].slice(0, PLAN_MAX_FILES);
+      if (next.reduce((n, x) => n + x.size, 0) > UPLOAD_LIMIT) setWarn("파일 합계가 커서 한 번에 못 보내요. 파일을 빼거나 캡처로 올려 주세요");
+      return next;
+    });
   };
   const read = () => {
     if (!files.length) return input.current?.click();
