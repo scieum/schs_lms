@@ -60,12 +60,13 @@ export function EventCalendar({ events, month, anchor, view, today, me, admin, n
     <Card
       title={title}
       action={
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
+        <div className="flex w-full items-center gap-1 sm:w-auto sm:gap-1.5">
           <ViewToggle view={view} hrefOf={hrefOf} />
+          <span className="flex-1 sm:hidden" />
           <Link href={nav(-1)} aria-label={view === "week" ? "이전 주" : "이전 달"} className="rounded-control border border-hair p-1 text-sub hover:bg-soft"><ChevronLeft size={16} /></Link>
-          <Link href={`/schedule?view=${view}`} className="rounded-control px-2 py-1 text-[13px] text-sub hover:bg-soft">오늘</Link>
+          <Link href={`/schedule?view=${view}`} className="whitespace-nowrap rounded-control px-1.5 py-1 text-[13px] text-sub hover:bg-soft sm:px-2">오늘</Link>
           <Link href={nav(1)} aria-label={view === "week" ? "다음 주" : "다음 달"} className="rounded-control border border-hair p-1 text-sub hover:bg-soft"><ChevronRight size={16} /></Link>
-          <Button type="button" size="sm" onClick={() => setEditing("new")} className="ml-1"><Plus size={14} /> 일정 추가</Button>
+          <Button type="button" size="sm" onClick={() => setEditing("new")} className="ml-1 px-2.5 sm:px-3.5" aria-label="일정 추가"><Plus size={14} /><span className="hidden sm:inline">일정 추가</span></Button>
         </div>
       }
     >
@@ -259,7 +260,7 @@ function ViewToggle({ view, hrefOf }: { view: ScheduleView; hrefOf: (v: Schedule
     <nav className="flex rounded-full border border-hair bg-[#fff] p-0.5 text-[12px]" aria-label="보기">
       {VIEWS.map(([v, label]) => (
         <Link key={v} href={hrefOf(v)} aria-current={v === view ? "page" : undefined}
-          className={cx("rounded-full px-2.5 py-1", v === view ? "bg-key-soft font-bold text-key-strong" : "text-mute hover:text-sub")}>
+          className={cx("whitespace-nowrap rounded-full px-2 py-1 sm:px-2.5", v === view ? "bg-key-soft font-bold text-key-strong" : "text-mute hover:text-sub")}>
           {label}
         </Link>
       ))}

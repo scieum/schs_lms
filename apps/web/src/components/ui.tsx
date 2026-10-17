@@ -24,7 +24,7 @@ export function Button({
       className={cx(
         // "hidden md:inline-flex" 처럼 화면 크기별로 숨길 때는 기본 inline-flex 를 빼야 hidden 이 먹는다
         /(^|\s)hidden(\s|$)/.test(className ?? "") ? "" : "inline-flex",
-        "items-center justify-center gap-1.5 rounded-control font-medium transition-colors disabled:cursor-not-allowed",
+        "items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors disabled:cursor-not-allowed",
         size === "sm" ? "px-3.5 py-2 text-[13px]" : "px-5 py-3 text-[15px]",
         BTN[kind],
         className,
@@ -45,7 +45,7 @@ export function ButtonLink({
       className={cx(
         // "hidden md:inline-flex" 처럼 화면 크기별로 숨길 때는 기본 inline-flex 를 빼야 hidden 이 먹는다
         /(^|\s)hidden(\s|$)/.test(className ?? "") ? "" : "inline-flex",
-        "items-center justify-center gap-1.5 rounded-control font-medium transition-colors",
+        "items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors",
         size === "sm" ? "px-3.5 py-2 text-[13px]" : "px-5 py-3 text-[15px]",
         BTN[kind],
         className,
@@ -166,14 +166,15 @@ export function Field({ label, error, className, ...p }: ComponentProps<"input">
 // 켜고 끄는 전환(세그먼트·토글)만 완전히 둥글게 (2026-10-16 "on/off는 더 둥글게"). 나머지는 낮은 모서리 유지.
 export function Segmented({ items, active }: { items: { label: string; href: string }[]; active: number }) {
   return (
-    <nav className="flex gap-1 rounded-full border border-hair bg-white p-1">
+    // 좁은 화면에서 이름이 길면 글자를 꺾지 않고 옆으로 밀어 본다 (모바일 전수 점검 2026-10-17)
+    <nav className="flex gap-1 overflow-x-auto rounded-full border border-hair bg-white p-1 [scrollbar-width:none]">
       {items.map((it, i) => (
         <Link
           key={it.href}
           href={it.href}
           aria-current={i === active ? "page" : undefined}
           className={cx(
-            "flex-1 rounded-full px-3 py-2.5 text-center text-sm",
+            "flex-[1_0_auto] whitespace-nowrap rounded-full px-3 py-2.5 text-center text-sm",
             i === active ? "bg-key font-bold text-white" : "text-sub hover:bg-soft hover:text-ink",
           )}
         >
@@ -201,7 +202,7 @@ export function Toggle({
   size?: "sm" | "md";
 }) {
   return (
-    <div className={cx("flex gap-1 rounded-full p-1", tone === "white" ? "bg-white" : "bg-soft")} role="radiogroup">
+    <div className={cx("flex gap-1 overflow-x-auto rounded-full p-1 [scrollbar-width:none]", tone === "white" ? "bg-white" : "bg-soft")} role="radiogroup">
       {name && <input type="hidden" name={name} value={value} />}
       {options.map(([v, label]) => (
         <button
@@ -211,8 +212,8 @@ export function Toggle({
           aria-checked={value === v}
           onClick={() => onChange(v)}
           className={cx(
-            "flex-1 rounded-full",
-            size === "sm" ? "px-3.5 py-1.5 text-[13px]" : "py-2.5 text-sm",
+            "flex-[1_0_auto] whitespace-nowrap rounded-full",
+            size === "sm" ? "px-3.5 py-1.5 text-[13px]" : "px-3 py-2.5 text-sm",
             value === v ? "bg-key font-bold text-white" : "text-mute hover:text-sub",
           )}
         >

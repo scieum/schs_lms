@@ -117,10 +117,10 @@ export function AiDraftPanel({
         <span className="flex-1 text-[15px] font-bold">AI 초안</span>
         <span className="hidden text-[12px] text-mute md:inline">이름·학번은 가린 뒤 AI에 보내요</span>
       </div>
-      <div className="flex gap-1" role="tablist" aria-label="입력 방식">
+      <div className="-mx-1 flex gap-1 overflow-x-auto px-1 [scrollbar-width:none]" role="tablist" aria-label="입력 방식">
         {([["memo", "메모로"], ["keywords", "키워드로"], ...(readFile ? [["files", "자료로"] as const] : []), ...(merge ? [["merge", "합치기"] as const] : [])] as const).map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => (k === "merge" ? openMerge() : setMode(k))}
-            className={cx("rounded-chip px-3 py-1.5 text-[13px]", mode === k ? "bg-key-soft font-bold text-key-strong" : "text-sub hover:bg-soft")}>{l}</button>
+            className={cx("shrink-0 whitespace-nowrap rounded-chip px-3 py-1.5 text-[13px]", mode === k ? "bg-key-soft font-bold text-key-strong" : "text-sub hover:bg-soft")}>{l}</button>
         ))}
       </div>
       {mode === "merge" && merge ? (

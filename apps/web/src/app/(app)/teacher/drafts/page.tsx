@@ -178,7 +178,7 @@ export default async function DraftsPage({ searchParams }: Props) {
       <PageBody>
         <p className="-mt-2 text-[13px] text-mute md:-mt-4">검토 대기 {items.filter((x) => x.status === "검토 대기").length}건 · 확정 {count("done")}건 · 반려 {count("rejected")}건{items.some((x) => x.status === "생성 실패") ? ` · 생성 실패 ${items.filter((x) => x.status === "생성 실패").length}건` : ""}</p>
         {programs.length > 1 && (
-          <nav className="flex flex-wrap gap-1.5">
+          <nav className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
             <Link href="/teacher/drafts" className={cx("rounded-chip px-3 py-1.5 text-[13px]", !q.program ? "bg-key font-bold text-white" : "bg-soft text-sub")}>전체</Link>
             {programs.map((p) => (
               <Link key={p.id} href={`/teacher/drafts?program=${p.id}`} className={cx("rounded-chip px-3 py-1.5 text-[13px]", q.program === p.id ? "bg-key font-bold text-white" : "bg-soft text-sub")}>{p.title}</Link>

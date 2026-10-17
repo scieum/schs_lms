@@ -39,6 +39,7 @@
 
 ## 검증
 `apps/web`에서: `npx tsc --noEmit` → `npx eslint src` → `npm test` → `npm run build` 모두 통과해야 완료.
+화면을 고쳤으면 데모 서버(3200)를 켜고 `node scripts/mobile-audit.mjs <폴더> 3200 412` (그리고 360)로 모바일 전수 점검: 넓어진 페이지·두 줄로 꺾인 버튼/탭·줄 넘친 버튼 줄·화면 밖 요소가 0이어야 한다. 버튼·탭은 글자를 꺾지 않는다(넘치면 옆으로 스크롤).
 
 ## npm (이 네트워크)
 `env -u NODE_TLS_REJECT_UNAUTHORIZED NODE_OPTIONS=--use-system-ca npm install …`

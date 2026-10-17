@@ -37,8 +37,8 @@ export function LengthPicker({
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-[13px] font-medium text-sub">초안 분량</span>
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1 rounded-full bg-soft p-1" role="tablist" aria-label="분량 단위">
+      <div className="flex items-center gap-2">
+        <div className="flex shrink-0 gap-1 rounded-full bg-soft p-1" role="tablist" aria-label="분량 단위">
           {(["bytes", "chars"] as const).map((u) => (
             <button
               key={u}
@@ -46,13 +46,13 @@ export function LengthPicker({
               role="tab"
               aria-selected={unit === u}
               onClick={() => switchUnit(u)}
-              className={cx("rounded-full px-4 py-2 text-sm", unit === u ? "bg-key font-bold text-white" : "text-mute")}
+              className={cx("whitespace-nowrap rounded-full px-3 py-2 text-sm md:px-4", unit === u ? "bg-key font-bold text-white" : "text-mute")}
             >
               {UNIT_LABEL[u]}
             </button>
           ))}
         </div>
-        <label className="flex min-w-32 flex-1 items-center gap-1 rounded-field bg-soft px-4 py-2.5 focus-within:ring-2 focus-within:ring-key">
+        <label className="flex min-w-0 flex-1 items-center gap-1 rounded-field bg-soft px-4 py-2.5 focus-within:ring-2 focus-within:ring-key">
           <input
             name={`${name}Max`}
             inputMode="numeric"
@@ -67,7 +67,7 @@ export function LengthPicker({
           />
           <span className="shrink-0 whitespace-nowrap text-sm text-mute">{UNIT_LABEL[unit]}</span>
         </label>
-        <span className="rounded-chip bg-key-soft px-2.5 py-1 text-xs font-bold text-key">
+        <span className="shrink-0 whitespace-nowrap rounded-chip bg-key-soft px-2.5 py-1 text-xs font-bold text-key">
           NEIS 한도 {limit.toLocaleString()}
         </span>
       </div>

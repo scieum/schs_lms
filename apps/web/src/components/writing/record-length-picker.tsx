@@ -32,8 +32,8 @@ export function RecordLengthPicker({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1 rounded-full bg-soft p-1" role="tablist" aria-label="분량 단위">
+      <div className="flex items-center gap-2">
+        <div className="flex shrink-0 gap-1 rounded-full bg-soft p-1" role="tablist" aria-label="분량 단위">
           {(["bytes", "chars"] as const).map((u) => (
             <button
               key={u}
@@ -47,7 +47,7 @@ export function RecordLengthPicker({
             </button>
           ))}
         </div>
-        <label className="flex min-w-28 flex-1 items-center gap-1 rounded-field bg-soft px-3 py-2 focus-within:ring-2 focus-within:ring-key">
+        <label className="flex min-w-0 flex-1 items-center gap-1 rounded-field bg-soft px-3 py-2 focus-within:ring-2 focus-within:ring-key">
           <input
             name="lengthMax"
             inputMode="numeric"
@@ -62,7 +62,7 @@ export function RecordLengthPicker({
           />
           <span className="shrink-0 text-[13px] text-mute">{UNIT_LABEL[unit]}</span>
         </label>
-        <span className="rounded-chip bg-key-soft px-2.5 py-1 text-xs font-bold text-key">NEIS 한도 {recordMax(area, unit).toLocaleString()}</span>
+        <span className="shrink-0 whitespace-nowrap rounded-chip bg-key-soft px-2.5 py-1 text-xs font-bold text-key">NEIS 한도 {recordMax(area, unit).toLocaleString()}</span>
       </div>
       <input type="hidden" name="lengthUnit" value={unit} />
       {range.capped && (
