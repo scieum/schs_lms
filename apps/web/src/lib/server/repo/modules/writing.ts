@@ -4,7 +4,7 @@ import type { ActivityLog } from "@/lib/domain/activity";
 import type { RecordArea, RecordDraft, RecordMemo } from "@/lib/domain/writing";
 import { isDemo } from "../../env";
 import { store } from "../demo";
-import { check, db, isUuid } from "../supabase";
+import { check, db, isUuid, selectIn } from "../supabase";
 
 // 교사 AI 기록 쓰기(세특·누가기록 특기사항·행발).
 // 인터페이스 + 데모(메모리) 구현 + Supabase 구현을 이 파일 한 곳에 둔다. index.ts 가 합친다.
@@ -116,8 +116,9 @@ export const supabaseWriting: WritingRepo = {
   async listRecordDrafts({ area, year, studentIds }) {
     const ids = studentIds.filter(isUuid);
     if (!ids.length) return [];
-    const r = check(await db().from("record_drafts").select("*").eq("area", area).eq("year", year).in("student_id", ids).order("created_at"));
-    return (r as DraftRow[]).map(toDraft);
+    const r = await selectIn<DraftRow>(ids, (part) => db().from("record_drafts").select("*").eq("area", area).eq("year", year).in("student_id", part).order("created_at"),
+      (a, b) => a.created_at.localeCompare(b.created_at));
+    return r.map(toDraft);
   },
   async addRecordDraft(x) {
     const r = check(await db().from("record_drafts").insert({
@@ -129,8 +130,9 @@ export const supabaseWriting: WritingRepo = {
   async listRecordMemos(scope, studentIds) {
     const ids = studentIds.filter(isUuid);
     if (!ids.length) return [];
-    const r = check(await db().from("record_memos").select("*").eq("scope", scope).in("student_id", ids).order("created_at"));
-    return (r as MemoRow[]).map(toMemo);
+    const r = await selectIn<MemoRow>(ids, (part) => db().from("record_memos").select("*").eq("scope", scope).in("student_id", part).order("created_at"),
+      (a, b) => a.created_at.localeCompare(b.created_at));
+    return r.map(toMemo);
   },
   async addRecordMemo(x) {
     const r = check(await db().from("record_memos").insert({ scope: x.scope, student_id: x.studentId, author_id: x.authorId, content: x.content }).select("*").single());

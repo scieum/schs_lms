@@ -7,7 +7,7 @@ import {
   addDays, cellStatus, periodSummary, seoulNow, sessionPeriods, studentDays, weekDays, weekStart,
   type NightAttendance, type NightNotice, type NightRequest, type NightSignup, type Period, type Place, type Session,
 } from "@/lib/domain/night";
-import { check, db, isUuid } from "../supabase";
+import { check, db, isUuid, selectIn } from "../supabase";
 
 // 성적(모의고사·내신)·수능 최저 기준·야간 자율학습.
 // 인터페이스 + 데모(메모리) 구현 + Supabase 구현을 이 파일 한 곳에 둔다. index.ts 가 합친다.
@@ -479,7 +479,8 @@ const supabaseBase: Base = {
   async listMockScores(studentIds) {
     const ids = uuids(studentIds);
     if (!ids.length) return [];
-    const r = check(await db().from("mock_scores").select("exam_id, student_id, ko, ma, en, hi, t1, t2, created_at").in("student_id", ids).order("created_at", { ascending: false }));
+    const r = await selectIn<MockRow>(ids, (part) => db().from("mock_scores").select("exam_id, student_id, ko, ma, en, hi, t1, t2, created_at").in("student_id", part).order("created_at", { ascending: false }),
+      (a, b) => b.created_at.localeCompare(a.created_at));
     const latest = new Map<string, MockScore>();
     for (const x of r as MockRow[]) {
       const k = `${x.exam_id}|${x.student_id}`;
@@ -498,7 +499,8 @@ const supabaseBase: Base = {
   async listSchoolGrades(studentIds) {
     const ids = uuids(studentIds);
     if (!ids.length) return [];
-    const r = check(await db().from("school_grades").select("student_id, grade, semester, ko, ma, en, average, created_at").in("student_id", ids).order("created_at", { ascending: false }));
+    const r = await selectIn<SchoolRow>(ids, (part) => db().from("school_grades").select("student_id, grade, semester, ko, ma, en, average, created_at").in("student_id", part).order("created_at", { ascending: false }),
+      (a, b) => b.created_at.localeCompare(a.created_at));
     const seen = new Set<string>();
     const out: SchoolGrade[] = [];
     for (const x of r as SchoolRow[]) {
@@ -528,8 +530,8 @@ const supabaseBase: Base = {
   async listStudentTargets(studentIds) {
     const ids = uuids(studentIds);
     if (!ids.length) return [];
-    const r = check(await db().from("student_targets").select("student_id, rank, university, major, rule_id").in("student_id", ids).order("rank"));
-    return (r as TargetRow[]).map(toTarget);
+    const r = await selectIn<TargetRow>(ids, (part) => db().from("student_targets").select("student_id, rank, university, major, rule_id").in("student_id", part).order("rank"), (a, b) => a.rank - b.rank);
+    return r.map(toTarget);
   },
   async setStudentTargets(studentId, targets) {
     if (!isUuid(studentId)) return;
@@ -559,13 +561,13 @@ const supabaseBase: Base = {
   },
 
   async listNightSignups(from, to, studentIds) {
-    let q = db().from("night_signups").select("student_id, date, session, place, status").gte("date", from).lte("date", to);
+    const base = () => db().from("night_signups").select("student_id, date, session, place, status").gte("date", from).lte("date", to);
     if (studentIds) {
       const ids = uuids(studentIds);
       if (!ids.length) return [];
-      q = q.in("student_id", ids);
+      return (await selectIn<SignupRow>(ids, (part) => base().in("student_id", part))).map(toSignup);
     }
-    return (check(await q) as SignupRow[]).map(toSignup);
+    return (check(await base()) as SignupRow[]).map(toSignup);
   },
   async saveNightSignups(studentId, entries) {
     if (!entries.length) return;
@@ -577,13 +579,13 @@ const supabaseBase: Base = {
     check(await db().from("night_signups").update({ status: "취소", updated_at: new Date().toISOString() }).eq("student_id", studentId).in("date", dates));
   },
   async listNightAttendance(from, to, studentIds) {
-    let q = db().from("night_attendance").select("student_id, date, period, status").gte("date", from).lte("date", to);
+    const base = () => db().from("night_attendance").select("student_id, date, period, status").gte("date", from).lte("date", to);
     if (studentIds) {
       const ids = uuids(studentIds);
       if (!ids.length) return [];
-      q = q.in("student_id", ids);
+      return (await selectIn<AttRow>(ids, (part) => base().in("student_id", part))).map(toAtt);
     }
-    return (check(await q) as AttRow[]).map(toAtt);
+    return (check(await base()) as AttRow[]).map(toAtt);
   },
   async setNightAttendance(rows, by) {
     if (!rows.length) return;
@@ -596,9 +598,11 @@ const supabaseBase: Base = {
   async listNightRequests(studentIds, status) {
     const ids = uuids(studentIds);
     if (!ids.length) return [];
-    let q = db().from("night_requests").select("id, student_id, dates, session, place, note, status, created_at").in("student_id", ids).order("created_at");
-    if (status) q = q.eq("status", status);
-    return (check(await q) as RequestRow[]).map(toRequest);
+    const rows = await selectIn<RequestRow>(ids, (part) => {
+      const q = db().from("night_requests").select("id, student_id, dates, session, place, note, status, created_at").in("student_id", part).order("created_at");
+      return status ? q.eq("status", status) : q;
+    }, (a, b) => a.created_at.localeCompare(b.created_at));
+    return rows.map(toRequest);
   },
   async addNightRequest(r) {
     const x = check(await db().from("night_requests").insert({ student_id: r.studentId, dates: r.dates, session: r.session, place: r.place, note: r.note }).select("id, student_id, dates, session, place, note, status, created_at").single());

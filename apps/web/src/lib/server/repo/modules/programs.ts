@@ -5,7 +5,7 @@ import {
   type DraftJob, type DraftState, type DraftVersion, type Material, type Program, type StudentTodo, type SurveyResponse,
 } from "@/lib/domain/program";
 import { store } from "../demo";
-import { check, db, isUuid } from "../supabase";
+import { check, db, isUuid, selectIn } from "../supabase";
 
 // 프로그램·설문·제출 서류·생기부 초안(AI)·초안 파이프라인.
 // 인터페이스 + 데모(메모리) 구현 + Supabase 구현을 이 파일 한 곳에 둔다. index.ts 가 합친다.
@@ -630,13 +630,17 @@ const supabaseBase: BaseRepo = {
     check(await db().from("program_missing").upsert({ program_id: programId, student_id: studentId, reason: reason.trim(), set_by: by, set_at: new Date().toISOString() }));
   },
   async listDraftJobs(f) {
-    let q = db().from("draft_jobs").select("*");
     const p = uuids(f.programIds);
     const s = uuids(f.studentIds);
-    if (p) { if (!p.length) return []; q = q.in("program_id", p); }
-    if (s) { if (!s.length) return []; q = q.in("student_id", s); }
-    if (f.states) q = q.in("state", f.states);
-    return (check(await q) as JobRow[]).map(toJob);
+    if ((p && !p.length) || (s && !s.length)) return [];
+    const base = () => {
+      let q = db().from("draft_jobs").select("*");
+      if (p) q = q.in("program_id", p);
+      if (f.states) q = q.in("state", f.states);
+      return q;
+    };
+    if (s) return (await selectIn<JobRow>(s, (part) => base().in("student_id", part))).map(toJob);
+    return (check(await base()) as JobRow[]).map(toJob);
   },
   async getDraftJob(id) {
     if (!isUuid(id)) return null;
@@ -648,7 +652,7 @@ const supabaseBase: BaseRepo = {
     if (!ids.length) return [];
     const rows = ids.map((sid) => ({ program_id: programId, student_id: sid, state: "PENDING", attempts: 0, unit: len.unit, max_len: len.max }));
     check(await db().from("draft_jobs").upsert(rows, { onConflict: "program_id,student_id", ignoreDuplicates: true }));
-    return (check(await db().from("draft_jobs").select("*").eq("program_id", programId).in("student_id", ids)) as JobRow[]).map(toJob);
+    return (await selectIn<JobRow>(ids, (part) => db().from("draft_jobs").select("*").eq("program_id", programId).in("student_id", part))).map(toJob);
   },
   async updateDraftJob(id, p) {
     if (!isUuid(id)) return;
@@ -662,14 +666,20 @@ const supabaseBase: BaseRepo = {
     check(await db().from("draft_jobs").update(row).eq("id", id));
   },
   async listDraftVersions(f) {
-    let q = db().from("draft_versions").select("*").order("created_at");
     const p = uuids(f.programIds);
     const j = uuids(f.jobIds);
     const s = uuids(f.studentIds);
-    if (p) { if (!p.length) return []; q = q.in("program_id", p); }
-    if (j) { if (!j.length) return []; q = q.in("job_id", j); }
-    if (s) { if (!s.length) return []; q = q.in("student_id", s); }
-    return (check(await q) as VersionRow[]).map(toVersion);
+    if ((p && !p.length) || (j && !j.length) || (s && !s.length)) return [];
+    const base = () => {
+      let q = db().from("draft_versions").select("*").order("created_at");
+      if (p) q = q.in("program_id", p);
+      if (j && s) q = q.in("job_id", j);
+      return q;
+    };
+    const byTime = (a: VersionRow, b: VersionRow) => a.created_at.localeCompare(b.created_at);
+    if (s) return (await selectIn<VersionRow>(s, (part) => base().in("student_id", part), byTime)).map(toVersion);
+    if (j) return (await selectIn<VersionRow>(j, (part) => base().in("job_id", part), byTime)).map(toVersion);
+    return (check(await base()) as VersionRow[]).map(toVersion);
   },
   async addDraftVersion(v) {
     const r = check(await db().from("draft_versions").insert({

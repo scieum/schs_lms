@@ -86,8 +86,8 @@ export async function syncNotionSchedule(): Promise<SyncResult> {
     }
     // 노션에서 지운(또는 날짜를 지운) 일정은 앱에서도 지운다 — 노션을 다 읽은 뒤에만
     const gone = rows.filter((r) => !kept.has(r.id)).map((r) => r.id);
-    if (gone.length) {
-      const d = await db().from("school_events").delete().in("id", gone);
+    for (let i = 0; i < gone.length; i += 100) {
+      const d = await db().from("school_events").delete().in("id", gone.slice(i, i + 100));
       if (d.error) throw new Error(d.error.message);
     }
     const at = new Date().toISOString();

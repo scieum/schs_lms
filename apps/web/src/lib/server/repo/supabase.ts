@@ -57,6 +57,22 @@ export function check<T>(res: { data: T; error: { message: string } | null }): T
   return res.data;
 }
 
+const IN_CHUNK = 150;
+type Res = PromiseLike<{ data: unknown; error: { message: string } | null }>;
+
+/**
+ * id 가 많은 .in() 조회: 학년 전체(400명)처럼 많으면 요청 주소가 너무 길어져 실패한다 (2026-10-17 실제 DB에서 발생)
+ * → 150개씩 나눠 동시에 묻고 합친다. 나눠 물었으면 sort 로 원래 순서를 다시 맞춘다
+ */
+export async function selectIn<R>(ids: string[], run: (part: string[]) => Res, sort?: (a: R, b: R) => number): Promise<R[]> {
+  if (ids.length <= IN_CHUNK) return (check(await run(ids)) as R[]) ?? [];
+  const parts: string[][] = [];
+  for (let i = 0; i < ids.length; i += IN_CHUNK) parts.push(ids.slice(i, i + IN_CHUNK));
+  const out = (await Promise.all(parts.map(async (p) => (check(await run(p)) as R[]) ?? []))).flat();
+  return sort ? out.sort(sort) : out;
+}
+
+
 export const supabaseRepo: Repo = {
   async findAccountByLogin(kind, loginId) {
     const r = check(await db().from("accounts").select("*").eq("kind", kind).eq("login_id", loginId).maybeSingle());
@@ -199,8 +215,9 @@ export const supabaseRepo: Repo = {
   async listActivityLogs(area, studentIds) {
     const ids = studentIds.filter(isUuid);
     if (!ids.length) return [];
-    const r = check(await db().from("activity_logs").select("*").eq("area", area).in("student_id", ids).order("date", { ascending: false }).order("created_at", { ascending: false }));
-    return (r as LogRow[]).map(toLog);
+    const r = await selectIn<LogRow>(ids, (part) => db().from("activity_logs").select("*").eq("area", area).in("student_id", part).order("date", { ascending: false }).order("created_at", { ascending: false }),
+      (a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at));
+    return r.map(toLog);
   },
   async addActivityLogs(rows) {
     if (!rows.length) return 0;
@@ -230,14 +247,17 @@ export const supabaseRepo: Repo = {
     return toService(check(res) as ServiceRow);
   },
   async listServiceRecords({ studentIds, uploaderId }) {
-    let q = db().from("service_records").select("*").order("created_at", { ascending: false });
+    const base = () => {
+      let q = db().from("service_records").select("*").order("created_at", { ascending: false });
+      if (uploaderId) q = q.eq("uploader_id", uploaderId);
+      return q;
+    };
     if (studentIds) {
       const ids = studentIds.filter(isUuid);
       if (!ids.length) return [];
-      q = q.in("student_id", ids);
+      return (await selectIn<ServiceRow>(ids, (part) => base().in("student_id", part), (a, b) => b.created_at.localeCompare(a.created_at))).map(toService);
     }
-    if (uploaderId) q = q.eq("uploader_id", uploaderId);
-    return (check(await q) as ServiceRow[]).map(toService);
+    return (check(await base()) as ServiceRow[]).map(toService);
   },
   async getServiceRecord(id) {
     if (!isUuid(id)) return null;

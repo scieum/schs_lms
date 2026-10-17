@@ -4,7 +4,7 @@ import type {
 } from "@/lib/domain/counsel";
 import { schoolYear } from "@/lib/domain/curriculum";
 import { store } from "../demo";
-import { check, db, isUuid } from "../supabase";
+import { check, db, isUuid, selectIn } from "../supabase";
 
 // 상담 기록·학생 추천·정정 요청·전년도 확정 생기부.
 // 인터페이스 + 데모(메모리) 구현 + Supabase 구현을 이 파일 한 곳에 둔다. index.ts 가 합친다.
@@ -177,18 +177,18 @@ const uuids = (ids: string[]) => ids.filter(isUuid);
 
 export const supabaseCounsel: CounselRepo = {
   async listCounsel({ studentIds, authorId }) {
-    let q = db().from("counsel_records").select("*");
+    if (authorId && !isUuid(authorId)) return [];
+    const base = () => {
+      const q = db().from("counsel_records").select("*");
+      return authorId ? q.eq("author_id", authorId) : q;
+    };
     if (studentIds) {
       const ids = uuids(studentIds);
       if (!ids.length) return [];
-      q = q.in("student_id", ids);
+      const rows = await selectIn<CounselRow>(ids, (part) => base().in("student_id", part).order("date", { ascending: false }), (a, b) => b.date.localeCompare(a.date));
+      return rows.map(toCounsel);
     }
-    if (authorId) {
-      if (!isUuid(authorId)) return [];
-      q = q.eq("author_id", authorId);
-    }
-    const rows = check(await q.order("date", { ascending: false }));
-    return (rows as CounselRow[]).map(toCounsel);
+    return (check(await base().order("date", { ascending: false })) as CounselRow[]).map(toCounsel);
   },
   async addCounsel(r) {
     const row = check(await db().from("counsel_records").insert({
@@ -199,8 +199,9 @@ export const supabaseCounsel: CounselRepo = {
   async listPastRecords(studentIds) {
     const ids = uuids(studentIds);
     if (!ids.length) return [];
-    const rows = check(await db().from("past_records").select("*").in("student_id", ids).order("year").order("area"));
-    return (rows as PastRow[]).map(toPast);
+    const rows = await selectIn<PastRow>(ids, (part) => db().from("past_records").select("*").in("student_id", part).order("year").order("area"),
+      (a, b) => a.year - b.year || a.area.localeCompare(b.area));
+    return rows.map(toPast);
   },
   async addPastRecords(rows) {
     if (!rows.length) return 0;
@@ -216,8 +217,9 @@ export const supabaseCounsel: CounselRepo = {
   async listCorrectionRequests(studentIds) {
     const ids = uuids(studentIds);
     if (!ids.length) return [];
-    const rows = check(await db().from("record_corrections").select("*").in("student_id", ids).order("created_at", { ascending: false }));
-    return (rows as CorrectionRow[]).map(toCorrection);
+    const rows = await selectIn<CorrectionRow>(ids, (part) => db().from("record_corrections").select("*").in("student_id", part).order("created_at", { ascending: false }),
+      (a, b) => b.created_at.localeCompare(a.created_at));
+    return rows.map(toCorrection);
   },
   async listRecItems() {
     const rows = check(await db().from("rec_items").select("*").eq("active", true).order("created_at", { ascending: false }));
