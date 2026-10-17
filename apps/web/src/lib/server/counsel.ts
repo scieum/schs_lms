@@ -13,21 +13,25 @@ import { repo } from "./repo";
 /** 이 교사의 담당 학생 (관리자 = 전체) */
 export async function loadAssigned(v: Viewer): Promise<Student[]> {
   if (v.kind !== "teacher") return [];
-  const [students, courses, mine, clubs, counseled] = await Promise.all([
+  const [students, courses, mine, clubs, counseled, rosters] = await Promise.all([
     repo.listStudents(),
     repo.listCourses(schoolYear()),
     repo.listTeacherCourses(v.accountId),
     repo.listClubs(schoolYear()),
     repo.listCounsel({ authorId: v.accountId }),
+    repo.listCourseRosters(v.accountId),
   ]);
   const byId = new Map(courses.map((c) => [c.id, c]));
   const courseClasses = mine.flatMap((tc) => {
     const c = byId.get(tc.courseId);
-    return c ? [{ grade: c.grade, classes: tc.classes }] : [];
+    return c && tc.mode !== "moving" ? [{ grade: c.grade, classes: tc.classes }] : [];
   });
+  // 이동반: 저장된 분반 명단의 학생
+  const moving = new Map(mine.filter((tc) => tc.mode === "moving").map((tc) => [tc.courseId, tc.sections ?? []]));
+  const rosterIds = rosters.filter((r) => moving.get(r.courseId)?.includes(r.section)).flatMap((r) => r.studentIds);
   const myClubs = clubs.filter((c) => c.advisorId === v.accountId);
   const members = (await Promise.all(myClubs.map((c) => repo.listClubMembers(c.id)))).flat();
-  return assignedStudents(v, students, { courseClasses, clubMemberIds: members, counseledIds: counseled.map((r) => r.studentId) });
+  return assignedStudents(v, students, { courseClasses, clubMemberIds: members, counseledIds: counseled.map((r) => r.studentId), rosterIds });
 }
 
 /** 볼 수 있는 상담 기록만, 마지막 버전만, 최신순 */

@@ -117,23 +117,25 @@ export function countByStudent(records: CounselRecord[]): Map<string, number> {
 
 /**
  * 교사의 담당 학생: 관리자 = 전체, 그 밖 = 우리 반 + 맡은 과목의 반 + 지도 동아리 부원 + 내가 상담한 학생
- * (선택과목 수강 명단은 다음 단계 — 지금은 과목 학년 + 맡은 반)
+ * + 이동반 분반 명단(rosterIds)
  */
 export function assignedStudents(
   v: Viewer,
   students: Student[],
-  ctx: { courseClasses: { grade: number; classes: number[] }[]; clubMemberIds: Iterable<string>; counseledIds: Iterable<string> },
+  ctx: { courseClasses: { grade: number; classes: number[] }[]; clubMemberIds: Iterable<string>; counseledIds: Iterable<string>; rosterIds?: Iterable<string> },
 ): Student[] {
   if (v.kind !== "teacher") return [];
   const sorted = [...students].sort((a, b) => a.grade - b.grade || a.classNo - b.classNo || a.number - b.number);
   if (isAdmin(v)) return sorted;
   const club = new Set(ctx.clubMemberIds);
   const counseled = new Set(ctx.counseledIds);
+  const roster = new Set(ctx.rosterIds ?? []);
   return sorted.filter(
     (s) =>
       isHomeroomOf(v, s) ||
       club.has(s.id) ||
       counseled.has(s.id) ||
+      roster.has(s.id) ||
       ctx.courseClasses.some((c) => c.grade === s.grade && c.classes.includes(s.classNo)),
   );
 }

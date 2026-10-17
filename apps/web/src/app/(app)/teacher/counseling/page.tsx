@@ -77,7 +77,7 @@ export default async function CounselingPage({ searchParams }: Props) {
             selected={selected?.id ?? null}
             tab={tab}
             students={students.map((s) => ({
-              id: s.id, name: s.name, label: `${makeStudentNo(s.grade, s.classNo, s.number)}`, classKey: `${s.grade}-${s.classNo}`, count: counts.get(s.id) ?? 0,
+              id: s.id, name: s.name, label: `${makeStudentNo(s.grade, s.classNo, s.number)}`, grade: s.grade, classNo: s.classNo, count: counts.get(s.id) ?? 0,
             }))}
           />
           </div>
