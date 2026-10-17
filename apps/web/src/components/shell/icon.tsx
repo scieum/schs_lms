@@ -1,13 +1,13 @@
 import {
   AlertCircle, BarChart3, BookOpen, CalendarDays, ClipboardList, FileText, Home, List, MessageCircle, Moon,
-  Presentation, RefreshCw, Send, ShieldCheck, Sparkles, Target, User, UserPlus, Users,
+  Presentation, RefreshCw, Send, Share2, ShieldCheck, Sparkles, Target, User, UserPlus, Users,
 } from "lucide-react";
 import type { IconName } from "./nav";
 
 const MAP = {
   home: Home, file: FileText, clipboard: ClipboardList, users: Users, chat: MessageCircle, userPlus: UserPlus,
   chart: BarChart3, target: Target, moon: Moon, book: BookOpen, sparkle: Sparkles, list: List,
-  alert: AlertCircle, refresh: RefreshCw, shield: ShieldCheck, user: User, calendar: CalendarDays, presentation: Presentation, send: Send,
+  alert: AlertCircle, refresh: RefreshCw, shield: ShieldCheck, user: User, calendar: CalendarDays, presentation: Presentation, send: Send, share: Share2,
 } satisfies Record<IconName, unknown>;
 
 export function Icon({ name, size = 20, className }: { name: IconName; size?: number; className?: string }) {
