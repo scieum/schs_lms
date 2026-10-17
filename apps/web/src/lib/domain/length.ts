@@ -4,22 +4,21 @@
 export type LengthUnit = "bytes" | "chars";
 export type DraftCategory = "세특" | "창체-자율" | "창체-동아리" | "창체-진로";
 
-/** 분류별 NEIS 한도(바이트). OI-5 기준표 확정 전 임시값 — 하네스 rules.yaml 초기값과 같다 */
+/** 분류별 NEIS 한도(바이트). 2026학년도 고등학교 기재요령 208쪽 「영역별 입력 가능 최대 글자수」: 세특·자율·자치·동아리·진로 모두 500자 */
 export const NEIS_MAX_BYTES: Record<DraftCategory, number> = {
   세특: 1500,
   "창체-자율": 1500,
   "창체-동아리": 1500,
-  "창체-진로": 2100, // 진로활동 특기사항은 700자
+  "창체-진로": 1500, // 2026 기재요령: 진로활동 특기사항 500자 (예전 700자)
 };
 /** 하한 = 최대 × 비율 (rules.yaml length.min_ratio 와 같은 값) */
 export const MIN_RATIO = 0.6;
 
-/** NEIS 방식 바이트: 한글 등 2바이트 넘는 문자 3, 영문·숫자·공백·기호 1, 줄바꿈 2 (OI-5에서 확인 필요) */
+/** NEIS 방식 바이트 (2026 기재요령 208쪽): 한글 등 3, 영문·숫자·공백·기호 1, 엔터 1 */
 export function neisBytes(text: string): number {
   let n = 0;
   for (const ch of text.replace(/\r\n/g, "\n")) {
-    if (ch === "\n") n += 2;
-    else n += ch.charCodeAt(0) <= 0x7f ? 1 : 3;
+    n += ch.charCodeAt(0) <= 0x7f ? 1 : 3;
   }
   return n;
 }

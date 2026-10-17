@@ -5,8 +5,7 @@ const $ = (id) => document.getElementById(id);
 function neisBytes(text) {
   let n = 0;
   for (const ch of String(text).replace(/\r\n/g, "\n")) {
-    if (ch === "\n") n += 2;
-    else n += ch.charCodeAt(0) <= 0x7f ? 1 : 3;
+    n += ch.charCodeAt(0) <= 0x7f ? 1 : 3;
   }
   return n;
 }

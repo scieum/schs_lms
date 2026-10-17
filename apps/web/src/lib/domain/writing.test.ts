@@ -27,16 +27,17 @@ const teacher = (homeroom: { grade: number; classNo: number } | null): Viewer =>
 });
 
 describe("분량", () => {
-  it("NEIS 한도: 진로 2100B, 나머지 1500B, 글자 단위는 3으로 나눈다", () => {
-    expect(recordMax("진로", "bytes")).toBe(2100);
-    expect(recordMax("행발", "bytes")).toBe(1500);
-    expect(recordMax("진로", "chars")).toBe(700);
+  it("NEIS 한도(2026 기재요령): 행발 900B, 나머지 1500B, 글자 단위는 3으로 나눈다", () => {
+    expect(recordMax("진로", "bytes")).toBe(1500);
+    expect(recordMax("행발", "bytes")).toBe(900);
+    expect(recordMax("진로", "chars")).toBe(500);
+    expect(recordMax("행발", "chars")).toBe(300);
     expect(recordMax("동아리", "chars")).toBe(500);
   });
   it("한도를 넘는 설정은 한도로 낮추고 알린다", () => {
     const r = resolveRecordLength("자율·자치", { unit: "bytes", max: 3000 });
     expect(r).toMatchObject({ max: 1500, capped: true });
-    expect(resolveRecordLength("진로").max).toBe(2100);
+    expect(resolveRecordLength("진로").max).toBe(1500);
   });
 });
 

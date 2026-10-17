@@ -4,7 +4,7 @@ import { cx } from "@/components/ui";
 import { UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import { recordMax, resolveRecordLength, type RecordArea } from "@/lib/domain/writing";
 
-// 분량 고르기 (length-picker.tsx 와 같은 모양) — 창체·행발용. 진로는 NEIS 한도가 2100바이트라 따로 둔다.
+// 분량 고르기 (length-picker.tsx 와 같은 모양) — 창체·행발용. 영역마다 NEIS 한도가 달라(행발 900B) 따로 둔다.
 // 폼에는 lengthUnit, lengthMax 로 들어간다. 서버는 resolveRecordLength 로 다시 검사한다.
 export function RecordLengthPicker({
   area,

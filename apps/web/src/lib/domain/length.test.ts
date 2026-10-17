@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { charCount, checkLength, neisBytes, resolveLength } from "./length";
 
 describe("분량 세기", () => {
-  it("NEIS 바이트: 한글 3, 영문·공백 1, 줄바꿈 2", () => {
+  it("NEIS 바이트 (2026 기재요령): 한글 3, 영문·공백 1, 엔터 1", () => {
     expect(neisBytes("탐구함")).toBe(9);
     expect(neisBytes("AI 탐구")).toBe(9);
-    expect(neisBytes("가\n나")).toBe(8);
-    expect(neisBytes("가\r\n나")).toBe(8);
+    expect(neisBytes("가\n나")).toBe(7);
+    expect(neisBytes("가\r\n나")).toBe(7);
   });
   it("글자 수는 공백 포함, 줄바꿈 제외", () => {
     expect(charCount("AI 탐구\n함")).toBe(6);

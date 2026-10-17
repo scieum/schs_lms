@@ -59,7 +59,7 @@ function seed(): WritingStore {
   ];
   const drafts: RecordDraft[] = [
     {
-      id: "rd-1", area: "행발", studentId: "s-6", authorId: "t-homeroom", year: y, semester: null, unit: "bytes", max: 1500, status: "draft",
+      id: "rd-1", area: "행발", studentId: "s-6", authorId: "t-homeroom", year: y, semester: null, unit: "bytes", max: 900, status: "draft",
       content: "차분하고 꼼꼼한 성격으로 학급 도서 정리를 맡아 대출 기록표를 만들어 한 학기 동안 꾸준히 관리함. 어려움을 겪는 친구에게 먼저 다가가 도움을 주는 배려심이 돋보임.",
       createdAt: ago(1),
     },

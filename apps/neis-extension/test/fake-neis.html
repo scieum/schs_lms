@@ -28,7 +28,7 @@
     // 가짜 학생 (데모 데이터와 같은 2학년 3반)
     const students = [[1, "강예린"], [7, "박서준"], [12, "김민준"], [20, "이하늘"]];
     const model = {}; // 화면 그리드의 내부 값: input 이벤트가 와야만 바뀐다
-    const bytes = (t) => [...t.replace(/\r\n/g, "\n")].reduce((n, c) => n + (c === "\n" ? 2 : c.charCodeAt(0) <= 0x7f ? 1 : 3), 0);
+    const bytes = (t) => [...t.replace(/\r\n/g, "\n")].reduce((n, c) => n + (c.charCodeAt(0) <= 0x7f ? 1 : 3), 0);
     const tbody = document.getElementById("rows");
     for (const [no, name] of students) {
       const tr = document.createElement("tr");
