@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>가짜 나이스 · 그리드형 (시험용)</title>
+  <style>
+    body { font: 13px/1.5 "Malgun Gothic", sans-serif; margin: 24px; color: #222; }
+    .grid { display: flex; width: 1100px; border: 1px solid #c8ccd2; }
+    table { border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #e1e4e8; padding: 0 8px; height: 72px; box-sizing: border-box; }
+    th { height: 36px; background: #eef1f5; }
+    .fixed td, .fixed th { text-align: center; }
+    .scroll { flex: 1; }
+    .scroll table { width: 100%; }
+    .view { height: 56px; border: 1px solid #b9bec6; border-radius: 3px; padding: 4px 6px; overflow: hidden; cursor: text; white-space: pre-wrap; }
+    .editor { position: absolute; box-sizing: border-box; font: inherit; padding: 4px 6px; border: 2px solid #3d6ee0; resize: none; }
+    #saved { white-space: pre-wrap; background: #f6f7f9; padding: 10px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>동아리활동 학생부 자료 (시험용 그리드)</h1>
+  <p>이름 표와 특기사항 표가 따로 그려지고, 특기사항 칸을 눌러야 입력칸이 하나 열려요. 칸을 벗어날 때(blur)만 값이 반영돼요.</p>
+  <div class="grid">
+    <table class="fixed"><thead><tr><th>학년</th><th>반</th><th>번호</th><th>성명</th></tr></thead><tbody id="left"></tbody></table>
+    <div class="scroll"><table><thead><tr><th>특기사항</th><th>글자수</th></tr></thead><tbody id="right"></tbody></table></div>
+  </div>
+  <button id="save" type="button" style="margin-top:12px">저장</button>
+  <div id="saved"></div>
+  <script>
+    const students = [[1, 1, 7, "강예린"], [1, 2, 14, "박서준"], [1, 4, 1, "김민준"], [1, 4, 9, "이하늘"]];
+    const model = {};
+    const bytes = (t) => [...t].reduce((n, c) => n + (/[ᄀ-ᇿ⺀-鿿ꥠ-꥿가-퟿豈-﫿]/.test(c) ? 3 : 1), 0);
+    const left = document.getElementById("left"), right = document.getElementById("right");
+    let editor = null;
+    function close() {
+      if (!editor) return;
+      const { ta, i } = editor;
+      editor = null;
+      model[i] = ta.value;
+      right.rows[i].querySelector(".view").textContent = ta.value;
+      right.rows[i].cells[1].textContent = `${bytes(ta.value)} / 1500 Byte`;
+      ta.remove();
+    }
+    function open(i) {
+      close();
+      const view = right.rows[i].querySelector(".view");
+      const r = view.getBoundingClientRect();
+      const ta = document.createElement("textarea");
+      ta.className = "editor";
+      Object.assign(ta.style, { left: `${r.left + scrollX}px`, top: `${r.top + scrollY}px`, width: `${r.width}px`, height: `${r.height}px` });
+      ta.value = model[i] ?? "";
+      ta.addEventListener("blur", close);
+      document.body.appendChild(ta);
+      editor = { ta, i };
+      ta.focus();
+    }
+    students.forEach(([g, c, n, name], i) => {
+      const l = document.createElement("tr");
+      l.innerHTML = `<td>${g}</td><td>${c}</td><td>${n}</td><td><a href="#" onclick="return false">${name}</a></td>`;
+      left.appendChild(l);
+      const r = document.createElement("tr");
+      r.innerHTML = `<td><div class="view"></div></td><td>0 / 1500 Byte</td>`;
+      r.querySelector(".view").addEventListener("mousedown", (e) => { e.preventDefault(); open(i); });
+      right.appendChild(r);
+    });
+    open(0); // 처음엔 첫 학생 칸이 열려 있다 (나이스 화면처럼)
+    document.getElementById("save").addEventListener("click", () => {
+      close();
+      document.getElementById("saved").textContent = "저장된 값\n" + students.map(([, , n, name], i) => `${n} ${name}: ${model[i] ?? "(없음)"}`).join("\n");
+    });
+  </script>
+</body>
+</html>

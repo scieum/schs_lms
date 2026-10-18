@@ -122,13 +122,13 @@
     return out;
   }
 
-  function fillAll() {
+  async function fillAll() {
     const students = current();
     const base = { students, mode: mode(), maxBytes: maxBytes(), checkName: true, order: false };
     const total = { filled: [], overLimit: [], nameMismatch: [], notFound: [], ordered: false, fieldsSeen: 0 };
     const seen = new Set();
     for (const doc of docs()) {
-      const r = window.__schsNeisFill({ ...base, doc });
+      const r = await window.__schsNeisFillAll({ ...base, doc });
       for (const k of ["filled", "overLimit", "nameMismatch"]) for (const x of r[k]) if (!seen.has(k + x)) { seen.add(k + x); total[k].push(x); }
       total.fieldsSeen += r.fieldsSeen;
     }
@@ -190,8 +190,11 @@
     });
     q(".cls").addEventListener("change", renderList);
     q(".max").addEventListener("input", renderList);
-    q(".fill").addEventListener("click", () => {
-      try { fillAll(); } catch (err) { say(q(".result"), [[err.message || "채우지 못했어요", "bad"]]); }
+    q(".fill").addEventListener("click", async () => {
+      const btn = q(".fill");
+      btn.disabled = true;
+      say(q(".result"), [["채우는 중…", "warn"]]);
+      try { await fillAll(); } catch (err) { say(q(".result"), [[err.message || "채우지 못했어요", "bad"]]); } finally { btn.disabled = false; }
     });
     q(".step").addEventListener("click", () => {
       window.__schsNeisPanel({ students: current(), maxBytes: maxBytes(), mode: mode() });

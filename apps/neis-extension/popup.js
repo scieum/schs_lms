@@ -164,7 +164,7 @@ $("fill").addEventListener("click", async () => {
     const [{ result: r }] = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       world,
-      func: (p) => window.__schsNeisFill(p),
+      func: (p) => window.__schsNeisFillAll(p),
       args: [payload],
     });
     const n = payload.students.length;
