@@ -14,6 +14,7 @@ import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence
 import { fitRecord, mergeRecord, tagCompetency } from "@/lib/server/ai/merge-record";
 import { listMemosWithPieces, logPieces, memoPieces, programPieces } from "@/lib/server/merge-pieces";
 import { seoulNow } from "@/lib/domain/night";
+import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
 import { fitRange, PIECE_MAX, PIECE_MIN, pieceScope, type MergePiece } from "@/lib/domain/merge";
 import type { TaggedSentence } from "@/lib/domain/competency";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
@@ -41,6 +42,8 @@ const AiSchema = z.object({
   studentId: z.string().min(1),
   clubId: z.string().nullish(),
   memo: z.string().max(6000, "메모·자료는 6000자까지예요"),
+  /** 활동명 (N27): 초안을 "활동명에서 …"로 */
+  activity: z.string().max(60).optional().default(""),
   unit: z.enum(["bytes", "chars"]),
   max: z.number().int().min(1),
 });
@@ -62,7 +65,7 @@ export async function aiRecordDraft(input: z.input<typeof AiSchema>): Promise<Ai
 
   const logs = await evidenceLogs(area, [studentId], clubId);
   const range = resolveRecordLength(area, { unit, max });
-  const r = await writeRecord({ kind: area, student: t.student, context: t.clubName, memo, logs: logs.map((l) => ({ date: l.date, content: l.content })), range });
+  const r = await writeRecord({ kind: area, student: t.student, context: t.clubName, memo, logs: logs.map((l) => ({ date: l.date, content: l.content })), range, activity: p.data.activity });
   await repo.audit(v.accountId, "record.ai_draft", `${area} ${t.student.pseudonymId}`);
   if (!r.text) return { ok: false, error: r.notice ?? "초안을 만들지 못했어요. 직접 써 주세요" };
   return { ok: true, text: r.text, sample: r.sample, notice: r.notice };
@@ -162,10 +165,11 @@ export async function listRecordPieces(input: { area: string; studentId: string;
  * 조각 칸 (Figma N19): 지금 본 것을 바로 한 조각으로 남긴다 (추가만, C4).
  * 자율·자치·동아리·진로는 누가기록으로 쌓고(누가기록 화면에도 보인다), 행발은 조각 메모로 쌓는다.
  */
-export async function addRecordPiece(input: { area: string; studentId: string; clubId?: string | null; text: string }): Promise<{ error?: string }> {
+export async function addRecordPiece(input: { area: string; studentId: string; clubId?: string | null; text: string; activity: string }): Promise<{ error?: string }> {
   const t = await recordTarget(input.area, input.studentId, input.clubId);
   if ("error" in t) return { error: t.error };
-  const text = String(input.text ?? "").trim();
+  if (!cleanActivity(input.activity)) return { error: "활동명을 적어 주세요" };
+  const text = withActivity(input.activity, String(input.text ?? ""));
   if (text.length < PIECE_MIN || text.length > PIECE_MAX) return { error: `조각은 ${PIECE_MIN}~${PIECE_MAX.toLocaleString()}자로 써 주세요` };
   if (t.area === "행발") {
     await repo.addRecordMemo({ scope: pieceScope("행발"), studentId: t.student.id, authorId: t.v.accountId, content: text });

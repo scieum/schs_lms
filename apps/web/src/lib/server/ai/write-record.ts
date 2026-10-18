@@ -1,5 +1,6 @@
 import "server-only";
 import { subjectStandards } from "../standards";
+import { cleanActivity, leadWithActivity } from "@/lib/domain/activity-name";
 import { z } from "zod";
 import { UNIT_LABEL, type LengthRange } from "@/lib/domain/length";
 import type { Student } from "@/lib/domain/types";
@@ -23,6 +24,8 @@ export interface WriteInput {
   memo: string;
   logs: { date: string; content: string }[];
   range: LengthRange;
+  /** 활동명 (N27): 초안을 "활동명에서 …"로 시작한다 */
+  activity?: string;
 }
 
 export type WriteResult = { text: string; sample: boolean; notice?: string };
@@ -52,12 +55,12 @@ export async function writeRecord(input: WriteInput): Promise<WriteResult> {
 
   const fallback = (notice?: string): WriteResult => ({
     // 예시 초안은 서버 안에서만 만들므로 이름·학번을 지운 원문으로 만든다
-    text: polishStyle(sampleDraft({
+    text: leadWithActivity(input.activity, polishStyle(sampleDraft({
       memo: plainMemo(scrubIdentity(input.memo, student).text),
       logs: input.logs.map((l) => scrubIdentity(l.content, student).text),
       careerGoal: input.kind === "진로" || input.kind === "세특" ? student.careerGoal : null,
       range,
-    })),
+    }))),
     sample: true,
     notice,
   });
@@ -70,6 +73,7 @@ export async function writeRecord(input: WriteInput): Promise<WriteResult> {
     input.context ? `${input.kind === "세특" ? "과목" : "동아리"}: ${input.context}` : null,
     student.careerGoal ? `희망 진로: ${student.careerGoal}` : null,
     `분량: ${target(range)} 안에서 쓴다.`,
+    cleanActivity(input.activity) ? `활동명: ${cleanActivity(input.activity)} — 초안 첫 문장을 "${cleanActivity(input.activity)}에서"로 시작한다.` : null,
     "",
     "<교사 관찰 메모>",
     memo || "(없음)",
@@ -89,7 +93,7 @@ export async function writeRecord(input: WriteInput): Promise<WriteResult> {
   if (!r.ok) return fallback(`${r.error} — 예시 초안을 대신 채웠어요`);
 
   // 결과에 이름·학번·가명ID가 섞이면 지운다
-  const clean = polishStyle(scrubIdentity(r.data.draft, student).text.replaceAll(pid, ""));
+  const clean = leadWithActivity(input.activity, polishStyle(scrubIdentity(r.data.draft, student).text.replaceAll(pid, "")));
   const fitted = fitToMax(clean, range);
   return { text: fitted, sample: false, notice: fitted !== clean ? "분량을 넘어 마지막 문장을 뺐어요" : undefined };
 }

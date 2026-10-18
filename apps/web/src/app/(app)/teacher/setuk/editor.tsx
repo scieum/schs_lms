@@ -50,7 +50,7 @@ export function SetukEditor({
     <div className="flex flex-col gap-4">
       {/* 조각 칸이 맨 위 (Figma N22): 자료로 조각 만들기 → 활동 요약 + 고른 분량의 초안 */}
       <PiecesCard key={`${courseId}-${studentId}`} studentId={studentId} placeholder="수업 중 본 것을 한 조각으로 (예: 오차 원인을 스스로 찾아 다시 측정함)"
-        load={() => listSetukPieces({ courseId, studentId })} add={(t) => addSetukPiece({ courseId, studentId, text: t })}
+        load={() => listSetukPieces({ courseId, studentId })} add={(t, a) => addSetukPiece({ courseId, studentId, text: t, activity: a })}
         maker={{
           summarize: (fd) => { fd.set("courseId", courseId); fd.set("studentId", studentId); return summarizeSetukFile(fd); },
           draft: (d) => draftSetukFromPiece({ courseId, studentId, ...d }),
@@ -63,7 +63,7 @@ export function SetukEditor({
         placeholder="관찰 메모 (예: 빗면 실험 설계 주도, 오차 원인 질문, 산업디자인 진로와 연결)"
         unit={range.unit}
         bodyEmpty={!text.trim()}
-        generate={(m) => aiSetukDraft({ courseId, studentId, memo: m, unit: range.unit, max: range.max })}
+        generate={(m, a) => aiSetukDraft({ courseId, studentId, memo: m, activity: a, unit: range.unit, max: range.max })}
         readFile={(fd) => { fd.set("courseId", courseId); fd.set("studentId", studentId); return readSetukFile(fd); }}
         merge={{
           load: () => listSetukPieces({ courseId, studentId }),

@@ -11,6 +11,7 @@ import { forbiddenBlock } from "@/lib/domain/forbidden";
 import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence";
 import { fitRecord, mergeRecord, tagCompetency } from "@/lib/server/ai/merge-record";
 import { listMemosWithPieces, memoPieces } from "@/lib/server/merge-pieces";
+import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
 import { fitRange, PIECE_MAX, PIECE_MIN, pieceScope, type MergePiece } from "@/lib/domain/merge";
 import type { TaggedSentence } from "@/lib/domain/competency";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
@@ -64,6 +65,8 @@ const AiSchema = z.object({
   courseId: z.string().min(1),
   studentId: z.string().min(1),
   memo: z.string().max(6000, "메모·자료는 6000자까지예요"),
+  /** 활동명 (N27): 초안을 "활동명에서 …"로 */
+  activity: z.string().max(60).optional().default(""),
   unit: z.enum(["bytes", "chars"]),
   max: z.number().int().min(1),
 });
@@ -92,7 +95,7 @@ export async function aiSetukDraft(input: z.input<typeof AiSchema>): Promise<AiD
   const notes = memos.filter((m) => m.content !== memo).map((m) => ({ date: m.createdAt.slice(0, 10), content: m.content }));
 
   const range = resolveLength("세특", { unit, max });
-  const r = await writeRecord({ kind: "세특", student, context: course.subject, memo, logs: notes, range });
+  const r = await writeRecord({ kind: "세특", student, context: course.subject, memo, logs: notes, range, activity: p.data.activity });
   await repo.audit(v.accountId, "setuk.ai_draft", `${course.subject} ${student.pseudonymId}`);
   if (!r.text) return { ok: false, error: r.notice ?? "초안을 만들지 못했어요. 직접 써 주세요" };
   return { ok: true, text: r.text, sample: r.sample, notice: r.notice };
@@ -136,6 +139,8 @@ const PieceDraftSchema = z.object({
   studentId: z.string().min(1),
   note: z.string().max(2000, "설명은 2000자까지예요"),
   summary: z.string().max(3000),
+  /** 활동명 (N27): 초안을 "활동명에서 …"로 */
+  activity: z.string().max(60).optional().default(""),
   unit: z.enum(["bytes", "chars"]),
   max: z.number().int().min(1),
 });
@@ -150,7 +155,7 @@ export async function draftSetukFromPiece(input: z.input<typeof PieceDraftSchema
   const memo = [p.data.note.trim(), p.data.summary.trim()].filter(Boolean).join("\n");
   if (!memo) return { ok: false, error: "자료를 올리거나 활동을 간단히 적어 주세요" };
   const range = resolveLength("세특", { unit: p.data.unit, max: p.data.max });
-  const r = await writeRecord({ kind: "세특", student: t.student, context: t.course.subject, memo, logs: [], range });
+  const r = await writeRecord({ kind: "세특", student: t.student, context: t.course.subject, memo, logs: [], range, activity: p.data.activity });
   await repo.audit(t.v.accountId, "setuk.ai_piece_draft", `${t.course.subject} ${t.student.pseudonymId}`);
   if (!r.text) return { ok: false, error: r.notice ?? "초안을 만들지 못했어요. 직접 써 주세요" };
   return { ok: true, text: r.text, sample: r.sample, notice: r.notice };
@@ -184,10 +189,11 @@ export async function listSetukPieces(input: { courseId: string; studentId: stri
 }
 
 /** 조각 칸 (Figma N19): 수업 중 본 것을 바로 한 조각으로 남긴다 (추가만, C4) */
-export async function addSetukPiece(input: { courseId: string; studentId: string; text: string }): Promise<{ error?: string }> {
+export async function addSetukPiece(input: { courseId: string; studentId: string; text: string; activity: string }): Promise<{ error?: string }> {
   const t = await setukTarget(input.courseId, input.studentId);
   if (!t) return { error: "내 담당 과목·반 학생만 쓸 수 있어요" };
-  const text = String(input.text ?? "").trim();
+  if (!cleanActivity(input.activity)) return { error: "활동명을 적어 주세요" };
+  const text = withActivity(input.activity, String(input.text ?? ""));
   if (text.length < PIECE_MIN || text.length > PIECE_MAX) return { error: `조각은 ${PIECE_MIN}~${PIECE_MAX.toLocaleString()}자로 써 주세요` };
   await repo.addRecordMemo({ scope: pieceScope(`세특:${input.courseId}`), studentId: t.student.id, authorId: t.v.accountId, content: text });
   await repo.audit(t.v.accountId, "record.piece", `세특 ${t.course.subject} ${t.student.pseudonymId}`);

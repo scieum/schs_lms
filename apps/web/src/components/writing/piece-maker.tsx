@@ -5,6 +5,7 @@ import { Button, Tag, cx } from "@/components/ui";
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { ACCEPT } from "./evidence-files";
 import { measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
+import { ACTIVITY_MAX, cleanActivity, withActivity } from "@/lib/domain/activity-name";
 import type { AiDraftResult } from "@/lib/domain/writing";
 import type { EvidenceResult } from "@/lib/server/ai/read-evidence";
 
@@ -13,7 +14,7 @@ import type { EvidenceResult } from "@/lib/server/ai/read-evidence";
 
 export type PieceMakerApi = {
   summarize: (fd: FormData) => Promise<EvidenceResult>;
-  draft: (input: { note: string; summary: string; unit: LengthUnit; max: number }) => Promise<AiDraftResult>;
+  draft: (input: { note: string; summary: string; unit: LengthUnit; max: number; activity: string }) => Promise<AiDraftResult>;
   unit: LengthUnit;
   neisMax: number;
   onApply: (text: string) => void;
@@ -21,19 +22,20 @@ export type PieceMakerApi = {
 
 type Result = { summary: string; label: "AI" | "자동"; draft: Extract<AiDraftResult, { ok: true }> | null; draftError?: string; target: number };
 
-export function PieceMaker({ api, save }: { api: PieceMakerApi; save: (text: string) => Promise<{ error?: string }> }) {
+export function PieceMaker({ api, save }: { api: PieceMakerApi; save: (text: string, activity: string) => Promise<{ error?: string }> }) {
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [activity, setActivity] = useState("");
   const [note, setNote] = useState("");
-  const [custom, setCustom] = useState(false);
+  // 초안 분량 (N27): 선생님이 바이트를 바로 적는다. 최대를 넘으면 최대로
   const [max, setMax] = useState(api.neisMax);
   const [res, setRes] = useState<Result | null>(null);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [busy, start] = useTransition();
-  const u = UNIT_LABEL[api.unit];
-  const target = custom ? Math.min(api.neisMax, Math.max(1, max)) : api.neisMax;
+  const u = api.unit === "bytes" ? "B" : UNIT_LABEL[api.unit];
+  const target = Math.min(api.neisMax, Math.max(1, max || api.neisMax));
 
   const run = () => start(async () => {
     setError("");
@@ -54,8 +56,8 @@ export function PieceMaker({ api, save }: { api: PieceMakerApi; save: (text: str
         }
         summary = texts.join(" ").slice(0, 1000);
       }
-      const d = await api.draft({ note: note.trim(), summary: file ? summary : "", unit: api.unit, max: target });
-      setRes({ summary, label, draft: d.ok ? d : null, draftError: d.ok ? undefined : d.error, target });
+      const d = await api.draft({ note: note.trim(), summary: file ? summary : "", unit: api.unit, max: target, activity });
+      setRes({ summary: withActivity(activity, summary), label, draft: d.ok ? d : null, draftError: d.ok ? undefined : d.error, target });
     } catch {
       setError("만들지 못했어요. 다시 해 주세요");
     }
@@ -63,7 +65,7 @@ export function PieceMaker({ api, save }: { api: PieceMakerApi; save: (text: str
 
   const keep = () => start(async () => {
     if (!res) return;
-    const r = await save(res.summary);
+    const r = await save(res.summary, activity);
     if (r.error) setError(r.error);
     else setSaved(true);
   });
@@ -80,6 +82,18 @@ export function PieceMaker({ api, save }: { api: PieceMakerApi; save: (text: str
         <span className="text-[14px] font-bold">자료로 조각 만들기</span>
       </div>
 
+      {!res ? (
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-sub">활동명</span>
+          <input value={activity} onChange={(e) => setActivity(e.target.value)} maxLength={ACTIVITY_MAX} placeholder="예: 빗면 실험 탐구"
+            className="h-10 rounded-field bg-[#fff] px-3 text-[14px] outline-none focus:ring-2 focus:ring-key" />
+          <span className="text-[12px] text-mute">활동명은 기록 맨 앞에 붙어요</span>
+        </label>
+      ) : (
+        <span className="inline-flex items-center gap-1.5 self-start rounded-chip bg-[#fff] px-2.5 py-1">
+          <span className="text-[12px] text-mute">활동명</span><span className="text-[13px] font-medium">{cleanActivity(activity)}</span>
+        </span>
+      )}
       {!res && (
         <button type="button" onClick={() => input.current?.click()}
           className={cx("flex items-center gap-3 rounded-inner border-2 border-dashed bg-[#fff] px-3.5 py-3 text-left", file ? "border-key" : "border-[#D9DDE3]")}>
@@ -104,24 +118,20 @@ export function PieceMaker({ api, save }: { api: PieceMakerApi; save: (text: str
       {!res && (
         <>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={2000} aria-label="활동 설명"
-            placeholder="어떤 활동이었는지 간단히 (예: 빗면 실험 보고서, 오차 원인 분석)"
+            placeholder="무엇을 했는지 간단히 (예: 오차 원인 분석, 다시 측정)"
             className="w-full resize-y rounded-field bg-[#fff] p-3 text-[14px] leading-6 outline-none focus:ring-2 focus:ring-key" />
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-full text-[13px] text-sub md:w-auto">초안 분량</span>
-            <span className="flex rounded-full border border-line bg-[#fff] p-0.5 text-[12px]">
-              {([[`NEIS 최대 ${api.neisMax.toLocaleString()}${u}`, false], ["직접", true]] as const).map(([l, c]) => (
-                <button key={String(c)} type="button" aria-pressed={custom === c} onClick={() => { setCustom(c); if (!c) setMax(api.neisMax); }}
-                  className={cx("whitespace-nowrap rounded-full px-3 py-1", custom === c ? "bg-key-soft font-bold text-key-strong" : "text-sub")}>{l}</button>
-              ))}
-            </span>
-            {custom && (
-              <label className="flex items-center gap-1">
-                <input type="number" min={1} max={api.neisMax} value={max} onChange={(e) => setMax(Number(e.target.value) || 0)} aria-label="초안 분량"
-                  className="h-8 w-20 rounded-control border border-line bg-[#fff] px-2 text-right text-[14px] font-bold outline-none focus:ring-2 focus:ring-key" />
-                <span className="text-[13px] font-bold">{u}</span>
-              </label>
-            )}
-            <Button type="button" size="sm" disabled={busy || (!file && !note.trim())} onClick={run} className="max-md:w-full md:ml-auto">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-2.5">
+            <div className="flex items-center justify-between md:contents">
+              <span className="text-[13px] font-medium text-sub">초안 분량</span>
+              <span className="text-[12px] text-mute md:order-3">최대 {api.neisMax.toLocaleString()}{u}</span>
+            </div>
+            <label className="flex h-10 items-center rounded-field bg-[#fff] px-2.5 focus-within:ring-2 focus-within:ring-key md:order-2 md:h-8 md:w-24">
+              <input inputMode="numeric" value={max ? max.toLocaleString() : ""} aria-label="초안 분량"
+                onChange={(e) => setMax(Number(e.target.value.replace(/[^\d]/g, "")) || 0)}
+                className="w-full min-w-0 bg-transparent text-right text-[14px] font-medium tabular-nums outline-none" />
+              <span className="ml-1 shrink-0 text-[13px] text-mute">{u}</span>
+            </label>
+            <Button type="button" size="sm" disabled={busy || !activity.trim() || (!file && !note.trim())} onClick={run} className="max-md:h-10 max-md:w-full md:order-4 md:ml-auto">
               <Sparkles size={14} /> {busy ? "만드는 중…" : "요약·초안 만들기"}
             </Button>
           </div>

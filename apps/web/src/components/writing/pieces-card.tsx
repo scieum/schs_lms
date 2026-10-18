@@ -3,6 +3,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { ChevronRight, Plus } from "lucide-react";
 import { Button, cx } from "@/components/ui";
+import { ACTIVITY_MAX } from "@/lib/domain/activity-name";
 import { orderPieces, PIECE_MAX, type MergePiece, type PieceSource } from "@/lib/domain/merge";
 import { RecordCompetency } from "./record-competency";
 import { PieceMaker, type PieceMakerApi } from "./piece-maker";
@@ -22,7 +23,8 @@ const md = (d: string | null) => (d ? `${+d.slice(5, 7)}.${+d.slice(8, 10)}` : "
 export function PiecesCard({ studentId, load, add, placeholder, maker }: {
   studentId: string;
   load: () => Promise<MergePiece[]>;
-  add: (text: string) => Promise<{ error?: string }>;
+  /** 활동명 (N27) 과 함께 남긴다 — 서버가 "[활동명] …"으로 붙인다 */
+  add: (text: string, activity: string) => Promise<{ error?: string }>;
   placeholder: string;
   /** 세특 (N22): 자료로 조각 만들기를 맨 위에, 메모로 남기기는 아래로 작게 */
   maker?: PieceMakerApi;
@@ -30,6 +32,7 @@ export function PiecesCard({ studentId, load, add, placeholder, maker }: {
   const [pieces, setPieces] = useState<MergePiece[] | null>(null);
   const [all, setAll] = useState(false);
   const [text, setText] = useState("");
+  const [activity, setActivity] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, start] = useTransition();
 
@@ -42,15 +45,15 @@ export function PiecesCard({ studentId, load, add, placeholder, maker }: {
   }, []);
 
   const save = () => start(async () => {
-    const r = await add(text).catch(() => ({ error: "남기지 못했어요" }));
+    const r = await add(text, activity).catch(() => ({ error: "남기지 못했어요" }));
     if (r.error) return setMsg({ ok: false, text: r.error });
     setText("");
     setMsg({ ok: true, text: "조각을 남겼어요" });
     setPieces(await load().catch(() => pieces ?? []));
   });
   // 자료로 만든 활동 요약을 조각으로 남기고 목록을 다시 불러온다
-  const keepSummary = async (summary: string) => {
-    const r = await add(summary).catch(() => ({ error: "남기지 못했어요" }));
+  const keepSummary = async (summary: string, act: string) => {
+    const r = await add(summary, act).catch(() => ({ error: "남기지 못했어요" }));
     if (!r.error) setPieces(await load().catch(() => pieces ?? []));
     return r;
   };
@@ -91,13 +94,19 @@ export function PiecesCard({ studentId, load, add, placeholder, maker }: {
         </RecordCompetency>
       )}
       {maker && <span className="-mb-1.5 text-[13px] text-mute">메모로 남기기</span>}
-      <textarea value={text} onChange={(e) => { setText(e.target.value); setMsg(null); }} rows={maker ? 1 : 2} maxLength={PIECE_MAX} aria-label="새 조각"
-        placeholder={maker ? "지금 본 것을 짧게" : placeholder}
-        className="w-full resize-y rounded-field bg-soft p-3 text-[14px] leading-6 outline-none focus:ring-2 focus:ring-key" />
+      {/* 활동명 (N27): 세특은 PC 한 줄(활동명 200 + 메모), 그 밖은 새 조각 글칸 위 */}
+      <div className={cx("flex flex-col gap-2", maker && "md:flex-row")}>
+        <input value={activity} onChange={(e) => { setActivity(e.target.value); setMsg(null); }} maxLength={ACTIVITY_MAX} aria-label="활동명"
+          placeholder={maker ? "활동명" : "활동명 (기록 맨 앞에 붙어요)"}
+          className={cx("h-10 w-full shrink-0 rounded-field bg-soft px-3 text-[14px] outline-none focus:ring-2 focus:ring-key", maker && "md:w-[200px]")} />
+        <textarea value={text} onChange={(e) => { setText(e.target.value); setMsg(null); }} rows={maker ? 1 : 2} maxLength={PIECE_MAX} aria-label="새 조각"
+          placeholder={maker ? "지금 본 것을 짧게" : placeholder}
+          className="w-full min-w-0 resize-y rounded-field bg-soft p-3 text-[14px] leading-6 outline-none focus:ring-2 focus:ring-key" />
+      </div>
       <div className="flex items-center gap-2">
         {msg ? <p className={cx("min-w-0 flex-1 text-[13px]", msg.ok ? "text-ok" : "text-bad")} role={msg.ok ? "status" : "alert"}>{msg.text}</p>
           : <Link href={`/teacher/pieces?student=${studentId}`} className="mr-auto whitespace-nowrap text-[13px] font-medium text-key-strong">생기부 조각 ›</Link>}
-        <Button type="button" kind="soft" size="sm" disabled={saving || text.trim().length < 2} onClick={save}>
+        <Button type="button" kind="soft" size="sm" disabled={saving || text.trim().length < 2 || !activity.trim()} onClick={save}>
           <Plus size={14} /> {saving ? "남기는 중…" : maker ? "남기기" : "조각 남기기"}
         </Button>
       </div>

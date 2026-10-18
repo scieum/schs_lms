@@ -8,6 +8,7 @@ import type { EvidenceResult } from "@/lib/server/ai/read-evidence";
 import { EvidenceFiles, evidenceMemo, type EvidenceItem } from "./evidence-files";
 import { MergeList } from "./merge-list";
 import type { Importance, MergePiece } from "@/lib/domain/merge";
+import { ACTIVITY_MAX } from "@/lib/domain/activity-name";
 import { composeKeywordMemo, parseKeywordMemo, type AiDraftResult, type KeywordBlock } from "@/lib/domain/writing";
 
 const EMPTY: KeywordBlock = { topic: "", activity: "", keywords: "" };
@@ -32,7 +33,8 @@ export function AiDraftPanel({
   placeholder: string;
   unit: LengthUnit;
   bodyEmpty: boolean;
-  generate: (memo: string) => Promise<AiDraftResult>;
+  /** activity: 활동명 (N27, 메모로·키워드로에서 필수) */
+  generate: (memo: string, activity: string) => Promise<AiDraftResult>;
   /** 자료 파일 하나 읽기 (없으면 '자료로' 탭을 숨긴다) */
   readFile?: (form: FormData) => Promise<EvidenceResult>;
   /** 합치기 (없으면 탭을 숨긴다): 조각 불러오기 · 지금 본문 · NEIS 최대 · 합치기 */
@@ -40,6 +42,7 @@ export function AiDraftPanel({
   onApply: (text: string) => void;
 }) {
   const [memo, setMemo] = useState(initialMemo);
+  const [activity, setActivity] = useState("");
   const [blocks, setBlocks] = useState<KeywordBlock[]>(() => parseKeywordMemo(initialMemo) ?? [{ ...EMPTY }]);
   // ?panel=merge 로 들어오면(생기부 조각 화면의 '합치기') 합치기 탭을 열어 둔다
   const startMerge = useSearchParams().get("panel") === "merge" && !!merge;
@@ -103,7 +106,7 @@ export function AiDraftPanel({
           setMergedCount(chosen.length);
           r = chosen.length ? await merge.run(chosen, target) : { ok: false, error: "합칠 조각을 골라 주세요" };
         } else {
-          r = await generate(input);
+          r = await generate(input, activity);
         }
       } catch {
         r = { ok: false, error: "AI 처리 중 문제가 생겼어요. 직접 써 주세요" };
@@ -142,6 +145,14 @@ export function AiDraftPanel({
             className={cx("shrink-0 whitespace-nowrap rounded-chip px-3 py-1.5 text-[13px]", mode === k ? "bg-key-soft font-bold text-key-strong" : "text-sub hover:bg-soft")}>{l}</button>
         ))}
       </div>
+      {(mode === "memo" || mode === "keywords") && (
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-sub">활동명</span>
+          <input value={activity} onChange={(e) => setActivity(e.target.value)} maxLength={ACTIVITY_MAX} placeholder="예: 빗면 실험 탐구"
+            className="h-10 rounded-field bg-soft px-3 text-[14px] outline-none focus:ring-2 focus:ring-key" />
+          <span className="text-[12px] text-mute">활동명은 기록 맨 앞에 붙어요</span>
+        </label>
+      )}
       {mode === "merge" && merge ? (
         pieces === null ? (
           <p className="py-6 text-center text-[13px] text-mute" role="status">조각을 모으는 중이에요</p>
@@ -203,7 +214,7 @@ export function AiDraftPanel({
             {mode === "merge" ? (
               <Button type="button" kind="soft" size="sm" onClick={run} disabled={!picked.size || pieces === null}><Combine size={14} /> 합치기</Button>
             ) : (
-              <Button type="button" kind="soft" size="sm" onClick={run} disabled={mode === "files" && (reading || !input)}>{result ? "다시 쓰기" : "AI 초안"}</Button>
+              <Button type="button" kind="soft" size="sm" onClick={run} disabled={(mode === "files" && (reading || !input)) || ((mode === "memo" || mode === "keywords") && !activity.trim())}>{result ? "다시 쓰기" : "AI 초안"}</Button>
             )}
           </>
         )}

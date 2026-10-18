@@ -63,7 +63,7 @@ export function RecordEditor({
         placeholder={MEMO_HINT[area]}
         unit={range.unit}
         bodyEmpty={!text.trim()}
-        generate={(m) => aiRecordDraft({ area, studentId, clubId, memo: m, unit: range.unit, max: range.max })}
+        generate={(m, a) => aiRecordDraft({ area, studentId, clubId, memo: m, activity: a, unit: range.unit, max: range.max })}
         readFile={(fd) => { fd.set("area", area); fd.set("studentId", studentId); if (clubId) fd.set("clubId", clubId); return readRecordFile(fd); }}
         merge={{
           load: () => listRecordPieces({ area, studentId, clubId }),
@@ -74,7 +74,7 @@ export function RecordEditor({
         onApply={setText}
       />
       <PiecesCard key={`${area}-${clubId ?? ""}-${studentId}`} studentId={studentId} placeholder={PIECE_HINT[area]}
-        load={() => listRecordPieces({ area, studentId, clubId })} add={(t) => addRecordPiece({ area, studentId, clubId, text: t })} />
+        load={() => listRecordPieces({ area, studentId, clubId })} add={(t, a) => addRecordPiece({ area, studentId, clubId, text: t, activity: a })} />
       <form action={action} className="flex flex-col gap-4">
         <input type="hidden" name="area" value={area} />
         <input type="hidden" name="studentId" value={studentId} />
