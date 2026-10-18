@@ -97,7 +97,7 @@ export default async function SetukPage({ searchParams }: Props) {
           <Segmented active={tabs.indexOf(tab)} items={tabs.map((t) => ({ label: t.label, href: `/teacher/setuk?course=${t.course.id}${t.section ? `&section=${encodeURIComponent(t.section)}` : ""}` }))} />
         )}
         {assignment?.mode === "moving" && students.length === 0 && (
-          <p className="rounded-inner bg-wait-soft px-4 py-3 text-[13px] text-[#9a6400]">이 분반 명단이 아직 없어요. 내 수업 → 이동반 명단에서 나이스 명단을 올려 주세요</p>
+          <p className="rounded-inner bg-wait-soft px-4 py-3 text-[13px] text-[#9a6400]">이 분반 명단이 아직 없어요. 내 수업 → 이동반 명단에서 양식 명단을 올려 주세요</p>
         )}
         <StatTiles items={[["학생", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
         <AiBanner title="AI 세특 초안" label={aiEnabled() ? "AI" : "자동"} line="메모나 주제·활동·키워드 칸을 채우고 AI 초안을 누르면 NEIS 문장으로 채워요. 저장은 선생님이 해요" />

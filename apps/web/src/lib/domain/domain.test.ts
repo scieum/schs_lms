@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { can, homePath } from "./policy";
 import { checkNewPassword } from "./password";
 import { afterFailure, afterSuccess, isAdminLock, isLocked, MAX_FAILS } from "./lockout";
-import { checkRows, makeStudentNo, matchHeaders, nextPseudonymIds, normalizeGender, summarize } from "./roster";
+import { readTemplate, sameHeader, TEMPLATES } from "./excel-template";
+import { checkRows, makeStudentNo, nextPseudonymIds, normalizeGender, registerRows, summarize } from "./roster";
 import type { Student, Teacher, Viewer } from "./types";
 
 const student: Student = {
@@ -73,13 +74,26 @@ describe("로그인 잠금", () => {
 });
 
 describe("학생 등록 — 엑셀", () => {
-  it("양식과 다른 열 이름도 맞춘다", () => {
-    const m = matchHeaders(["학년", "학급", "번호", "성명", "남녀"]);
-    expect(m.missing).toEqual([]);
-    expect(m.renamed.map((r) => r.from)).toEqual(["학급", "성명", "남녀"]);
+  it("1행 제목이 양식과 같을 때만 읽는다 (앞뒤 공백·오른쪽 빈 칸은 괜찮음)", () => {
+    const cols = TEMPLATES.register.columns;
+    expect(sameHeader([" 학번", ...cols.slice(1), ""], cols)).toBe(true);
+    expect(sameHeader(["학년", "학급", "번호", "성명", "남녀"], cols)).toBe(false);
+    expect(sameHeader([...cols.slice(0, 4), "성명", ...cols.slice(5)], cols)).toBe(false);
+    expect(sameHeader(cols.slice(0, 6), cols)).toBe(false);
+    expect(readTemplate([["학년", "반", "번호", "이름", "성별"], ["2", "1", "1", "김하늘", "여"]], "register")).toBeNull();
+    expect(readTemplate([], "register")).toBeNull();
   });
-  it("없는 열을 알려준다 (계열은 없어도 됨)", () => {
-    expect(matchHeaders(["학년", "반", "이름"]).missing).toEqual(["number", "gender"]);
+  it("양식 줄 → 학생 행 (빈 줄은 건너뛰고 엑셀 행 번호 유지), 학번은 학년·반·번호와 같아야", () => {
+    const body = readTemplate([
+      [...TEMPLATES.register.columns],
+      ["20301", "2", "3", "1", "김하늘", "여", ""],
+      [],
+      ["", "2", "3", "2", "최지호", "남", "1"],
+      ["29999", "2", "3", "3", "박서준", "남", "1"],
+    ], "register")!;
+    const rows = checkRows(registerRows(body), new Set());
+    expect(rows.map((r) => [r.line, r.status, r.studentNo])).toEqual([[2, "new", "20301"], [4, "new", "20302"], [5, "invalid", null]]);
+    expect(rows[2].problems).toEqual(["학번이 학년·반·번호와 달라요"]);
   });
   it("성별 여러 표기", () => {
     expect(normalizeGender("남자")).toBe("남");

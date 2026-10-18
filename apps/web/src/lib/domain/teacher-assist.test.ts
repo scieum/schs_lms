@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  briefingRule, cleanCourseSuggestion, cleanHeaderMap, counselQuestionsRule, deptGroups, filterLabel, filterStudents, guessHeaders,
-  matchRosterText, parseStudentQuery, polishLogRule, suggestCoursesRule, type RosterPerson,
+  briefingRule, cleanCourseSuggestion, counselQuestionsRule, deptGroups, filterLabel, filterStudents,
+  parseStudentQuery, polishLogRule, suggestCoursesRule,
 } from "./teacher-assist";
 import { composeKeywordMemo, parseKeywordMemo, plainMemo } from "./writing";
 
-const people: RosterPerson[] = [
+const people = [
   { id: "a", name: "김민수", grade: 2, classNo: 3, number: 12, studentNo: "20312" },
   { id: "b", name: "이서연", grade: 2, classNo: 1, number: 5, studentNo: "20105" },
   { id: "c", name: "박지훈", grade: 1, classNo: 2, number: 7, studentNo: "10207" },
@@ -39,22 +39,6 @@ describe("누가기록 다듬기 (규칙)", () => {
   });
 });
 
-describe("부원 명단 붙여넣기", () => {
-  it("학번 · 학년-반-번호 · 이름으로 찾는다", () => {
-    const r = matchRosterText("20312\n2-1-5\n이서연\n박지훈\n홍길동", people);
-    expect(r.matched).toEqual(["a", "b"]);
-    expect(r.ambiguous).toEqual(["박지훈"]);
-    expect(r.unknown).toEqual(["홍길동"]);
-  });
-  it("엑셀 탭 복사(학년·반·번호·이름)와 동명이인 좁히기", () => {
-    const r = matchRosterText("1\t2\t7\t박지훈\n3학년 4반 박지훈", people);
-    expect(r.matched).toEqual(["c", "d"]);
-  });
-  it("쉼표로 나열한 이름, 같은 학생은 한 번만", () => {
-    expect(matchRosterText("김민수, 이서연, 김민수", people).matched).toEqual(["a", "b"]);
-  });
-});
-
 describe("내 교과 추천 (규칙)", () => {
   const courses = [{ id: "c1", group: "과학" as const }, { id: "c2", group: "국어" as const }, { id: "c3", group: "과학" as const }];
   it("부서 이름 → 교과", () => {
@@ -75,15 +59,6 @@ describe("상담 질문 (규칙)", () => {
   it("가장 최근 영역의 질문 3개, 기록이 없으면 진로", () => {
     expect(counselQuestionsRule([{ area: "진로", date: "2026-03-01" }, { area: "학습", date: "2026-05-01" }])[0]).toContain("공부 계획");
     expect(counselQuestionsRule([])).toHaveLength(3);
-  });
-});
-
-describe("엑셀 열 맞추기", () => {
-  it("양식 이름 + 느슨한 포함 관계", () => {
-    expect(guessHeaders(["학년도", "학급(반)", "출석 번호", "학생 성명", "성 별"])).toEqual({ grade: 0, classNo: 1, number: 2, name: 3, gender: 4 });
-  });
-  it("AI 열 번호 검사: 범위 밖·중복·null 제거", () => {
-    expect(cleanHeaderMap({ grade: 0, classNo: 0, number: 9, name: 2, gender: null }, 5)).toEqual({ grade: 0, name: 2 });
   });
 });
 

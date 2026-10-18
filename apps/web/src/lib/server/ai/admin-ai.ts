@@ -4,7 +4,7 @@ import { dailyCheck, type DailyCheckInput, type DailyCheckItem } from "@/lib/dom
 import type { DemandForecast } from "@/lib/domain/offering";
 import { aiEnabled, aiJson, fileBlock, type AiResult } from "./claude";
 
-// 관리자 화면의 버튼형 AI (docs/ai-features.md A1·A2·A5·A6·편제표).
+// 관리자 화면의 버튼형 AI (docs/ai-features.md A1·A5·A6·편제표).
 // 결과는 화면에서 관리자가 확인한 뒤에만 반영한다. 학생 정보는 가명ID만 (교사 이름·과목 이름은 학생 정보가 아니다).
 // 키가 없거나 실패하면 규칙 결과를 "자동" 라벨로 돌려준다.
 
@@ -27,24 +27,6 @@ line 은 관리자에게 보여 줄 한 줄 요약(60자 이내, 해요체, 가�
   if (!r.ok) return { line: rule, items, label: "자동", error: r.error };
   const ordered = [...new Set(r.data.order)].map((k) => items.find((i) => i.key === k)).filter((i): i is DailyCheckItem => !!i);
   return { line: r.data.line.slice(0, 90), items: [...ordered, ...items.filter((i) => !ordered.includes(i))], label: "AI" };
-}
-
-/** A2 교사 명부 열 해석: 붙여넣은 표 → 이름·부서·담임 반 (교사 이름은 학생 정보가 아니라 보내도 된다) */
-export async function readRoster(text: string): Promise<AiResult<{ line: number; name: string; dept: string | null; grade: number | null; classNo: number | null }[]>> {
-  const lines = text.replace(/\r\n?/g, "\n").split("\n").slice(0, 120);
-  const r = await aiJson(
-    z.object({ rows: z.array(z.object({ line: z.number().int(), name: z.string(), dept: z.string().nullable(), grade: z.number().int().nullable(), classNo: z.number().int().nullable() })) }),
-    {
-      model: "fast",
-      maxTokens: 6000,
-      system: `붙여넣은 글은 고등학교 교사 명부(엑셀·한글 표를 복사한 것)다. 줄마다 교사 한 명이다. 열 순서·머리글은 학교마다 다르다.
-- line: 줄 번호(아래에 붙인 번호 그대로), name: 교사 이름, dept: 부서 또는 교과(없으면 null)
-- grade·classNo: 담임 반의 학년(1~3)·반. 담임이 아니면 둘 다 null
-- 머리글 줄·빈 줄·합계 줄은 빼고, 이름이 없는 줄도 뺀다`,
-      content: lines.map((l, i) => `${i + 1}: ${l}`).join("\n"),
-    },
-  );
-  return r.ok ? { ok: true, data: r.data.rows } : r;
 }
 
 /** A5 이상 접근 설명: 규칙이 고른 기록 → 사람이 읽을 문장. 행위자는 별칭(사람1…)으로 보내고 돌려받은 뒤 바꾼다 */

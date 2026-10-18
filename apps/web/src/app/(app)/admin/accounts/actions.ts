@@ -4,13 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
-  checkRoleChange, checkRoster, checkTeacherName, homeroomTakenBy, isStale, MANUAL_LOCK_UNTIL, normalizeRoles, normalizeTeacherName, parseTeacherRoster,
+  checkRoleChange, checkRoster, checkTeacherName, homeroomTakenBy, isStale, MANUAL_LOCK_UNTIL, normalizeRoles, normalizeTeacherName, teacherRows,
   type RosterRow,
 } from "@/lib/domain/accounts";
 import type { TeacherRole } from "@/lib/domain/types";
-import { aiEnabled } from "@/lib/server/ai/claude";
-import { readRoster } from "@/lib/server/ai/admin-ai";
 import { env } from "@/lib/server/env";
+import { readTemplateFile } from "@/lib/server/excel";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 
@@ -115,31 +114,19 @@ export async function updateTeacher(_: AccountFormState, form: FormData): Promis
   return { done: "저장했어요" };
 }
 
-// ---------------------------------------------------------------- 교사 명부 붙여넣기 → 일괄 추가
+// ---------------------------------------------------------------- 교사 명부 양식 → 일괄 추가 (Figma N25, AI 없음)
 
-export type RosterPreview = { ok: true; rows: RosterRow[]; label: "AI" | "자동"; note?: string } | { ok: false; error: string };
+export type RosterPreview = { ok: true; fileName: string; rows: RosterRow[] } | { ok: false; error: string; fileName?: string };
 
-/** 명부 읽기: 키가 있으면 AI 가 열을 해석하고, 없거나 실패하면 규칙 파서. 저장하지 않는다 (교사 이름은 학생 정보가 아니다) */
-export async function previewRoster(text: string): Promise<RosterPreview> {
-  const v = await requireCan("account.manage");
-  const raw = String(text ?? "").slice(0, 20000);
-  if (!raw.trim()) return { ok: false, error: "명부를 붙여 넣어 주세요" };
-  const teachers = await repo.listTeachers();
-  const rule = parseTeacherRoster(raw, teachers);
-  if (!aiEnabled()) return rule.length ? { ok: true, rows: rule, label: "자동" } : { ok: false, error: "읽을 줄이 없어요" };
-  const r = await readRoster(raw);
-  await repo.audit(v.accountId, "account.ai.roster", `${r.ok ? r.data.length : 0}줄`);
-  if (!r.ok || !r.data.length) return rule.length ? { ok: true, rows: rule, label: "자동", note: "AI가 읽지 못해 규칙으로 읽었어요" } : { ok: false, error: "읽을 줄이 없어요" };
-  const rows = checkRoster(
-    r.data.slice(0, 100).map((x) => ({
-      line: x.line,
-      name: x.name,
-      dept: x.dept,
-      homeroom: x.grade && x.classNo && x.grade >= 1 && x.grade <= 3 && x.classNo >= 1 && x.classNo <= 20 ? { grade: x.grade, classNo: x.classNo } : null,
-    })),
-    teachers,
-  );
-  return { ok: true, rows, label: "AI" };
+/** 명부 읽기: 교사명부_양식.xlsx 만 읽는다. 저장하지 않는다 */
+export async function previewRoster(form: FormData): Promise<RosterPreview> {
+  await requireCan("account.manage");
+  const f = form.get("file");
+  const fileName = f instanceof File ? f.name : undefined;
+  const r = await readTemplateFile(f, "teacher");
+  if ("error" in r) return { ok: false, error: r.error, fileName };
+  const rows = teacherRows(r.body, await repo.listTeachers());
+  return rows.length ? { ok: true, fileName: fileName ?? "", rows } : { ok: false, error: "교사 줄이 없어요. 2행부터 적어 주세요", fileName };
 }
 
 const BulkSchema = z.array(z.object({
