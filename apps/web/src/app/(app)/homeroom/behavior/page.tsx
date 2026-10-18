@@ -8,6 +8,10 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { evidenceLogs } from "@/app/(app)/teacher/write/data";
 import { RecordWorkspace } from "@/app/(app)/teacher/write/workspace";
+import { classScope } from "@/lib/domain/common-activity";
+import { seoulNow } from "@/lib/domain/night";
+import { commonActivityRows } from "@/lib/server/common-activity";
+import { CommonActivitiesCard } from "@/components/writing/common-activities-card";
 
 export const metadata = { title: "행동특성 및 종합의견 · 속초고등학교 학생관리시스템" };
 
@@ -43,6 +47,8 @@ export default async function BehaviorPage({ searchParams }: Props) {
     evidenceLogs("행발", ids),
   ]);
   const latest = latestRecordByStudent(drafts);
+  const commonKey = classScope("행발", h.grade, h.classNo);
+  const commonRows = students.length ? await commonActivityRows(commonKey, ids) : [];
   const counts = { 확정: 0, "작성 중": 0, 미작성: 0 };
   for (const s of students) counts[recordStatus(latest.get(s.id))]++;
 
@@ -67,6 +73,7 @@ export default async function BehaviorPage({ searchParams }: Props) {
       />
       <PageBody>
         <StatTiles items={[["우리 반", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
+        {students.length > 0 && <CommonActivitiesCard scope={commonKey} rows={commonRows} detailBase="/teacher/write/activity" today={seoulNow().date} />}
         <AiBanner title="AI 행발 초안" line="담임 관찰 키워드와 누가기록으로 초안을 만들어요. 확정은 선생님이 해요" />
         <RecordWorkspace
           area="행발"

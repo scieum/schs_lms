@@ -15,6 +15,7 @@ const CHIP: Record<PieceSource, string> = {
   메모: "bg-soft text-sub",
   본문: "bg-line text-ink",
   "특색 활동": "bg-navy-2 text-white",
+  "공통 활동": "bg-[#DFE3FF] text-[#2F43B8]",
 };
 const STATUS = { 확정: "bg-ok-soft text-ok", "작성 중": "bg-wait-soft text-[#9A6400]", 미작성: "bg-soft text-mute" } as const;
 const md = (d: string | null) => (d ? `${+d.slice(5, 7)}.${+d.slice(8, 10)}` : "");

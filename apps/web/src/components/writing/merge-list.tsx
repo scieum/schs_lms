@@ -20,6 +20,7 @@ const CHIP: Record<PieceSource, string> = {
   메모: "bg-soft text-sub",
   본문: "bg-line text-ink",
   "특색 활동": "bg-navy-2 text-white",
+  "공통 활동": "bg-[#DFE3FF] text-[#2F43B8]",
 };
 const SHOWN = 6;
 

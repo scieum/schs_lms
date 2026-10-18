@@ -12,6 +12,10 @@ import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 import { SetukEditor } from "./editor";
 import { makeStudentNo } from "@/lib/domain/roster";
+import { setukScope } from "@/lib/domain/common-activity";
+import { seoulNow } from "@/lib/domain/night";
+import { commonActivityRows } from "@/lib/server/common-activity";
+import { CommonActivitiesCard } from "@/components/writing/common-activities-card";
 
 export const metadata = { title: "교과 세특 · 속초고등학교 학생관리시스템" };
 
@@ -70,6 +74,8 @@ export default async function SetukPage({ searchParams }: Props) {
   for (const s of students) counts[statusLabel(latest.get(s.id))]++;
   const cur = selected ? latest.get(selected.id) : undefined;
   const memo = selected ? latestMemoByStudent(await repo.listRecordMemos(`세특:${course.id}`, [selected.id])).get(selected.id) : undefined;
+  const commonScopeKey = setukScope(course.id, tab.section);
+  const commonRows = students.length ? await commonActivityRows(commonScopeKey, students.map((s) => s.id)) : [];
   const sec = tab.section ? `&section=${encodeURIComponent(tab.section)}` : "";
   const href = (studentId?: string) => `/teacher/setuk?course=${course.id}${sec}${studentId ? `&student=${studentId}` : ""}`;
 
@@ -100,6 +106,7 @@ export default async function SetukPage({ searchParams }: Props) {
           <p className="rounded-inner bg-wait-soft px-4 py-3 text-[13px] text-[#9a6400]">이 분반 명단이 아직 없어요. 내 수업 → 이동반 명단에서 나이스 명단을 올려 주세요</p>
         )}
         <StatTiles items={[["학생", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
+        {students.length > 0 && <CommonActivitiesCard scope={commonScopeKey} rows={commonRows} detailBase="/teacher/setuk/activity" today={seoulNow().date} />}
         <AiBanner title="AI 세특 초안" label={aiEnabled() ? "AI" : "자동"} line="메모나 주제·활동·키워드 칸을 채우고 AI 초안을 누르면 NEIS 문장으로 채워요. 저장은 선생님이 해요" />
 
         {students.length === 0 ? (

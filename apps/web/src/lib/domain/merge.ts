@@ -5,7 +5,8 @@ import { fitToMax, sentences, toNeisSentence } from "./writing";
 // 맞추기: 본문 하나만 분량에 맞춘다. 둘 다 AI가 하고, 꺼져 있으면 아래 규칙으로 이어 붙인다.
 
 /** 특색 활동 = 프로그램 선생님이 확정해 담임에게 보낸 초안 (담임의 자율·자치·진로에만) */
-export type PieceSource = "누가기록" | "메모" | "본문" | "특색 활동";
+/** 공통 활동 = 과목·반 전체 활동(Figma N26)에서 학생 자료로 만든 조각 */
+export type PieceSource = "누가기록" | "메모" | "본문" | "특색 활동" | "공통 활동";
 export type MergePiece = { id: string; source: PieceSource; date: string | null; text: string; weight?: Importance };
 
 // 조각 고르기 (Figma N20): 교사가 조각마다 중요도를 매기고, 목표 분량에 맞춰 고른다.

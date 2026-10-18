@@ -14,6 +14,10 @@ import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 import { evidenceLogs } from "./data";
 import { RecordWorkspace } from "./workspace";
+import { classScope, clubScope } from "@/lib/domain/common-activity";
+import { seoulNow } from "@/lib/domain/night";
+import { commonActivityRows } from "@/lib/server/common-activity";
+import { CommonActivitiesCard } from "@/components/writing/common-activities-card";
 
 export const metadata = { title: "AI 기록 쓰기 · 속초고등학교 학생관리시스템" };
 
@@ -167,6 +171,10 @@ async function AreaWorkspace({ v, area, clubId, studentId }: { v: Viewer; area: 
   for (const s of students) counts[recordStatus(latest.get(s.id))]++;
   const base = `/teacher/write?area=${encodeURIComponent(area)}${club ? `&club=${club.id}` : ""}`;
   const writable = areas.filter((a) => a !== "동아리" || myClubs.length);
+  // 공통 활동 (Figma N26): 동아리는 그 동아리, 자율·자치·진로는 담임 반
+  const h = v.kind === "teacher" ? v.teacher.homeroom : null;
+  const commonKey = area === "동아리" ? (club ? clubScope(club.id) : null) : h ? classScope(area, h.grade, h.classNo) : null;
+  const commonRows = commonKey && students.length ? await commonActivityRows(commonKey, ids) : [];
 
   return (
     <>
@@ -195,6 +203,7 @@ async function AreaWorkspace({ v, area, clubId, studentId }: { v: Viewer; area: 
           <Segmented active={myClubs.indexOf(club)} items={myClubs.map((c) => ({ label: c.name, href: `/teacher/write?area=${encodeURIComponent("동아리")}&club=${c.id}` }))} />
         )}
         <StatTiles items={[["학생", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
+        {commonKey && students.length > 0 && <CommonActivitiesCard scope={commonKey} rows={commonRows} detailBase="/teacher/write/activity" today={seoulNow().date} />}
         <AiBanner title="AI 특기사항 초안" line="쌓인 누가기록과 관찰 메모로 초안을 만들어요. 확정은 선생님이 해요" />
         {area === "동아리" && !club ? (
           <Card>

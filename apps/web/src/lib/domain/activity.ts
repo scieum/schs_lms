@@ -20,6 +20,8 @@ export interface ActivityLog {
   date: string; // YYYY-MM-DD
   content: string;
   createdAt: string;
+  /** 공통 활동(Figma N26)에서 만든 기록이면 그 활동 ID */
+  commonActivityId?: string | null;
 }
 
 /** 쓸 수 있는 영역: 교사는 동아리(맡은 동아리), 담임은 자율·자치·진로(우리 반)까지 */
