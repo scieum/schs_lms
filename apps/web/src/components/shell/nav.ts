@@ -3,7 +3,7 @@ import type { Viewer } from "@/lib/domain/types";
 // 역할별 메뉴. 교사는 역할이 여러 개면 그룹이 합쳐진다 (관리자 = 모든 권한 교사).
 export type IconName =
   | "home" | "file" | "clipboard" | "users" | "chat" | "userPlus" | "chart" | "target" | "moon"
-  | "book" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user" | "calendar" | "presentation" | "send" | "share" | "layers";
+  | "book" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user" | "calendar" | "presentation" | "send" | "share" | "layers" | "grid";
 
 export interface NavItem { label: string; href: string; icon: IconName; ready?: boolean; badge?: number; /** 탭: 이 경로로 시작하면 켜짐 */ match?: string[] }
 /** 사이드바 숫자 배지 (Figma: 초안 검토 12, 오류 처리 2, 설문·서류 제출 2) — href 기준 */
@@ -97,7 +97,10 @@ function baseNav(v: Viewer): NavGroup[] {
   return groups;
 }
 
-/** 모바일 하단 탭 (5개). 가운데(3번째)는 언제나 홈 (2026-10-17 사용자 결정) */
+/** 모바일 하단 다섯째 탭: 전체 메뉴 (Figma N15). 내 정보(/me)도 여기서 들어간다 */
+const MENU_TAB: NavItem = { label: "메뉴", href: "/menu", icon: "grid", match: ["/me"] };
+
+/** 모바일 하단 탭 (5개). 가운데(3번째)는 언제나 홈 (2026-10-17 사용자 결정), 다섯째는 메뉴 (2026-10-18) */
 export function tabsFor(v: Viewer): NavItem[] {
   if (v.kind === "student") {
     return [
@@ -105,7 +108,7 @@ export function tabsFor(v: Viewer): NavItem[] {
       { label: "성적", href: "/student/scores", icon: "chart" },
       { label: "홈", href: "/student", icon: "home" },
       { label: "생기부", href: "/student/record", icon: "book" },
-      { label: "MY", href: "/me", icon: "user" },
+      MENU_TAB,
     ];
   }
   const r = v.teacher.roles;
@@ -114,13 +117,13 @@ export function tabsFor(v: Viewer): NavItem[] {
     { label: "프로그램", href: "/teacher/programs", icon: "clipboard" },
   ];
   if (r.includes("admin")) {
-    return [...draftsAndPrograms, { label: "홈", href: "/teacher", icon: "home" }, { label: "관리", href: "/admin", icon: "shield", match: ["/admin"] }, { label: "MY", href: "/me", icon: "user" }];
+    return [...draftsAndPrograms, { label: "홈", href: "/teacher", icon: "home" }, { label: "관리", href: "/admin", icon: "shield", match: ["/admin"] }, MENU_TAB];
   }
   if (r.includes("homeroom") && v.teacher.homeroom) {
     // 담임 기능(학생 기록·받은 초안·성적·최저·야자·행발·봉사)은 "담임" 탭 하나로 묶는다
-    return [...draftsAndPrograms, { label: "홈", href: "/homeroom", icon: "home" }, { label: "담임", href: "/homeroom/menu", icon: "users", match: ["/homeroom/"] }, { label: "MY", href: "/me", icon: "user" }];
+    return [...draftsAndPrograms, { label: "홈", href: "/homeroom", icon: "home" }, { label: "담임", href: "/homeroom/menu", icon: "users", match: ["/homeroom/"] }, MENU_TAB];
   }
-  return [...draftsAndPrograms, { label: "홈", href: "/teacher", icon: "home" }, { label: "학생", href: "/students", icon: "users" }, { label: "MY", href: "/me", icon: "user" }];
+  return [...draftsAndPrograms, { label: "홈", href: "/teacher", icon: "home" }, { label: "학생", href: "/students", icon: "users" }, MENU_TAB];
 }
 
 /** 담임 탭 메뉴 (/homeroom/menu) */
@@ -141,7 +144,7 @@ export const HOMEROOM_MENU: { label: string; items: NavItem[] }[] = [
 // ---------- 메뉴 숨기기 (내 정보 · 설정, Figma N14) ----------
 // 숨긴 메뉴는 사이드바·탭바에서만 빠진다. 주소로는 그대로 들어갈 수 있다. 홈과 내 정보는 숨길 수 없다.
 
-export const isLockedMenu = (it: Pick<NavItem, "label" | "href">) => it.label === "홈" || it.href === "/me";
+export const isLockedMenu = (it: Pick<NavItem, "label" | "href">) => it.label === "홈" || it.href === "/me" || it.href === "/menu";
 
 export function hideMenus(groups: NavGroup[], hidden: string[]): NavGroup[] {
   if (!hidden.length) return groups;
@@ -153,5 +156,32 @@ export function hideMenus(groups: NavGroup[], hidden: string[]): NavGroup[] {
 
 export function hideTabs(tabs: NavItem[], hidden: string[]): NavItem[] {
   const h = new Set(hidden);
-  return tabs.filter((t) => isLockedMenu(t) || t.label === "MY" || !h.has(t.href));
+  return tabs.filter((t) => isLockedMenu(t) || !h.has(t.href));
 }
+
+// ---------- 전체 메뉴 검색어 (Figma N15) ----------
+// 메뉴 이름에 없는 말로도 찾게 한다. 예: "세특" → 교과 세특, AI 기록 쓰기, 생기부 조각, 나이스 입력
+export const MENU_KEYWORDS: Record<string, string[]> = {
+  "/teacher/setuk": ["세특", "교과"],
+  "/teacher/write": ["세특 초안", "창체", "특기사항", "자율", "진로", "동아리"],
+  "/teacher/pieces": ["세특 조각 모아 보기", "합치기", "조각"],
+  "/teacher/neis": ["세특 붙여넣기", "나이스", "내보내기"],
+  "/teacher/logs": ["관찰", "기록"],
+  "/teacher/counseling": ["상담"],
+  "/teacher/drafts": ["초안", "검토"],
+  "/teacher/programs": ["설문", "특색 활동", "프로젝트"],
+  "/teacher/service": ["봉사"],
+  "/teacher/subjects": ["편제표", "이동반", "분반", "과목"],
+  "/teacher/joint": ["학교 간", "온라인"],
+  "/teacher/club": ["동아리 명단"],
+  "/schedule": ["일정", "달력", "급식"],
+  "/homeroom/behavior": ["행동특성", "종합의견"],
+  "/homeroom/scores": ["모의고사", "성적"],
+  "/homeroom/minimum": ["최저", "수능"],
+  "/homeroom/night": ["야자", "자율학습"],
+  "/homeroom/service": ["봉사"],
+  "/homeroom/drafts": ["특색 활동 초안"],
+  "/admin/accounts": ["교사 계정", "비밀번호 초기화"],
+  "/admin/curriculum": ["편제표"],
+  "/admin/audit": ["로그"],
+};

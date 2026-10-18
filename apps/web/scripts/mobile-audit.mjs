@@ -17,14 +17,14 @@ mkdirSync(out, { recursive: true });
 const PAGES = [
   ["none", "/login"], ["none", "/signup"],
   ...["/teacher", "/teacher/drafts", "/teacher/programs", "/teacher/programs/new", "/teacher/service", "/teacher/subjects", "/teacher/setuk", "/teacher/write",
-    "/teacher/club", "/teacher/joint", "/teacher/counseling", "/teacher/logs", "/teacher/pieces", "/teacher/neis", "/students", "/students/new", "/schedule", "/me"].map((p) => ["t-subject", p]),
+    "/teacher/club", "/teacher/joint", "/teacher/counseling", "/teacher/logs", "/teacher/pieces", "/teacher/neis", "/students", "/students/new", "/schedule", "/me", "/menu"].map((p) => ["t-subject", p]),
   ["t-subject", { from: "/teacher/programs", match: /^\/teacher\/programs\/(?!new)[^/?]+$/, extra: ["", "/edit", "/materials", "/split"] }],
   ...["/homeroom", "/homeroom/menu", "/homeroom/behavior", "/homeroom/drafts", "/homeroom/minimum", "/homeroom/night", "/homeroom/scores", "/homeroom/service", "/homeroom/students",
     "/teacher/write?area=%EC%A7%84%EB%A1%9C", "/teacher/pieces"].map((p) => ["t-homeroom", p]),
   ["t-homeroom", { from: "/homeroom/students", match: /^\/homeroom\/students\/[^/?]+$/, extra: [""] }],
   ...["/admin", "/admin/accounts", "/admin/accounts/new", "/admin/audit", "/admin/curriculum", "/admin/errors", "/admin/offerings", "/admin/pipeline"].map((p) => ["t-admin", p]),
   ["t-admin", { from: "/admin/accounts", match: /^\/admin\/accounts\/(?!new)[^/?]+$/, extra: [""] }],
-  ...["/student", "/student/courses", "/student/night", "/student/record", "/student/recs", "/student/scores", "/student/submit", "/schedule", "/me"].map((p) => ["s-2", p]),
+  ...["/student", "/student/courses", "/student/night", "/student/record", "/student/recs", "/student/scores", "/student/submit", "/schedule", "/me"].map((p) => ["s-2", p]), ...["/menu"].map((p) => ["s-2", p]),
 ];
 
 // 페이지 안에서 도는 점검
