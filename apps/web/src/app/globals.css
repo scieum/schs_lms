@@ -61,3 +61,55 @@ body {
 .surface .bg-white {
   background-color: var(--color-soft);
 }
+
+/* N29 상세페이지 첫 화면 모션 (docs/design-system.md "상세페이지 첫 화면 모션", Figma 371:2 · 스펙 373:2).
+   opacity·transform만 움직인다(흐름 선의 dashoffset, 빛 점의 offset-distance는 스펙 예외). 숨김 초기값은 여기 CSS에만 있어
+   첫 페인트 깜빡임이 없고, 동작 줄이기면 애니메이션 자체를 걸지 않아 마지막 상태가 바로 보인다.
+   이징: out (0.22,1,0.36,1) · in-out (0.65,0,0.35,1) · sine (0.37,0,0.63,1). 반복은 .n29[data-paused=true] 에서 멈춘다(landing-hero.tsx). */
+@layer components {
+  .n29-line { stroke: #7889ff; stroke-opacity: 0.7; stroke-width: 1.5; stroke-linecap: round; }
+  .n29-stop { position: absolute; width: 8px; height: 8px; border-radius: 9999px; background: #9eaaff; pointer-events: none; }
+  .n29-flash { opacity: 0; }
+  .n29-dot {
+    position: absolute; left: 0; top: 0; width: 18px; height: 18px; border-radius: 9999px; pointer-events: none;
+    background: radial-gradient(circle, rgba(83, 109, 254, 0.35) 0%, rgba(83, 109, 254, 0) 70%);
+    offset-rotate: 0deg; opacity: 0;
+  }
+  .n29-dot > span { position: absolute; left: 6px; top: 6px; width: 6px; height: 6px; border-radius: 9999px; background: #eef0ff; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .n29-in { animation: n29-rise var(--n29-dur, 500ms) cubic-bezier(0.22, 1, 0.36, 1) var(--n29-at, 0ms) both; }
+    .n29-glow {
+      animation: n29-glow-in 1200ms cubic-bezier(0.22, 1, 0.36, 1) both,
+        n29-breathe 8000ms cubic-bezier(0.37, 0, 0.63, 1) 2500ms infinite;
+    }
+    .n29-mascot { --n29-y: 48px; animation: n29-rise 800ms cubic-bezier(0.22, 1, 0.36, 1) 900ms both; }
+    .n29-bob { animation: n29-bob 2000ms cubic-bezier(0.37, 0, 0.63, 1) 2500ms infinite alternate; }
+    .n29-line { stroke-dasharray: 1; animation: n29-draw var(--n29-dur) cubic-bezier(0.65, 0, 0.35, 1) var(--n29-at) both; }
+    .n29-stop { animation: n29-pop 200ms cubic-bezier(0.22, 1, 0.36, 1) var(--n29-at) both; }
+    .n29-card { animation: n29-card 500ms cubic-bezier(0.22, 1, 0.36, 1) var(--n29-at) both; }
+    .n29-flash { animation: n29-flash 3000ms linear var(--n29-flash) infinite; }
+    .n29-dot { animation: n29-travel 3000ms linear 2500ms infinite, n29-dot-fade 3000ms linear 2500ms infinite; }
+    .n29[data-paused="true"] :is(.n29-glow, .n29-bob, .n29-dot, .n29-flash) { animation-play-state: paused; }
+  }
+}
+
+@keyframes n29-rise { from { opacity: 0; transform: translateY(var(--n29-y, 0px)); } }
+@keyframes n29-glow-in { from { opacity: 0; transform: scale(0.6); } }
+@keyframes n29-breathe { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.75; transform: scale(1.04); } }
+@keyframes n29-bob { from { transform: translateY(0); } to { transform: translateY(-6px); } }
+@keyframes n29-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes n29-pop { from { transform: scale(0); } }
+@keyframes n29-card { from { opacity: 0; transform: translateY(8px) scale(0.92); } }
+/* 반복 한 바퀴 3000ms: 빛 점은 앞 1600ms(53.33%) 동안 이동, 10%·90% 지점에서 나타나고 사라짐 */
+@keyframes n29-travel {
+  0% { offset-distance: 0%; animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  53.333%, 100% { offset-distance: 100%; }
+}
+@keyframes n29-dot-fade { 0% { opacity: 0; } 5.333%, 48% { opacity: 1; } 53.333%, 100% { opacity: 0; } }
+/* 카드 테두리 반짝: 300ms 안에 18%→40%→18% (겹친 40% 테두리를 켰다 끈다) */
+@keyframes n29-flash {
+  0% { opacity: 0; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  5% { opacity: 1; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  10%, 100% { opacity: 0; }
+}

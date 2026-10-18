@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { HeroVisual } from "./landing-hero";
 import { FaqList, MobileMenu } from "./landing-sections";
 import { CORE, FLOW, MORE, ROLES, SAFETY } from "./landing-data";
 
@@ -36,14 +37,11 @@ function Tag({ children, tone = "white" }: { children: string; tone?: "white" | 
   );
 }
 
-/** 히어로에 떠 있는 유리 카드 */
-function Glass({ title, line, className }: { title: string; line: string; className: string }) {
-  return (
-    <div className={`absolute whitespace-nowrap rounded-inner border border-white/20 bg-white/10 px-3.5 py-2.5 text-left backdrop-blur-sm md:px-5 md:py-4 ${className}`}>
-      <div className="text-[12px] font-bold text-white md:text-[15px]">{title}</div>
-      <div className="mt-0.5 text-[11px] font-medium text-[#b0b8c1] md:mt-1 md:text-[13px]">{line}</div>
-    </div>
-  );
+/** N29 등장 변수: 시작 ms · 떠오르는 거리 px · 길이 ms */
+const rise = (at: number, y: number, dur = 500) => ({ "--n29-at": `${at}ms`, "--n29-y": `${y}px`, "--n29-dur": `${dur}ms` }) as CSSProperties;
+
+function Rise({ at, y, dur, children }: { at: number; y: number; dur: number; children: string }) {
+  return <span className="n29-in inline-block" style={rise(at, y, dur)}>{children}</span>;
 }
 
 const wrap = "mx-auto w-full max-w-[1200px] px-5 md:px-6 xl:px-0";
@@ -68,23 +66,19 @@ export function Landing() {
       {/* Hero */}
       <section className="relative overflow-hidden bg-[linear-gradient(180deg,#0a0b12_0%,#1c2033_100%)] text-white">
         <div className={`${wrap} flex flex-col items-center pt-14 text-center md:pt-[120px]`}>
-          <h1 className="text-[30px] font-bold leading-[1.3] md:text-[56px]">생기부 초안부터<br />나이스 입력까지</h1>
-          <p className="mt-5 text-[17px] leading-[1.35] text-[#b0b8c1] md:mt-7 md:text-[20px]">설문·서류로 AI가 쓰고, <br className="md:hidden" />선생님이 확정해요.</p>
+          {/* N29 첫 화면 모션: 제목 단어 → 부제 → 버튼 → 그림 (globals.css .n29-*, 시간표는 docs/design-system.md) */}
+          <h1 className="text-[30px] font-bold leading-[1.3] md:text-[56px]">
+            <Rise at={100} y={24} dur={450}>생기부</Rise> <Rise at={180} y={24} dur={450}>초안부터</Rise><br />
+            <Rise at={260} y={24} dur={450}>나이스</Rise> <Rise at={340} y={24} dur={450}>입력까지</Rise>
+          </h1>
+          <p className="n29-in mt-5 text-[17px] leading-[1.35] text-[#b0b8c1] md:mt-7 md:text-[20px]" style={rise(550, 12)}>설문·서류로 AI가 쓰고, <br className="md:hidden" />선생님이 확정해요.</p>
           <div className="mt-5 flex w-full flex-col gap-3 md:mt-7 md:w-auto md:flex-row">
-            <Link href="/login" className="whitespace-nowrap rounded-control bg-key px-[30px] py-3.5 text-[16px] font-bold hover:bg-key-strong md:py-[17px] md:text-[17px]">속초고 계정으로 시작하기</Link>
-            <a href="#flow" className="whitespace-nowrap rounded-control border border-white/20 bg-white/10 px-[30px] py-3.5 text-[16px] font-bold hover:bg-white/15 md:py-[17px] md:text-[17px]">둘러보기</a>
+            <Link href="/login" className="n29-in whitespace-nowrap rounded-control bg-key px-[30px] py-3.5 text-[16px] font-bold hover:bg-key-strong md:py-[17px] md:text-[17px]" style={rise(700, 12)}>속초고 계정으로 시작하기</Link>
+            <a href="#flow" className="n29-in whitespace-nowrap rounded-control border border-white/20 bg-white/10 px-[30px] py-3.5 text-[16px] font-bold hover:bg-white/15 md:py-[17px] md:text-[17px]" style={rise(760, 12)}>둘러보기</a>
           </div>
-          <Link href="/signup" className="mt-4 text-[13px] text-[#9eaaff] underline-offset-4 hover:underline">처음이신 선생님은 가입하기</Link>
+          <Link href="/signup" className="n29-in mt-4 text-[13px] text-[#9eaaff] underline-offset-4 hover:underline" style={rise(820, 0, 400)}>처음이신 선생님은 가입하기</Link>
 
-          <div className="relative mt-2 h-[300px] w-full max-w-[350px] md:mt-3 md:h-[440px] md:max-w-[1000px]">
-            {/* 은은한 인디고 빛 번짐 (디자인 시스템이 허용한 유일한 예외) */}
-            <div className="absolute left-1/2 top-[84px] size-[360px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(83,109,254,0.55)_0%,rgba(83,109,254,0)_70%)] md:top-[60px] md:size-[560px]" aria-hidden />
-            <Image src="/clover.png" alt="네잎클로버를 든 영랑이" width={365} height={390} priority className="absolute bottom-0 left-1/2 h-[250px] w-auto -translate-x-1/2 md:h-[390px]" />
-            <Glass title="진로 프로그램 설문" line="30명 중 30명 응답" className="left-0 top-[40px] md:left-[90px] md:top-[90px]" />
-            <Glass title="생기부 초안 도착" line="30건 · 글자수 검사 통과" className="hidden md:block md:left-[700px] md:top-[60px]" />
-            <Glass title="생기부 초안 도착" line="30건 · 검사 통과" className="right-0 top-[204px] md:hidden" />
-            <Glass title="나이스 입력" line="확정 24 / 26명" className="hidden md:block md:left-[730px] md:top-[260px]" />
-          </div>
+          <HeroVisual />
         </div>
       </section>
 

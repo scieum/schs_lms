@@ -50,3 +50,11 @@ export const SAFETY: [string, string][] = [
   ["고쳐도 기록은 남아요", "확정본·상담은 새 버전으로"],
   ["성적은 잠금", "민감한 숫자는 닫아 둠"],
 ];
+
+/** 히어로 유리 카드 (N29). 숫자 n 은 0에서 세어 올라간다. at = 시작 ms, pc/m = 어느 화면에 보이나 */
+export const HERO_CARDS: { key: string; title: string; pre: string; n: number; post: string; at: number; pos: string }[] = [
+  { key: "survey", title: "진로 프로그램 설문", pre: "30명 중 ", n: 30, post: "명 응답", at: 1200, pos: "left-0 top-[40px] md:left-[90px] md:top-[90px]" },
+  { key: "draft", title: "생기부 초안 도착", pre: "", n: 30, post: "건 · 글자수 검사 통과", at: 1400, pos: "hidden md:block md:left-[700px] md:top-[60px]" },
+  { key: "draft-m", title: "생기부 초안 도착", pre: "", n: 30, post: "건 · 검사 통과", at: 1400, pos: "right-0 top-[204px] md:hidden" },
+  { key: "neis", title: "나이스 입력", pre: "확정 ", n: 24, post: " / 26명", at: 1600, pos: "hidden md:block md:left-[730px] md:top-[260px]" },
+];
