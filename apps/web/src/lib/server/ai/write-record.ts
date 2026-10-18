@@ -1,4 +1,5 @@
 import "server-only";
+import { subjectStandards } from "../standards";
 import { z } from "zod";
 import { UNIT_LABEL, type LengthRange } from "@/lib/domain/length";
 import type { Student } from "@/lib/domain/types";
@@ -77,6 +78,8 @@ export async function writeRecord(input: WriteInput): Promise<WriteResult> {
     "<누가기록>",
     logs.length ? logs.map((l, i) => `${i + 1}. [${l.date}] ${l.content}`).join("\n") : "(없음)",
     "</누가기록>",
+    // 세특: 그 과목 성취기준 가운데 활동과 이어지는 것 (lib/data, 교육부 고시)
+    input.kind === "세특" ? subjectStandards(input.context, [memo, ...logs.map((l) => l.content)].join(" ")) || null : null,
   ]
     .filter((x) => x !== null)
     .join("\n");

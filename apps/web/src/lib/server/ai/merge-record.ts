@@ -7,6 +7,7 @@ import { polishStyle } from "@/lib/domain/neis-style";
 import type { Student } from "@/lib/domain/types";
 import { fitToMax, scrubIdentity, sentences } from "@/lib/domain/writing";
 import { aiEnabled, aiJson } from "./claude";
+import { subjectStandards } from "../standards";
 import { recordSystemPrompt } from "./record-prompts";
 import type { WriteKind, WriteResult } from "./write-record";
 
@@ -65,6 +66,8 @@ export async function mergeRecord(input: { kind: WriteKind; context?: string; st
     "<조각>",
     ...pieces.map((p, i) => `${i + 1}. ${p.weight === 3 ? "[핵심] " : p.weight === 1 ? "[참고] " : ""}[${p.source}${p.date ? ` ${p.date}` : ""}] ${p.text}`),
     "</조각>",
+    // 세특: 그 과목 성취기준 가운데 조각과 이어지는 것 (lib/data, 교육부 고시)
+    input.kind === "세특" ? subjectStandards(input.context, pieces.map((p) => p.text).join(" ")) || null : null,
   ].filter((x) => x !== null).join("\n");
   return rewrite({ ...input, system: MERGE_RULES(input.range), content, fallback: () => mergeByRules(input.pieces.map((p) => ({ ...p, text: scrubIdentity(p.text, student).text })), input.range) });
 }
