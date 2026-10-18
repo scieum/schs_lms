@@ -926,3 +926,86 @@ Display 32 · H1 28 · H2 20 · Title 17 Bold · Lead 17 Light · Body 15 · Cap
 - 모바일: 같은 시간표, 카드 2개(1200 · 1400), 선 하나. 나이스 카드는 모바일에 없음(현재 코드와 같음).
 - 카드 문구는 코드 그대로("확정 24 / 26명"). 스토리보드의 파란 칩은 설명용(실제 화면엔 없음).
 - 참고(유아이볼): AI 픽 랜딩(어두운 배경 + 가운데 캐릭터 + 뒤 빛 번짐), 뤼튼 회사소개(어두운 배경 그래픽), 피처링 랜딩(큰 제목 → 제품 UI 카드), Second Me 랜딩(단계를 잇는 선), 매니패스트 랜딩(인디고 일러스트), 다글로 스플래시(브랜드 색 한 장 인트로).
+
+## 2026-10-19 상세페이지 카드 호버 (N30)
+> 상세페이지 카드에 마우스를 올리면(hover) · 키보드로 왔을 때(focus-visible) · 손가락으로 눌렀을 때(active) 카드가 살짝 떠오르고 인디고로 물든다. Figma는 재생되지 않으므로 **Default / Hover / Focus-visible 을 나란히** 그렸다. 상세페이지 시안 페이지, N29(371:2) 바로 아래 **x 2130 · y 26100** "N30 상세페이지 카드 호버 — 2026-10-19" 묶음(**376:2**). 파란 칩은 설명용(실제 화면엔 없음). 코드 반영 전(apps/ 미수정).
+
+| 묶음 | 노드 | Default | Hover | Focus-visible |
+|---|---|---|---|---|
+| 공통 규칙 표 | 376:6 | | | |
+| A. Flow 다섯 단계 (예: 3단계에 올림) | 376:59 | 376:63 | 376:109 | 376:173 |
+| B. Core 01–06 줄 (60% 축소) | 377:102 | 377:106 | 377:127 | 377:165 |
+| C. More 07–18 (예: 08에 올림) | 377:283 | 377:287 | 377:305 | 377:338 |
+| D. For everyone 역할 카드 (예: 담임) | 378:2 | 378:6 | 378:44 | 378:97 |
+| E. FAQ 질문 줄 (예: 둘째 질문) | 378:219 | 378:223 | 378:237 | 378:260 |
+| F. Safety · 손대지 않는 곳 · 참고 | 378:358 | | | |
+
+### 공통 규칙
+- 이징 **out** = `cubic-bezier(0.22, 1, 0.36, 1)` (N29와 같음). 나갈 때는 같은 이징, 길이 ×0.8.
+- 길이 180–260ms: 색·바탕·테두리 **180** · 떠오름·번호 **220** · 화살표 **240(+40 지연)** · 진행선·연결선 **260**.
+- transform · opacity · background-color · border-color · color 만 움직인다. 크기·여백(레이아웃)은 바꾸지 않는다. 테두리는 Default에서 1px 투명 `border` 로 자리를 미리 잡아 두고 색만 바꿔, 레이아웃이 흔들리지 않는다.
+- **그림자 없음**: 떠오름은 `translateY(-4px)` + 바탕/테두리 색으로만.
+- **Focus-visible** = Hover와 같은 상태 + 2px #536DFE 링, 간격 2px(`outline-offset: 2px`), 모서리 = 카드 r + 4.
+- **터치**: `:hover` 는 `@media (hover: hover)` 안에서만. 터치는 `:active` 에 같은 상태(떠오름은 -2px), 손 뗀 뒤 120ms 유지 후 되돌림.
+- **동작 줄이기**(`prefers-reduced-motion: reduce`): 색·바탕·테두리만 바뀐다. 떠오름·확대·밀림 없음(화살표는 opacity만), 진행선·연결선은 한 번에 100%.
+- 카드 전체가 링크면 `<a>` 하나로 감싼다. 링크가 아니면 hover 효과만(포커스 없음). 색만으로 뜻을 전하지 않는다 — 화살표·진행선이 함께 나온다.
+- hover 는 카드 하나만. 이웃 카드를 흐리게 하거나 줄이지 않는다.
+- **Flow 줄 가운데 정렬(고칠 것)**: 1550px 화면 캡처에서 Flow 다섯 카드 줄이 왼쪽 136 / 오른쪽 214로 치우쳐 보였다. `<ol>` 을 1200 컨테이너 안에서 `mx-auto w-full` 로 가운데 두어 좌우 여백이 같아야 한다(1550 기준 각 175). 연결선은 `absolute` 가상 요소로 두어 폭을 밀지 않게 한다.
+
+### A. Flow 다섯 단계 카드
+| 요소 | Default | Hover · Focus-visible | 길이 | 이징 · 지연 |
+|---|---|---|---|---|
+| 카드 | 바탕 #F5F6F8 · r12 | translateY(-4px) · 바탕 #EEF0FF | 220 / 180 | out · 0 |
+| 번호 동그라미 | 32px #536DFE | scale(1.12) 가운데 기준 | 220 | out · 0 |
+| 제목 | #191F28 | #3D56E0 | 180 | out · 0 |
+| 화살표 → | opacity 0 · translateX(-8px) | opacity 1 · translateX(0) · #536DFE · 오른쪽 위 | 240 | out · +40 |
+| 아래 진행선 | 3px #536DFE · scaleX(0) · origin left | scaleX(1), 카드 모서리 안에서 잘림 | 260 | out · 0 |
+| 연결선 (카드 위, md 이상) | 2px #E5E8EB · 점 8px #D9DDE3 (첫 카드 가운데 → 마지막 카드 가운데) | 1 → 올린 단계까지 #536DFE 로 차오름(scaleX), 지나간 점 #536DFE, 올린 단계 점 12px | 260 | out · 점마다 +40 |
+| 태그 | #EEF0FF / #3D56E0 | 그대로 | — | — |
+| 모바일 (세로 목록) | — | 연결선 없음. :active 에 바탕 #EEF0FF · 제목 #3D56E0 · -2px | 180 | out |
+
+### B. Core 01–06 줄
+| 요소 | Default | Hover · Focus-visible | 길이 | 이징 · 지연 |
+|---|---|---|---|---|
+| hover 영역 | 줄 전체(글 + 화면) | 어디에 올려도 아래가 함께 | — | — |
+| 번호 줄 (01 프로그램 초안) | #536DFE | 끝에 → opacity 0→1 · translateX(-8→0) | 240 | out · +40 |
+| 번호 줄 밑줄 | 2px #536DFE · scaleX(0) | scaleX(1), 번호 줄 폭 | 260 | out · 0 |
+| 화면 카드 | 바탕 #EEF0FF · r12 | translateY(-4px) · 1px #D3DAFF 테두리(inset) | 220 / 180 | out · 0 |
+| 안쪽 화면 그림 | scale(1) | scale(1.03), 카드 안에서 잘림 | 260 | out · 0 |
+| 큰 제목 · 설명 · 칩 | — | 그대로(읽는 글은 흔들지 않는다) | — | — |
+| 모바일 | — | :active 에 화면 카드 테두리 #D3DAFF만 | 180 | out |
+
+### C. More 07–18 카드
+| 요소 | Default | Hover · Focus-visible | 길이 | 이징 · 지연 |
+|---|---|---|---|---|
+| 카드 | 바탕 #F5F6F8 · r12 | translateY(-4px) · 바탕 #FFFFFF · 1px #D3DAFF 테두리(inset) | 220 / 180 | out · 0 |
+| 번호 07–18 | #536DFE | 그대로 | — | — |
+| 태그 (누구) | 바탕 #FFFFFF / #4E5968 | 바탕 #F2F4F6 (흰 카드 위에서 보이게) | 180 | out · 0 |
+| 제목 | #191F28 | #3D56E0 | 180 | out · 0 |
+| 화살표 → | opacity 0 · translateX(-8px) | opacity 1 · translateX(0) · 오른쪽 아래 | 240 | out · +40 |
+| 아래 진행선 | 3px #536DFE · scaleX(0) | scaleX(1) | 260 | out · 0 |
+| 모바일 (가로 한 줄 카드) | — | :active 에 흰 바탕 + #D3DAFF 테두리 · -2px. 화살표·진행선 없음 | 180 | out |
+
+### D. For everyone 역할 카드
+| 요소 | Default | Hover · Focus-visible | 길이 | 이징 · 지연 |
+|---|---|---|---|---|
+| 카드 | 바탕 #FFFFFF · r12 | translateY(-4px) · 1px #D3DAFF 테두리(inset) | 220 / 180 | out · 0 |
+| 역할 이름 | #191F28 | #3D56E0 | 180 | out · 0 |
+| 목록 줄 (점 + 글) | 점 6px #536DFE | translateX(4px), 줄마다 +30ms | 220 | out · +30n |
+| 화살표 → | opacity 0 · translateX(-8px) | opacity 1 · 오른쪽 위 | 240 | out · +40 |
+| 아래 진행선 | 3px #536DFE · scaleX(0) | scaleX(1) | 260 | out · 0 |
+| 모바일 (2열) | — | :active 에 #D3DAFF 테두리 · 이름 #3D56E0. 목록 밀림 없음 | 180 | out |
+
+### E. FAQ 질문 줄
+| 요소 | Default | Hover · Focus-visible | 길이 | 이징 · 지연 |
+|---|---|---|---|---|
+| 질문 줄 | 바탕 #FFFFFF · r10 | 1px #D3DAFF 테두리(inset) · **떠오름 없음**(목록은 흔들지 않는다) | 180 | out · 0 |
+| Q. | #536DFE | 그대로 | — | — |
+| 질문 글 | #191F28 | #3D56E0 | 180 | out · 0 |
+| 꺾쇠 ⌄ | #8B95A1 | #536DFE · translateY(2px) (열린 줄 ⌃ 은 이동 없음) | 220 | out · 0 |
+| 모바일 | — | :active 에 질문 #3D56E0 | 180 | out |
+
+### F. 손대지 않는 곳
+- Safety 다섯 카드(네이비): 링크가 아니라 hover 효과 없음. 넣는다면 바탕 #2B3152 + 테두리 white 18%만.
+- Hero 유리 카드(N29): 반복 모션과 겹치므로 hover 없음. 버튼·메뉴: 지금처럼 색만(bg-key → key-strong).
+- 참고(유아이볼): [피처링 랜딩](https://uibowl.io/website/%ED%94%BC%EC%B2%98%EB%A7%81?patterns=%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80&imgId=cmuz1dxpk000pjp043dl50nqy)(호버 시 카드 강조) · [채널톡 서비스 소개](https://uibowl.io/website/%EC%B1%84%EB%84%90%ED%86%A1?patterns=%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80&imgId=cmudq4glx001el704596hg1r7)(호버 카드) · [믹스패널 랜딩](https://uibowl.io/website/%EB%AF%B9%EC%8A%A4%ED%8C%A8%EB%84%90%20(mixpanel)?patterns=%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80&imgId=cmuxmlzkq001xl9046y9r4vj0)(호버 목록 줄) · [알파스퀘어 제휴 랜딩](https://uibowl.io/website/%EC%95%8C%ED%8C%8C%EC%8A%A4%ED%80%98%EC%96%B4?patterns=%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80&imgId=cmuw2vfw6001xk004jd9juzn7)(호버 상태) · [리스닝마인드 랜딩](https://uibowl.io/website/%EB%A6%AC%EC%8A%A4%EB%8B%9D%EB%A7%88%EC%9D%B8%EB%93%9C?patterns=%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80&imgId=cmsssa2mx000xl404jhyyjmqq)(흰 카드 + 연한 테두리 3열) · [마이크로소프트 클래리티 소개](https://uibowl.io/website/%EB%A7%88%EC%9D%B4%ED%81%AC%EB%A1%9C%EC%86%8C%ED%94%84%ED%8A%B8%20%ED%81%B4%EB%9E%98%EB%A6%AC%ED%8B%B0%20(Microsoft%20Clarity)?patterns=%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80&imgId=cmt180jne000tkz049ws6nt7p)(카드 아래 링크 화살표) · [유광기 랜딩](https://uibowl.io/website/%EC%9C%A0%EA%B4%91%EA%B8%B0?patterns=%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80&imgId=cmtb2xhee000ojs041ii8r2o7)(가운데 카드 강조 테두리) · [원티드 몽타주 랜딩](https://uibowl.io/website/%EC%9B%90%ED%8B%B0%EB%93%9C%20%EB%94%94%EC%9E%90%EC%9D%B8%20%EC%8B%9C%EC%8A%A4%ED%85%9C%20%EB%AA%BD%ED%83%80%EC%A3%BC(Montage)?patterns=%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80&patternName=%EB%8B%A4%ED%81%AC%EB%AA%A8%EB%93%9C)(인터랙션·호버 카드).
