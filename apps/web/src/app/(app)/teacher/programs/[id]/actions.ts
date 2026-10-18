@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { today } from "@/lib/domain/activity";
 import { isAdmin } from "@/lib/domain/policy";
-import { effectiveStatus, maskIdentity, responseDigest } from "@/lib/domain/program";
+import { effectiveStatus, maskIdentity, responseDigest, usesDocs, usesSurvey, type ReviewStatus } from "@/lib/domain/program";
+import { measure, type LengthUnit } from "@/lib/domain/length";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { resetDraftJob, runDraftJobs } from "@/lib/server/ai/draft";
 import { analyzeResponses, reminderMessage } from "@/lib/server/ai/program-ai";
@@ -168,4 +169,44 @@ export async function retryFailedDrafts(prev: GenState, form: FormData): Promise
   revalidatePath(`/teacher/programs/${program.id}`);
   revalidatePath("/teacher/drafts");
   return { started: `${ids.length}건을 다시 만들고 있어요`, n: (prev.n ?? 0) + 1 };
+}
+
+export type StudentDetail = {
+  /** 설문을 쓰지 않는 프로그램이면 null */
+  survey: boolean | null;
+  /** 서류를 쓰지 않는 프로그램이면 null */
+  docs: number | null;
+  review: ReviewStatus;
+  answers: { title: string; text: string }[];
+  materials: { id: string; fileName: string }[];
+  draft: { content: string; length: number; max: number; unit: LengthUnit } | null;
+  jobId: string | null;
+  canRemind: boolean;
+};
+
+/**
+ * 학생 활동 팝업 (Figma N24): 학생별 현황 행을 누르면 그 학생 것만 불러온다.
+ * 권한은 상세 화면과 같다 (requireProgram). 학생 id 는 POST 본문으로만 받는다 (URL 에 학번·이름 금지, C3).
+ */
+export async function studentDetail(programId: string, studentId: string): Promise<StudentDetail | null> {
+  const { program } = await requireProgram(String(programId ?? ""));
+  if (typeof studentId !== "string" || !program.targetIds.includes(studentId)) return null;
+  const { rows } = await programRows(program);
+  const r = rows.find((x) => x.student.id === studentId);
+  if (!r) return null;
+  const submitted = !!r.response?.submittedAt;
+  const answers = submitted
+    ? program.questions.map((q) => ({ title: q.title, text: (r.response!.answers[q.id] ?? "").trim() })).filter((a) => a.text)
+    : [];
+  const unit = r.job?.unit ?? program.unit;
+  return {
+    survey: usesSurvey(program.source) ? submitted : null,
+    docs: usesDocs(program.source) ? r.materials.length : null,
+    review: r.review,
+    answers,
+    materials: r.materials.map((m) => ({ id: m.id, fileName: m.fileName })),
+    draft: r.job && r.latest ? { content: r.latest.content, length: measure(r.latest.content, unit), max: r.job.max || program.max, unit } : null,
+    jobId: r.job?.id ?? null,
+    canRemind: effectiveStatus(program, today()) === "open" && !r.hasEvidence && !r.missingReason,
+  };
 }
