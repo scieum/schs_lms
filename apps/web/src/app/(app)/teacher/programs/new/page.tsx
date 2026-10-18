@@ -1,5 +1,4 @@
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { Button } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
 import { addDays } from "@/lib/domain/program";
 import { aiEnabled } from "@/lib/server/ai/claude";
@@ -15,7 +14,8 @@ export default async function NewProgramPage() {
   const t = today();
   return (
     <>
-      <PageHeader title="프로그램 등록" actions={<span className="hidden md:block"><Button form="program-form" name="intent" value="draft" kind="outline" size="sm">임시 저장</Button></span>} />
+      {/* 모바일은 마법사 머리(뒤로 · 제목 · 임시 저장)가 대신한다. PC 제출 버튼은 5 확인 섹션에 */}
+      <div className="hidden md:block"><PageHeader title="프로그램 등록" /></div>
       <PageBody>
         <ProgramForm today={t} end={addDays(t, 7)} aiOn={aiEnabled()} students={students} teachers={teachers} ownerId={v.accountId} />
       </PageBody>

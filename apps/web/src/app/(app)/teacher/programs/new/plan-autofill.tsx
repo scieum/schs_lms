@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
-import { FileText, Upload, X } from "lucide-react";
+import { FileText, X } from "lucide-react";
 import { Button, cx } from "@/components/ui";
 import { AREA_LABEL, md, SOURCE_LABEL } from "@/lib/domain/program";
 import { checkPlanFile, classesLabel, PLAN_MAX_FILES, type PlanFields, type PlanKey } from "@/lib/domain/program-plan";
@@ -108,40 +108,38 @@ export function PlanAutofill({ aiOn, now, onApply }: { aiOn: boolean; now: FormN
 
   return (
     <div
-      className="rounded-inner bg-soft px-4 py-3.5 md:px-5 md:py-4"
+      className="rounded-inner bg-bg px-4 py-3"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => { e.preventDefault(); void add([...e.dataTransfer.files]); }}
       onPaste={(e) => { const list = [...e.clipboardData.files]; if (list.length) { e.preventDefault(); void add(list); } }}
     >
-      <div className="flex items-center gap-3 md:gap-4">
-        <span className={cx("rounded-chip px-2.5 py-1 text-xs font-bold", label === "AI" ? "bg-new-soft text-new" : "bg-key-soft text-key-strong")}>{label}</span>
-        <div className="min-w-0 flex-1">
-          <div className="text-[15px] font-bold">계획서·기안문으로 채우기</div>
-          <div className="truncate text-[13px] text-sub">
-            {reading ? "읽는 중이에요" : aiOn ? "PDF·HWPX·캡처를 올리면 이름·기간·대상을 읽어 채워요" : "AI가 꺼져 있어 파일 이름·문서 정보로만 채워요"}
-          </div>
-        </div>
+      {/* 한 줄: AI 칩 · 계획서로 채우기 · 파일 고르기 › (N16 등록 1단계 맨 위) */}
+      <div className="flex items-center gap-2.5">
+        <span className={cx("shrink-0 rounded-chip px-2 py-0.5 text-xs font-bold", label === "AI" ? "bg-new-soft text-new" : "bg-key-soft text-key-strong")}>{label}</span>
+        <span className="min-w-0 flex-1 truncate text-[14px] font-medium" title="PDF·HWPX·캡처를 올리면 이름·기간·대상을 읽어 채워요 (끌어다 놓기·Ctrl+V 가능)">
+          {reading ? "계획서 읽는 중…" : "계획서로 채우기"}
+        </span>
         <input ref={input} type="file" multiple accept=".pdf,image/png,image/jpeg,image/webp,.hwp,.hwpx" className="sr-only" aria-label="계획서 파일"
           onChange={(e) => { void add([...(e.target.files ?? [])]); e.target.value = ""; }} />
-        <Button type="button" kind="outline" size="sm" onClick={read} disabled={reading}>
-          {reading ? "읽는 중…" : files.length ? "읽기" : <><Upload size={14} /> 파일 올리기</>}
-        </Button>
+        <button type="button" onClick={read} disabled={reading} className="shrink-0 whitespace-nowrap text-[13px] font-bold text-key-strong disabled:text-faint">
+          {reading ? "읽는 중…" : files.length ? "읽기 ›" : "파일 고르기 ›"}
+        </button>
       </div>
 
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-        {files.map((x, i) => (
-          <span key={`${x.name}-${i}`} className="inline-flex max-w-full items-center gap-1 rounded-chip bg-white py-1 pl-2.5 pr-1.5 text-[12px]">
-            <FileText size={12} className="shrink-0 text-mute" /> <span className="truncate">{x.name}</span>
-            <button type="button" aria-label="빼기" onClick={() => setFiles(files.filter((_, j) => j !== i))} className="text-mute"><X size={12} /></button>
-          </span>
-        ))}
-        {files.length > 0 && files.length < PLAN_MAX_FILES && (
-          <button type="button" onClick={() => input.current?.click()} className="rounded-chip px-2 py-1 text-[12px] font-medium text-sub hover:bg-white">+ 더 올리기</button>
-        )}
-        <span className="text-[12px] text-mute">
-          {files.length ? "" : "끌어다 놓거나 캡처를 붙여넣어도(Ctrl+V) 돼요 · "}PDF·HWPX·JPG·PNG 10MB 이하 · HWP는 한글에서 HWPX로 저장해 올려 주세요
-        </span>
-      </div>
+      {files.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          {files.map((x, i) => (
+            <span key={`${x.name}-${i}`} className="inline-flex max-w-full items-center gap-1 rounded-chip bg-[#fff] py-1 pl-2.5 pr-1.5 text-[12px]">
+              <FileText size={12} className="shrink-0 text-mute" /> <span className="truncate">{x.name}</span>
+              <button type="button" aria-label="빼기" onClick={() => setFiles(files.filter((_, j) => j !== i))} className="text-mute"><X size={12} /></button>
+            </span>
+          ))}
+          {files.length < PLAN_MAX_FILES && (
+            <button type="button" onClick={() => input.current?.click()} className="rounded-chip px-2 py-1 text-[12px] font-medium text-sub hover:bg-[#fff]">+ 더 올리기</button>
+          )}
+          <span className="text-[12px] text-mute">PDF·HWPX·JPG·PNG 10MB 이하 · HWP는 한글에서 HWPX로 저장해 올려 주세요</span>
+        </div>
+      )}
       {(warn || state.error) && <p className="mt-2 text-[13px] text-bad" role="alert">{warn ?? `${state.error}${state.note ? ` · ${state.note}` : ""}`}</p>}
       {!state.error && state.note && f && <p className="mt-2 text-[13px] text-wait">{state.note}</p>}
 
@@ -152,14 +150,14 @@ export function PlanAutofill({ aiOn, now, onApply }: { aiOn: boolean; now: FormN
             <span className="text-mute">{state.files?.join(", ")}</span>
           </div>
           {rows.length === 0 ? (
-            <p className="rounded-inner bg-white px-4 py-3 text-[13px] text-mute">채울 수 있는 내용을 찾지 못했어요. 직접 입력해 주세요</p>
+            <p className="rounded-inner bg-[#fff] px-4 py-3 text-[13px] text-mute">채울 수 있는 내용을 찾지 못했어요. 직접 입력해 주세요</p>
           ) : (
             <ul className="flex flex-col gap-1.5">
               {rows.map((r) => {
                 const on = !unchecked.includes(r.k);
                 return (
                   <li key={r.k}>
-                    <label className={cx("flex cursor-pointer items-start gap-3 rounded-inner bg-white px-4 py-2.5", !on && "opacity-60")}>
+                    <label className={cx("flex cursor-pointer items-start gap-3 rounded-inner bg-[#fff] px-4 py-2.5", !on && "opacity-60")}>
                       <input type="checkbox" checked={on} onChange={() => toggle(r.k)} className="mt-1 size-4 shrink-0 accent-key" />
                       <span className="w-20 shrink-0 text-[13px] text-mute md:w-24">{r.label}</span>
                       <span className="min-w-0 flex-1">

@@ -17,7 +17,8 @@ export default async function EditProgramPage({ params }: { params: Promise<{ id
   const t = today();
   return (
     <>
-      <PageHeader title="프로그램 수정" actions={<ButtonLink href={`/teacher/programs/${id}`} kind="outline" size="sm">취소</ButtonLink>} />
+      {/* 모바일은 마법사 머리(뒤로 · 제목)가 대신한다 */}
+      <div className="hidden md:block"><PageHeader title="프로그램 수정" actions={<ButtonLink href={`/teacher/programs/${id}`} kind="outline" size="sm">취소</ButtonLink>} /></div>
       <PageBody>
         <ProgramForm today={t} end={addDays(t, 7)} aiOn={aiEnabled()} students={students} teachers={teachers} ownerId={program.ownerId} initial={program} />
       </PageBody>

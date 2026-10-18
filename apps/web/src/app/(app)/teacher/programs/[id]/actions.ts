@@ -6,7 +6,7 @@ import { today } from "@/lib/domain/activity";
 import { isAdmin } from "@/lib/domain/policy";
 import { effectiveStatus, maskIdentity, responseDigest } from "@/lib/domain/program";
 import { aiEnabled } from "@/lib/server/ai/claude";
-import { runDraftJobs } from "@/lib/server/ai/draft";
+import { resetDraftJob, runDraftJobs } from "@/lib/server/ai/draft";
 import { analyzeResponses, reminderMessage } from "@/lib/server/ai/program-ai";
 import { repo } from "@/lib/server/repo";
 import { programRows, requireProgram } from "../_lib/data";
@@ -153,4 +153,19 @@ export async function analyzeResponsesAction(prev: AnalyzeState, form: FormData)
     error: r.error,
     n,
   };
+}
+
+/** 실패한 초안 다시 만들기 (Figma N16 '실패 k건 다시 만들기'): 이 프로그램의 생성 실패만 */
+export async function retryFailedDrafts(prev: GenState, form: FormData): Promise<GenState> {
+  const { v, program } = await requireProgram(String(form.get("programId") ?? ""), "draft.review");
+  const { rows } = await programRows(program);
+  const ids = rows.filter((r) => r.job?.state === "ERROR").map((r) => r.job!.id);
+  if (!ids.length) return { error: "다시 만들 초안이 없어요", n: (prev.n ?? 0) + 1 };
+  for (const id of ids) await resetDraftJob(id);
+  await repo.audit(v.accountId, "draft.retry", `${program.id} ${ids.length}건`);
+  if (aiEnabled()) after(() => runDraftJobs(ids));
+  else await runDraftJobs(ids);
+  revalidatePath(`/teacher/programs/${program.id}`);
+  revalidatePath("/teacher/drafts");
+  return { started: `${ids.length}건을 다시 만들고 있어요`, n: (prev.n ?? 0) + 1 };
 }

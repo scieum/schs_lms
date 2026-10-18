@@ -9,9 +9,10 @@ export function DeleteBox({ programId, title, counts }: { programId: string; tit
   const [state, action, pending] = useActionState<DeleteState, FormData>(deleteProgram, {});
   const [typed, setTyped] = useState("");
   return (
-    <details className="surface rounded-card px-5 py-4">
-      <summary className="flex cursor-pointer list-none items-center gap-2 text-[14px] font-medium text-sub">
-        <Trash2 size={15} /> 프로그램 삭제
+    // 관리 카드 안의 한 줄 (Figma N16): 빨간색 없이 조용히, 펼치면 이름을 써야 지운다
+    <details>
+      <summary className="flex h-11 cursor-pointer list-none items-center gap-2.5 text-[14px] text-ink">
+        <Trash2 size={16} className="text-sub" /> 프로그램 삭제
       </summary>
       <form action={action} className="mt-3 flex flex-col gap-2.5">
         <input type="hidden" name="programId" value={programId} />

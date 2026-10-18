@@ -38,28 +38,35 @@ export function programStage(c: StageCounts, dday: string): Stage {
   const S = (index: StageIndex, line: string, next: NextAction, secondary: NextAction | null = null): Stage => ({ index, label: STAGES[index], line, next, secondary });
 
   if (c.status === "draft") return S(0, "발행 전 · 학생 화면에 아직 안 열렸어요", { kind: "publish", label: "발행하기" });
+  // ① 받는 중 (마감 전): 미응답이 있으면 알리기 + 지금 마감, 다 냈으면 마감
+  if (c.status === "open") {
+    return S(0, `응답 ${c.evidence}/${c.targets}명 · 마감 ${dday}`,
+      missing ? { kind: "remind", label: `미응답 ${missing}명에게 알리기`, n: missing } : { kind: "close", label: "지금 마감하기" },
+      missing ? { kind: "close", label: "지금 마감" } : null);
+  }
 
   // 확정이 모두 끝났으면 담임에게 넘어간 것
   if (c.evidence > 0 && c.confirmed >= c.evidence && !c.running && !c.failed && !c.ready) {
     return S(4, `확정 ${c.confirmed}/${c.targets}명 · 담임 받은 초안으로 갔어요`, { kind: "done", label: `담임에게 전달됨 ${c.confirmed}/${c.targets}` });
   }
-  if (c.review > 0 && !c.running) {
-    return S(3, `검토 대기 ${c.review} · 확정 ${c.confirmed}`, { kind: "review", label: `검토하러 가기 ${c.review}건`, n: c.review },
-      c.failed ? { kind: "retry", label: `실패 ${c.failed}건 다시 만들기`, n: c.failed } : c.ready ? { kind: "generate", label: `초안 만들기 ${c.ready}명`, n: c.ready } : null);
-  }
+  // ③ 초안 만들기: 아직 만드는 중·실패·남은 학생이 있다 (검토할 초안이 있으면 검토가 먼저, 실패는 둘째 버튼)
   if (c.running || c.failed || (made > 0 && c.ready > 0)) {
-    if (c.running) return S(2, `만드는 중 ${c.running}명`, { kind: "running", label: `만드는 중 ${c.running}명` });
-    if (c.failed) return S(2, `생성 실패 ${c.failed}건`, { kind: "retry", label: `실패 ${c.failed}건 다시 만들기`, n: c.failed },
+    const line = [c.running && `만드는 중 ${c.running}`, c.failed && `실패 ${c.failed}`, c.review && `검토 대기 ${c.review}`, c.confirmed && `확정 ${c.confirmed}`].filter(Boolean).join(" · ");
+    if (c.review) return S(2, line, { kind: "review", label: `검토하러 가기 ${c.review}건`, n: c.review },
+      c.failed ? { kind: "retry", label: `실패 ${c.failed}건 다시 만들기`, n: c.failed } : null);
+    if (c.failed) return S(2, line, { kind: "retry", label: `실패 ${c.failed}건 다시 만들기`, n: c.failed },
       c.ready ? { kind: "generate", label: `초안 만들기 ${c.ready}명`, n: c.ready } : null);
+    if (c.running) return S(2, line, { kind: "running", label: `만드는 중 ${c.running}건` });
     return S(2, `남은 학생 ${c.ready}명`, { kind: "generate", label: `초안 만들기 ${c.ready}명`, n: c.ready });
+  }
+  // ④ 검토·확정: 다 만들었고 확정이 남았다
+  if (made > 0) {
+    return S(3, `검토 대기 ${c.review} · 확정 ${c.confirmed}/${c.evidence}`, { kind: "review", label: `검토하러 가기 ${c.review}건`, n: c.review });
   }
   if (c.status === "closed") {
     return S(1, `응답 ${c.evidence}/${c.targets}명 · 마감`, c.ready
       ? { kind: "generate", label: `초안 만들기 ${c.ready}명`, n: c.ready }
       : { kind: "done", label: "초안을 만들 응답이 없어요" });
   }
-  // 받는 중: 미응답이 있으면 알리기, 다 냈으면 마감
-  return S(0, `응답 ${c.evidence}/${c.targets}명 · 마감 ${dday}`,
-    missing ? { kind: "remind", label: `미응답 ${missing}명에게 알리기`, n: missing } : { kind: "close", label: "지금 마감하기" },
-    missing ? { kind: "close", label: "지금 마감" } : c.ready ? { kind: "generate", label: `초안 만들기 ${c.ready}명`, n: c.ready } : null);
+  return S(1, `응답 ${c.evidence}/${c.targets}명`, { kind: "done", label: "초안을 만들 응답이 없어요" });
 }

@@ -167,7 +167,7 @@ export function Yeongrang({ student = false }: { student?: boolean }) {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "영랑이 닫기" : "영랑이에게 물어보기"}
-        className="fixed bottom-[92px] right-4 z-50 size-14 overflow-hidden rounded-full bg-ink md:bottom-8 md:right-8 md:size-16"
+        className="fixed bottom-[92px] right-4 z-50 size-14 overflow-hidden rounded-full bg-ink md:bottom-8 md:right-8 md:size-16 [body:has([data-sticky-cta])_&]:bottom-[156px] md:[body:has([data-sticky-cta])_&]:bottom-8"
       >
         {open ? (
           <X className="m-auto text-white" size={26} />

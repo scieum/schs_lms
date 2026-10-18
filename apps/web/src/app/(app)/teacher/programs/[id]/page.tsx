@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { ClipboardList, Download, Pencil, FileText, Search, Send, Upload } from "lucide-react";
-import { Bar, Ring } from "@/components/programs/meters";
+import { ChevronRight, ClipboardList, Download, Pencil, Search, Upload } from "lucide-react";
+import { Bar } from "@/components/programs/meters";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Avatar, Button, ButtonLink, Card, Tag, cx } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
@@ -8,16 +8,21 @@ import { AREA_LABEL, ddayLabel, effectiveStatus, md, responseRate, usesDocs, use
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { programRows, requireProgram, type StudentRow } from "../_lib/data";
-import { remindOne, setProgramStatus } from "./actions";
+import { remindOne } from "./actions";
 import { isAdmin } from "@/lib/domain/policy";
 import { DeleteBox } from "./delete-box";
-import { AnalyzeBox, AutoSelect, GenerateButton, RemindBox } from "./parts";
+import { AnalyzeBox, AutoSelect } from "./parts";
+import { NextActions, RemindSheet, StageStepper } from "./stage";
+import { programStage } from "@/lib/domain/program-stage";
 
 export const metadata = { title: "프로그램 상세 · 속초고등학교 학생관리시스템" };
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; cls?: string; q?: string; src?: string; st?: string; page?: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; cls?: string; q?: string; src?: string; st?: string; page?: string; remind?: string }> };
 
-const TABS = [["all", "전체"], ["resp", "응답"], ["missing", "미제출"], ["failed", "생성 실패"]] as const;
+// 학생별 현황 거르기: 받는 중·마감에는 응답 기준, 초안부터는 초안 기준 (Figma N16)
+const TABS_EARLY = [["all", "전체"], ["missing", "미응답"], ["resp", "응답"], ["reason", "사유"]] as const;
+const TABS_LATE = [["all", "전체"], ["review", "검토 대기"], ["running", "만드는 중"], ["failed", "실패"]] as const;
+type TabKey = (typeof TABS_EARLY)[number][0] | (typeof TABS_LATE)[number][0];
 const PER_PAGE = 10;
 
 /** 초안 상태 이름 (태그·거르기 공통) */
@@ -37,7 +42,7 @@ function statusTag(r: StudentRow) {
 
 const pair = (o: string): [string, string] => [o, o];
 
-/** T2 프로그램 상세 (Figma 45:1636 PC · 45:1963 Mobile) */
+/** 프로그램 상세 (Figma N16 285:4342 Mobile · 286:4325 PC): 단계 카드 + 지금 할 일 하나 → 학생별 현황 → 근거 자료 → 관리 */
 export default async function ProgramDetail({ params, searchParams }: Props) {
   const { id } = await params;
   const q = await searchParams;
@@ -52,18 +57,26 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
   const submitted = responses.filter((r) => r.submittedAt && p.targetIds.includes(r.studentId)).length;
   const withDocs = rows.filter((r) => r.materials.length > 0).length;
   const withEvidence = rows.filter((r) => r.hasEvidence).length;
-  const rate = responseRate(rows.length, survey ? submitted : withEvidence);
   const missing = rows.filter((r) => !r.hasEvidence && !r.missingReason);
   const count = (s: string) => rows.filter((r) => r.review === s).length;
   const ready = rows.filter((r) => r.hasEvidence && (!r.job || r.job.state === "PENDING")).length;
   const failed = rows.filter((r) => r.review === "생성 실패");
 
   const classes = [...new Set(rows.map((r) => `${r.student.grade}-${r.student.classNo}`))].sort();
-  const tab = TABS.some(([k]) => k === q.tab) ? q.tab! : "all";
+  const stage = programStage({
+    status, targets: rows.length, evidence: withEvidence, ready,
+    running: count("생성 중"), failed: failed.length, review: count("검토 대기"), confirmed: count("확정"),
+  }, ddayLabel(p.endDate, t));
+  const TABS = stage.index >= 2 ? TABS_LATE : TABS_EARLY;
+  const tab: TabKey = (TABS as readonly (readonly [string, string])[]).some(([k]) => k === q.tab) ? (q.tab as TabKey) : "all";
+  const stagePct = stage.index <= 1 ? responseRate(rows.length, withEvidence) : stage.index === 2 ? responseRate(withEvidence, count("검토 대기") + count("확정")) : responseRate(Math.max(1, withEvidence), count("확정"));
   const term = (q.q ?? "").trim();
   const shown = rows.filter((r) => {
     if (tab === "resp" && !r.hasEvidence) return false;
-    if (tab === "missing" && r.hasEvidence) return false;
+    if (tab === "missing" && (r.hasEvidence || r.missingReason)) return false;
+    if (tab === "reason" && (r.hasEvidence || !r.missingReason)) return false;
+    if (tab === "review" && r.review !== "검토 대기") return false;
+    if (tab === "running" && r.review !== "생성 중") return false;
     if (tab === "failed" && r.review !== "생성 실패") return false;
     if (q.cls && `${r.student.grade}-${r.student.classNo}` !== q.cls) return false;
     if (q.src && r.evidenceLabel !== q.src) return false;
@@ -74,99 +87,61 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
   const pages = Math.max(1, Math.ceil(shown.length / PER_PAGE));
   const page = Math.min(pages, Math.max(1, Number(q.page) || 1));
   const paged = shown.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-  const tabCount = { all: rows.length, resp: withEvidence, missing: rows.length - withEvidence, failed: failed.length };
+  const tabCount: Record<TabKey, number> = {
+    all: rows.length, resp: withEvidence, missing: missing.length, reason: rows.filter((r) => !r.hasEvidence && r.missingReason).length,
+    review: count("검토 대기"), running: count("생성 중"), failed: failed.length,
+  };
+  const ctx = { programId: p.id, missing: status === "open" ? missing.length : 0, aiOn: aiEnabled(), last: null as string | null };
   const qs = (over: Record<string, string | undefined>) => {
     const u = new URLSearchParams();
     const all: Record<string, string | undefined> = { tab, cls: q.cls, src: q.src, st: q.st, q: term || undefined, ...over };
     for (const [k, v] of Object.entries(all)) if (v) u.set(k, v);
     return `/teacher/programs/${p.id}?${u.toString()}#status`;
   };
-  const lastReminder = reminders[0] ? new Date(reminders[0].createdAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
+  ctx.last = reminders[0] ? new Date(reminders[0].createdAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
   const bundles = materials.filter((m) => m.status === "bundle").length;
   const needs = materials.filter((m) => m.status === "needs_review").length;
-  const qLabel = (i: number) => (p.questions[i].fixed ? `${p.questions[i].title} — ${p.questions[i].prompt}` : p.questions[i].prompt);
 
+  const chip = "whitespace-nowrap rounded-chip border border-line bg-[#fff] px-2 py-0.5 text-[12px] text-sub";
   return (
     <>
       <PageHeader
         title={p.title}
         actions={
-          <div className="hidden gap-2 md:flex">
-            <ButtonLink href={`/teacher/programs/${p.id}/edit`} kind="outline" size="sm"><Pencil size={14} /> 수정</ButtonLink>
-            <ButtonLink href={`/teacher/programs/${p.id}/materials`} kind="outline" size="sm"><ClipboardList size={14} /> 자료 관리</ButtonLink>
-            <ButtonLink href={`/teacher/drafts?program=${p.id}`} size="sm"><FileText size={14} /> 초안 검토하기</ButtonLink>
-          </div>
+          <>
+            <ButtonLink href={`/teacher/programs/${p.id}/edit`} kind="outline" size="sm" className="hidden md:inline-flex"><Pencil size={14} /> 수정</ButtonLink>
+            <Link href={`/teacher/programs/${p.id}/edit`} aria-label="수정" className="p-1 text-sub md:hidden"><Pencil size={20} /></Link>
+          </>
         }
       />
       <PageBody>
-        <div className="-mt-3 flex flex-wrap items-center gap-1.5 text-[13px] text-mute md:-mt-6 md:text-sm md:text-sub">
-          <span>{AREA_LABEL[p.area]}{p.subject ? ` ${p.subject}` : ""}<span className="hidden md:inline"> · {md(p.startDate)} ~ {md(p.endDate)}</span> · 대상 {rows.length}명</span>
+        <div className="-mt-3 flex flex-wrap items-center gap-1.5 md:-mt-6">
+          <span className={chip}>{AREA_LABEL[p.area]}{p.subject ? ` · ${p.subject}` : ""}</span>
+          <span className={cx(chip, "hidden md:inline")}>{md(p.startDate)} – {md(p.endDate)}</span>
+          <span className={chip}>대상 {rows.length}명</span>
+          {p.coOwnerIds.length > 0 && <span className={cx(chip, "hidden md:inline")}>담당 {1 + p.coOwnerIds.length}명</span>}
           {status === "draft" ? <Tag>임시 저장</Tag> : status === "closed" ? <Tag tone="bg-soft text-mute">마감</Tag> : <Tag>{ddayLabel(p.endDate, t)}</Tag>}
-          {p.coOwnerIds.length > 0 && <span>· 담당 {1 + p.coOwnerIds.length}명</span>}
-          <ButtonLink href={`/teacher/programs/${p.id}/edit`} kind="outline" size="sm" className="ml-auto md:hidden"><Pencil size={14} /> 수정</ButtonLink>
         </div>
 
-        {status === "draft" && (
-          <form action={setProgramStatus} className="flex items-center gap-3 rounded-inner bg-wait-soft px-4 py-3">
-            <input type="hidden" name="programId" value={p.id} />
-            <input type="hidden" name="to" value="open" />
-            <span className="flex-1 text-[14px] font-medium">아직 발행 전이에요. 발행하면 대상 학생 화면에 설문·제출이 열려요</span>
-            <Button size="sm" disabled={rows.length === 0}>발행하기</Button>
-          </form>
-        )}
-
-        {/* 숫자 타일 4개: 응답률 고리 · 미응답 · 초안 상태 목록 · 근거 자료 목록 */}
-        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-4">
-          <div className="flex flex-col surface rounded-card p-4 md:px-5 md:py-5">
-            <div className="text-[13px] text-mute">{survey ? "응답률" : "제출률"}</div>
-            <div className="mt-3 flex items-center gap-4">
-              <Ring pct={rate} size={76} />
-              <div className="hidden md:block">
-                <div className="text-lg font-bold">{survey ? submitted : withEvidence} / {rows.length}명</div>
-                <div className="text-[12px] text-mute">{survey ? "설문 제출" : "자료 제출"} 기준</div>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col surface rounded-card p-4 md:px-5 md:py-5">
-            <div className="text-[13px] text-mute">미응답</div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-[28px] font-bold leading-tight md:text-[32px]">{missing.length}</span>
-              <span className="text-[15px] font-medium text-sub">명 · {status === "open" ? ddayLabel(p.endDate, t) : status === "closed" ? "마감" : "발행 전"}</span>
-            </div>
-            <div className="mt-auto hidden pt-3 md:block"><ButtonLink href="#remind" kind="outline" size="sm" className="w-full"><Send size={14} /> 알림 보내기</ButtonLink></div>
-          </div>
-          <div className="flex flex-col surface rounded-card p-4 md:px-5 md:py-5">
-            <div className="text-[13px] text-mute">초안 상태</div>
-            <dl className="mt-2 flex flex-col gap-1.5 text-[13px] md:text-sm">
-              <div className="flex"><dt className="flex-1 text-sub">생성 완료</dt><dd className="font-bold">{count("검토 대기") + count("확정") + count("반려")}건</dd></div>
-              <div className="flex"><dt className="flex-1 text-sub">생성 중</dt><dd className="font-bold">{count("생성 중")}건</dd></div>
-              <div className="flex"><dt className={cx("flex-1", failed.length ? "font-bold text-bad" : "text-sub")}>생성 실패</dt><dd className={cx("font-bold", failed.length > 0 && "text-bad")}>{failed.length}건</dd></div>
-            </dl>
-            <div className="mt-auto pt-3"><GenerateButton programId={p.id} ready={ready} disabled={status === "draft"} /></div>
-          </div>
-          <div className="flex flex-col surface rounded-card p-4 md:px-5 md:py-5">
-            <div className="text-[13px] text-mute">근거 자료</div>
-            <dl className="mt-2 flex flex-col gap-1.5 text-[13px] md:text-sm">
-              {survey && <div className="flex"><dt className="flex-1 text-sub">설문 응답</dt><dd className="font-bold">{submitted}명</dd></div>}
-              {docs && <div className="flex"><dt className="flex-1 text-sub">제출 서류</dt><dd className="font-bold">{withDocs}명</dd></div>}
-            </dl>
-            <Link href={`/teacher/programs/${p.id}/materials`} className="mt-auto hidden pt-3 text-[13px] font-medium text-sub md:block">자료 관리 ›</Link>
-          </div>
-        </div>
-
-        <RemindBox programId={p.id} missing={status === "open" ? missing.length : 0} aiOn={aiEnabled()} last={lastReminder} />
-        {survey && <AnalyzeBox programId={p.id} submitted={submitted} aiOn={aiEnabled()} />}
+        {/* 단계 카드: 지금 어디인지 + (PC) 지금 할 일 */}
+        <section className="surface flex flex-col gap-4 rounded-card p-4 md:p-6">
+          <StageStepper stage={stage} pct={stagePct} actions={<NextActions stage={stage} ctx={ctx} />} />
+        </section>
+        {/* 모바일: 탭바 바로 위 고정 버튼 */}
+        <NextActions stage={stage} ctx={ctx} mobile />
+        {q.remind === "1" && ctx.missing > 0 && <RemindSheet ctx={ctx} />}
 
         <div id="status" className="scroll-mt-6" />
+        <div className="grid grid-cols-1 items-start gap-4 pb-24 md:grid-cols-[1fr_360px] md:gap-6 md:pb-0 [&>*]:min-w-0">
         <Card
           title="학생별 현황"
           action={<a href={`/teacher/programs/${p.id}/export`} download className="hidden items-center gap-1 text-[13px] font-medium text-sub md:inline-flex"><Download size={14} /> 엑셀 내보내기</a>}
         >
-          <nav className="-mt-1 mb-3 flex gap-4 border-b border-line text-[14px]">
+          <nav className="-mx-1 -mt-1 mb-3 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">
             {TABS.map(([k, label]) => (
               <Link key={k} href={qs({ tab: k, page: undefined })} aria-current={tab === k ? "page" : undefined}
-                className={cx("-mb-px border-b-2 pb-2", tab === k ? "border-key font-bold text-ink" : "border-transparent text-mute", k === "failed" && "hidden md:block")}>
-                {label} {tabCount[k]}
+                className={cx("shrink-0 whitespace-nowrap rounded-control px-3 py-1.5 text-[13px]", tab === k ? "bg-key-soft font-bold text-key-strong" : "border border-hair bg-[#fff] text-sub")}>
+                {label} <span className={tab === k ? "" : "text-mute"}>{tabCount[k as TabKey]}</span>
               </Link>
             ))}
           </nav>
@@ -183,8 +158,8 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
             </label>
           </form>
 
-          <div className="hidden grid-cols-[minmax(0,1fr)_96px_72px_88px_168px_88px] items-center gap-3 rounded-inner bg-white px-4 py-2.5 text-[13px] text-mute md:grid">
-            <span>학생</span><span className="text-center">근거 자료</span><span className="text-center">응답일</span><span className="text-center">초안 상태</span><span className="text-center">글자수</span><span />
+          <div className="hidden grid-cols-[minmax(0,1fr)_88px_64px_88px_80px] items-center gap-3 rounded-inner bg-white px-4 py-2.5 text-[13px] text-mute md:grid">
+            <span>학생</span><span className="text-center">근거 자료</span><span className="text-center">응답일</span><span className="text-center">상태</span><span />
           </div>
           {paged.length === 0 ? (
             <p className="py-8 text-center text-sm text-mute">해당하는 학생이 없어요</p>
@@ -192,11 +167,9 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
             <ul>
               {paged.map((r, i) => {
                 const s = r.student;
-                const max = r.job?.max ?? p.max;
-                const unit = (r.job?.unit ?? p.unit) === "bytes" ? "B" : "자";
                 const draftHref = r.job ? `/teacher/drafts?d=${r.job.id}` : null;
                 return (
-                  <li key={s.id} className={cx("flex items-center gap-3 py-3.5 md:grid md:grid-cols-[minmax(0,1fr)_96px_72px_88px_168px_88px] md:px-4", i < paged.length - 1 && "border-b border-line")}>
+                  <li key={s.id} className={cx("flex items-center gap-3 py-3.5 md:grid md:grid-cols-[minmax(0,1fr)_88px_64px_88px_80px] md:px-4", i < paged.length - 1 && "border-b border-line")}>
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <Avatar name={s.name} size={36} />
                       <div className="min-w-0">
@@ -207,16 +180,6 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
                     <span className="hidden text-center text-[13px] text-sub md:block">{r.evidenceLabel}</span>
                     <span className="hidden text-center text-[13px] text-sub md:block">{r.response?.submittedAt ? md(r.response.submittedAt.slice(0, 10)) : "—"}</span>
                     <span className="md:flex md:justify-center">{statusTag(r)}</span>
-                    <div className="hidden flex-col items-center md:flex">
-                      {r.review === "생성 실패" ? (
-                        <span className="text-[12px] font-medium text-bad">{r.job?.attempts ?? 3}회 재시도 실패</span>
-                      ) : r.review === "생성 중" ? (
-                        <span className="text-[12px] text-wait">생성 중</span>
-                      ) : (
-                        <span className="text-[12px] text-sub">{r.length !== null ? `${r.length.toLocaleString()} / ${max.toLocaleString()}${unit}` : "—"}</span>
-                      )}
-                      <Bar pct={r.length !== null ? (r.length / max) * 100 : r.review === "생성 중" ? 30 : 0} tone={r.review === "생성 중" ? "wait" : "key"} className="mt-1 w-28" />
-                    </div>
                     <div className="hidden justify-end md:flex">
                       {r.review === "생성 실패" && draftHref ? (
                         <ButtonLink href={draftHref} size="sm" kind="soft" className="w-[76px] whitespace-nowrap px-0">직접 작성</ButtonLink>
@@ -247,49 +210,39 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
           )}
         </Card>
 
-        <Card title="초안 근거 자료" action={<Link href={`/teacher/programs/${p.id}/materials`} className="text-[13px] font-medium text-sub">자료 관리 ›</Link>}>
-          <div className={cx("grid gap-3", survey && docs && "md:grid-cols-2")}>
-            {survey && (
-              <div className="flex flex-col gap-2.5 rounded-inner bg-white p-4">
-                <div className="flex items-center gap-2 font-bold"><ClipboardList size={16} /> <span className="flex-1">설문 응답</span><span>{submitted} / {rows.length}명</span></div>
-                <Bar pct={responseRate(rows.length, submitted)} />
-                <ol className="hidden flex-col gap-1.5 text-[13px] text-sub md:flex">
-                  {p.questions.map((qq, i) => <li key={qq.id}>{i + 1}. {qLabel(i)}</li>)}
-                </ol>
-                {p.questions.length > 0 && (
-                  <div className="flex flex-col gap-1.5 text-[13px] text-sub md:hidden">
-                    <span>1. {qLabel(0)}</span>
-                    {p.questions.length > 1 && (
-                      <span>{p.questions.slice(1, 4).map((qq, i) => `${i + 2}. ${qq.fixed ? qq.title : qq.prompt.slice(0, 10)}`).join(" · ")}{p.questions.length > 4 ? ` 외 ${p.questions.length - 4}문항` : ""}</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-            {docs && (
-              <div className="flex flex-col gap-2.5 rounded-inner bg-white p-4">
-                <div className="flex items-center gap-2 font-bold"><Upload size={16} /> <span className="flex-1">학생 제출 서류</span><span>{withDocs} / {rows.length}명</span></div>
-                <Bar pct={responseRate(rows.length, withDocs)} />
-                <ul className="flex flex-col gap-1.5 text-[13px] text-sub">
-                  <li>올린 파일 {materials.length}개{p.docKinds.length ? ` · ${p.docKinds.join("·")}` : ""}</li>
-                  {bundles > 0 && <li>합본 PDF {bundles}개 → 나누기 전</li>}
-                  {needs > 0 && <li className="text-wait">학생 지정이 필요한 파일 {needs}개</li>}
-                  <li>미제출 {rows.length - withDocs}명{rows.length - withDocs > 0 ? ` · ${rows.filter((r) => !r.materials.length).slice(0, 3).map((r) => r.student.name).join(", ")}${rows.length - withDocs > 3 ? " 외" : ""}` : ""}</li>
-                </ul>
-                <ButtonLink href={`/teacher/programs/${p.id}/materials`} kind="outline" size="sm" className="self-start"><Upload size={14} /> 서류 올리기</ButtonLink>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {status === "open" && (
-          <form action={setProgramStatus} className="flex justify-end">
-            <input type="hidden" name="programId" value={p.id} />
-            <input type="hidden" name="to" value="closed" />
-            <Button size="sm" kind="ghost">지금 마감하기</Button>
-          </form>
-        )}
-        {canDelete && <DeleteBox programId={p.id} title={p.title} counts={`응답 ${responses.length}건 · 서류 ${materials.length}개 · 초안`} />}
+        <div className="flex flex-col gap-4 md:gap-6">
+          <Card title="근거 자료" action={<Link href={`/teacher/programs/${p.id}/materials`} className="whitespace-nowrap text-[13px] font-medium text-sub">자료 관리 ›</Link>}>
+            <div className="flex flex-col gap-2.5">
+              {survey && (
+                <div className="flex flex-col gap-2 rounded-inner bg-bg p-3.5">
+                  <div className="flex items-center gap-2.5"><ClipboardList size={16} className="text-sub" /><span className="flex-1"><b className="block text-[15px]">설문 응답</b><span className="text-[12px] text-mute">문항 {p.questions.length}개</span></span><b className="tabular-nums">{submitted}/{rows.length}</b></div>
+                  <Bar pct={responseRate(rows.length, submitted)} />
+                </div>
+              )}
+              {docs && (
+                <div className="flex flex-col gap-2 rounded-inner bg-bg p-3.5">
+                  <div className="flex items-center gap-2.5"><Upload size={16} className="text-sub" /><span className="flex-1"><b className="block text-[15px]">학생 제출 서류</b><span className="text-[12px] text-mute">파일 {materials.length}개{bundles ? ` · 나누기 ${bundles}` : ""}{needs ? ` · 지정 필요 ${needs}` : ""}</span></span><b className="tabular-nums">{withDocs}/{rows.length}</b></div>
+                  <Bar pct={responseRate(rows.length, withDocs)} />
+                </div>
+              )}
+              {docs && <ButtonLink href={`/teacher/programs/${p.id}/materials`} kind="soft" size="sm" className="w-full"><Upload size={14} /> 서류 올리기</ButtonLink>}
+            </div>
+          </Card>
+          {survey && submitted > 0 && <AnalyzeBox programId={p.id} submitted={submitted} aiOn={aiEnabled()} />}
+          <section className="surface rounded-card px-5 py-4">
+            <h3 className="pb-1 text-[12px] font-bold text-mute">관리</h3>
+            {[
+              [`/teacher/programs/${p.id}/edit`, <Pencil key="i" size={16} />, "프로그램 수정"],
+              [`/teacher/programs/${p.id}/export`, <Download key="i" size={16} />, "엑셀 내보내기"],
+            ].map(([href, icon, label]) => (
+              <Link key={label as string} href={href as string} className="flex h-11 items-center gap-2.5 text-[14px] text-ink">
+                <span className="text-sub">{icon}</span><span className="flex-1">{label}</span><ChevronRight size={16} className="text-faint" />
+              </Link>
+            ))}
+            {canDelete && <DeleteBox programId={p.id} title={p.title} counts={`응답 ${responses.length}건 · 서류 ${materials.length}개 · 초안`} />}
+          </section>
+        </div>
+        </div>
       </PageBody>
     </>
   );

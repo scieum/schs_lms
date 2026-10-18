@@ -19,8 +19,11 @@ describe("프로그램 흐름 단계", () => {
     expect(at({ status: "closed", running: 3, ready: 0 })).toMatchObject({ index: 2, next: { kind: "running" } });
     expect(at({ status: "closed", failed: 1, ready: 0, review: 0 })).toMatchObject({ index: 2, next: { kind: "retry", n: 1 } });
   });
-  it("검토 대기 → 검토하러 가기, 실패가 있으면 둘째 버튼", () => {
-    expect(at({ status: "closed", ready: 0, review: 3, confirmed: 6, failed: 1 })).toMatchObject({ index: 3, next: { kind: "review", n: 3 }, secondary: { kind: "retry" } });
+  it("실패가 남아 있으면 ③ 초안: 검토 먼저, 실패는 둘째 버튼", () => {
+    expect(at({ status: "closed", ready: 0, review: 3, confirmed: 6, failed: 1 })).toMatchObject({ index: 2, next: { kind: "review", n: 3 }, secondary: { kind: "retry" } });
+  });
+  it("다 만들고 확정이 남으면 ④ 검토·확정", () => {
+    expect(at({ status: "closed", ready: 0, review: 3, confirmed: 7 })).toMatchObject({ index: 3, next: { kind: "review", n: 3 } });
   });
   it("모두 확정 → 담임 전달", () => {
     expect(at({ status: "closed", ready: 0, confirmed: 10 })).toMatchObject({ index: 4, next: { kind: "done" } });

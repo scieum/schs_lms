@@ -1,21 +1,43 @@
 "use server";
-import { today } from "@/lib/domain/activity";
-import { isAdmin } from "@/lib/domain/policy";
-import { weekTodos } from "@/lib/domain/program";
-import { weekTodoSentence } from "@/lib/server/ai/program-ai";
+import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { latestVersion, reviewStatus } from "@/lib/domain/program";
+import { aiEnabled } from "@/lib/server/ai/claude";
+import { resetDraftJob, runDraftJobs } from "@/lib/server/ai/draft";
 import { repo } from "@/lib/server/repo";
-import { requireCan } from "@/lib/server/viewer";
-import { programSummaries } from "./_lib/data";
+import { requireProgram } from "./_lib/data";
+import { generateDrafts, type GenState } from "./[id]/actions";
 
-export type WeekState = { text?: string; label?: "AI" | "자동"; error?: string; n?: number };
+const refresh = (programId: string) => {
+  revalidatePath("/teacher/programs");
+  revalidatePath(`/teacher/programs/${programId}`);
+  revalidatePath("/teacher/drafts");
+};
 
-/** 프로그램 목록 "이번 주 할 일": 규칙으로 뽑은 할 일을 AI 가 한 문장으로 정리한다 (서버에서 다시 계산, 학생 정보 없음) */
-export async function weekTodoAction(prev: WeekState, form: FormData): Promise<WeekState> {
-  const v = await requireCan("program.manage");
-  const all = form.get("all") === "1" && isAdmin(v);
-  const summary = await programSummaries(await repo.listPrograms(all ? undefined : { ownerId: v.accountId }));
-  const todos = weekTodos(summary.map((s) => ({ id: s.p.id, title: s.p.title, status: s.status, endDate: s.p.endDate, targets: s.p.targetIds.length, submitted: s.submitted, review: s.review, failed: s.failed, drafts: s.drafts })), today());
-  const r = await weekTodoSentence(todos.map((x) => x.text));
-  await repo.audit(v.accountId, "program.ai.week", `${todos.length}건 ${r.label}`);
-  return { text: r.text, label: r.label, error: r.error, n: (prev.n ?? 0) + 1 };
+/** 목록 카드 "초안 만들기": 상세와 같은 동작 + 목록도 새로 */
+export async function generateFromList(prev: GenState, form: FormData): Promise<GenState> {
+  const r = await generateDrafts(prev, form);
+  refresh(String(form.get("programId") ?? ""));
+  return r;
+}
+
+/** 목록 카드 "다시 만들기 k": 이 프로그램의 생성 실패 초안만 처음부터 다시 */
+export async function retryFailedFromList(prev: GenState, form: FormData): Promise<GenState> {
+  const n = (prev.n ?? 0) + 1;
+  const { v, program } = await requireProgram(String(form.get("programId") ?? ""), "draft.review");
+  const [jobs, versions] = await Promise.all([repo.listDraftJobs({ programIds: [program.id] }), repo.listDraftVersions({ programIds: [program.id] })]);
+  const ids = jobs
+    .filter((j) => program.targetIds.includes(j.studentId) && reviewStatus(j, latestVersion(versions, j.id)) === "생성 실패")
+    .map((j) => j.id);
+  if (ids.length === 0) return { error: "다시 만들 초안이 없어요", n };
+  await Promise.all(ids.map((id) => resetDraftJob(id)));
+  await repo.audit(v.accountId, "pipeline.retry", `${program.id} ${ids.length}건`);
+  if (aiEnabled()) {
+    after(() => runDraftJobs(ids));
+    refresh(program.id);
+    return { started: `${ids.length}건 다시 만드는 중이에요`, n };
+  }
+  const r = await runDraftJobs(ids);
+  refresh(program.id);
+  return { started: `${r.done}건 다시 만들었어요${r.failed ? ` · 실패 ${r.failed}건` : ""}`, n };
 }

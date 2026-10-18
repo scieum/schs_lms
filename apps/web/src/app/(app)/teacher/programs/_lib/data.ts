@@ -10,6 +10,7 @@ import {
 import type { Student, Viewer } from "@/lib/domain/types";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
+import type { StageCounts } from "@/lib/domain/program-stage";
 
 /** 내 프로그램만 (관리자는 전부). 없으면 404, 남의 것이면 403 */
 export async function requireProgram(id: string, action: Action = "program.manage"): Promise<{ v: Viewer; program: Program }> {
@@ -83,24 +84,45 @@ export interface ProgramSummary {
   done: number;
   failed: number;
   drafts: number;
+  /** 프로그램 흐름 단계 계산용 (program-stage.ts) */
+  counts: StageCounts;
 }
 
-/** 프로그램 목록(T 프로그램·자료)과 "이번 주 할 일"이 같이 쓰는 요약 */
+/**
+ * 프로그램 목록이 쓰는 요약. 초안 작업·버전은 한 번에, 응답·서류는 프로그램마다 동시에(Promise.all) 읽는다.
+ * 학생별 집계 규칙은 상세(programRows)와 같다: 근거 = 설문 제출 또는 연결된 서류, 준비 = 근거 있고 초안 작업이 없거나 대기.
+ */
 export async function programSummaries(programs: Program[]): Promise<ProgramSummary[]> {
   const ids = programs.map((p) => p.id);
-  const [jobs, versions, responses] = await Promise.all([
-    repo.listDraftJobs({ programIds: ids }),
-    repo.listDraftVersions({ programIds: ids }),
-    Promise.all(programs.map((p) => repo.listResponses(p.id))),
+  const [jobs, versions, responses, materials] = await Promise.all([
+    ids.length ? repo.listDraftJobs({ programIds: ids }) : Promise.resolve([]),
+    ids.length ? repo.listDraftVersions({ programIds: ids }) : Promise.resolve([]),
+    Promise.all(programs.map((p) => (usesSurvey(p.source) ? repo.listResponses(p.id) : Promise.resolve([])))),
+    Promise.all(programs.map((p) => (usesDocs(p.source) ? repo.listMaterials(p.id) : Promise.resolve([])))),
   ]);
   const t = today();
   return programs.map((p, i) => {
-    const submitted = responses[i].filter((r) => r.submittedAt && p.targetIds.includes(r.studentId)).length;
-    const pj = jobs.filter((j) => j.programId === p.id);
+    const targets = new Set(p.targetIds);
+    const surveyed = new Set(responses[i].filter((r) => r.submittedAt && targets.has(r.studentId)).map((r) => r.studentId));
+    const docs = new Set(materials[i].filter((m) => m.status === "matched" && m.studentId && targets.has(m.studentId)).map((m) => m.studentId!));
+    const pj = jobs.filter((j) => j.programId === p.id && targets.has(j.studentId));
+    const jobOf = new Map(pj.map((j) => [j.studentId, j]));
     const st = pj.map((j) => reviewStatus(j, latestVersion(versions, j.id)));
+    const n = (s: ReviewStatus) => st.filter((x) => x === s).length;
+    let evidence = 0;
+    let ready = 0;
+    for (const id of targets) {
+      if (!surveyed.has(id) && !docs.has(id)) continue;
+      evidence++;
+      const j = jobOf.get(id);
+      if (!j || j.state === "PENDING") ready++;
+    }
+    const status = effectiveStatus(p, t);
+    const review = n("검토 대기") + n("반려");
+    const counts: StageCounts = { status, targets: targets.size, evidence, ready, running: n("생성 중"), failed: n("생성 실패"), review, confirmed: n("확정") };
     return {
-      p, submitted, rate: responseRate(p.targetIds.length, submitted), status: effectiveStatus(p, t), drafts: pj.length,
-      review: st.filter((s) => s === "검토 대기").length, done: st.filter((s) => s === "확정").length, failed: st.filter((s) => s === "생성 실패").length,
+      p, submitted: surveyed.size, rate: responseRate(targets.size, usesSurvey(p.source) ? surveyed.size : evidence), status, drafts: pj.length,
+      review, done: counts.confirmed, failed: counts.failed, counts,
     };
   });
 }

@@ -1,18 +1,15 @@
-import Link from "next/link";
 import { Plus } from "lucide-react";
-import { Bar } from "@/components/programs/meters";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { ButtonLink, Card, Segmented, StatTiles, Tag } from "@/components/ui";
+import { ButtonLink, Card, Segmented, cx } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
 import { isAdmin } from "@/lib/domain/policy";
-import { AREA_LABEL, ddayLabel, isProgramOwner, md, SOURCE_LABEL, weekTodos } from "@/lib/domain/program";
-import { aiEnabled } from "@/lib/server/ai/claude";
+import { isProgramOwner } from "@/lib/domain/program";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { programSummaries } from "./_lib/data";
 import { ScheduleCalendar } from "./calendar";
+import { cardOrder, cardView, ProgramCard } from "./program-card";
 import { ScheduleList, type ScheduleItem } from "./schedule";
-import { WeekBox } from "./week-box";
 
 export const metadata = { title: "프로그램 · 속초고등학교 학생관리시스템" };
 
@@ -61,7 +58,11 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
   const t = today();
   const open = summary.filter((s) => s.status === "open");
   const avg = open.length ? Math.round(open.reduce((n, s) => n + s.rate, 0) / open.length) : 0;
-  const todos = weekTodos(summary.map((s) => ({ id: s.p.id, title: s.p.title, status: s.status, endDate: s.p.endDate, targets: s.p.targetIds.length, submitted: s.submitted, review: s.review, failed: s.failed, drafts: s.drafts })), t);
+  const failed = summary.reduce((n, s) => n + s.failed, 0);
+  const cards = summary
+    .map((s) => ({ p: s.p, view: cardView(s.p, s.counts, t) }))
+    .map((x) => ({ ...x, key: cardOrder(x.view, x.p, t) }))
+    .sort((a, b) => a.key[0] - b.key[0] || a.key[1] - b.key[1]);
 
   return (
     <>
@@ -69,15 +70,16 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
         title="프로그램"
         actions={
           <>
-            {isAdmin(v) && <ButtonLink href={showAll ? "/teacher/programs" : "/teacher/programs?all=1"} kind="outline" size="sm">{showAll ? "내 것만" : "전체 보기"}</ButtonLink>}
-            <ButtonLink href="/teacher/programs/new" size="sm"><Plus size={14} /> 새 프로그램</ButtonLink>
+            {isAdmin(v) && <ButtonLink href={showAll ? "/teacher/programs" : "/teacher/programs?all=1"} kind="outline" size="sm" className="whitespace-nowrap">{showAll ? "내 것만" : "전체 보기"}</ButtonLink>}
+            <ButtonLink href="/teacher/programs/new" size="sm" className="whitespace-nowrap"><Plus size={14} /> 새 프로그램</ButtonLink>
           </>
         }
       />
       <PageBody>
-        {tabs}
-        <StatTiles items={[["진행 중", `${open.length}개`], ["평균 응답률", `${avg}%`], ["검토 대기", `${summary.reduce((n, s) => n + s.review, 0)}건`], ["생성 실패", `${summary.reduce((n, s) => n + s.failed, 0)}건`]]} />
-        {todos.length > 0 && <WeekBox line={todos.slice(0, 3).map((x) => x.text).join(" · ")} href={`/teacher/programs/${todos[0].programId}`} all={showAll} aiOn={aiEnabled()} />}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
+          {tabs}
+          <SummaryLine items={[["진행", open.length], ["응답률", `${avg}%`], ["검토", summary.reduce((n, s) => n + s.review, 0)], ["실패", failed]]} bad={failed > 0 ? 3 : -1} />
+        </div>
         {programs.length === 0 ? (
           <Card>
             <div className="flex flex-col items-center gap-3 py-8 text-center">
@@ -86,32 +88,28 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
             </div>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 md:gap-6">
-            {summary.map((s) => (
-              <Link key={s.p.id} href={`/teacher/programs/${s.p.id}`} className="flex flex-col surface rounded-card p-5 hover:bg-[#eceef1] md:p-6">
-                <div className="flex items-center gap-2">
-                  <h2 className="min-w-0 flex-1 truncate text-[17px] font-bold">{s.p.title}</h2>
-                  {s.status === "draft" ? <Tag>임시 저장</Tag> : s.status === "closed" ? <Tag tone="bg-white text-mute">마감</Tag> : <Tag>{ddayLabel(s.p.endDate, t)}</Tag>}
-                </div>
-                <div className="mt-1 text-[13px] text-mute">
-                  {AREA_LABEL[s.p.area]}{s.p.subject ? ` ${s.p.subject}` : ""} · {md(s.p.startDate)} ~ {md(s.p.endDate)} · {SOURCE_LABEL[s.p.source]} · {s.p.targetIds.length}명
-                </div>
-                <div className="mt-4 flex items-center justify-between text-[13px]">
-                  <span className="text-sub">응답률</span>
-                  <span className="font-bold">{s.rate}% <span className="font-normal text-mute">({s.submitted}/{s.p.targetIds.length})</span></span>
-                </div>
-                <Bar pct={s.rate} className="mt-1.5" />
-                <div className="mt-auto flex flex-wrap gap-1.5 pt-4">
-                  {s.review > 0 && <Tag>{`검토 대기 ${s.review}`}</Tag>}
-                  {s.done > 0 && <Tag>{`확정 ${s.done}`}</Tag>}
-                  {s.failed > 0 && <Tag>{`생성 실패 ${s.failed}`}</Tag>}
-                  {s.review + s.done + s.failed === 0 && <Tag tone="bg-white text-mute">초안 전</Tag>}
-                </div>
-              </Link>
-            ))}
+          <div className="grid gap-3 md:grid-cols-2 md:gap-5">
+            {cards.map((x) => <ProgramCard key={x.p.id} p={x.p} view={x.view} today={t} />)}
           </div>
         )}
       </PageBody>
     </>
+  );
+}
+
+/** 숫자 타일 4개 대신 요약 한 줄 (Figma N16): 높이 48 · 칸 사이 세로선 · 이름 13 + 숫자 15 굵게 */
+function SummaryLine({ items, bad }: { items: [string, string | number][]; bad: number }) {
+  return (
+    <dl className="flex h-12 shrink-0 items-center rounded-[10px] border border-line bg-white px-1 md:px-2">
+      {items.map(([k, val], i) => (
+        <div key={k} className="flex min-w-0 flex-auto items-center md:flex-none">
+          {i > 0 && <span className="h-4 w-px shrink-0 bg-line" aria-hidden />}
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap px-1.5 md:gap-1.5 md:px-4">
+            <dt className="text-[13px] font-medium text-mute">{k}</dt>
+            <dd className={cx("text-[15px] font-bold tabular-nums", i === bad ? "text-bad" : "text-ink")}>{val}</dd>
+          </div>
+        </div>
+      ))}
+    </dl>
   );
 }
