@@ -29,6 +29,13 @@ function Head({ eyebrow, children, light }: { eyebrow: string; children: ReactNo
   );
 }
 
+/** N30 카드 호버: 화살표(opacity·밀림)와 아래 진행선. 장식이라 읽지 않는다 (globals.css .n30-*) */
+function Arrow({ className }: { className: string }) {
+  return <span aria-hidden className={`n30-arrow absolute text-[20px] font-bold leading-none ${className}`}>→</span>;
+}
+const Bar = ({ className = "" }: { className?: string }) => <span aria-hidden className={`n30-bar ${className}`} />;
+const idx = (i: number) => ({ "--i": i }) as CSSProperties;
+
 function Tag({ children, tone = "white" }: { children: string; tone?: "white" | "key" }) {
   return (
     <span className={`inline-block shrink-0 whitespace-nowrap rounded-chip px-2 py-1 text-[12px] font-medium leading-[1.4] md:text-[13px] ${tone === "key" ? "bg-key-soft text-key-strong" : "bg-white text-sub"}`}>
@@ -86,15 +93,21 @@ export function Landing() {
       <section id="flow" className="scroll-mt-16 bg-white">
         <div className={`${wrap} py-[72px] md:py-[120px]`}>
           <Head eyebrow="Flow">초안에서 나이스까지<br />다섯 단계</Head>
-          <ol className="mt-9 grid gap-2.5 md:mt-16 md:grid-cols-5 md:gap-5">
+          {/* N30: 카드 위 연결선(md 이상, li 의 가상 요소·점이라 폭을 밀지 않는다)이 올린 단계까지 차오른다 */}
+          <ol className="mx-auto mt-9 grid w-full max-w-[1200px] gap-2.5 md:mt-16 md:grid-cols-5 md:gap-5">
             {FLOW.map((s, i) => (
-              <li key={s.title} className="flex items-center gap-3.5 rounded-card bg-bg px-[18px] py-[18px] md:flex-col md:items-start md:gap-3 md:px-6 md:py-7">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-key text-[14px] font-bold text-white md:size-8 md:text-[15px]">{i + 1}</span>
-                <div className="min-w-0 flex-1 md:flex-none">
-                  <div className="text-[17px] font-bold leading-[1.35] md:text-[20px]">{s.title}</div>
-                  <div className="mt-0.5 text-[14px] text-sub md:mt-3 md:text-[15px]">{s.line}</div>
+              <li key={s.title} className="n30-flow relative" style={idx(i)}>
+                <span aria-hidden className="n30-dot" />
+                <div className="n30-flow-card relative flex h-full items-center gap-3.5 overflow-hidden rounded-card bg-bg px-[18px] py-[18px] md:flex-col md:items-start md:gap-3 md:px-6 md:py-7">
+                  <span className="n30-num flex size-7 shrink-0 items-center justify-center rounded-full bg-key text-[14px] font-bold text-white md:size-8 md:text-[15px]">{i + 1}</span>
+                  <div className="min-w-0 flex-1 md:flex-none">
+                    <div className="n30-t text-[17px] font-bold leading-[1.35] md:text-[20px]">{s.title}</div>
+                    <div className="mt-0.5 text-[14px] text-sub md:mt-3 md:text-[15px]">{s.line}</div>
+                  </div>
+                  <Tag tone="key">{s.who}</Tag>
+                  <Arrow className="right-6 top-[34px] hidden md:block" />
+                  <Bar />
                 </div>
-                <Tag tone="key">{s.who}</Tag>
               </li>
             ))}
           </ol>
@@ -107,9 +120,12 @@ export function Landing() {
           <Head eyebrow="Core features">손이 가장 많이 가던 일부터<br />순서대로</Head>
           <div className="mt-14 flex flex-col gap-14 md:mt-24 md:gap-24">
             {CORE.map((c, i) => (
-              <div key={c.no} className="grid items-center gap-5 md:grid-cols-[minmax(0,536fr)_minmax(0,600fr)] md:gap-16 md:[&:nth-child(even)]:grid-cols-[minmax(0,600fr)_minmax(0,536fr)]">
+              <div key={c.no} className="n30-core grid items-center gap-5 md:grid-cols-[minmax(0,536fr)_minmax(0,600fr)] md:gap-16 md:[&:nth-child(even)]:grid-cols-[minmax(0,600fr)_minmax(0,536fr)]">
                 <div className={i % 2 ? "md:order-2" : ""}>
-                  <p className="flex gap-2.5 text-[14px] font-bold text-key md:text-[15px]"><span>{c.no}</span><span>{c.label}</span></p>
+                  <p className="flex items-center gap-2 text-[14px] font-bold text-key md:text-[15px]">
+                    <span className="relative flex gap-2.5"><span>{c.no}</span><span>{c.label}</span><span aria-hidden className="n30-uline" /></span>
+                    <span aria-hidden className="n30-arrow">→</span>
+                  </p>
                   <h3 className="mt-2.5 whitespace-pre-line text-[26px] font-bold leading-[1.3] md:mt-3.5 md:text-[34px]">{c.title}</h3>
                   <p className="mt-2.5 whitespace-pre-line text-[16px] leading-[1.4] text-sub md:mt-3.5 md:text-[18px]">
                     <span className="md:hidden">{c.m ?? c.desc}</span><span className="hidden md:inline">{c.desc}</span>
@@ -120,9 +136,9 @@ export function Landing() {
                     ))}
                   </div>
                 </div>
-                <div className={i % 2 ? "md:order-1" : ""}>
-                  <Image src={`/landing/core-0${i + 1}-m.png`} alt={`${c.label} 화면`} width={372} height={380} sizes="(max-width: 767px) 100vw, 372px" className="h-auto w-full rounded-card md:hidden" />
-                  <Image src={`/landing/core-0${i + 1}.png`} alt={`${c.label} 화면`} width={600} height={400} sizes="(min-width: 1240px) 600px, 50vw" className="hidden h-auto w-full rounded-card md:block" />
+                <div className={`n30-shot ${i % 2 ? "md:order-1" : ""}`}>
+                  <Image src={`/landing/core-0${i + 1}-m.png`} alt={`${c.label} 화면`} width={372} height={380} sizes="(max-width: 767px) 100vw, 372px" className="h-auto w-full md:hidden" />
+                  <Image src={`/landing/core-0${i + 1}.png`} alt={`${c.label} 화면`} width={600} height={400} sizes="(min-width: 1240px) 600px, 50vw" className="hidden h-auto w-full md:block" />
                 </div>
               </div>
             ))}
@@ -136,15 +152,17 @@ export function Landing() {
           <Head eyebrow="More features">그 밖의 일도<br />한 곳에서</Head>
           <ul className="mt-9 grid gap-2 sm:grid-cols-2 md:mt-16 md:gap-5 lg:grid-cols-4">
             {MORE.map(([no, title, line, who]) => (
-              <li key={no} className="flex items-center gap-3 rounded-card bg-bg px-4 py-4 md:flex-col md:items-stretch md:gap-2.5 md:p-6">
+              <li key={no} className="n30-more relative flex items-center gap-3 overflow-hidden rounded-card bg-bg px-[15px] py-[15px] md:flex-col md:items-stretch md:gap-2.5 md:p-[23px]">
                 <div className="contents md:flex md:items-center md:justify-between">
                   <span className="w-[17px] shrink-0 text-[14px] font-bold text-key md:w-auto md:text-[15px]">{no}</span>
-                  <span className="order-last md:order-none"><Tag>{who}</Tag></span>
+                  <span className="n30-tag order-last md:order-none"><Tag>{who}</Tag></span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[16px] font-bold leading-[1.4] md:text-[20px] md:leading-[1.35]">{title}</div>
-                  <div className="mt-0.5 text-[13px] text-sub md:mt-2.5 md:text-[15px]">{line}</div>
+                  <div className="n30-t text-[16px] font-bold leading-[1.4] md:text-[20px] md:leading-[1.35]">{title}</div>
+                  <div className="mt-0.5 text-[13px] text-sub md:mt-2.5 md:pr-7 md:text-[15px]">{line}</div>
                 </div>
+                <Arrow className="bottom-[23px] right-[23px] hidden md:block" />
+                <Bar className="hidden md:block" />
               </li>
             ))}
           </ul>
@@ -157,13 +175,15 @@ export function Landing() {
           <Head eyebrow="For everyone">역할마다<br />필요한 화면만</Head>
           <div className="mt-9 grid grid-cols-2 gap-3 md:mt-16 md:gap-5 lg:grid-cols-4">
             {ROLES.map((r) => (
-              <div key={r.role} className="rounded-card bg-white p-[18px] md:p-7">
-                <div className="text-[18px] font-bold leading-[1.35] md:text-[22px]">{r.role}</div>
+              <div key={r.role} className="n30-role relative overflow-hidden rounded-card bg-white p-[17px] md:p-[27px]">
+                <div className="n30-t text-[18px] font-bold leading-[1.35] md:text-[22px]">{r.role}</div>
+                <Arrow className="right-[17px] top-[19px] md:right-[27px] md:top-[32px]" />
                 <ul className="mt-3 flex flex-col gap-3 text-[14px] text-sub md:mt-4 md:gap-4 md:text-[16px]">
-                  {r.items.map((it) => (
-                    <li key={it} className="flex items-center gap-2 md:gap-2.5"><span className="size-[5px] shrink-0 rounded-full bg-key md:size-1.5" />{it}</li>
+                  {r.items.map((it, k) => (
+                    <li key={it} className="n30-item flex items-center gap-2 md:gap-2.5" style={idx(k)}><span className="size-[5px] shrink-0 rounded-full bg-key md:size-1.5" />{it}</li>
                   ))}
                 </ul>
+                <Bar />
               </div>
             ))}
           </div>

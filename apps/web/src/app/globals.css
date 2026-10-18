@@ -113,3 +113,103 @@ body {
   5% { opacity: 1; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
   10%, 100% { opacity: 0; }
 }
+
+/* N30 상세페이지 카드 호버 (docs/design-system.md "상세페이지 카드 호버", Figma 376:2).
+   transform·opacity·color·background-color·border-color 만 움직이고 그림자는 없다. 테두리는 1px 투명으로 자리를 잡아 둔다.
+   :hover 는 (hover: hover) 안에서만, 터치는 :active(떠오름 -2px, 손 뗀 뒤 120ms 유지). 포커스 링은 링크·버튼인 FAQ 줄에만.
+   길이: 색 180 · 떠오름·번호 220 · 화살표 240(+40) · 진행선·연결선 260, 나갈 때는 ×0.8. 동작 줄이기면 색만, 진행선은 바로 100%.
+   유틸리티(bg-bg 등)를 덮어야 하므로 레이어 밖에 둔다. 기본 상태에서는 유틸리티와 겹치는 속성을 쓰지 않는다. */
+:root { --n30-ease: cubic-bezier(0.22, 1, 0.36, 1); }
+.n30-flow-card, .n30-more, .n30-role {
+  transition: transform 176ms var(--n30-ease), background-color 144ms var(--n30-ease), border-color 144ms var(--n30-ease);
+}
+.n30-more, .n30-role, .n30-faq { border: 1px solid transparent; }
+.n30-faq { transition: border-color 144ms var(--n30-ease); }
+.n30-t { transition: color 144ms var(--n30-ease); }
+.n30-tag > span { transition: background-color 144ms var(--n30-ease); }
+.n30-num, .n30-item { transition: transform 176ms var(--n30-ease); }
+.n30-chev { transition: color 144ms var(--n30-ease), transform 176ms var(--n30-ease), rotate 176ms var(--n30-ease); }
+.n30-arrow {
+  color: var(--color-key); opacity: 0; transform: translateX(-8px); pointer-events: none;
+  transition: opacity 192ms var(--n30-ease), transform 192ms var(--n30-ease);
+}
+.n30-bar, .n30-uline {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--color-key); pointer-events: none;
+  transform: scaleX(0); transform-origin: left; transition: transform 208ms var(--n30-ease);
+}
+.n30-uline { bottom: -4px; height: 2px; }
+.n30-shot { position: relative; overflow: hidden; border-radius: var(--radius-card); background: var(--color-key-soft); transition: transform 176ms var(--n30-ease); }
+.n30-shot::after {
+  content: ""; position: absolute; inset: 0; border: 1px solid transparent; border-radius: inherit; pointer-events: none;
+  transition: border-color 144ms var(--n30-ease);
+}
+.n30-shot img { transition: transform 208ms var(--n30-ease); }
+/* Flow 연결선: 카드 가운데 → 다음 카드 가운데 (gap 20px), 카드 위 32px. 회색 선(::before) 위에 인디고 선(::after)이 차오른다 */
+.n30-dot { display: none; }
+@media (min-width: 48rem) {
+  .n30-flow:not(:last-child)::before, .n30-flow:not(:last-child)::after {
+    content: ""; position: absolute; top: -33px; left: 50%; width: calc(100% + 20px); height: 2px; background: var(--color-line); pointer-events: none;
+  }
+  .n30-flow:not(:last-child)::after { background: var(--color-key); transform: scaleX(0); transform-origin: left; transition: transform 208ms var(--n30-ease); }
+  .n30-dot {
+    display: block; position: absolute; z-index: 1; top: -36px; left: calc(50% - 4px); width: 8px; height: 8px; border-radius: 9999px;
+    background: var(--color-hair); pointer-events: none; transition: background-color 144ms var(--n30-ease), transform 176ms var(--n30-ease);
+  }
+}
+
+@media (hover: hover) {
+  .n30-flow:hover .n30-flow-card { background-color: var(--color-key-soft); transition-duration: 220ms, 180ms, 180ms; }
+  .n30-more:hover { background-color: #ffffff; border-color: #d3daff; transition-duration: 220ms, 180ms, 180ms; }
+  .n30-role:hover { border-color: #d3daff; transition-duration: 220ms, 180ms, 180ms; }
+  .n30-faq:hover { border-color: #d3daff; transition-duration: 180ms; }
+  :is(.n30-flow, .n30-more, .n30-role, .n30-faq):hover .n30-t { color: var(--color-key-strong); transition-duration: 180ms; }
+  .n30-more:hover .n30-tag > span { background-color: var(--color-soft); transition-duration: 180ms; }
+  :is(.n30-flow, .n30-core, .n30-more, .n30-role):hover .n30-arrow { opacity: 1; transform: none; transition-duration: 240ms; transition-delay: 40ms; }
+  :is(.n30-flow, .n30-more, .n30-role):hover .n30-bar, .n30-core:hover .n30-uline { transform: scaleX(1); transition-duration: 260ms; }
+  .n30-core:hover .n30-shot { transition-duration: 220ms; }
+  .n30-core:hover .n30-shot::after { border-color: #d3daff; transition-duration: 180ms; }
+  .n30-faq:hover .n30-chev { color: var(--color-key); transition-duration: 180ms, 220ms, 220ms; }
+  /* 연결선: 올린 단계 앞 구간이 차오르고, 지나간 점과 올린 점은 인디고 (점마다 +40ms) */
+  .n30-flow:has(~ .n30-flow:hover)::after { transform: scaleX(1); transition-duration: 260ms; transition-delay: calc(var(--i) * 40ms); }
+  .n30-flow:has(~ .n30-flow:hover) .n30-dot, .n30-flow:hover .n30-dot { background-color: var(--color-key); transition-delay: calc(var(--i) * 40ms); }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .n30-flow:hover .n30-flow-card, .n30-more:hover, .n30-role:hover, .n30-core:hover .n30-shot { transform: translateY(-4px); }
+  .n30-flow:hover .n30-num { transform: scale(1.12); transition-duration: 220ms; }
+  .n30-flow:hover .n30-dot { transform: scale(1.5); }
+  .n30-core:hover .n30-shot img { transform: scale(1.03); transition-duration: 260ms; }
+  .n30-role:hover .n30-item { transform: translateX(4px); transition-duration: 220ms; transition-delay: calc(var(--i) * 30ms); }
+  .n30-faq:hover > button[aria-expanded="false"] .n30-chev { transform: translateY(2px); }
+}
+
+/* 키보드 포커스: FAQ 질문 줄(버튼)만. 줄 전체에 hover 상태 + 2px 링 */
+.n30-faq > button:focus-visible { outline: none; }
+.n30-faq:has(> button:focus-visible) { border-color: #d3daff; outline: 2px solid var(--color-key); outline-offset: 2px; }
+.n30-faq:has(> button:focus-visible) .n30-t { color: var(--color-key-strong); }
+.n30-faq:has(> button:focus-visible) .n30-chev { color: var(--color-key); }
+@media (prefers-reduced-motion: no-preference) {
+  .n30-faq:has(> button[aria-expanded="false"]:focus-visible) .n30-chev { transform: translateY(2px); }
+}
+
+/* 터치: 누르는 동안 같은 상태(가볍게), 손 뗀 뒤 120ms 유지 후 되돌림 */
+@media (hover: none) {
+  .n30-flow-card, .n30-more, .n30-role, .n30-faq, .n30-t, .n30-tag > span, .n30-shot::after { transition-delay: 120ms; }
+  .n30-flow:active .n30-flow-card { background-color: var(--color-key-soft); }
+  .n30-more:active { background-color: #ffffff; border-color: #d3daff; }
+  .n30-role:active { border-color: #d3daff; }
+  .n30-core:active .n30-shot::after { border-color: #d3daff; }
+  :is(.n30-flow, .n30-role, .n30-faq):active .n30-t { color: var(--color-key-strong); }
+  .n30-more:active .n30-tag > span { background-color: var(--color-soft); }
+  .n30-flow:active .n30-flow-card, .n30-more:active, .n30-role:active, .n30-faq:active,
+  :is(.n30-flow, .n30-role, .n30-faq):active .n30-t, .n30-more:active .n30-tag > span,
+  .n30-core:active .n30-shot::after { transition-delay: 0ms; transition-duration: 180ms; }
+}
+@media (hover: none) and (prefers-reduced-motion: no-preference) {
+  .n30-flow:active .n30-flow-card, .n30-more:active, .n30-role:active { transform: translateY(-2px); }
+}
+
+/* 동작 줄이기: 화살표는 밀리지 않고 opacity만, 진행선·연결선은 한 번에 100% */
+@media (prefers-reduced-motion: reduce) {
+  .n30-arrow { transform: none; transition-property: opacity; }
+  .n30-bar, .n30-uline, .n30-flow::after { transition: none; }
+}

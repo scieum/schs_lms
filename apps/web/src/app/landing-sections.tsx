@@ -42,12 +42,12 @@ export function FaqList() {
         {list.map((f, i) => {
           const isOpen = i === open;
           return (
-            <li key={f.q} className="rounded-inner bg-white">
+            <li key={f.q} className="n30-faq rounded-inner bg-white">
               <button onClick={() => setOpen(isOpen ? -1 : i)} aria-expanded={isOpen}
                 className="flex w-full items-center gap-3 px-5 py-5 text-left md:px-7">
                 <span className="shrink-0 text-[16px] font-bold text-key">Q.</span>
-                <span className="flex-1 text-[15px] font-bold md:text-[16px]"><span className="md:hidden">{f.qm ?? f.q}</span><span className="hidden md:inline">{f.q}</span></span>
-                <ChevronDown size={20} className={`shrink-0 text-mute transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                <span className="n30-t flex-1 text-[15px] font-bold md:text-[16px]"><span className="md:hidden">{f.qm ?? f.q}</span><span className="hidden md:inline">{f.q}</span></span>
+                <ChevronDown size={20} className={`n30-chev shrink-0 text-mute ${isOpen ? "rotate-180" : ""}`} />
               </button>
               {isOpen && <p className="px-5 pb-5 pl-[52px] text-[14px] leading-relaxed text-sub md:px-7 md:pl-[60px] md:text-[15px]"><span className="md:hidden">{f.am ?? f.a}</span><span className="hidden md:inline">{f.a}</span></p>}
             </li>
