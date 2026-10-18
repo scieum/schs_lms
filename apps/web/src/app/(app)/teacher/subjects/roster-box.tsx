@@ -1,5 +1,6 @@
 "use client";
 import { startTransition, useActionState, useState } from "react";
+import Link from "next/link";
 import { FileUp, Users } from "lucide-react";
 import { Button, Card, cx } from "@/components/ui";
 import { previewRoster, saveRoster, type RosterPreview, type RosterSave } from "./roster-actions";
@@ -63,12 +64,15 @@ function RosterEditor({ teacherId, courseId, section, count, onDone }: { teacher
           <FileUp size={20} className="shrink-0 text-key" />
           <span className="min-w-0 flex-1">
             <span className="block text-[14px] font-medium">{fileName || "나이스 명단 파일 고르기"}</span>
-            <span className="block text-[12px] text-mute">엑셀(.xlsx·.xls)·CSV · 학번·성명 열이 있으면 돼요</span>
+            <span className="block text-[12px] text-mute">나이스 출석부·명단 엑셀(.xlsx·.xls)·CSV, 또는 양식</span>
           </span>
           <input type="file" name="file" accept=".xlsx,.xls,.csv,text/csv" className="sr-only" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")} />
         </label>
         <textarea name="pasted" rows={3} placeholder={"또는 나이스 화면의 명단을 복사해 붙여 넣기\n예) 1	20605	박지훈"} className="w-full resize-y rounded-field bg-soft p-3 text-[13px] outline-none focus:ring-2 focus:ring-key" />
-        <Button size="sm" kind="soft" disabled={reading} className="self-end">{reading ? "읽는 중…" : "명단 읽기"}</Button>
+        <div className="flex items-center gap-2">
+          <Link href="/students/list-template" prefetch={false} className="mr-auto whitespace-nowrap text-[13px] font-medium text-key-strong">양식 받기</Link>
+          <Button size="sm" kind="soft" disabled={reading}>{reading ? "읽는 중…" : "명단 읽기"}</Button>
+        </div>
       </form>
       {preview.error && <p className="text-sm text-bad" role="alert">{preview.error}</p>}
 
@@ -96,7 +100,7 @@ function RosterEditor({ teacherId, courseId, section, count, onDone }: { teacher
           </div>
           {matched.filter((s) => !drop.has(s.id)).map((s) => <input key={s.id} type="hidden" name="studentId" value={s.id} />)}
           {(preview.unmatched?.length ?? 0) > 0 && (
-            <p className="text-[12px] text-wait">명단에 있지만 학생 등록에서 찾지 못했어요: {preview.unmatched!.join(", ")}</p>
+            <p className="text-[12px] text-[#9A6400]">찾지 못함: {preview.unmatched!.slice(0, 10).join(", ")}{preview.unmatched!.length > 10 ? ` 외 ${preview.unmatched!.length - 10}줄` : ""} · 잘 안 맞으면 양식에 옮겨 올려 주세요</p>
           )}
           {save.error && <p className="text-sm text-bad" role="alert">{save.error}</p>}
           {save.done && <p className="text-sm text-ok" role="status">{save.done}</p>}

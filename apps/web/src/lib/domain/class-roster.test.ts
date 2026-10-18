@@ -43,4 +43,14 @@ describe("이동반 명단 읽기", () => {
     expect(r.matched.map((s) => s.id)).toEqual(["a"]);
     expect(r.unmatched.map((l) => l.studentNo)).toEqual(["30103"]);
   });
+  it("나이스 출석부: 제목 줄 · 띄어 쓴 머리글(성  명) · 학과 칸", () => {
+    const rows = [["교과시간별 출석부"], ["속초고등학교", "", "2026학년도 2학기"], ["연번", "학과", "학년", "반", "번호", "성  명"], ["1", "일반학과", "2", "1", "3", "김민준"], ["2", "일반학과", "2", "4", "12", "이서연"]];
+    const lines = readRosterTable(rows);
+    expect(lines.map((l) => l.name)).toEqual(["김민준", "이서연"]);
+    expect(matchRoster(lines, students, 2).matched.map((s) => s.id)).toEqual(["a", "b"]);
+  });
+  it("머리글이 없어도 학과·학교 이름은 학생 이름으로 읽지 않음", () => {
+    const lines = readRosterTable([["교과시간별"], ["1", "일반학과", "20605", "박지훈"], ["속초고등학교"]]);
+    expect(lines.map((l) => [l.studentNo, l.name])).toEqual([["20605", "박지훈"]]);
+  });
 });

@@ -17,14 +17,19 @@ const num = (s: string) => {
   return m ? Number(m[0]) : null;
 };
 const isName = (s: string) => /^[가-힣]{2,5}$/.test(s);
-const NOT_NAME = /^(학년|학생|번호|이름|성명|남자|여자|부원|동아리)$/;
+const NOT_NAME = /^(학년|학생|번호|이름|성명|남자|여자|부원|동아리|연번|학과|교과|과목|비고|성별|담임|출석|결석|지각|조퇴)$/;
+// 나이스 출석부의 제목·학과·학교 칸 (예: 교과시간별, 일반학과, 속초고등학교)
+const NOT_NAME_PART = /(학과|학교|고등학|중학|교과|과정|시간별|학기|학년도|출석부|명단|계열)/;
+const nameLike = (w: string) => isName(w) && !NOT_NAME.test(w) && !NOT_NAME_PART.test(w);
+/** 머리글은 띄어 쓴 것도 같게 본다 (나이스 출석부: "성  명", "학  번") */
+const head = (c: string) => c.replace(/\s/g, "");
 
 const HEAD = {
   studentNo: /^학번$/,
   grade: /^학년$/,
   classNo: /^반$/,
   number: /^(번호|번)$/,
-  name: /^(성명|이름|학생명|학생\s?이름)$/,
+  name: /^(성명|이름|학생명|학생이름)$/,
 };
 
 /** 붙여넣은 글(탭·쉼표·여러 칸 공백 구분) → 표 */
@@ -39,11 +44,11 @@ export function splitPasted(text: string): string[][] {
 /** 표(행×칸) → 명단 줄. 머리글이 있으면 그 열로, 없으면 칸 모양으로 */
 export function readRosterTable(rows: string[][]): RosterLine[] {
   const table = rows.map((r) => r.map(clean)).filter((r) => r.some(Boolean));
-  const headAt = table.findIndex((r) => r.some((c) => HEAD.name.test(c)) && r.some((c) => HEAD.studentNo.test(c) || HEAD.number.test(c)));
+  const headAt = table.findIndex((r) => r.some((c) => HEAD.name.test(head(c))) && r.some((c) => HEAD.studentNo.test(head(c)) || HEAD.number.test(head(c)) || HEAD.classNo.test(head(c))));
   const out: RosterLine[] = [];
   if (headAt >= 0) {
-    const head = table[headAt];
-    const col = (re: RegExp) => head.findIndex((c) => re.test(c));
+    const headRow = table[headAt];
+    const col = (re: RegExp) => headRow.findIndex((c) => re.test(head(c)));
     const at = { studentNo: col(HEAD.studentNo), grade: col(HEAD.grade), classNo: col(HEAD.classNo), number: col(HEAD.number), name: col(HEAD.name) };
     for (const r of table.slice(headAt + 1)) {
       const get = (i: number) => (i >= 0 ? r[i] ?? "" : "");
@@ -62,7 +67,7 @@ export function readRosterTable(rows: string[][]): RosterLine[] {
       const raw = r.filter(Boolean).join(" ");
       // 2-3-12 · 2학년 3반 12번 · 2 3 12 (학번 대신)
       const gcn = no ? null : raw.match(/([1-3])\s*학년\s*(\d{1,2})\s*반\s*(\d{1,2})\s*번?/) ?? raw.match(/(?<!\d)([1-3])\s*[-.\s]\s*(\d{1,2})\s*[-.\s]\s*(\d{1,2})(?!\d)/);
-      const name = r.flatMap((c) => c.match(/[가-힣]{2,5}/g) ?? []).find((w) => isName(w) && !NOT_NAME.test(w)) ?? null;
+      const name = r.flatMap((c) => c.match(/[가-힣]{2,5}/g) ?? []).find(nameLike) ?? null;
       if (!no && !gcn && !name) continue;
       out.push({ studentNo: no, grade: gcn ? Number(gcn[1]) : null, classNo: gcn ? Number(gcn[2]) : null, number: gcn ? Number(gcn[3]) : null, name, raw });
     }

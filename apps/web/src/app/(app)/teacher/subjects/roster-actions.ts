@@ -50,12 +50,12 @@ export async function previewRoster(prev: RosterPreview, form: FormData): Promis
     return { error: "명단 파일을 고르거나 나이스 명단을 붙여 넣어 주세요", courseId, n };
   }
   const lines = readRosterTable(rows);
-  if (!lines.length) return { error: "명단에서 학번이나 이름을 찾지 못했어요. 학번·성명 열이 있는지 확인해 주세요", courseId, n };
+  if (!lines.length) return { error: "명단에서 학번이나 이름을 찾지 못했어요. 양식 받기 → 학번·이름을 옮겨 올려 주세요", courseId, n };
   const r = matchRoster(lines, await repo.listStudents(), course.grade);
   return {
     courseId, n, duplicates: r.duplicates,
     matched: r.matched.map((s) => ({ id: s.id, label: `${makeStudentNo(s.grade, s.classNo, s.number)} ${s.name}` })),
-    unmatched: r.unmatched.map((l) => [l.studentNo, l.name].filter(Boolean).join(" ") || l.raw).slice(0, 50),
+    unmatched: [...new Set(r.unmatched.map((l) => [l.studentNo, l.name].filter(Boolean).join(" ") || l.raw.slice(0, 20)))].slice(0, 50),
   };
 }
 
