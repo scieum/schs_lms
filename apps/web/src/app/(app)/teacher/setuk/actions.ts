@@ -10,8 +10,8 @@ import { findIdentity, latestMemoByStudent, type AiDraftResult } from "@/lib/dom
 import { forbiddenBlock } from "@/lib/domain/forbidden";
 import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence";
 import { fitRecord, mergeRecord, tagCompetency } from "@/lib/server/ai/merge-record";
-import { memoPieces } from "@/lib/server/merge-pieces";
-import { fitRange, type MergePiece } from "@/lib/domain/merge";
+import { listMemosWithPieces, memoPieces } from "@/lib/server/merge-pieces";
+import { fitRange, PIECE_MAX, PIECE_MIN, pieceScope, type MergePiece } from "@/lib/domain/merge";
 import type { TaggedSentence } from "@/lib/domain/competency";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
 
@@ -138,11 +138,23 @@ async function setukTarget(courseId: string, studentId: string) {
   return { v, course, student };
 }
 
-/** 합칠 조각: 이 과목에 남긴 관찰 메모 (새 것부터) */
+/** 합칠 조각: 이 과목에 남긴 관찰 메모 + 조각 칸 메모 (새 것부터) */
 export async function listSetukPieces(input: { courseId: string; studentId: string }): Promise<MergePiece[]> {
   const t = await setukTarget(input.courseId, input.studentId);
   if (!t) return [];
-  return memoPieces(await repo.listRecordMemos(`세특:${input.courseId}`, [input.studentId]));
+  return memoPieces(await listMemosWithPieces(`세특:${input.courseId}`, [input.studentId]));
+}
+
+/** 조각 칸 (Figma N19): 수업 중 본 것을 바로 한 조각으로 남긴다 (추가만, C4) */
+export async function addSetukPiece(input: { courseId: string; studentId: string; text: string }): Promise<{ error?: string }> {
+  const t = await setukTarget(input.courseId, input.studentId);
+  if (!t) return { error: "내 담당 과목·반 학생만 쓸 수 있어요" };
+  const text = String(input.text ?? "").trim();
+  if (text.length < PIECE_MIN || text.length > PIECE_MAX) return { error: `조각은 ${PIECE_MIN}~${PIECE_MAX.toLocaleString()}자로 써 주세요` };
+  await repo.addRecordMemo({ scope: pieceScope(`세특:${input.courseId}`), studentId: t.student.id, authorId: t.v.accountId, content: text });
+  await repo.audit(t.v.accountId, "record.piece", `세특 ${t.course.subject} ${t.student.pseudonymId}`);
+  revalidatePath("/teacher/pieces");
+  return {};
 }
 
 export async function mergeSetuk(input: { courseId: string; studentId: string } & z.input<typeof MergeSchema>): Promise<AiDraftResult> {

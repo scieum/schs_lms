@@ -1,4 +1,5 @@
 import { ChevronDown, Lock } from "lucide-react";
+import { RecordCompetency } from "@/components/writing/record-competency";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { TabLinks } from "@/components/counsel/tab-links";
 import { Card, Segmented, StatTiles, Tag } from "@/components/ui";
@@ -25,7 +26,10 @@ function RecordCard({ r }: { r: PastRecord }) {
         <span className="text-xs text-mute">{[...r.content].length} / {MAX[r.area]}자</span>
       </div>
       <p className="mb-3 text-[13px] text-mute">{r.title} · {r.teacherName} 선생님 · {shortDate(r.confirmedAt)} 확정</p>
-      <p className="whitespace-pre-line text-[15px] leading-7">{r.content}</p>
+      {/* 역량 보기 (Figma N18): 내 기록이 어느 역량을 보여 주는지 — 색칠만, 글은 바꾸지 않는다 */}
+      <RecordCompetency studentId={r.studentId} title="" text={r.content}>
+        <p className="whitespace-pre-line text-[15px] leading-7">{r.content}</p>
+      </RecordCompetency>
     </article>
   );
 }

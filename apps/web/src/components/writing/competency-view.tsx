@@ -16,19 +16,24 @@ export const COMPETENCY_COLOR: Record<Competency, { tint: string; strong: string
 export type TagResult = { tags: TaggedSentence[]; label: "AI" | "자동" } | { error: string };
 type Focus = { competency: Competency; sub?: string } | null;
 
-/** 본문 카드 머리: "본문" + (역량 보기 중이면) 수정하기 + 역량 보기 스위치. 꺼져 있으면 children(편집기)을 보여 준다 */
-export function BodyCard({ text, tag, children }: { text: string; tag: (text: string) => Promise<TagResult>; children: React.ReactNode }) {
+/**
+ * 본문 카드 머리: 제목 + (역량 보기 중이면) 수정하기 + 역량 보기 스위치. 꺼져 있으면 children(편집기·기록 목록)을 보여 준다.
+ * editable=false 는 읽기 전용 기록(누가기록·초안·조각, Figma N18)에 쓴다 — 수정하기 버튼 없음.
+ */
+export function BodyCard({ text, tag, children, title = "본문", editable = true, className }: {
+  text: string; tag: (text: string) => Promise<TagResult>; children: React.ReactNode; title?: React.ReactNode; editable?: boolean; className?: string;
+}) {
   const [on, setOn] = useState(false);
   return (
-    <section className="@container flex flex-col gap-3 rounded-inner bg-white p-4">
+    <section className={cx("@container flex flex-col gap-3", className ?? "rounded-inner bg-white p-4")}>
       <div className="flex items-center gap-2">
-        <span className="flex-1 text-[14px] font-bold">본문</span>
-        {on && (
+        <span className="min-w-0 flex-1 truncate text-[14px] font-bold">{title}</span>
+        {on && editable && (
           <button type="button" onClick={() => setOn(false)} className="hidden items-center gap-1 rounded-control border border-hair bg-[#fff] px-2.5 py-1 text-[12px] font-medium md:flex">
             <Pencil size={12} /> 수정하기
           </button>
         )}
-        <label className="flex cursor-pointer items-center gap-2 text-[13px] text-sub">
+        <label className={cx("flex shrink-0 items-center gap-2 whitespace-nowrap text-[13px] text-sub", text.trim() ? "cursor-pointer" : "cursor-not-allowed opacity-50")}>
           역량 보기
           <input type="checkbox" role="switch" className="peer sr-only" checked={on} onChange={(e) => setOn(e.target.checked)} disabled={!text.trim()} />
           <span aria-hidden className={cx("relative h-5 w-9 rounded-full transition-colors", on ? "bg-key" : "bg-faint")}>
@@ -39,7 +44,7 @@ export function BodyCard({ text, tag, children }: { text: string; tag: (text: st
       {/* 편집기는 늘 그려 두고(폼 제출용) 역량 보기일 때만 숨긴다 */}
       <div className={cx(on && "hidden")}>{children}</div>
       {on && <CompetencyView text={text} tag={tag} />}
-      {on && (
+      {on && editable && (
         <button type="button" onClick={() => setOn(false)} className="flex h-10 items-center justify-center gap-1 rounded-control border border-hair bg-[#fff] text-[13px] font-medium md:hidden">
           <Pencil size={13} /> 수정하기
         </button>

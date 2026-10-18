@@ -71,7 +71,7 @@ export default async function PiecesPage({ searchParams }: Props) {
                   </nav>
                 </section>
                 {shown.map((b) => (
-                  <AreaBoxCard key={b.key} box={{ ...b, piecesBytes: b.pieces.reduce((n, p) => n + neisBytes(p.text), 0), bodyBytes: neisBytes(b.body.content) }} />
+                  <AreaBoxCard key={b.key} studentId={selected.id} box={{ ...b, piecesBytes: b.pieces.reduce((n, p) => n + neisBytes(p.text), 0), bodyBytes: neisBytes(b.body.content) }} />
                 ))}
               </div>
             )}

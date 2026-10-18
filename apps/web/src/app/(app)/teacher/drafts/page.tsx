@@ -102,6 +102,7 @@ export default async function DraftsPage({ searchParams }: Props) {
               <DraftEditor
                 key={`${sel.job.id}-${sel.latest?.id ?? "none"}`}
                 jobId={sel.job.id}
+                studentId={sel.job.studentId}
                 initial={initial}
                 unit={sel.job.unit}
                 max={sel.job.max}

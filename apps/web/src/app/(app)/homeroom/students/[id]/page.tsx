@@ -1,4 +1,5 @@
 import { scoresEnabled } from "@/lib/server/features";
+import { RecordCompetency } from "@/components/writing/record-competency";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { MessageSquare } from "lucide-react";
@@ -26,6 +27,9 @@ type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: st
 const TABS = ["draft", "scores", "counsel", "night", "logs"] as const;
 type TabKey = (typeof TABS)[number];
 const VERDICT_TONE: Record<string, string> = { 충족: "bg-ok-soft text-ok", 근접: "bg-wait-soft text-wait", 미충족: "bg-bad-soft text-bad" };
+
+/** 목록의 기록 글을 오래된 것부터 한 글로 */
+const joinRecords = (items: { content?: string }[]) => [...items].reverse().map((x) => x.content?.trim() ?? "").filter(Boolean).join(" ");
 
 export default async function StudentRecordPage({ params, searchParams }: Props) {
   const v = await requireCan("homeroom.view");
@@ -92,13 +96,16 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
           <>
             <div className={cx("grid gap-4 md:gap-6", scores && "md:grid-cols-[1fr_340px]")}>
               <Card title="생기부 초안 모음" action={<span className="text-[13px] text-mute">{allDrafts.length}건</span>}>
-                <ActivityList items={allDrafts} empty="아직 받은 초안이 없어요" />
-                {preview && (
-                  <div className="mt-2 rounded-inner bg-white px-4 py-3.5">
-                    <div className="text-xs text-mute">{preview.title} · {preview.label}</div>
-                    <p className="mt-1.5 line-clamp-2 text-sm leading-6">{preview.content}</p>
-                  </div>
-                )}
+                {/* 역량 보기 (Figma N18): 받은 초안·세특을 한 글로 이어 3대 역량으로 */}
+                <RecordCompetency studentId={student.id} title="초안 전체" text={joinRecords(allDrafts)}>
+                  <ActivityList items={allDrafts} empty="아직 받은 초안이 없어요" />
+                  {preview && (
+                    <div className="mt-2 rounded-inner bg-white px-4 py-3.5">
+                      <div className="text-xs text-mute">{preview.title} · {preview.label}</div>
+                      <p className="mt-1.5 line-clamp-2 text-sm leading-6">{preview.content}</p>
+                    </div>
+                  )}
+                </RecordCompetency>
               </Card>
               {scores && <div className="flex flex-col gap-4 md:gap-6">
                 <Card title="모의고사 평균 등급" action={<span className="text-[13px] text-mute">{scores.latestExam?.name ?? ""}</span>}>
@@ -203,7 +210,9 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
 
         {tab === "logs" && (
           <Card title="누가기록·봉사">
-            <ActivityList items={logItems} empty="아직 누가기록·봉사가 없어요" />
+            <RecordCompetency studentId={student.id} title="기록 전체" text={joinRecords(logItems)}>
+              <ActivityList items={logItems} empty="아직 누가기록·봉사가 없어요" />
+            </RecordCompetency>
           </Card>
         )}
       </PageBody>

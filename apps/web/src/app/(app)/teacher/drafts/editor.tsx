@@ -10,12 +10,14 @@ import { regenerateDraft, rephraseAction, reviewDraftAction, saveDraft, type Reg
 import { ForbiddenHits } from "@/components/writing/forbidden-hits";
 import { findForbidden } from "@/lib/domain/forbidden";
 import { OverApproval } from "@/components/writing/over-approval";
+import { RecordCompetency } from "@/components/writing/record-competency";
 
 // T4 초안 본문 편집 + 자동 검사 + 검토 도우미 + 반려·직접 수정·확정
 export function DraftEditor({
-  jobId, initial, unit, max, area, people, evidence, peers, aiOn, finalized, tags,
+  jobId, studentId, initial, unit, max, area, people, evidence, peers, aiOn, finalized, tags,
 }: {
   jobId: string;
+  studentId: string;
   initial: string;
   unit: LengthUnit;
   max: number;
@@ -171,11 +173,14 @@ export function DraftEditor({
         <div className="flex flex-wrap gap-1.5">
           {tags.map((t) => <span key={t} className={cx("rounded-chip px-2.5 py-1 text-xs font-medium", t === "예시" ? "bg-white text-mute" : "bg-soft text-sub")}>{t}</span>)}
         </div>
-        <textarea
-          ref={area_} name="content" value={text} onChange={(e) => setText(e.target.value)} rows={10} maxLength={5000}
-          className="w-full resize-y rounded-inner border border-line bg-white p-4 text-[15px] leading-8 outline-none focus:ring-2 focus:ring-key md:p-5"
-          aria-label="초안 본문" placeholder="근거 자료를 보고 '~함.'으로 끝나는 문장으로 써 주세요"
-        />
+        {/* 역량 보기 (Figma N18): 켜면 본문을 3대 역량 색으로 — 편집칸은 숨겨 둘 뿐 폼에 그대로 남는다 */}
+        <RecordCompetency studentId={studentId} text={text} title="본문">
+          <textarea
+            ref={area_} name="content" value={text} onChange={(e) => setText(e.target.value)} rows={10} maxLength={5000}
+            className="w-full resize-y rounded-inner border border-line bg-white p-4 text-[15px] leading-8 outline-none focus:ring-2 focus:ring-key md:p-5"
+            aria-label="초안 본문" placeholder="근거 자료를 보고 '~함.'으로 끝나는 문장으로 써 주세요"
+          />
+        </RecordCompetency>
         {c.evidence.hits.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
             <span className="text-mute">근거 연결 {c.evidence.hits.length}곳</span>

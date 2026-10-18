@@ -8,6 +8,11 @@ import { fitToMax, sentences, toNeisSentence } from "./writing";
 export type PieceSource = "누가기록" | "메모" | "본문" | "특색 활동";
 export type MergePiece = { id: string; source: PieceSource; date: string | null; text: string };
 
+/** 조각 칸(세특·행발 편집 화면)에서 바로 남긴 메모의 범위 — 관찰 메모(편집기 "메모로")와 섞이지 않게 따로 둔다 */
+export const pieceScope = (scope: string) => `${scope}#조각`;
+export const PIECE_MIN = 2;
+export const PIECE_MAX = 1000;
+
 /** 합치기·맞추기 목표: 최대에서 90%까지 (NEIS 칸을 거의 채우되 넘지 않게) */
 export const FIT_RATIO = 0.9;
 export function fitRange(range: Pick<LengthRange, "unit" | "max">): LengthRange {

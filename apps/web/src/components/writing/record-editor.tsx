@@ -4,8 +4,9 @@ import { Button } from "@/components/ui";
 import { checkLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import { recordMax, resolveRecordLength, type RecordArea } from "@/lib/domain/writing";
 import { BodyCard } from "./competency-view";
-import { aiRecordDraft, fitRecordAction, listRecordPieces, mergeRecordAction, readRecordFile, saveRecord, tagRecord, type RecordState } from "@/app/(app)/teacher/write/actions";
+import { addRecordPiece, aiRecordDraft, fitRecordAction, listRecordPieces, mergeRecordAction, readRecordFile, saveRecord, tagRecord, type RecordState } from "@/app/(app)/teacher/write/actions";
 import { AiDraftPanel } from "./ai-draft-panel";
+import { PiecesCard } from "./pieces-card";
 import { RecordChecks, type Who } from "./record-checks";
 import { RecordLengthPicker } from "./record-length-picker";
 import { OverApproval } from "@/components/writing/over-approval";
@@ -15,6 +16,14 @@ const MEMO_HINT: Record<RecordArea, string> = {
   동아리: "관찰 메모 (예: 실험 설계 주도, 결과 발표, 후배 지도)",
   진로: "관찰 메모 (예: 학과 탐방 보고서, 직업 인터뷰, 관심 분야 변화)",
   행발: "관찰 키워드 (예: 책임감, 친구 의견 경청, 2학기 자신감 늘어남)",
+};
+
+// 조각 칸 안내 (자율·자치·동아리·진로는 누가기록으로 쌓인다)
+const PIECE_HINT: Record<RecordArea, string> = {
+  "자율·자치": "지금 본 것을 한 조각으로 (누가기록에도 남아요)",
+  동아리: "지금 본 것을 한 조각으로 (누가기록에도 남아요)",
+  진로: "지금 본 것을 한 조각으로 (누가기록에도 남아요)",
+  행발: "지금 본 모습을 한 조각으로 (예: 체육대회 뒷정리를 끝까지 맡음)",
 };
 
 // 특기사항·행발 쓰기: AI 초안 → 본문 수정 → 자동 검사·분량 → 임시 저장 / 확정 (새 버전)
@@ -64,6 +73,8 @@ export function RecordEditor({
         }}
         onApply={setText}
       />
+      <PiecesCard key={`${area}-${clubId ?? ""}-${studentId}`} studentId={studentId} placeholder={PIECE_HINT[area]}
+        load={() => listRecordPieces({ area, studentId, clubId })} add={(t) => addRecordPiece({ area, studentId, clubId, text: t })} />
       <form action={action} className="flex flex-col gap-4">
         <input type="hidden" name="area" value={area} />
         <input type="hidden" name="studentId" value={studentId} />

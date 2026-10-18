@@ -12,8 +12,9 @@ import { evidenceLogs } from "./data";
 import { forbiddenBlock } from "@/lib/domain/forbidden";
 import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence";
 import { fitRecord, mergeRecord, tagCompetency } from "@/lib/server/ai/merge-record";
-import { logPieces, memoPieces, programPieces } from "@/lib/server/merge-pieces";
-import { fitRange, type MergePiece } from "@/lib/domain/merge";
+import { listMemosWithPieces, logPieces, memoPieces, programPieces } from "@/lib/server/merge-pieces";
+import { seoulNow } from "@/lib/domain/night";
+import { fitRange, PIECE_MAX, PIECE_MIN, pieceScope, type MergePiece } from "@/lib/domain/merge";
 import type { TaggedSentence } from "@/lib/domain/competency";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
 
@@ -151,10 +152,31 @@ export async function listRecordPieces(input: { area: string; studentId: string;
   const programArea = t.area === "자율·자치" || t.area === "진로" ? PROGRAM_AREA[t.area] : null;
   const [logs, memos, drafts] = await Promise.all([
     evidenceLogs(t.area, [input.studentId], input.clubId),
-    repo.listRecordMemos(t.area, [input.studentId]),
+    listMemosWithPieces(t.area, [input.studentId]),
     programArea ? repo.listDraftsForStudents([input.studentId]) : Promise.resolve([]),
   ]);
   return [...programPieces(drafts.filter((d) => d.area === programArea)), ...logPieces(logs), ...memoPieces(memos)];
+}
+
+/**
+ * 조각 칸 (Figma N19): 지금 본 것을 바로 한 조각으로 남긴다 (추가만, C4).
+ * 자율·자치·동아리·진로는 누가기록으로 쌓고(누가기록 화면에도 보인다), 행발은 조각 메모로 쌓는다.
+ */
+export async function addRecordPiece(input: { area: string; studentId: string; clubId?: string | null; text: string }): Promise<{ error?: string }> {
+  const t = await recordTarget(input.area, input.studentId, input.clubId);
+  if ("error" in t) return { error: t.error };
+  const text = String(input.text ?? "").trim();
+  if (text.length < PIECE_MIN || text.length > PIECE_MAX) return { error: `조각은 ${PIECE_MIN}~${PIECE_MAX.toLocaleString()}자로 써 주세요` };
+  if (t.area === "행발") {
+    await repo.addRecordMemo({ scope: pieceScope("행발"), studentId: t.student.id, authorId: t.v.accountId, content: text });
+  } else {
+    if (t.area === "동아리" && !input.clubId) return { error: "동아리를 골라 주세요" };
+    await repo.addActivityLogs([{ area: t.area, studentId: t.student.id, authorId: t.v.accountId, clubId: t.area === "동아리" ? input.clubId! : null, date: seoulNow().date, content: text }]);
+    revalidatePath("/teacher/logs");
+  }
+  await repo.audit(t.v.accountId, "record.piece", `${t.area} ${t.student.pseudonymId}`);
+  revalidatePath("/teacher/pieces");
+  return {};
 }
 
 export async function mergeRecordAction(input: { area: string; studentId: string; clubId?: string | null } & z.input<typeof MergeSchema>): Promise<AiDraftResult> {

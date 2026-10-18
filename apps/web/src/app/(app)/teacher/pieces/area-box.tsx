@@ -6,6 +6,7 @@ import { cx } from "@/components/ui";
 import { neisBytes } from "@/lib/domain/length";
 import { orderPieces, type PieceSource } from "@/lib/domain/merge";
 import type { AreaBox } from "@/lib/server/pieces-board";
+import { RecordCompetency } from "@/components/writing/record-competency";
 
 // 영역 카드 (Figma N13 261:3155…): 제목·조각 수 + 분량(조각 · 본문/한도) 막대 + 합치기 / 조각 줄은 날짜 순, 본문 줄은 맨 아래
 
@@ -19,7 +20,7 @@ const STATUS = { 확정: "bg-ok-soft text-ok", "작성 중": "bg-wait-soft text-
 const md = (d: string | null) => (d ? `${+d.slice(5, 7)}.${+d.slice(8, 10)}` : "");
 const SHOWN = 3;
 
-export function AreaBoxCard({ box }: { box: AreaBox & { piecesBytes: number; bodyBytes: number } }) {
+export function AreaBoxCard({ box, studentId }: { box: AreaBox & { piecesBytes: number; bodyBytes: number }; studentId: string }) {
   const [open, setOpen] = useState<string | null>(null);
   const [all, setAll] = useState(false);
   const pct = Math.min(100, Math.round((box.bodyBytes / box.maxBytes) * 100));
@@ -59,6 +60,8 @@ export function AreaBoxCard({ box }: { box: AreaBox & { piecesBytes: number; bod
           <Link href="/teacher/logs" className="text-[13px] font-bold text-key-strong">누가기록 쓰기 ›</Link>
         </div>
       ) : (
+        // 역량 보기 (Figma N18): 조각과 본문을 한 글로 이어 3대 역량으로 나눈다
+        <RecordCompetency studentId={studentId} text={rows.map((r) => r.text.trim()).filter(Boolean).join(" ")} title="조각 전체">
         <ul className="overflow-hidden rounded-inner border border-line">
           {visible.map((p) => {
             const on = open === p.id;
@@ -86,6 +89,7 @@ export function AreaBoxCard({ box }: { box: AreaBox & { piecesBytes: number; bod
             </li>
           )}
         </ul>
+        </RecordCompetency>
       )}
 
       <Link href={box.editHref} aria-disabled={empty}

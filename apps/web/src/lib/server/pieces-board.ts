@@ -7,7 +7,7 @@ import { latestByStudent, statusLabel, studentsInCourse } from "@/lib/domain/set
 import type { Student, Viewer } from "@/lib/domain/types";
 import { latestRecordByStudent, RECORD_LABEL, RECORD_MAX_BYTES, recordStatus, type RecordArea } from "@/lib/domain/writing";
 import { evidenceLogs } from "@/app/(app)/teacher/write/data";
-import { logPieces, memoPieces, programPieces } from "./merge-pieces";
+import { listMemosWithPieces, logPieces, memoPieces, programPieces } from "./merge-pieces";
 import { repo } from "./repo";
 
 // 생기부 조각 (Figma N13): 학생별로 지금까지 모인 조각(누가기록·관찰 메모·받은 특색 활동 초안)과 저장한 본문을 영역마다 모아 본다.
@@ -60,7 +60,7 @@ async function refsFor(v: Viewer): Promise<Ref[]> {
         maxBytes: NEIS_MAX_BYTES["세특"], students: studentsInCourse(all, course, a, rs, sec),
         href: (id) => `/teacher/setuk?${q}&student=${id}&panel=merge`,
         load: async (ids) => {
-          const [memos, records] = await Promise.all([repo.listRecordMemos(`세특:${course.id}`, ids), repo.listSetuk(course.id)]);
+          const [memos, records] = await Promise.all([listMemosWithPieces(`세특:${course.id}`, ids), repo.listSetuk(course.id)]);
           const latest = latestByStudent(records);
           const pieces = new Map(ids.map((id) => [id, memoPieces(memos.filter((m) => m.studentId === id))]));
           const body = new Map(ids.map((id) => [id, { content: latest.get(id)?.content ?? "", status: statusLabel(latest.get(id)) as BodyStatus }]));
@@ -78,7 +78,7 @@ async function refsFor(v: Viewer): Promise<Ref[]> {
       const programArea = area === "자율·자치" ? "창체-자율" : area === "진로" ? "창체-진로" : null;
       const [logs, memos, drafts, records] = await Promise.all([
         evidenceLogs(area, ids, extra.clubId),
-        repo.listRecordMemos(area, ids),
+        listMemosWithPieces(area, ids),
         programArea ? repo.listDraftsForStudents(ids) : Promise.resolve([]),
         repo.listRecordDrafts({ area, year: y, studentIds: ids }),
       ]);

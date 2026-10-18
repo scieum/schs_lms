@@ -8,6 +8,7 @@ import { neisBytes } from "@/lib/domain/length";
 import { addLogs, polishLogMemo, readLogFile, type LogState, type PolishResult } from "./actions";
 import { makeStudentNo } from "@/lib/domain/roster";
 import { StudentListImport } from "@/components/student-list-import";
+import { RecordCompetency } from "@/components/writing/record-competency";
 
 type S = { id: string; name: string; grade: number; classNo: number; number: number; count: number };
 type L = { id: string; studentId: string; date: string; content: string };
@@ -55,6 +56,7 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
   const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const all = picked.size === students.length && students.length > 0;
   const shown = picked.size ? logs.filter((l) => picked.has(l.studentId)) : logs;
+  const one = picked.size === 1 ? [...picked][0] : null;
 
   return (
     <div className="grid gap-4 md:grid-cols-[300px_1fr] md:gap-6">
@@ -135,15 +137,19 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
           {shown.length === 0 ? (
             <p className="py-4 text-center text-sm text-mute">아직 기록이 없어요</p>
           ) : (
-            <ul className="flex flex-col">
-              {shown.slice(0, 30).map((l, i) => (
-                <li key={l.id} className={cx("flex gap-3 py-3", i > 0 && "border-t border-line")}>
-                  <span className="w-20 shrink-0 text-[13px] text-mute">{l.date.slice(5).replace("-", ".")}</span>
-                  <span className="w-14 shrink-0 text-[13px] font-medium">{nameOf.get(l.studentId)}</span>
-                  <span className="min-w-0 flex-1 text-sm text-sub">{l.content}</span>
-                </li>
-              ))}
-            </ul>
+            // 역량 보기 (Figma N18): 학생 한 명을 고르면 그 학생 기록 전체를 한 글로 보고 역량으로 나눈다
+            <RecordCompetency studentId={one ?? ""} text={one ? [...shown].reverse().map((l) => l.content.trim()).join(" ") : ""}
+              title={one ? `${nameOf.get(one)} 기록 ${shown.length}건` : "학생 한 명을 고르면"}>
+              <ul className="flex flex-col">
+                {shown.slice(0, 30).map((l, i) => (
+                  <li key={l.id} className={cx("flex gap-3 py-3", i > 0 && "border-t border-line")}>
+                    <span className="w-20 shrink-0 text-[13px] text-mute">{l.date.slice(5).replace("-", ".")}</span>
+                    <span className="w-14 shrink-0 text-[13px] font-medium">{nameOf.get(l.studentId)}</span>
+                    <span className="min-w-0 flex-1 text-sm text-sub">{l.content}</span>
+                  </li>
+                ))}
+              </ul>
+            </RecordCompetency>
           )}
         </Card>
       </div>

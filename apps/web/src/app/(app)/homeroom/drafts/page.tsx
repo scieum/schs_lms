@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RecordCompetency } from "@/components/writing/record-competency";
 import { redirect } from "next/navigation";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Card, StatTiles, Tag } from "@/components/ui";
@@ -37,16 +38,19 @@ export default async function HomeroomDrafts() {
               {drafts.map((d) => {
                 const s = byId.get(d.studentId);
                 return (
-                  <li key={`${d.programId}-${d.studentId}`}>
-                    <Link href={`/homeroom/students/${d.studentId}`} className="block rounded-inner bg-white p-3.5 hover:ring-2 hover:ring-key-soft">
+                  <li key={`${d.programId}-${d.studentId}`} className="rounded-inner bg-white p-3.5">
+                    <Link href={`/homeroom/students/${d.studentId}`} className="block hover:text-key-strong">
                       <div className="flex items-center gap-2">
                         <span className="font-bold">{s ? `${s.number}번 ${s.name}` : "학생"}</span>
                         <Tag>{AREA_LABEL[d.area]}</Tag>
                         <span className="ml-auto shrink-0 text-xs text-mute">{d.finalizedAt.slice(5, 10).replace("-", ".")}</span>
                       </div>
                       <p className="mt-1 truncate text-sm text-mute">{d.programTitle}</p>
-                      <p className="mt-1.5 line-clamp-2 text-sm">{d.content}</p>
                     </Link>
+                    {/* 역량 보기 (Figma N18) — 링크 밖에 두어 스위치를 눌러도 이동하지 않게 */}
+                    <RecordCompetency studentId={d.studentId} title="" text={d.content} className="mt-1.5">
+                      <p className="line-clamp-2 text-sm">{d.content}</p>
+                    </RecordCompetency>
                   </li>
                 );
               })}

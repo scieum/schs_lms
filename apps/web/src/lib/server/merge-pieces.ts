@@ -1,6 +1,14 @@
 import "server-only";
 import type { MergePiece } from "@/lib/domain/merge";
 import type { RecordMemo } from "@/lib/domain/writing";
+import { pieceScope } from "@/lib/domain/merge";
+import { repo } from "./repo";
+
+/** 관찰 메모 + 조각 칸에서 남긴 메모 (생기부 조각 · 합치기에서 같이 쓴다) */
+export async function listMemosWithPieces(scope: string, studentIds: string[]): Promise<RecordMemo[]> {
+  const [memos, pieces] = await Promise.all([repo.listRecordMemos(scope, studentIds), repo.listRecordMemos(pieceScope(scope), studentIds)]);
+  return [...memos, ...pieces];
+}
 
 // 합치기 조각 만들기: 누가기록 · 관찰 메모 · 받은 특색 활동 초안 (같은 글은 한 번만, 새 것부터)
 
