@@ -11,6 +11,8 @@ import type { z } from "zod";
 /** fast = 읽기·열 맞추기·요약 같은 빠른 작업, write = 생기부 초안·문항처럼 글을 쓰는 작업 */
 export type AiModel = "fast" | "write";
 const MODEL: Record<AiModel, string> = { fast: "claude-haiku-5-5", write: "claude-sonnet-5-5" };
+const THINKING: Record<AiModel, Anthropic.ThinkingConfigParam> = { fast: { type: "disabled" }, write: { type: "between_tools" } };
+const EFFORT: Record<AiModel, "low" | "medium"> = { fast: "low", write: "medium" };
 
 export type AiResult<T> = { ok: true; data: T } | { ok: false; error: string };
 type Content = string | Anthropic.ContentBlockParam[];
@@ -34,12 +36,17 @@ export async function aiJson<S extends z.ZodType>(
   if (!aiEnabled()) return { ok: false, error: "AI가 꺼져 있어요 (ANTHROPIC_API_KEY 없음). 직접 입력해 주세요" };
   const client = new Anthropic();
   try {
+    const model = opts.model ?? "fast";
     const res = await client.messages.parse({
-      model: MODEL[opts.model ?? "fast"],
+      model: MODEL[model],
       max_tokens: opts.maxTokens ?? 4000,
-      system: opts.system + RULES,
+      // 긴 시스템 프롬프트(세특 프롬프트 등)는 캐시해 두 번째부터 빨리 시작한다
+      system: [{ type: "text", text: opts.system + RULES, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: opts.content }],
-      output_config: { format: zodOutputFormat(schema) },
+      // 속도 (2026-10-18 "AI가 너무 오래 걸려"): Claude 5 모델은 기본으로 생각을 켜고 오래 고민한다.
+      // 정해진 형식의 짧은 글이라 생각을 끄고 노력 수준을 낮춘다 (Haiku 낮음 · Sonnet 보통). 생각 토큰이 max_tokens 를 먹어 답이 끊기던 것도 막는다
+      thinking: THINKING[model],
+      output_config: { format: zodOutputFormat(schema), effort: EFFORT[model] },
     });
     if (res.stop_reason === "refusal") return { ok: false, error: "AI가 이 요청을 처리하지 못했어요. 직접 입력해 주세요" };
     if (!res.parsed_output && res.stop_reason === "max_tokens") return { ok: false, error: "내용이 많아 AI 답이 중간에 끊겼어요. 쪽을 나눠 올려 주세요" };
