@@ -2,11 +2,11 @@
 // 팝업이 chrome.scripting 으로 이 파일을 넣은 뒤 window.__schsNeisFill(payload) 를 부른다.
 // 한 명씩 넣기 패널(panel.js)도 여기의 함수(window.__schsNeis)를 같이 쓴다.
 (() => {
-  // 나이스 바이트 (2026 기재요령): 한글 등 3, 영문·숫자·공백·기호 1, 엔터 1 (웹 lib/domain/length.ts 와 같다)
+  // 나이스 바이트: 한글(·한자) 3, 영어·숫자·기호·공백 1, 엔터 1 (웹 lib/domain/length.ts 와 같다)
   function neisBytes(text) {
     let n = 0;
     for (const ch of String(text).replace(/\r\n/g, "\n")) {
-      n += ch.charCodeAt(0) <= 0x7f ? 1 : 3;
+      n += /[\u1100-\u11FF\u2E80-\u9FFF\uA960-\uA97F\uAC00-\uD7FF\uF900-\uFAFF]/.test(ch) ? 3 : 1;
     }
     return n;
   }

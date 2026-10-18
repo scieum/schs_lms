@@ -7,6 +7,10 @@ describe("분량 세기", () => {
     expect(neisBytes("AI 탐구")).toBe(9);
     expect(neisBytes("가\n나")).toBe(7);
     expect(neisBytes("가\r\n나")).toBe(7);
+    // 기호는 ASCII가 아니어도 1 (·, ※, “”, ①, …)
+    expect(neisBytes("탐구·발표")).toBe(13);
+    expect(neisBytes("※“①”…")).toBe(5);
+    expect(neisBytes("漢字")).toBe(6);
   });
   it("글자 수는 공백 포함, 줄바꿈 제외", () => {
     expect(charCount("AI 탐구\n함")).toBe(6);

@@ -14,11 +14,14 @@ export const NEIS_MAX_BYTES: Record<DraftCategory, number> = {
 /** 하한 = 최대 × 비율 (rules.yaml length.min_ratio 와 같은 값) */
 export const MIN_RATIO = 0.6;
 
-/** NEIS 방식 바이트 (2026 기재요령 208쪽): 한글 등 3, 영문·숫자·공백·기호 1, 엔터 1 */
+/** 3바이트로 세는 글자: 한글(음절·자모)과 한자·가나. 영문·숫자·기호(·※“”① 등)·공백·엔터는 1 */
+const WIDE = /[\u1100-\u11FF\u2E80-\u9FFF\uA960-\uA97F\uAC00-\uD7FF\uF900-\uFAFF]/;
+
+/** NEIS 방식 바이트 (2026-10-18 사용자 확인): 한글 3, 영어·숫자·기호·공백 1, 엔터 1 */
 export function neisBytes(text: string): number {
   let n = 0;
   for (const ch of text.replace(/\r\n/g, "\n")) {
-    n += ch.charCodeAt(0) <= 0x7f ? 1 : 3;
+    n += WIDE.test(ch) ? 3 : 1;
   }
   return n;
 }

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SCHS 나이스 입력 도우미",
   "short_name": "SCHS 나이스",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "속초고 학생관리시스템에서 확정한 세특·창체·행발을 열어 둔 나이스 입력 화면에 넣어요. 저장은 선생님이 직접 눌러요.",
   "action": {
     "default_title": "SCHS 나이스 입력 도우미",
