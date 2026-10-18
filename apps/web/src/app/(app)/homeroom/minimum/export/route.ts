@@ -4,12 +4,13 @@ import { can } from "@/lib/domain/policy";
 import { judgeMinimum, shortRule, SUBJECT_LABEL, SUBJECTS } from "@/lib/domain/scores";
 import { repo } from "@/lib/server/repo";
 import { buildTable, xlsxResponse } from "@/lib/server/scores-excel";
-import { getViewer } from "@/lib/server/viewer";
+import { getViewer, lockedAction } from "@/lib/server/viewer";
 
 const text = (msg: string, status: number) => new Response(msg, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
 // 판정 결과 내려받기 (반 학생 × 목표 대학 전부)
 export async function GET(req: NextRequest) {
+  if (lockedAction("minimum.view")) return new Response("잠긴 기능이에요", { status: 403, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   const v = await getViewer();
   if (!v || !can(v, "minimum.view")) return text("권한이 없어요", 403);
   const sp = req.nextUrl.searchParams;

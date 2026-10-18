@@ -1,4 +1,5 @@
 "use server";
+import { scoresEnabled } from "@/lib/server/features";
 import { z } from "zod";
 import { canViewStudentRecord } from "@/lib/domain/counsel";
 import { peakAbsenceDay } from "@/lib/domain/homeroom";
@@ -52,6 +53,7 @@ export type InsightResult = { ok: true; line: string; source: "AI" | "자동"; e
 
 /** 탭별 한 줄 해석 (H2): 성적 탭 = 모의고사 추이, 야자 탭 = 4주 출결. 가명ID·등급·출결만 보낸다. 저장하지 않는다 */
 export async function tabInsight(studentId: string, tab: "scores" | "night"): Promise<InsightResult> {
+  if (tab === "scores" && !scoresEnabled()) return { ok: false, error: "잠긴 기능이에요" } as InsightResult;
   const v = await requireCan("homeroom.view");
   const student = await repo.getStudent(studentId);
   if (!student || !canViewStudentRecord(v, student)) return { ok: false, error: "우리 반 학생만 볼 수 있어요" };

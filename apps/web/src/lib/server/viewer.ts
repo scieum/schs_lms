@@ -5,6 +5,7 @@ import type { Viewer } from "@/lib/domain/types";
 import { can, type Action } from "@/lib/domain/policy";
 import { repo } from "./repo";
 import { readSession } from "./session";
+import { scoresEnabled } from "./features";
 
 /** 지금 로그인한 사람. 요청마다 한 번만 읽는다. */
 export const getViewer = cache(async (): Promise<Viewer | null> => {
@@ -28,7 +29,12 @@ export async function requireViewer(): Promise<Viewer> {
 }
 
 /** 권한까지 확인. 없으면 403 화면 */
+/** 잠근 기능의 권한 (lib/server/features.ts) */
+const SCORE_ACTIONS: Action[] = ["scores.upload", "minimum.view"];
+export const lockedAction = (action: Action) => SCORE_ACTIONS.includes(action) && !scoresEnabled();
+
 export async function requireCan(action: Action): Promise<Viewer> {
+  if (lockedAction(action)) redirect("/locked");
   const v = await requireViewer();
   if (!can(v, action)) redirect("/forbidden");
   return v;

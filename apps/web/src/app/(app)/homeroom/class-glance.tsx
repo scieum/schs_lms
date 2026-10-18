@@ -17,13 +17,15 @@ const MISS = "bg-bad-soft text-bad";
 const CARE = "border border-hair bg-white text-sub";
 
 /** 학생 한눈에 (H1): 전체 · 최저 미충족 · 상담 필요. PC는 5열 카드, 모바일은 목록 */
-export function ClassGlance({ students }: { students: GlanceStudent[] }) {
+export function ClassGlance({ students, scores = true }: { students: GlanceStudent[]; scores?: boolean }) {
   const [tab, setTab] = useState(0);
-  const tabs: [string, (s: GlanceStudent) => boolean][] = [
+  const all: [string, (s: GlanceStudent) => boolean][] = [
     ["전체", () => true],
     ["최저 미충족", (s) => s.miss],
     ["상담 필요", (s) => s.care],
   ];
+  // 성적 잠금이면 '최저 미충족' 거르기를 뺀다
+  const tabs = all.filter(([label]) => scores || label !== "최저 미충족");
   const shown = students.filter(tabs[tab][1]);
   const tag = (s: GlanceStudent) => (s.miss ? <Tag tone={MISS}>최저 미충족</Tag> : s.care ? <Tag tone={CARE}>상담 필요</Tag> : null);
 

@@ -5,6 +5,7 @@ import { judgeMinimum, shortRule, sortExams, SUBJECT_LABEL, SUBJECTS, type Subje
 import { minimumNeedLine } from "@/lib/domain/student-assist";
 import { aiEnabled, aiJson } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
+import { scoresEnabled } from "@/lib/server/features";
 import { requireCan } from "@/lib/server/viewer";
 
 export type TargetState = { error?: string; ok?: boolean };
@@ -18,6 +19,7 @@ const Target = z.object({
 /** 목표 대학 (최대 3개). 기준 목록에서 고르거나 직접 쓰기 (직접 쓰면 판정 불가 → 담임이 기준을 추가하면 판정) */
 export async function saveTargets(_: TargetState, form: FormData): Promise<TargetState> {
   const v = await requireCan("student.self");
+  if (!scoresEnabled()) throw new Error("잠긴 기능이에요");
   if (v.kind !== "student") return { error: "학생만 정할 수 있어요" };
   let list: z.infer<typeof Target>[];
   try {
@@ -50,6 +52,7 @@ const AiOut = z.object({
 /** 내 모의고사 추이와 목표 대학 기준을 보고 필요한 등급·공부 계획을 정리한다. 가명ID·등급만 보낸다 */
 export async function analyzeMyScores(): Promise<Analysis> {
   const v = await requireCan("student.self");
+  if (!scoresEnabled()) throw new Error("잠긴 기능이에요");
   if (v.kind !== "student") return { ok: false, error: "학생만 쓸 수 있어요" };
   const id = v.student.id;
   const [exams, scores, rules, targets] = await Promise.all([repo.listExams(), repo.listMockScores([id]), repo.listMinRules(), repo.listStudentTargets([id])]);
@@ -110,6 +113,7 @@ export type PlanState = { error?: string; saved?: boolean };
 /** 확인 후 공부 계획에 담기 (추가만) */
 export async function saveStudyPlan(_: PlanState, form: FormData): Promise<PlanState> {
   const v = await requireCan("student.self");
+  if (!scoresEnabled()) throw new Error("잠긴 기능이에요");
   if (v.kind !== "student") return { error: "학생만 쓸 수 있어요" };
   let items: string[];
   try {

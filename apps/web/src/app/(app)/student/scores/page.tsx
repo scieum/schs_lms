@@ -7,6 +7,8 @@ import { minimumNeedLine } from "@/lib/domain/student-assist";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
+import { scoresEnabled } from "@/lib/server/features";
+import { redirect } from "next/navigation";
 import { AnalysisPanel } from "./analysis-panel";
 import { TargetEditor } from "./target-editor";
 import { TrendCard } from "./trend-card";
@@ -16,6 +18,7 @@ export const metadata = { title: "내 성적 · 속초고등학교 학생관리�
 const grade = (n: number | null) => (n === null ? "–" : `${n}등급`);
 
 export default async function MyScoresPage() {
+  if (!scoresEnabled()) redirect("/locked");
   const v = await requireCan("student.self");
   if (v.kind !== "student") return null;
   const id = v.student.id;

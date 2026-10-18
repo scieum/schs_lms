@@ -1,4 +1,5 @@
 "use server";
+import { withoutLocked } from "@/lib/server/features";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { cleanCareerGoal } from "@/lib/domain/counsel";
@@ -77,7 +78,7 @@ export async function saveAvatar(avatar: string | null): Promise<PrefsResult> {
 /** 숨긴 메뉴: 내 사이드바에 있는 메뉴만, 홈·내 정보는 뺀다 */
 export async function saveHiddenMenus(hrefs: string[]): Promise<PrefsResult> {
   const v = await requireViewer();
-  const allowed = new Set(navFor(v).flatMap((g) => g.items).filter((it) => !isLockedMenu(it)).map((it) => it.href));
+  const allowed = new Set(withoutLocked(navFor(v)).flatMap((g) => g.items).filter((it) => !isLockedMenu(it)).map((it) => it.href));
   const clean = [...new Set(hrefs)].filter((h) => allowed.has(h)).slice(0, 100);
   try {
     await repo.setHiddenMenus(v.accountId, clean);

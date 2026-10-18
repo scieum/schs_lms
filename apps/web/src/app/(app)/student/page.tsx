@@ -1,3 +1,4 @@
+import { scoresEnabled } from "@/lib/server/features";
 import Link from "next/link";
 import { BookOpen, ClipboardList, ListChecks, Moon, Upload } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -64,7 +65,7 @@ export default async function StudentHome() {
   const now = today();
   const [todos, scores, night, inputs, records, recItems] = await Promise.all([
     repo.listStudentTodos(s.id, now),
-    repo.scoresStudentSummary(s.id),
+    scoresEnabled() ? repo.scoresStudentSummary(s.id) : Promise.resolve(null),
     repo.nightStudentWeek(s.id),
     myTodoInputs(s, now),
     loadMyRecords(v),
@@ -93,10 +94,14 @@ export default async function StudentHome() {
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-4">
           <Stat label="제출할 설문" value={`${surveys.length}개`} action={respond} />
           <Stat label="제출할 서류" value={`${docs.length}개`} />
-          <Stat
-            label={scores.latestExam ? `${scores.latestExam.month}월 모의 평균` : "모의 평균"}
-            value={scores.latestAverage === null ? "–" : `${scores.latestAverage.toFixed(1)}등급`}
-          />
+          {scores ? (
+            <Stat
+              label={scores.latestExam ? `${scores.latestExam.month}월 모의 평균` : "모의 평균"}
+              value={scores.latestAverage === null ? "–" : `${scores.latestAverage.toFixed(1)}등급`}
+            />
+          ) : (
+            <Stat label="확정된 기록" value={`${records.length}건`} />
+          )}
           <Stat label="이번 주 야자" value={`${night.signed}일`} />
         </div>
         {firstSurvey && (

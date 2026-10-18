@@ -1,3 +1,4 @@
+import { withoutLocked } from "@/lib/server/features";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronRight } from "lucide-react";
@@ -18,7 +19,7 @@ export default async function HomeroomMenu() {
     <>
       <PageHeader eyebrow={`${grade}학년 ${classNo}반`} title="담임" />
       <PageBody>
-        {HOMEROOM_MENU.map((g) => (
+        {withoutLocked(HOMEROOM_MENU).map((g) => (
           <Card key={g.label} title={g.label}>
             <ul className="flex flex-col gap-1.5">
               {g.items.map((it) => (

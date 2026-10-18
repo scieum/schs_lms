@@ -23,6 +23,7 @@
 4. 개발하다 시안과 달라지면 시안도 다시 맞춘다. 새 시안 번호는 `docs/design-system.md` 에 적는다.
 
 ## 지킬 것 (PRD §12)
+- **성적 기능 잠금 (2026-10-18 사용자: 성적은 민감한 개인정보)**: 성적 업로드·수능 최저·학생 성적 화면과 홈·학생 상세의 성적 숫자는 `lib/server/features.ts`로 잠가 둔다. 다시 열려면 서버 환경변수 `FEATURE_SCORES=on`. 새 기능에서 성적을 보여 주거나 AI에 보낼 때도 `scoresEnabled()`를 확인한다.
 - 권한 판정은 `lib/domain/policy.ts`의 `can()` 한 곳에서만. 화면·액션·라우트 모두 `requireCan`.
 - API 키·service role 키는 서버에만 (C1). URL에 학번·이름 금지 (C3).
 - 감사 로그·확정본은 추가만 (C4). 감사 로그에는 이름 대신 가명ID.

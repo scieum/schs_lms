@@ -1,3 +1,4 @@
+import { scoresEnabled } from "@/lib/server/features";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FileText } from "lucide-react";
@@ -26,7 +27,7 @@ export default async function HomeroomHome() {
   const ids = mine.map((s) => s.id);
   const [drafts, scores, night, brief, counsel, programs] = await Promise.all([
     repo.listDraftsForStudents(ids),
-    repo.scoresClassSummary(ids),
+    scoresEnabled() ? repo.scoresClassSummary(ids) : Promise.resolve([]),
     repo.nightClassToday(ids),
     briefingInputs(mine),
     repo.listCounsel({ studentIds: ids }),
@@ -72,7 +73,7 @@ export default async function HomeroomHome() {
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 4);
 
-  const tiles: [string, string][] = [["우리 반", `${mine.length}명`], ["받은 초안", `${drafts.length}건`], ["최저 충족 예상", `${met}명`], ["오늘 야자", `${nightSigned}명`]];
+  const tiles: [string, string][] = [["우리 반", `${mine.length}명`], ["받은 초안", `${drafts.length}건`], scoresEnabled() ? ["최저 충족 예상", `${met}명`] : ["상담 필요", `${care.size}명`], ["오늘 야자", `${nightSigned}명`]];
 
   return (
     <>
@@ -97,7 +98,7 @@ export default async function HomeroomHome() {
         <Briefing line={brief.line} ai={aiEnabled()} names={Object.fromEntries(byName)} />
         <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
           <Card title="학생 한눈에" action={<Link href="/homeroom/students" className="hidden text-[13px] text-sub hover:text-key-strong md:inline">{mine.length}명 전체 보기</Link>}>
-            {mine.length === 0 ? <p className="py-6 text-center text-sm text-mute">아직 등록된 학생이 없어요</p> : <ClassGlance students={glance} />}
+            {mine.length === 0 ? <p className="py-6 text-center text-sm text-mute">아직 등록된 학생이 없어요</p> : <ClassGlance students={glance} scores={scoresEnabled()} />}
           </Card>
           <div className="flex flex-col gap-4 md:gap-6">
             <div id="drafts" className="scroll-mt-6">

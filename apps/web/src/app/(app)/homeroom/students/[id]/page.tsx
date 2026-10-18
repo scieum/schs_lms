@@ -1,3 +1,4 @@
+import { scoresEnabled } from "@/lib/server/features";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { MessageSquare } from "lucide-react";
@@ -33,7 +34,8 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
   const student = await repo.getStudent(id);
   if (!student) notFound();
   if (!canViewStudentRecord(v, student)) redirect("/forbidden");
-  const tab: TabKey = (TABS as readonly string[]).includes(q.tab ?? "") ? (q.tab as TabKey) : "draft";
+  const scoresOn = scoresEnabled(); // 성적 잠금 (lib/server/features.ts)
+  const tab: TabKey = (TABS as readonly string[]).includes(q.tab ?? "") && (scoresOn || q.tab !== "scores") ? (q.tab as TabKey) : "draft";
 
   const names = await teacherNames();
   const [setuk, logs, service, counsel, past, corrections] = await Promise.all([
@@ -44,7 +46,7 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
     repo.listPastRecords([student.id]),
     repo.listCorrectionRequests([student.id]),
   ]);
-  const [scores, night, finals] = await Promise.all([repo.scoresStudentSummary(student.id), repo.nightStudentWeek(student.id), repo.listDraftsForStudents([student.id])]);
+  const [scores, night, finals] = await Promise.all([scoresOn ? repo.scoresStudentSummary(student.id) : Promise.resolve(null), repo.nightStudentWeek(student.id), repo.listDraftsForStudents([student.id])]);
   const drafts = activityItems(setuk, [], [], names);
   const logItems = activityItems([], logs, service, names);
   const pastCount = countByArea(past);
@@ -61,7 +63,7 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
   const preview = allDrafts.find((d) => d.content);
   const tabs = [
     { key: "draft", label: `생기부 초안 ${allDrafts.length}`, short: "초안", href: base },
-    { key: "scores", label: "성적·수능 최저", short: "성적", href: `${base}?tab=scores` },
+    ...(scoresOn ? [{ key: "scores", label: "성적·수능 최저", short: "성적", href: `${base}?tab=scores` }] : []),
     { key: "counsel", label: `상담 ${counsel.length}`, short: "상담", href: `${base}?tab=counsel` },
     { key: "night", label: "야자", short: "야자", href: `${base}?tab=night` },
     { key: "logs", label: `누가기록·봉사 ${logItems.length}`, short: "누가기록", href: `${base}?tab=logs` },
@@ -88,7 +90,7 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
 
         {tab === "draft" && (
           <>
-            <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
+            <div className={cx("grid gap-4 md:gap-6", scores && "md:grid-cols-[1fr_340px]")}>
               <Card title="생기부 초안 모음" action={<span className="text-[13px] text-mute">{allDrafts.length}건</span>}>
                 <ActivityList items={allDrafts} empty="아직 받은 초안이 없어요" />
                 {preview && (
@@ -98,7 +100,7 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
                   </div>
                 )}
               </Card>
-              <div className="flex flex-col gap-4 md:gap-6">
+              {scores && <div className="flex flex-col gap-4 md:gap-6">
                 <Card title="모의고사 평균 등급" action={<span className="text-[13px] text-mute">{scores.latestExam?.name ?? ""}</span>}>
                   {scores.trend.length === 0 ? (
                     <p className="py-6 text-center text-sm text-mute">아직 올린 성적이 없어요</p>
@@ -115,7 +117,7 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
                     ))
                   )}
                 </Card>
-              </div>
+              </div>}
             </div>
             <div className="grid gap-4 md:grid-cols-2 md:gap-6">
               <Card title="지난 학년도 확정본">
@@ -152,11 +154,11 @@ export default async function StudentRecordPage({ params, searchParams }: Props)
           </>
         )}
 
-        {tab === "scores" && (
+        {tab === "scores" && scores && (
           <TabInsight studentId={student.id} tab="scores" title="성적 추이 해석" ai={aiEnabled()}
             line={scores.trend.length < 2 ? "모의고사가 두 번 이상 있어야 추이를 볼 수 있어요" : "평균 등급 흐름과 상담에서 짚을 과목을 한 줄로 알려 줘요"} />
         )}
-        {tab === "scores" && (
+        {tab === "scores" && scores && (
           <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
             <Card title="모의고사 평균 등급" action={<ButtonLink href="/homeroom/scores" kind="ghost" size="sm">성적 업로드</ButtonLink>}>
               {scores.trend.length === 0 ? (

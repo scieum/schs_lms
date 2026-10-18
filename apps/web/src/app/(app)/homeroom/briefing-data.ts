@@ -1,3 +1,4 @@
+import { scoresEnabled } from "@/lib/server/features";
 import "server-only";
 import type { Student } from "@/lib/domain/types";
 import { briefingLine, pickBriefing, type BriefInput, type BriefPick } from "@/lib/domain/homeroom";
@@ -9,7 +10,7 @@ export async function briefingInputs(mine: Student[]): Promise<{ inputs: BriefIn
   const ids = mine.map((s) => s.id);
   const today = seoulNow().date;
   const [scores, att, corrections, drafts] = await Promise.all([
-    repo.scoresClassSummary(ids),
+    scoresEnabled() ? repo.scoresClassSummary(ids) : Promise.resolve([]), // 성적 잠금이면 최저 신호 없이
     repo.listNightAttendance(addDays(today, -27), today, ids),
     repo.listCorrectionRequests(ids),
     repo.listDraftsForStudents(ids),

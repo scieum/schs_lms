@@ -1,3 +1,4 @@
+import { tabsWithoutLocked, withoutLocked } from "@/lib/server/features";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -35,7 +36,7 @@ export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
             <div className="truncate text-xs text-mute">{roleLabel(viewer)}</div>
           </div>
         </div>
-        <SidebarLinks groups={hideMenus(navFor(viewer, badges), prefs.hiddenMenus)} />
+        <SidebarLinks groups={hideMenus(withoutLocked(navFor(viewer, badges)), prefs.hiddenMenus)} />
         {/* 사용 가이드 (Figma 사이드바 아래 카드) → 영랑이 열기 */}
         <div className="mt-auto pt-6">
           <div className="rounded-inner bg-soft p-4 group-data-[mini=true]/side:hidden">
@@ -59,7 +60,7 @@ export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
         )}
         {children}
       </div>
-      <TabBar tabs={hideTabs(tabsFor(viewer), prefs.hiddenMenus)} />
+      <TabBar tabs={hideTabs(tabsWithoutLocked(tabsFor(viewer)), prefs.hiddenMenus)} />
       <Yeongrang student={viewer.kind === "student"} />
     </div>
   );

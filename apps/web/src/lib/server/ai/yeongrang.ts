@@ -1,3 +1,4 @@
+import { isScorePath, scoresEnabled } from "../features";
 import "server-only";
 import { z } from "zod";
 import { aiJson } from "./claude";
@@ -40,7 +41,8 @@ export type YeongrangRole = "teacher" | "homeroom" | "admin" | "student" | "gues
 
 function forRole(role: YeongrangRole) {
   if (role === "guest") return GUIDE.filter((g) => g.id === "1.1" || g.id === "1.2");
-  return GUIDE.filter((g) => g.who.includes(role) || (role === "admin" && g.who.some((w) => w !== "student")));
+  // 잠근 기능(성적)은 안내하지 않는다
+  return GUIDE.filter((g) => g.who.includes(role) || (role === "admin" && g.who.some((w) => w !== "student"))).filter((g) => scoresEnabled() || !isScorePath(g.href));
 }
 
 /** 키 없을 때: 낱말이 가장 많이 겹치는 안내 항목 */
