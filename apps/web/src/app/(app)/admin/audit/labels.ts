@@ -23,7 +23,7 @@ const LABEL: Record<string, string> = {
   "survey.save": "설문 임시 저장", "survey.submit": "설문 제출", "survey.ai.hint": "AI 작성 힌트",
   // 기록 쓰기·상담
   "record.save": "기록 저장", "record.confirm": "기록 확정", "record.export": "기록 내보내기", "record.ai_draft": "AI 기록 초안", "setuk.ai_draft": "AI 세특 초안",
-  "record.ai_flow": "AI 기록 흐름 요약", "record.competency": "AI 역량 보기", "record.piece": "조각 추가", "record.ai_keywords": "AI 기록 요약", "record.correction": "정정 요청",
+  "record.ai_flow": "AI 기록 흐름 요약", "record.competency": "AI 역량 보기", "record.piece": "조각 추가", "setuk.ai_piece_file": "AI 자료 요약 (조각)", "setuk.ai_piece_draft": "AI 조각 초안", "record.ai_keywords": "AI 기록 요약", "record.correction": "정정 요청",
   "counsel.add": "상담 기록", "counsel.revise": "상담 기록 수정", "counsel.ai_summary": "AI 상담 요약", "career.update": "희망 진로 변경", "recs.ai": "AI 추천",
   // 성적·최저·야자
   "scores.upload": "성적 업로드", "scores.targets": "목표 대학 설정", "minimum.rule.add": "최저 기준 추가", "minimum.rule.archive": "최저 기준 내림",

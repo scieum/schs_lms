@@ -20,6 +20,18 @@ const STATUS = { 확정: "bg-ok-soft text-ok", "작성 중": "bg-wait-soft text-
 const md = (d: string | null) => (d ? `${+d.slice(5, 7)}.${+d.slice(8, 10)}` : "");
 const SHOWN = 3;
 
+/**
+ * 조각이 없을 때 갈 곳 (Figma N22): 세특은 세특 편집 화면의 조각 칸, 행발은 행발 화면, 창체는 그 영역의 누가기록 탭.
+ * (예전에는 모두 누가기록으로 가서 세특에서 누르면 동아리 탭이 열렸다)
+ */
+function emptyLink(box: AreaBox): { href: string; label: string } {
+  const edit = box.editHref.replace(/&panel=merge/, "");
+  if (box.filter === "세특") return { href: edit, label: "세특에서 조각 만들기 ›" };
+  if (box.filter === "행발") return { href: edit, label: "행발에서 조각 남기기 ›" };
+  const club = box.editHref.match(/[?&]club=([^&]+)/)?.[1];
+  return { href: `/teacher/logs?area=${encodeURIComponent(box.filter)}${club ? `&club=${club}` : ""}`, label: "누가기록 쓰기 ›" };
+}
+
 export function AreaBoxCard({ box, studentId }: { box: AreaBox & { piecesBytes: number; bodyBytes: number }; studentId: string }) {
   const [open, setOpen] = useState<string | null>(null);
   const [all, setAll] = useState(false);
@@ -57,7 +69,7 @@ export function AreaBoxCard({ box, studentId }: { box: AreaBox & { piecesBytes: 
         <div className="flex flex-col items-center gap-1.5 rounded-inner bg-bg py-7 text-center">
           <Layers size={24} className="text-faint" />
           <p className="text-[14px] text-sub">아직 조각이 없어요</p>
-          <Link href="/teacher/logs" className="text-[13px] font-bold text-key-strong">누가기록 쓰기 ›</Link>
+          <Link href={emptyLink(box).href} className="text-[13px] font-bold text-key-strong">{emptyLink(box).label}</Link>
         </div>
       ) : (
         // 역량 보기 (Figma N18): 조각과 본문을 한 글로 이어 3대 역량으로 나눈다

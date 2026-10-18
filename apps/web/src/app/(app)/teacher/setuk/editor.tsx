@@ -7,7 +7,7 @@ import { RecordChecks, type Who } from "@/components/writing/record-checks";
 import { checkLength, MIN_RATIO, NEIS_MAX_BYTES, neisMax, resolveLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import { BodyCard } from "@/components/writing/competency-view";
 import { PiecesCard } from "@/components/writing/pieces-card";
-import { addSetukPiece, aiSetukDraft, fitSetuk, listSetukPieces, mergeSetuk, readSetukFile, saveSetuk, tagSetuk, type SetukState } from "./actions";
+import { addSetukPiece, aiSetukDraft, draftSetukFromPiece, summarizeSetukFile, fitSetuk, listSetukPieces, mergeSetuk, readSetukFile, saveSetuk, tagSetuk, type SetukState } from "./actions";
 import { OverApproval } from "@/components/writing/over-approval";
 
 // 세특 쓰기: AI 초안(관찰 메모) + 본문 + 자동 검사·분량(단위·최대) + 임시 저장 / 확정.
@@ -48,6 +48,16 @@ export function SetukEditor({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* 조각 칸이 맨 위 (Figma N22): 자료로 조각 만들기 → 활동 요약 + 고른 분량의 초안 */}
+      <PiecesCard key={`${courseId}-${studentId}`} studentId={studentId} placeholder="수업 중 본 것을 한 조각으로 (예: 오차 원인을 스스로 찾아 다시 측정함)"
+        load={() => listSetukPieces({ courseId, studentId })} add={(t) => addSetukPiece({ courseId, studentId, text: t })}
+        maker={{
+          summarize: (fd) => { fd.set("courseId", courseId); fd.set("studentId", studentId); return summarizeSetukFile(fd); },
+          draft: (d) => draftSetukFromPiece({ courseId, studentId, ...d }),
+          unit: range.unit,
+          neisMax: Math.min(neisMax("세특", range.unit), capMax),
+          onApply: setText,
+        }} />
       <AiDraftPanel
         initialMemo={memo}
         placeholder="관찰 메모 (예: 빗면 실험 설계 주도, 오차 원인 질문, 산업디자인 진로와 연결)"
@@ -63,8 +73,6 @@ export function SetukEditor({
         }}
         onApply={setText}
       />
-      <PiecesCard key={`${courseId}-${studentId}`} studentId={studentId} placeholder="수업 중 본 것을 한 조각으로 (예: 오차 원인을 스스로 찾아 다시 측정함)"
-        load={() => listSetukPieces({ courseId, studentId })} add={(t) => addSetukPiece({ courseId, studentId, text: t })} />
       <form action={action} className="flex flex-col gap-4">
         <input type="hidden" name="courseId" value={courseId} />
         <input type="hidden" name="studentId" value={studentId} />

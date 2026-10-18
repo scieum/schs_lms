@@ -5,6 +5,7 @@ import { ChevronRight, Plus } from "lucide-react";
 import { Button, cx } from "@/components/ui";
 import { orderPieces, PIECE_MAX, type MergePiece, type PieceSource } from "@/lib/domain/merge";
 import { RecordCompetency } from "./record-competency";
+import { PieceMaker, type PieceMakerApi } from "./piece-maker";
 
 // 조각 칸 (Figma N19): 세특·행발·동아리(창체) 편집 화면에서 이 학생의 조각(누가기록·메모·특색 활동)을 보고, 지금 본 것을 바로 한 조각으로 남긴다.
 // 남긴 조각은 생기부 조각 화면과 합치기 탭에 같이 모인다. 스위치를 켜면 조각 전체를 역량으로 나눠 본다 (N18).
@@ -18,11 +19,13 @@ const CHIP: Record<PieceSource, string> = {
 const SHOWN = 4;
 const md = (d: string | null) => (d ? `${+d.slice(5, 7)}.${+d.slice(8, 10)}` : "");
 
-export function PiecesCard({ studentId, load, add, placeholder }: {
+export function PiecesCard({ studentId, load, add, placeholder, maker }: {
   studentId: string;
   load: () => Promise<MergePiece[]>;
   add: (text: string) => Promise<{ error?: string }>;
   placeholder: string;
+  /** 세특 (N22): 자료로 조각 만들기를 맨 위에, 메모로 남기기는 아래로 작게 */
+  maker?: PieceMakerApi;
 }) {
   const [pieces, setPieces] = useState<MergePiece[] | null>(null);
   const [all, setAll] = useState(false);
@@ -45,6 +48,12 @@ export function PiecesCard({ studentId, load, add, placeholder }: {
     setMsg({ ok: true, text: "조각을 남겼어요" });
     setPieces(await load().catch(() => pieces ?? []));
   });
+  // 자료로 만든 활동 요약을 조각으로 남기고 목록을 다시 불러온다
+  const keepSummary = async (summary: string) => {
+    const r = await add(summary).catch(() => ({ error: "남기지 못했어요" }));
+    if (!r.error) setPieces(await load().catch(() => pieces ?? []));
+    return r;
+  };
 
   // 새 것부터 보여 준다
   const list = pieces ? orderPieces(pieces).reverse() : [];
@@ -56,6 +65,7 @@ export function PiecesCard({ studentId, load, add, placeholder }: {
         <p className="py-4 text-center text-[13px] text-mute" role="status">조각을 모으는 중이에요</p>
       ) : (
         <RecordCompetency studentId={studentId} title={`조각 ${list.length}`} text={[...list].reverse().map((p) => p.text.trim()).join(" ")}>
+          {maker && <div className="mb-3"><PieceMaker api={maker} save={keepSummary} /></div>}
           {list.length === 0 ? (
             <p className="rounded-inner bg-bg py-5 text-center text-[13px] text-mute">아직 조각이 없어요</p>
           ) : (
@@ -80,14 +90,15 @@ export function PiecesCard({ studentId, load, add, placeholder }: {
           )}
         </RecordCompetency>
       )}
-      <textarea value={text} onChange={(e) => { setText(e.target.value); setMsg(null); }} rows={2} maxLength={PIECE_MAX} aria-label="새 조각"
-        placeholder={placeholder}
+      {maker && <span className="-mb-1.5 text-[13px] text-mute">메모로 남기기</span>}
+      <textarea value={text} onChange={(e) => { setText(e.target.value); setMsg(null); }} rows={maker ? 1 : 2} maxLength={PIECE_MAX} aria-label="새 조각"
+        placeholder={maker ? "지금 본 것을 짧게" : placeholder}
         className="w-full resize-y rounded-field bg-soft p-3 text-[14px] leading-6 outline-none focus:ring-2 focus:ring-key" />
       <div className="flex items-center gap-2">
         {msg ? <p className={cx("min-w-0 flex-1 text-[13px]", msg.ok ? "text-ok" : "text-bad")} role={msg.ok ? "status" : "alert"}>{msg.text}</p>
           : <Link href={`/teacher/pieces?student=${studentId}`} className="mr-auto whitespace-nowrap text-[13px] font-medium text-key-strong">생기부 조각 ›</Link>}
         <Button type="button" kind="soft" size="sm" disabled={saving || text.trim().length < 2} onClick={save}>
-          <Plus size={14} /> {saving ? "남기는 중…" : "조각 남기기"}
+          <Plus size={14} /> {saving ? "남기는 중…" : maker ? "남기기" : "조각 남기기"}
         </Button>
       </div>
     </section>
