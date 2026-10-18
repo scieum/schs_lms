@@ -1,9 +1,8 @@
 "use client";
-import { useActionState, useState } from "react";
-import { LengthPicker } from "@/components/length-picker";
+import { useActionState, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { AiDraftPanel } from "@/components/writing/ai-draft-panel";
-import { RecordChecks, type Who } from "@/components/writing/record-checks";
+import { RecordChecks, selectIn, type Who } from "@/components/writing/record-checks";
 import { checkLength, MIN_RATIO, NEIS_MAX_BYTES, neisMax, resolveLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import { BodyCard } from "@/components/writing/competency-view";
 import { PiecesCard } from "@/components/writing/pieces-card";
@@ -36,6 +35,7 @@ export function SetukEditor({
 }) {
   const [state, action, pending] = useActionState<SetukState, FormData>(saveSetuk, {});
   const [text, setText] = useState(initial);
+  const body = useRef<HTMLTextAreaElement>(null);
   const [len, setLen] = useState({ unit: initialUnit, max: initialMax });
   const full = resolveLength("세특", len);
   // 공통과목은 다른 학기에 쓴 만큼 이 학기 최대가 줄어든다 (2026 기재요령 208쪽)
@@ -78,6 +78,7 @@ export function SetukEditor({
         <input type="hidden" name="studentId" value={studentId} />
         <BodyCard text={text} tag={(t) => tagSetuk({ courseId, studentId, text: t })}>
           <textarea
+            ref={body}
             name="content"
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -93,9 +94,9 @@ export function SetukEditor({
             공통과목은 1·2학기 합산 500자 · {shared.other}학기 {shared.bytes.toLocaleString()}바이트 → 이 학기 최대 {capMax.toLocaleString()}{UNIT_LABEL[range.unit]}
           </p>
         )}
-        <RecordChecks text={text} range={range} who={who} fit={{ run: () => fitSetuk({ courseId, studentId, text, unit: range.unit, max: range.max }), onApply: setText }}>
-          <LengthPicker category="세특" defaultUnit={initialUnit} defaultMax={initialMax} onChange={setLen} />
-        </RecordChecks>
+        <RecordChecks text={text} range={range} who={who} onFind={(s) => selectIn(body.current, s)}
+          length={{ unit: len.unit, max: len.max, limit: neisMax("세특", len.unit), onChange: setLen }}
+          fit={{ run: () => fitSetuk({ courseId, studentId, text, unit: range.unit, max: range.max }), onApply: setText }} />
 
         {over && <OverApproval value={length.value} max={range.max} unit={UNIT_LABEL[range.unit]} checked={allowOver} onChange={setAllowOver} />}
         {state.error && <p className="text-sm text-bad" role="alert">{state.error}</p>}

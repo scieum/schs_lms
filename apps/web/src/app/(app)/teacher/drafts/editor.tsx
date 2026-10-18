@@ -1,14 +1,13 @@
 "use client";
 import { startTransition, useActionState, useRef, useState } from "react";
-import { Check, Link2, MessageSquare, ShieldCheck, X } from "lucide-react";
-import { LengthPicker } from "@/components/length-picker";
+import { Check, Link2, MessageSquare, ShieldCheck } from "lucide-react";
+import { AutoChecks, LengthRow } from "@/components/writing/auto-checks";
+import { selectIn } from "@/components/writing/record-checks";
+import { autoCheck } from "@/lib/domain/auto-check";
 import { Button, cx } from "@/components/ui";
-import { resolveLength, UNIT_LABEL, type DraftCategory, type LengthUnit } from "@/lib/domain/length";
+import { neisMax, resolveLength, UNIT_LABEL, type DraftCategory, type LengthUnit } from "@/lib/domain/length";
 import { checkDraft, similarSentences, type EvidenceItem, type SimilarHit } from "@/lib/domain/program";
-import { styleIssues } from "@/lib/domain/neis-style";
 import { regenerateDraft, rephraseAction, reviewDraftAction, saveDraft, type RegenState, type RephraseState, type ReviewState, type SaveState } from "./actions";
-import { ForbiddenHits } from "@/components/writing/forbidden-hits";
-import { findForbidden } from "@/lib/domain/forbidden";
 import { OverApproval } from "@/components/writing/over-approval";
 import { RecordCompetency } from "@/components/writing/record-competency";
 
@@ -44,7 +43,10 @@ export function DraftEditor({
   const area_ = useRef<HTMLTextAreaElement>(null);
   const range = resolveLength(area, { unit, max });
   const c = checkDraft(text, { range, people, evidence });
-  const pct = Math.min(100, Math.round((c.length.value / range.max) * 100));
+  const auto = autoCheck(text, range, c.identity.found, { evidence: { ok: c.evidence.ok, hits: c.evidence.hits.length }, specific: c.specific });
+  // 다시 만들 분량 (검사는 이 초안의 분량으로, 고른 분량은 다시 만들기에만)
+  const [len, setLen] = useState<{ unit: LengthUnit; max: number }>({ unit, max });
+  const regenId = `regen-${jobId}`;
   const formId = `save-${jobId}`;
   const items = (review.items ?? []).filter((x) => !applied.includes(x.phrase) && text.includes(x.phrase));
 
@@ -83,18 +85,6 @@ export function DraftEditor({
     setApplied([...applied, phrase]);
   };
 
-  const style = styleIssues(text).filter((i) => i !== "서술형 어미" && i !== "마침표 없음");
-  const forbidden = findForbidden(text);
-  const banned = forbidden.filter((h) => h.level === "ban").length;
-  const checks: [boolean, string][] = [
-    [c.length.ok, c.length.reason === "too_long" ? "분량 초과" : c.length.reason === "too_short" ? `최소 ${range.min.toLocaleString()}${UNIT_LABEL[range.unit]}` : "글자수 범위"],
-    [c.identity.ok, c.identity.ok ? "학번·실명 0건" : `${c.identity.found.join("·")} 있음`],
-    [c.ending.ok, c.ending.ok ? "문장 어미 '~함.'" : `어미 확인 ${c.ending.bad}문장`],
-    [c.evidence.ok, `근거 반영 ${c.evidence.hits.length}개`],
-    [c.specific.ok, `학생 근거 문장 ${c.specific.grounded}/${c.specific.total}`],
-    [style.length === 0, style.length ? style.join(" · ") : "문체 규칙"],
-    [banned === 0, banned ? `금칙어 ${banned}건 (확정 불가)` : forbidden.length ? `금칙어 0건 · 확인 ${forbidden.length}` : "금칙어 0건"],
-  ];
 
   return (
     <div className="flex flex-col gap-4">
@@ -189,30 +179,14 @@ export function DraftEditor({
         )}
       </form>
 
-      <div className="flex flex-col gap-3 rounded-inner bg-soft p-4">
-        <div className="flex items-center justify-between text-[14px]">
-          <span className={cx("font-bold", c.allOk ? "text-ink" : "text-wait")}>{c.allOk ? "자동 검사 통과" : "자동 검사 확인 필요"}</span>
-          <span className="font-bold">{c.length.value.toLocaleString()} / {range.max.toLocaleString()}{range.unit === "bytes" ? "B" : "자"}</span>
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-line" aria-hidden>
-          <div className={cx("h-full rounded-full", c.length.reason === "too_long" ? "bg-bad" : "bg-key")} style={{ width: `${pct}%` }} />
-        </div>
-        <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[13px] md:flex md:flex-wrap md:gap-x-4">
-          {checks.map(([ok, label]) => (
-            <li key={label} className={cx("flex items-center gap-1", ok ? "text-sub" : "font-medium text-bad")}>
-              {ok ? <Check size={14} className="text-ok" /> : <X size={14} />} {label}
-            </li>
-          ))}
-        </ul>
-        <ForbiddenHits hits={forbidden} />
-        <form action={regenAction} className="flex flex-col gap-2 border-t border-line pt-3">
-          <input type="hidden" name="jobId" value={jobId} />
-          <LengthPicker category={area} defaultUnit={unit} defaultMax={max} />
-          <Button size="sm" kind="soft" disabled={regenerating} className="self-end">{regenerating ? "다시 만드는 중…" : "이 분량으로 다시 만들기"}</Button>
-          {regen.error && <p className="text-[13px] text-bad" role="alert">{regen.error}</p>}
-          {regen.done && <p className="text-[13px] text-ok" role="status">{regen.done}</p>}
-        </form>
-      </div>
+      {/* 자동 검사 (Figma N23 · 초안 검토): 못 지난 항목은 걸린 말과 함께, 분량 줄에서 다시 만들기 */}
+      <AutoChecks check={auto} range={range} onFind={(s) => selectIn(area_.current, s)}
+        length={<LengthRow unit={len.unit} max={len.max} limit={neisMax(area, len.unit)} onChange={setLen} form={regenId}
+          actions={<Button type="submit" form={regenId} size="sm" kind="outline" disabled={regenerating}>{regenerating ? "다시 만드는 중…" : "이 분량으로 다시 만들기"}</Button>} />}>
+        {regen.error && <p className="text-[13px] text-bad" role="alert">{regen.error}</p>}
+        {regen.done && <p className="text-[13px] text-ok" role="status">{regen.done}</p>}
+      </AutoChecks>
+      <form id={regenId} action={regenAction} className="hidden"><input type="hidden" name="jobId" value={jobId} /></form>
 
       <label className="flex items-center gap-2 rounded-field bg-soft px-3.5">
         <MessageSquare size={16} className="text-mute" />

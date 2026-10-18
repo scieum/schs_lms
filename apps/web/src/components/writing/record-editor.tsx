@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { checkLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import { recordMax, resolveRecordLength, type RecordArea } from "@/lib/domain/writing";
@@ -7,8 +7,7 @@ import { BodyCard } from "./competency-view";
 import { addRecordPiece, aiRecordDraft, fitRecordAction, listRecordPieces, mergeRecordAction, readRecordFile, saveRecord, tagRecord, type RecordState } from "@/app/(app)/teacher/write/actions";
 import { AiDraftPanel } from "./ai-draft-panel";
 import { PiecesCard } from "./pieces-card";
-import { RecordChecks, type Who } from "./record-checks";
-import { RecordLengthPicker } from "./record-length-picker";
+import { RecordChecks, selectIn, type Who } from "./record-checks";
 import { OverApproval } from "@/components/writing/over-approval";
 
 const MEMO_HINT: Record<RecordArea, string> = {
@@ -50,6 +49,7 @@ export function RecordEditor({
 }) {
   const [state, action, pending] = useActionState<RecordState, FormData>(saveRecord, {});
   const [text, setText] = useState(initial);
+  const body = useRef<HTMLTextAreaElement>(null);
   const [len, setLen] = useState({ unit: initialUnit, max: initialMax });
   const range = resolveRecordLength(area, len);
   const length = checkLength(text, range);
@@ -81,6 +81,7 @@ export function RecordEditor({
         {clubId && <input type="hidden" name="clubId" value={clubId} />}
         <BodyCard text={text} tag={(t) => tagRecord({ area, studentId, clubId, text: t })}>
           <textarea
+            ref={body}
             name="content"
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -91,9 +92,9 @@ export function RecordEditor({
             aria-label="기록 내용"
           />
         </BodyCard>
-        <RecordChecks text={text} range={range} who={who} fit={{ run: () => fitRecordAction({ area, studentId, clubId, text, unit: range.unit, max: range.max }), onApply: setText }}>
-          <RecordLengthPicker area={area} defaultUnit={initialUnit} defaultMax={initialMax} onChange={setLen} />
-        </RecordChecks>
+        <RecordChecks text={text} range={range} who={who} onFind={(s) => selectIn(body.current, s)}
+          length={{ unit: len.unit, max: len.max, limit: recordMax(area, len.unit), onChange: setLen }}
+          fit={{ run: () => fitRecordAction({ area, studentId, clubId, text, unit: range.unit, max: range.max }), onApply: setText }} />
 
         {over && <OverApproval value={length.value} max={range.max} unit={UNIT_LABEL[range.unit]} checked={allowOver} onChange={setAllowOver} />}
         {state.error && <p className="text-sm text-bad" role="alert">{state.error}</p>}
