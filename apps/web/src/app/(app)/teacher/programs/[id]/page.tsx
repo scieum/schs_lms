@@ -13,6 +13,7 @@ import { isAdmin } from "@/lib/domain/policy";
 import { DeleteBox } from "./delete-box";
 import { AnalyzeBox, AutoSelect } from "./parts";
 import { NextActions, RemindSheet, StageStepper } from "./stage";
+import { StudentRowItem } from "./student-popup";
 import { programStage } from "@/lib/domain/program-stage";
 
 export const metadata = { title: "프로그램 상세 · 속초고등학교 학생관리시스템" };
@@ -169,7 +170,8 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
                 const s = r.student;
                 const draftHref = r.job ? `/teacher/drafts?d=${r.job.id}` : null;
                 return (
-                  <li key={s.id} className={cx("flex items-center gap-3 py-3.5 md:grid md:grid-cols-[minmax(0,1fr)_88px_64px_88px_80px] md:px-4", i < paged.length - 1 && "border-b border-line")}>
+                  <StudentRowItem key={s.id} programId={p.id} student={{ id: s.id, name: s.name, sub: `${s.studentNo} · ${s.grade}학년 ${s.classNo}반 ${s.number}번` }}
+                    className={cx("relative flex items-center gap-3 py-3.5 md:grid md:grid-cols-[minmax(0,1fr)_88px_64px_88px_80px] md:px-4", i < paged.length - 1 && "border-b border-line")}>
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <Avatar name={s.name} size={36} />
                       <div className="min-w-0">
@@ -193,7 +195,7 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
                         </form>
                       ) : null}
                     </div>
-                  </li>
+                  </StudentRowItem>
                 );
               })}
             </ul>
