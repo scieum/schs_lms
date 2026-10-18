@@ -7,6 +7,7 @@ import { neisSets } from "@/lib/server/neis";
 import { requireCan } from "@/lib/server/viewer";
 import { CopyButton } from "./copy-button";
 import { Steps } from "./steps";
+import { BookmarkletCard } from "./bookmarklet";
 
 export const metadata = { title: "나이스 입력 · 속초고등학교 학생관리시스템" };
 
@@ -23,6 +24,7 @@ export default async function NeisPage() {
       <PageHeader title="나이스 입력" />
       <PageBody>
         <Steps />
+        <BookmarkletCard />
         <Card title="보낼 기록" action={<span className="text-[13px] text-mute">{sets.length}건</span>}>
           {sets.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-8 text-center">

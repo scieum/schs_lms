@@ -10,7 +10,7 @@
     "test": "vitest run",
     "seed:admin": "node --env-file=.env.local scripts/seed-admin.mjs",
     "reset:admin": "node --env-file=.env.local scripts/reset-admin.mjs",
-    "pack:neis": "node scripts/pack-neis-extension.mjs"
+    "pack:neis": "node scripts/pack-neis-extension.mjs && node scripts/build-neis-bookmarklet.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

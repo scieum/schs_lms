@@ -87,7 +87,8 @@
   window.__schsNeisFill = function (p) {
     const fieldSel = p.fieldSelector || "textarea, [contenteditable=true]";
     const rowSel = p.rowSelector || "tr, [role=row]";
-    const fields = [...document.querySelectorAll(fieldSel)].filter((el) => !el.disabled && !el.readOnly);
+    // p.doc: 북마클릿이 같은 출처의 프레임 안 화면도 채울 때 넘긴다 (확장은 넘기지 않는다)
+    const fields = [...(p.doc || document).querySelectorAll(fieldSel)].filter((el) => !el.disabled && !el.readOnly);
     const report = { filled: [], overLimit: [], nameMismatch: [], notFound: [], rowsWithoutStudent: 0, fieldsSeen: fields.length, ordered: false };
     const done = new Set();
 
