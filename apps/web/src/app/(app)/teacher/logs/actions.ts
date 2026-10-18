@@ -3,7 +3,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { canLog, homeroomStudents, isAreaOf } from "@/lib/domain/activity";
 import { maskIdentity } from "@/lib/domain/program";
-import { polishLog } from "@/lib/server/ai/teacher-ai";
+import { withActivity } from "@/lib/domain/activity-name";
+import { polishLog, polishStudentLog } from "@/lib/server/ai/teacher-ai";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { readEvidence } from "@/lib/server/ai/read-evidence";
@@ -51,6 +52,46 @@ export async function addLogs(_: LogState, form: FormData): Promise<LogState> {
   return { added: n };
 }
 
+const EachSchema = z.object({
+  area: z.string(),
+  clubId: z.string().optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "날짜를 골라 주세요"),
+  items: z
+    .array(z.object({ studentId: z.string().min(1), content: z.string().trim().min(5, "글이 너무 짧은 학생이 있어요 (5자 이상)").max(1000, "1000자까지 쓸 수 있어요") }))
+    .min(1, "추가할 학생을 한 명 이상 포함해 주세요")
+    .max(60, "한 번에 60명까지 추가할 수 있어요"),
+});
+
+/** 누가기록 한꺼번에 쓰기 (Figma N28): 학생마다 다른 글로 누가기록을 하나씩 추가한다 (추가만, C4) */
+export async function addLogsEach(input: { area: string; clubId?: string; date: string; items: { studentId: string; content: string }[] }): Promise<LogState> {
+  const v = await requireCan("logs.write");
+  const p = EachSchema.safeParse({ ...input, clubId: input?.clubId || undefined });
+  if (!p.success) return { error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
+  const { area, date, items } = p.data;
+  if (!isAreaOf(area)) return { error: "영역을 골라 주세요" };
+  if (new Set(items.map((i) => i.studentId)).size !== items.length) return { error: "같은 학생이 두 번 들어 있어요" };
+
+  let club: { advisorId: string; memberIds: Set<string> } | undefined;
+  let clubId: string | null = null;
+  if (area === "동아리") {
+    const c = p.data.clubId ? await repo.getClub(p.data.clubId) : null;
+    if (!c) return { error: "동아리를 골라 주세요" };
+    club = { advisorId: c.advisorId, memberIds: new Set(await repo.listClubMembers(c.id)) };
+    clubId = c.id;
+  }
+  const all = new Map((await repo.listStudents()).map((s) => [s.id, s]));
+  const ok = items.every((i) => {
+    const s = all.get(i.studentId);
+    return s && canLog(v, area, s, club);
+  });
+  if (!ok) return { error: "쓸 수 없는 학생이 섞여 있어요 (우리 반·내 동아리만)" };
+
+  const n = await repo.addActivityLogs(items.map((i) => ({ area, studentId: i.studentId, authorId: v.accountId, clubId, date, content: i.content })));
+  await repo.audit(v.accountId, "logs.add_each", `${area} ${n}명`);
+  revalidatePath("/teacher/logs");
+  return { added: n };
+}
+
 /** 이 화면에 나오는 학생(우리 반·내 동아리) — AI에 보내기 전에 이름·학번을 가린다 */
 async function boardPeople(v: Awaited<ReturnType<typeof requireCan>>, area: string, clubId?: string) {
   const all = await repo.listStudents();
@@ -84,6 +125,30 @@ export async function polishLogMemo(input: { area: string; clubId?: string; text
   if (r.label === "AI") await repo.audit(v.accountId, "logs.ai.polish", input.area);
   if (!r.data) return { ok: false, error: "다듬을 내용을 찾지 못했어요. 직접 써 주세요" };
   return { ok: true, text: r.data, label: r.label, notice: r.error ? `AI 대신 규칙으로 다듬었어요 (${r.error})` : masked !== text ? "이름·학번은 가린 뒤 다듬었어요" : undefined };
+}
+
+/**
+ * 한꺼번에 쓰기 미리보기 카드 "다듬기" (N28): 학생 한 명의 글을 다듬어 돌려준다(저장 안 함, 확인 후 교사가 바꿈).
+ * 학생 정보는 보내지 않는다. 글 속 이름·학번은 가리고, [활동명] 머리말은 떼고 보낸 뒤 다시 붙인다.
+ */
+export async function polishTraitLog(input: { area: string; clubId?: string; activity: string; text: string }): Promise<PolishResult> {
+  const v = await requireCan("logs.write");
+  if (!isAreaOf(input.area)) return { ok: false, error: "영역을 골라 주세요" };
+  const body = String(input.text ?? "").trim().replace(/^\[[^\]]*\]\s*/, "");
+  if (body.length < 2) return { ok: false, error: "글을 먼저 써 주세요" };
+  if (body.length > 1000) return { ok: false, error: "1000자까지 다듬을 수 있어요" };
+
+  const people = await boardPeople(v, input.area, input.clubId);
+  const masked = maskIdentity(body, people);
+  const r = await polishStudentLog(masked, input.area);
+  if (r.label === "AI") await repo.audit(v.accountId, "logs.ai.polish_each", input.area);
+  if (!r.data) return { ok: false, error: "다듬을 내용을 찾지 못했어요" };
+  return {
+    ok: true,
+    text: withActivity(input.activity, r.data),
+    label: r.label,
+    notice: r.error ? `AI 대신 규칙으로 다듬었어요 (${r.error})` : masked !== body ? "이름·학번은 가린 뒤 다듬었어요" : undefined,
+  };
 }
 
 /**

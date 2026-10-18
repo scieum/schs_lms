@@ -9,6 +9,7 @@ import { addLogs, polishLogMemo, readLogFile, type LogState, type PolishResult }
 import { makeStudentNo } from "@/lib/domain/roster";
 import { StudentListImport } from "@/components/student-list-import";
 import { RecordCompetency } from "@/components/writing/record-competency";
+import { BatchWriter } from "./batch-writer";
 
 type S = { id: string; name: string; grade: number; classNo: number; number: number; count: number };
 type L = { id: string; studentId: string; date: string; content: string };
@@ -17,6 +18,9 @@ type L = { id: string; studentId: string; date: string; content: string };
 export function LogBoard({ area, clubId, students, logs, today }: { area: string; clubId?: string; students: S[]; logs: L[]; today: string }) {
   const [state, action, pending] = useActionState<LogState, FormData>(addLogs, {});
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  // 한 명씩 = 고른 학생 모두에게 같은 글 · 한꺼번에 = 학생마다 참여도·특징 문장을 붙인 다른 글 (Figma N28)
+  const [mode, setMode] = useState<"one" | "batch">("one");
+  const [batchAdded, setBatchAdded] = useState(0);
   const [text, setText] = useState("");
   const [polish, setPolish] = useState<PolishResult | null>(null);
   const [polishing, startPolish] = useTransition();
@@ -88,7 +92,25 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
       </Card>
 
       <div className="flex flex-col gap-4 md:gap-6">
-        <Card title={`${area} 기록 쓰기`} action={<span className="text-[13px] text-mute">{picked.size}명 선택</span>}>
+        <Card title={`${area} 기록 쓰기`} action={
+          <div className="flex items-center gap-3">
+            {mode === "one" && <span className="whitespace-nowrap text-[13px] text-mute">{picked.size}명 선택</span>}
+            <div role="tablist" aria-label="쓰는 방식" className="flex rounded-full bg-soft p-[3px]">
+              {([["one", "한 명씩"], ["batch", "한꺼번에"]] as const).map(([k, label]) => (
+                <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => setMode(k)}
+                  className={cx("h-7 whitespace-nowrap rounded-full px-3 text-[13px] md:h-[30px] md:px-3.5", mode === k ? "bg-key-soft font-bold text-key-strong" : "font-medium text-sub")}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        }>
+          {mode === "batch" ? (
+            <>
+              {batchAdded > 0 && <p className="mb-3 text-[13px] text-ok" role="status">{batchAdded}명에게 학생마다 다른 글로 추가했어요</p>}
+              <BatchWriter area={area} clubId={clubId} today={today} students={students.filter((s) => picked.has(s.id))} onAdded={setBatchAdded} />
+            </>
+          ) : (
           <form action={action} key={state.added ? `ok-${logs.length}` : "form"} className="flex flex-col gap-3">
             <input type="hidden" name="area" value={area} />
             {clubId && <input type="hidden" name="clubId" value={clubId} />}
@@ -131,6 +153,7 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
               {pending ? "추가하는 중…" : picked.size ? `${picked.size}명에게 추가` : "학생을 골라 주세요"}
             </Button>
           </form>
+          )}
         </Card>
 
         <Card title="최근 기록" action={<span className="text-[13px] text-mute">{picked.size ? "고른 학생" : "전체"} {shown.length}건</span>}>

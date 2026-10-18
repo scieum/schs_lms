@@ -57,6 +57,30 @@ export async function polishLog(masked: string, area: string): Promise<Assisted<
   return t ? { data: t.slice(0, 1000), label: "AI" } : { data: rule, label: "자동" };
 }
 
+/**
+ * 누가기록 한꺼번에 쓰기 (N28) 카드별 "다듬기": 학생 한 명의 글(이미 가림, [활동명] 뗌)을 자연스럽게 잇는다.
+ * 사실을 빼거나 보태지 않고 문장만 다듬는다. 키가 없으면 공백·겹친 문장만 정리한다.
+ */
+export async function polishStudentLog(masked: string, area: string): Promise<Assisted<string>> {
+  const parts: string[] = [];
+  for (const s of masked.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/)) if (s && !parts.includes(s)) parts.push(s);
+  const rule = parts.join(" ");
+  if (!aiEnabled() || !rule) return { data: rule, label: "자동" };
+  const r = await aiJson(z.object({ text: z.string() }), {
+    model: "fast",
+    system: `너는 고등학교 교사의 누가기록(${area}) 정리 도우미다. 학생 한 명의 누가기록 초안을 자연스럽게 다듬는다.
+- 초안에 있는 사실은 모두 살리고, 없는 사실·평가·칭찬·추측을 보태지 않는다
+- 원래 낱말을 최대한 살리고 꾸밈말("직접", "매우" 등)을 새로 넣지 않는다
+- 겹치거나 어색하게 이어진 문장을 매끄럽게 잇는다. 2~4문장, 원래 길이와 비슷하게
+- 종결은 "~함." "~임." 같은 명사형
+- 학생 이름이나 "○○" 같은 자리를 만들지 않는다. 대괄호 머리말을 붙이지 않는다`,
+    content: `초안:\n${rule}`,
+  });
+  if (!r.ok) return { data: rule, label: "자동", error: r.error };
+  const t = r.data.text.replace(/\s+/g, " ").trim().replace(/^\[[^\]]*\]\s*/, "");
+  return t ? { data: t.slice(0, 1000), label: "AI" } : { data: rule, label: "자동" };
+}
+
 /** 상담: 다음에 물어볼 질문 3개. 기록은 가린 뒤 넘긴다 */
 export async function nextCounselQuestions(pid: string, records: { date: string; area: string; content: string }[]): Promise<Assisted<{ line: string; questions: string[] }>> {
   const rule = { line: records.length ? `최근 상담(${records[0].date}, ${records[0].area})에 이어 물어볼 질문이에요` : "첫 상담에서 물어볼 질문이에요", questions: counselQuestionsRule(records) };
