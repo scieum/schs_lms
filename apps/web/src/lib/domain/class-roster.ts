@@ -17,7 +17,9 @@ const num = (s: string) => {
   return m ? Number(m[0]) : null;
 };
 const isName = (s: string) => /^[가-힣]{2,5}$/.test(s);
-const NOT_NAME = /^(학년|학생|번호|이름|성명|남자|여자|부원|동아리|연번|학과|교과|과목|비고|성별|담임|출석|결석|지각|조퇴)$/;
+const NOT_NAME = /^(학년|학생|번호|이름|성명|남자|여자|부원|동아리|연번|학과|교과|과목|비고|성별|담임|출석|결석|지각|조퇴|공동)$/;
+/** 이름 칸의 덧붙임은 빼고 이름만 (나이스: "이재혁(공동)", "김민준 [전입]") — 학번·이름만 보고 맞춘다 */
+const cleanName = (s: string) => s.replace(/\(.*?\)|（.*?）|\[.*?\]/g, "").replace(/[^가-힣a-zA-Z]/g, "");
 // 나이스 출석부의 제목·학과·학교 칸 (예: 교과시간별, 일반학과, 속초고등학교)
 const NOT_NAME_PART = /(학과|학교|고등학|중학|교과|과정|시간별|학기|학년도|출석부|명단|계열)/;
 const nameLike = (w: string) => isName(w) && !NOT_NAME.test(w) && !NOT_NAME_PART.test(w);
@@ -53,7 +55,7 @@ export function readRosterTable(rows: string[][]): RosterLine[] {
     for (const r of table.slice(headAt + 1)) {
       const get = (i: number) => (i >= 0 ? r[i] ?? "" : "");
       const no = get(at.studentNo).replace(/\D/g, "");
-      const name = get(at.name).replace(/\s/g, "");
+      const name = cleanName(get(at.name));
       if (!no && !name) continue;
       out.push({
         studentNo: /^\d{5}$/.test(no) ? no : null,

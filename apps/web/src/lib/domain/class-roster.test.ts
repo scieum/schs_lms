@@ -53,4 +53,10 @@ describe("이동반 명단 읽기", () => {
     const lines = readRosterTable([["교과시간별"], ["1", "일반학과", "20605", "박지훈"], ["속초고등학교"]]);
     expect(lines.map((l) => [l.studentNo, l.name])).toEqual([["20605", "박지훈"]]);
   });
+  it("이름 뒤 (공동) 같은 덧붙임은 빼고 학번·이름으로 맞춤", () => {
+    const lines = readRosterTable([["학번", "성명"], ["20103", "김민준(공동)"], ["20412", "이서연 [전입]"]]);
+    expect(lines.map((l) => l.name)).toEqual(["김민준", "이서연"]);
+    expect(matchRoster(lines, students, 2).matched.map((s) => s.id)).toEqual(["a", "b"]);
+    expect(readRosterTable(splitPasted("20605 박지훈(공동)")).map((l) => l.name)).toEqual(["박지훈"]);
+  });
 });
