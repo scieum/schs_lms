@@ -20,9 +20,12 @@ async function loadBadges(v: Viewer): Promise<NavBadges> {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const viewer = await requireViewer();
-  const badges = await loadBadges(viewer);
+  const [badges, prefs] = await Promise.all([
+    loadBadges(viewer),
+    repo.getPrefs(viewer.accountId).catch(() => ({ avatar: null, hiddenMenus: [] as string[] })),
+  ]);
   return (
-    <AppShell viewer={viewer} demo={isDemo} badges={badges}>
+    <AppShell viewer={viewer} demo={isDemo} badges={badges} prefs={prefs}>
       {children}
     </AppShell>
   );

@@ -8,17 +8,18 @@ import { roleLabel } from "@/lib/domain/policy";
 import { logout } from "@/app/(auth)/actions";
 import { Avatar } from "@/components/ui";
 import { hideMenus, hideTabs, navFor, tabsFor, type NavBadges } from "./nav";
-import { repo } from "@/lib/server/repo";
 import { SidebarLinks, TabBar } from "./nav-links";
 import { SIDEBAR_COOKIE, SidebarFrame } from "./sidebar-frame";
 import { GuideButton, Yeongrang } from "./yeongrang";
 
 // D2 벤토 그리드: 흰 사이드바 + 흰 본문. 모바일은 하단 탭바.
-export async function AppShell({ viewer, children, demo, badges = {} }: { viewer: Viewer; children: ReactNode; demo: boolean; badges?: NavBadges }) {
+export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
+  viewer: Viewer; children: ReactNode; demo: boolean; badges?: NavBadges;
+  /** 프로필 사진·숨긴 메뉴 (레이아웃이 배지와 함께 읽어 넘긴다) */
+  prefs: { avatar: string | null; hiddenMenus: string[] };
+}) {
   const mini = (await cookies()).get(SIDEBAR_COOKIE)?.value === "mini";
   const name = viewer.kind === "student" ? viewer.student.name : `${viewer.teacher.name} 선생님`;
-  // 프로필 사진·숨긴 메뉴 (내 정보 · 설정). DB 업데이트(0018) 전이면 빈 설정
-  const prefs = await repo.getPrefs(viewer.accountId).catch(() => ({ avatar: null, hiddenMenus: [] as string[] }));
   return (
     <div className="min-h-dvh md:flex">
       <SidebarFrame initialMini={mini}>

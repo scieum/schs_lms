@@ -199,6 +199,10 @@ export const demoRepo: Repo = {
   async listSetuk(courseId) {
     return store().setuk.filter((r) => r.courseId === courseId);
   },
+  async listSetukForStudent(studentId, courseIds) {
+    const ids = new Set(courseIds);
+    return store().setuk.filter((r) => r.studentId === studentId && ids.has(r.courseId));
+  },
   async addSetuk(r) {
     const row: SetukRecord = { ...r, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
     store().setuk.push(row);

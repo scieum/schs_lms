@@ -182,6 +182,12 @@ export const supabaseRepo: Repo = {
     const r = check(await db().from("setuk_records").select("*").eq("course_id", courseId).order("created_at"));
     return (r as SetukRow[]).map(toSetuk);
   },
+  async listSetukForStudent(studentId, courseIds) {
+    const ids = courseIds.filter(isUuid);
+    if (!isUuid(studentId) || !ids.length) return [];
+    const rows = await selectIn(ids, (part) => db().from("setuk_records").select("*").eq("student_id", studentId).in("course_id", part).order("created_at"));
+    return (rows as SetukRow[]).map(toSetuk);
+  },
   async addSetuk(x) {
     const r = check(await db().from("setuk_records").insert({
       course_id: x.courseId, student_id: x.studentId, author_id: x.authorId, content: x.content, unit: x.unit, max_len: x.max, status: x.status,

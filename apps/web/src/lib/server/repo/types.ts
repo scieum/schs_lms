@@ -50,6 +50,8 @@ export interface Repo {
 
   // 교과 세특: 추가만 한다 (C4)
   listSetuk(courseId: string): Promise<SetukRecord[]>;
+  /** 한 학생의 세특 전부 (여러 과목을 한 번에) */
+  listSetukForStudent(studentId: string, courseIds: string[]): Promise<SetukRecord[]>;
   addSetuk(r: Omit<SetukRecord, "id" | "createdAt">): Promise<SetukRecord>;
 
   // 동아리

@@ -50,9 +50,11 @@ export interface SetukView { record: SetukRecord; course: Course }
 /** 이 학생의 올해 교과 세특(과목별 마지막 버전) */
 export async function loadStudentSetuk(student: Student, year = schoolYear()): Promise<SetukView[]> {
   const courses = (await repo.listCourses(year)).filter((c) => c.grade === student.grade);
+  // 과목마다 따로 묻지 않고 한 번에 (과목이 40개쯤이라 따로 물으면 몇 초 걸렸다)
+  const records = await repo.listSetukForStudent(student.id, courses.map((c) => c.id));
   const out: SetukView[] = [];
   for (const course of courses) {
-    const r = latestByStudent(await repo.listSetuk(course.id)).get(student.id);
+    const r = latestByStudent(records.filter((x) => x.courseId === course.id)).get(student.id);
     if (r && r.content.trim()) out.push({ record: r, course });
   }
   return out.sort((a, b) => a.course.semester - b.course.semester || a.course.subject.localeCompare(b.course.subject, "ko"));

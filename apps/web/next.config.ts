@@ -6,7 +6,11 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["exceljs", "bcryptjs"],
   // 계획서·제출 서류·합본 PDF·성적표 사진을 서버 액션으로 올린다 (기본 1MB → 25MB)
-  experimental: { serverActions: { bodySizeLimit: "25mb" } },
+  experimental: {
+    serverActions: { bodySizeLimit: "25mb" },
+    // 모바일에서 탭을 오갈 때 30초 안에 본 화면은 바로 보여 준다 (저장·수정은 revalidatePath 로 새로 받는다)
+    staleTimes: { dynamic: 30 },
+  },
   turbopack: {
     rules: {
       "*.css": {
