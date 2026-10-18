@@ -7,7 +7,7 @@ import { measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import type { EvidenceResult } from "@/lib/server/ai/read-evidence";
 import { EvidenceFiles, evidenceMemo, type EvidenceItem } from "./evidence-files";
 import { MergeList } from "./merge-list";
-import type { MergePiece } from "@/lib/domain/merge";
+import type { Importance, MergePiece } from "@/lib/domain/merge";
 import { composeKeywordMemo, parseKeywordMemo, type AiDraftResult, type KeywordBlock } from "@/lib/domain/writing";
 
 const EMPTY: KeywordBlock = { topic: "", activity: "", keywords: "" };
@@ -51,15 +51,34 @@ export function AiDraftPanel({
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [target, setTarget] = useState(merge?.neisMax ?? 0);
   const [mergedCount, setMergedCount] = useState(0);
+  // 조각 중요도 (Figma N20): 이 기기에만 기억해 둔다 (다음에 열어도 그대로)
+  const [weights, setWeights] = useState<Record<string, Importance>>({});
+  const loadWeights = (ps: MergePiece[]) => {
+    const w: Record<string, Importance> = { body: 3 };
+    for (const p of ps) {
+      try {
+        const v = Number(localStorage.getItem(`schs.piece-weight.${p.id}`));
+        if (v === 1 || v === 3) w[p.id] = v;
+      } catch { /* 저장소를 못 쓰면 보통 */ }
+    }
+    setWeights(w);
+  };
+  const setWeight = (id: string, w: Importance) => {
+    setWeights((cur) => ({ ...cur, [id]: w }));
+    try {
+      if (id !== "body") localStorage.setItem(`schs.piece-weight.${id}`, String(w));
+    } catch { /* 기억 못 해도 이번 합치기에는 쓴다 */ }
+  };
+  const weighted = (ps: MergePiece[]) => ps.map((p) => ({ ...p, weight: weights[p.id] ?? 2 }));
   // 지금 본문도 조각 하나 (맨 위)
   const bodyPiece: MergePiece[] = merge?.body.trim() ? [{ id: "body", source: "본문", date: null, text: merge.body.trim() }] : [];
   const allPieces = [...bodyPiece, ...(pieces ?? [])];
   function openMerge() {
     setMode("merge");
     if (pieces || !merge) return;
-    merge.load().then((ps) => { setPieces(ps); setPicked(new Set(["body", ...ps.map((x) => x.id)])); }).catch(() => setPieces([]));
+    merge.load().then((ps) => { loadWeights(ps); setPieces(ps); setPicked(new Set(["body", ...ps.map((x) => x.id)])); }).catch(() => setPieces([]));
   }  useEffect(() => {
-    if (startMerge && !pieces) merge!.load().then((ps) => { setPieces(ps); setPicked(new Set(["body", ...ps.map((x) => x.id)])); }).catch(() => setPieces([]));
+    if (startMerge && !pieces) merge!.load().then((ps) => { loadWeights(ps); setPieces(ps); setPicked(new Set(["body", ...ps.map((x) => x.id)])); }).catch(() => setPieces([]));
     // 처음 한 번만
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -80,7 +99,7 @@ export function AiDraftPanel({
       let r: AiDraftResult;
       try {
         if (mode === "merge" && merge) {
-          const chosen = allPieces.filter((x) => picked.has(x.id));
+          const chosen = weighted(allPieces.filter((x) => picked.has(x.id)));
           setMergedCount(chosen.length);
           r = chosen.length ? await merge.run(chosen, target) : { ok: false, error: "합칠 조각을 골라 주세요" };
         } else {
@@ -127,7 +146,7 @@ export function AiDraftPanel({
         pieces === null ? (
           <p className="py-6 text-center text-[13px] text-mute" role="status">조각을 모으는 중이에요</p>
         ) : (
-          <MergeList pieces={allPieces} selected={picked} setSelected={setPicked} unit={unit} neisMax={merge.neisMax} target={target} setTarget={setTarget} />
+          <MergeList pieces={weighted(allPieces)} onWeight={setWeight} selected={picked} setSelected={setPicked} unit={unit} neisMax={merge.neisMax} target={target} setTarget={setTarget} />
         )
       ) : mode === "files" && readFile ? (
         <div className="flex flex-col gap-2">

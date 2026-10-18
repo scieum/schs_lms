@@ -126,7 +126,7 @@ export async function readRecordFile(form: FormData): Promise<EvidenceResult> {
 // ---------- 합치기 · 맞추기 · 역량 보기 (Figma N11) ----------
 
 const MergeSchema = z.object({
-  pieces: z.array(z.object({ id: z.string(), source: z.enum(["누가기록", "메모", "본문", "특색 활동"]), date: z.string().nullable(), text: z.string().max(6000) })).min(1, "합칠 조각을 골라 주세요").max(80),
+  pieces: z.array(z.object({ id: z.string(), source: z.enum(["누가기록", "메모", "본문", "특색 활동"]), date: z.string().nullable(), text: z.string().max(6000), weight: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional() })).min(1, "합칠 조각을 골라 주세요").max(80),
   unit: z.enum(["bytes", "chars"]),
   max: z.number().int().min(1),
 });

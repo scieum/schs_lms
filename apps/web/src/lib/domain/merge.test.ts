@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { neisBytes } from "./length";
-import { fitRange, mergeByRules, orderPieces, type MergePiece } from "./merge";
+import { budgetStatus, fitRange, mergeByRules, nextImportance, orderPieces, pickByBudget, type Importance, type MergePiece } from "./merge";
 
 const P = (id: string, date: string | null, text: string, source: MergePiece["source"] = "누가기록"): MergePiece => ({ id, source, date, text });
 
@@ -18,5 +18,35 @@ describe("합치기", () => {
 
   it("목표 범위는 최대의 90%부터", () => {
     expect(fitRange({ unit: "bytes", max: 1500 })).toMatchObject({ min: 1350, max: 1500 });
+  });
+
+  it("중요도: 보통 → 핵심 → 참고 → 보통", () => {
+    expect([2, 3, 1].map((w) => nextImportance(w as Importance))).toEqual([3, 1, 2]);
+  });
+
+  it("중요도 순으로 목표에 맞춰 고르기: 핵심은 늘, 나머지는 목표까지", () => {
+    const W = (id: string, date: string, bytes: number, weight: Importance): MergePiece => ({ ...P(id, date, "a".repeat(bytes)), weight });
+    const pieces = [W("old", "2026-04-01", 400, 2), W("new", "2026-06-01", 400, 2), W("key", "2026-03-01", 500, 3), W("ref", "2026-07-01", 300, 1), W("big", "2026-08-01", 2000, 2)];
+    // 핵심 500 → 보통 새 것부터(big 2000 은 넘쳐서 건너뜀) new 400 → old 400 = 1300, 목표 1000 넘어서 멈춤
+    expect([...pickByBudget(pieces, 1000, "bytes")].sort()).toEqual(["key", "new", "old"]);
+    // 목표가 작아도 핵심은 고른다
+    expect([...pickByBudget(pieces, 100, "bytes")]).toEqual(["key"]);
+  });
+
+  it("고른 양 상태: 최소 미만 부족 · 1.5배 넘으면 많음", () => {
+    expect(budgetStatus(1000, 1500)).toBe("부족");
+    expect(budgetStatus(1500, 1500)).toBe("맞음");
+    expect(budgetStatus(2250, 1500)).toBe("맞음");
+    expect(budgetStatus(2300, 1500)).toBe("많음");
+  });
+
+  it("규칙으로 이을 때 넘치면 참고 조각 문장부터 뺀다", () => {
+    const pieces: MergePiece[] = [
+      { ...P("a", "2026-04-01", "핵심 실험을 설계함."), weight: 3 },
+      { ...P("b", "2026-05-01", "참고 활동을 함."), weight: 1 },
+      { ...P("c", "2026-06-01", "보통 발표를 함."), weight: 2 },
+    ];
+    const max = neisBytes("핵심 실험을 설계함. 보통 발표를 함.");
+    expect(mergeByRules(pieces, { unit: "bytes", max })).toBe("핵심 실험을 설계함. 보통 발표를 함.");
   });
 });

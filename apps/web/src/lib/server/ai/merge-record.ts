@@ -25,6 +25,7 @@ const MERGE_RULES = (range: LengthRange) => `
 - 교사가 학기 동안 따로 쓴 조각(누가기록·관찰 메모·지금 본문)을 하나의 기록 문단으로 합친다.
 - [특색 활동] 조각은 프로그램 선생님이 확정해 보낸 초안이다. 프로그램 이름은 그 활동 첫 문장에 한 번만 짧게 쓴다.
 - 조각 속 구체적인 사실(활동 이름, 과정, 수치, 개념, 결과, 변화)과 교사가 쓴 표현을 최대한 살린다. 조각에 없는 내용은 쓰지 않는다.
+- [핵심] 표시 조각은 교사가 꼭 넣으라고 고른 것이다. 반드시 살리고 앞쪽에 무게를 둔다. 분량이 넘치면 [참고] 조각부터 줄이거나 빼고, 그다음 표시 없는 조각을 줄인다.
 - 겹치는 내용은 한 번만 쓰고, 활동의 흐름(시간 순 또는 주제 순)이 자연스럽게 이어지도록 문장을 잇는다.
 - 분량: ${target(range)}. 넘치면 덜 중요한 꾸밈과 반복을 먼저 줄이고, 모자라면 조각 속 과정·이유·의미를 더 풀어 쓴다.
 - 한 문단, draft 에 최종본만 넣는다.`;
@@ -62,7 +63,7 @@ export async function mergeRecord(input: { kind: WriteKind; context?: string; st
     `분량: ${target(input.range)}`,
     "",
     "<조각>",
-    ...pieces.map((p, i) => `${i + 1}. [${p.source}${p.date ? ` ${p.date}` : ""}] ${p.text}`),
+    ...pieces.map((p, i) => `${i + 1}. ${p.weight === 3 ? "[핵심] " : p.weight === 1 ? "[참고] " : ""}[${p.source}${p.date ? ` ${p.date}` : ""}] ${p.text}`),
     "</조각>",
   ].filter((x) => x !== null).join("\n");
   return rewrite({ ...input, system: MERGE_RULES(input.range), content, fallback: () => mergeByRules(input.pieces.map((p) => ({ ...p, text: scrubIdentity(p.text, student).text })), input.range) });

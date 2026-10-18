@@ -6,7 +6,16 @@ import { fitToMax, sentences, toNeisSentence } from "./writing";
 
 /** 특색 활동 = 프로그램 선생님이 확정해 담임에게 보낸 초안 (담임의 자율·자치·진로에만) */
 export type PieceSource = "누가기록" | "메모" | "본문" | "특색 활동";
-export type MergePiece = { id: string; source: PieceSource; date: string | null; text: string };
+export type MergePiece = { id: string; source: PieceSource; date: string | null; text: string; weight?: Importance };
+
+// 조각 고르기 (Figma N20): 교사가 조각마다 중요도를 매기고, 목표 분량에 맞춰 고른다.
+/** 3 핵심 · 2 보통 · 1 참고 */
+export type Importance = 1 | 2 | 3;
+export const IMPORTANCE_LABEL: Record<Importance, string> = { 3: "핵심", 2: "보통", 1: "참고" };
+/** 누를 때마다 보통 → 핵심 → 참고 → 보통 */
+export const nextImportance = (w: Importance): Importance => (w === 2 ? 3 : w === 3 ? 1 : 2);
+/** 고른 조각이 목표의 몇 배까지면 알맞은지 (넘치는 만큼은 합치기가 줄인다) */
+export const BUDGET_OVER = 1.5;
 
 /** 조각 칸(세특·행발 편집 화면)에서 바로 남긴 메모의 범위 — 관찰 메모(편집기 "메모로")와 섞이지 않게 따로 둔다 */
 export const pieceScope = (scope: string) => `${scope}#조각`;
@@ -27,17 +36,50 @@ export function orderPieces(pieces: MergePiece[]): MergePiece[] {
 /** AI 없이: 조각 문장을 날짜 순으로 잇고, 같은 문장은 한 번만, NEIS 어미로, 넘치면 뒤 문장부터 뺀다 */
 export function mergeByRules(pieces: MergePiece[], range: Pick<LengthRange, "unit" | "max">): string {
   const seen = new Set<string>();
-  const out: string[] = [];
+  const out: { text: string; weight: Importance }[] = [];
   for (const p of orderPieces(pieces)) {
     for (const s of sentences(p.text)) {
       const n = toNeisSentence(s.replace(/^\[[^\]]*\]\s*/, ""));
       const key = n.replace(/\s/g, "");
       if (!n || seen.has(key)) continue;
       seen.add(key);
-      out.push(n);
+      out.push({ text: n, weight: p.weight ?? 2 });
     }
   }
-  return fitToMax(out.join(" "), range);
+  // 넘치면 참고 → 보통 조각 문장부터 뒤에서 뺀다 (핵심은 끝까지 남긴다)
+  for (const level of [1, 2] as const) {
+    for (let i = out.length - 1; i >= 0 && measure(out.map((x) => x.text).join(" "), range.unit) > range.max; i--) {
+      if (out[i].weight === level && out.length > 1) out.splice(i, 1);
+    }
+  }
+  return fitToMax(out.map((x) => x.text).join(" "), range);
+}
+
+/**
+ * 중요도 순으로 목표에 맞춰 고르기: 핵심은 늘 고르고, 나머지는 중요도 → 본문 → 새 것 순으로 목표를 넘기 전까지 더한다.
+ * 합치기가 겹치는 말을 줄이므로 목표보다 조금 많은 재료(최대 BUDGET_OVER 배 안)를 허용한다.
+ */
+export function pickByBudget(pieces: MergePiece[], target: number, unit: LengthRange["unit"]): Set<string> {
+  const w = (p: MergePiece) => p.weight ?? 2;
+  const order = pieces
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => w(b.p) - w(a.p) || Number(b.p.source === "본문") - Number(a.p.source === "본문") || (b.p.date ?? "9999").localeCompare(a.p.date ?? "9999") || a.i - b.i)
+    .map((x) => x.p);
+  const out = new Set<string>();
+  let total = 0;
+  for (const p of order) {
+    const n = measure(p.text, unit);
+    if (w(p) !== 3 && (total >= target || total + n > target * BUDGET_OVER)) continue;
+    out.add(p.id);
+    total += n;
+  }
+  return out;
+}
+
+/** 고른 양이 목표에 비해 어떤지: 부족(최소 미만) · 맞음 · 많음(BUDGET_OVER 배 초과) */
+export function budgetStatus(total: number, target: number): "부족" | "맞음" | "많음" {
+  if (total < Math.ceil(target * FIT_RATIO)) return "부족";
+  return total > target * BUDGET_OVER ? "많음" : "맞음";
 }
 
 export const piecesBytes = (pieces: MergePiece[], unit: LengthRange["unit"]) => pieces.reduce((n, p) => n + measure(p.text, unit), 0);

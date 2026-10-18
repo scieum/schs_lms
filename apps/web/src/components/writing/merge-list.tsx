@@ -3,9 +3,17 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { cx } from "@/components/ui";
 import { measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
-import { FIT_RATIO, type MergePiece, type PieceSource } from "@/lib/domain/merge";
+import { budgetStatus, FIT_RATIO, IMPORTANCE_LABEL, nextImportance, pickByBudget, type Importance, type MergePiece, type PieceSource } from "@/lib/domain/merge";
 
 // 합치기 조각 목록 (Figma N11 224:2699 · 목표 줄 224:2778): 조각 고르기 + 목표 분량 (NEIS 최대 | 직접)
+// N20: 조각마다 중요도(핵심·보통·참고)를 누르고, 고른 양을 목표와 견주고, 중요도 순으로 목표에 맞춰 고른다.
+
+const WEIGHT_CHIP: Record<Importance, string> = {
+  3: "bg-key-soft font-bold text-key-strong",
+  2: "bg-soft text-sub",
+  1: "border border-line bg-[#fff] text-mute",
+};
+const STATUS_TAG = { 부족: "bg-wait-soft text-[#9A6400]", 맞음: "bg-ok-soft text-ok", 많음: "bg-[#FFF1EA] text-[#FF7A45]" } as const;
 
 const CHIP: Record<PieceSource, string> = {
   누가기록: "bg-key-soft text-key-strong",
@@ -17,8 +25,9 @@ const SHOWN = 6;
 
 const md = (d: string | null) => (d ? `${+d.slice(5, 7)}.${+d.slice(8, 10)}` : "지금");
 
-export function MergeList({ pieces, selected, setSelected, unit, neisMax, target, setTarget }: {
+export function MergeList({ pieces, onWeight, selected, setSelected, unit, neisMax, target, setTarget }: {
   pieces: MergePiece[];
+  onWeight: (id: string, w: Importance) => void;
   selected: Set<string>;
   setSelected: (s: Set<string>) => void;
   unit: LengthUnit;
@@ -34,10 +43,30 @@ export function MergeList({ pieces, selected, setSelected, unit, neisMax, target
   const u = UNIT_LABEL[unit];
   const toggle = (id: string) => { const n = new Set(selected); if (n.has(id)) n.delete(id); else n.add(id); setSelected(n); };
 
+  const status = budgetStatus(total, target);
+  const pct = target ? Math.min(100, (total / (target * 1.5)) * 100) : 0;
+
   return (
     <div className="flex flex-col gap-2.5">
+      {/* 고른 양 ↔ 목표 (N20). 막대 끝은 목표의 1.5배, 눈금은 목표 */}
+      <div className="flex flex-col gap-2 rounded-inner bg-[#fff] px-3.5 py-3">
+        <div className="flex items-center gap-2">
+          <span className="min-w-0 flex-1 text-[13px] text-sub">
+            선택 <b className="text-ink tabular-nums">{total.toLocaleString()}</b> / 목표 {target.toLocaleString()}{u}
+          </span>
+          <span className={cx("shrink-0 rounded-chip px-2 py-0.5 text-[12px] font-bold", STATUS_TAG[status])}>{status}</span>
+        </div>
+        <div className="relative h-1.5 overflow-hidden rounded-full bg-line" aria-hidden>
+          <div className={cx("h-full rounded-full", status === "부족" ? "bg-wait" : "bg-key")} style={{ width: `${pct}%` }} />
+          <span className="absolute top-0 h-full w-0.5 bg-navy" style={{ left: `${100 / 1.5}%` }} />
+        </div>
+        <button type="button" disabled={!pieces.length} onClick={() => setSelected(pickByBudget(pieces, target, unit))}
+          className="self-end whitespace-nowrap rounded-control bg-key-soft px-3 py-1.5 text-[13px] font-medium text-key-strong disabled:opacity-40 max-md:w-full">
+          중요도 순으로 맞춰 고르기
+        </button>
+      </div>
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-bold">조각 {pieces.length}개 · 선택 {picked.length} · {total.toLocaleString()}{u}</span>
+        <span className="text-[13px] font-bold">조각 {pieces.length}개 · 선택 {picked.length}</span>
         <button type="button" disabled={!pieces.length} onClick={() => setSelected(new Set(picked.length === pieces.length ? [] : pieces.map((p) => p.id)))} className="text-[12px] font-medium text-key-strong disabled:text-faint">
           {pieces.length && picked.length === pieces.length ? "모두 해제" : "전체 선택"}
         </button>
@@ -56,6 +85,11 @@ export function MergeList({ pieces, selected, setSelected, unit, neisMax, target
                   <span className="flex items-center gap-2">
                     <span className={cx("shrink-0 rounded-chip px-1.5 py-0.5 text-[12px] font-medium", CHIP[p.source])}>{p.source}</span>
                     <span className="text-[12px] text-mute">{md(p.date)}</span>
+                    <button type="button" aria-label={`중요도 ${IMPORTANCE_LABEL[p.weight ?? 2]} (누르면 바뀜)`}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWeight(p.id, nextImportance(p.weight ?? 2)); }}
+                      className={cx("shrink-0 whitespace-nowrap rounded-chip px-1.5 py-0.5 text-[12px]", WEIGHT_CHIP[p.weight ?? 2])}>
+                      {IMPORTANCE_LABEL[p.weight ?? 2]}
+                    </button>
                     <span className="ml-auto shrink-0 text-[12px] font-medium tabular-nums text-sub">{measure(p.text, unit).toLocaleString()}{u}</span>
                   </span>
                   <span className={cx("line-clamp-2 text-[13px] leading-5", on ? "text-ink" : "text-mute")}>{p.text}</span>
