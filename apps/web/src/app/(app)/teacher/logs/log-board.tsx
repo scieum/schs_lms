@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useRef, useState, useTransition } from "react";
+import { useActionState, useMemo, useRef, useState, useTransition } from "react";
 import { Check, Paperclip } from "lucide-react";
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { ACCEPT } from "@/components/writing/evidence-files";
@@ -7,6 +7,7 @@ import { Button, Card, Tag, cx } from "@/components/ui";
 import { neisBytes } from "@/lib/domain/length";
 import { addLogs, polishLogMemo, readLogFile, type LogState, type PolishResult } from "./actions";
 import { makeStudentNo } from "@/lib/domain/roster";
+import { StudentListImport } from "@/components/student-list-import";
 
 type S = { id: string; name: string; grade: number; classNo: number; number: number; count: number };
 type L = { id: string; studentId: string; date: string; content: string };
@@ -50,6 +51,7 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
     }
   });
   const nameOf = new Map(students.map((s) => [s.id, s.name]));
+  const pool = useMemo(() => students.map((s) => ({ ...s, studentNo: makeStudentNo(s.grade, s.classNo, s.number) })), [students]);
   const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const all = picked.size === students.length && students.length > 0;
   const shown = picked.size ? logs.filter((l) => picked.has(l.studentId)) : logs;
@@ -61,6 +63,9 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
           {all ? "모두 해제" : "모두 선택"}
         </button>
       }>
+        {students.length > 0 && (
+          <StudentListImport pool={pool} picked={picked} onAdd={(ids) => setPicked((p) => new Set([...p, ...ids]))} className="mb-2 self-start" />
+        )}
         <ul className="-mx-2 flex max-h-[560px] flex-col overflow-y-auto">
           {students.map((s) => {
             const on = picked.has(s.id);

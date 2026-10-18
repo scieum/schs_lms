@@ -1,56 +1,19 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import ExcelJS from "exceljs";
 import { matchRoster, readRosterTable, splitPasted } from "@/lib/domain/class-roster";
 import { isAdmin } from "@/lib/domain/policy";
 import { makeStudentNo } from "@/lib/domain/roster";
 import { repo } from "@/lib/server/repo";
+import { fileRows } from "@/lib/server/roster-file";
 import { requireCan } from "@/lib/server/viewer";
 
 // 이동반 명단: 나이스에서 받은 명단 파일(엑셀·CSV) 또는 복사한 표를 읽어 학생과 맞춘 뒤, 교사가 확인하고 저장한다.
-
-const MAX_BYTES = 3 * 1024 * 1024;
 
 /** 내 것만, 관리자는 다른 교사 것도 */
 async function who(teacherId: string) {
   const v = await requireCan("subjects.assign");
   if (teacherId !== v.accountId && !isAdmin(v)) return null;
   return v;
-}
-
-async function fileRows(f: File): Promise<string[][] | string> {
-  if (f.size > MAX_BYTES) return "3MB 이하 파일만 올릴 수 있어요";
-  const bytes = new Uint8Array(await f.arrayBuffer());
-  const head = new TextDecoder().decode(bytes.slice(0, 600)).trimStart().toLowerCase();
-  // 나이스 "엑셀 저장"은 HTML 표인 .xls 인 경우가 많다
-  if (head.startsWith("<") || /<table/.test(head)) {
-    const html = new TextDecoder().decode(bytes);
-    return [...html.matchAll(/<tr[\s\S]*?<\/tr>/gi)].map((tr) =>
-      [...tr[0].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((c) => c[1].replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").trim()));
-  }
-  if (/\.csv$/i.test(f.name) || f.type === "text/csv" || f.type === "text/plain") {
-    const text = new TextDecoder(/euc-kr|ks_c/i.test(head) ? "euc-kr" : "utf-8").decode(bytes);
-    return text.split(/\r?\n/).map((l) => l.split(/,|\t/));
-  }
-  if (/\.xlsx$/i.test(f.name)) {
-    const wb = new ExcelJS.Workbook();
-    try {
-      await wb.xlsx.load(bytes.buffer as ArrayBuffer);
-    } catch {
-      return "엑셀 파일을 열지 못했어요. 나이스에서 다시 받아 주세요";
-    }
-    const ws = wb.worksheets[0];
-    if (!ws) return "빈 엑셀이에요";
-    const rows: string[][] = [];
-    ws.eachRow({ includeEmpty: false }, (row) => {
-      const cells: string[] = [];
-      row.eachCell({ includeEmpty: true }, (c, i) => { cells[i - 1] = c.text ?? ""; });
-      rows.push(cells.map((x) => x ?? ""));
-    });
-    return rows;
-  }
-  if (/\.xls$/i.test(f.name)) return "이 .xls 파일은 읽지 못했어요. 엑셀에서 .xlsx 로 저장하거나, 나이스 명단을 복사해 붙여 넣어 주세요";
-  return "엑셀(.xlsx·.xls)·CSV 파일만 읽을 수 있어요";
 }
 
 export type RosterPreview = {

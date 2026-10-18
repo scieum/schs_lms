@@ -3,6 +3,7 @@ import { startTransition, useActionState, useEffect, useMemo, useRef, useState, 
 import { useRouter } from "next/navigation";
 import { AlertCircle, Check, ChevronLeft, ClipboardList, Plus, Search, Sparkles, Upload, X } from "lucide-react";
 import { LengthPicker } from "@/components/length-picker";
+import { StudentListImport } from "@/components/student-list-import";
 import { Button, cx } from "@/components/ui";
 import { neisMax, UNIT_LABEL, type DraftCategory, type LengthUnit } from "@/lib/domain/length";
 import { AREA_LABEL, AREAS, DEFAULT_DOC_KINDS, FIXED_QUESTIONS, MAX_EXTRA_QUESTIONS, SOURCE_LABEL, md, type EvidenceSource } from "@/lib/domain/program";
@@ -11,7 +12,7 @@ import type { Program } from "@/lib/domain/program";
 import { createProgramAction, suggestQuestionsAction, updateProgramAction, type CreateState, type SuggestState } from "./actions";
 import { PlanAutofill, type FillKey, type FormNow } from "./plan-autofill";
 
-export type PickStudent = { id: string; label: string; classKey: string; name: string };
+export type PickStudent = { id: string; label: string; classKey: string; name: string; grade: number; classNo: number; number: number; studentNo: string };
 export type PickTeacher = { id: string; label: string };
 
 // 입력칸은 회색(#F2F4F6) 바탕. 흰 칸이 필요하면 bg-[#fff] (.surface 안 bg-white 뒤집기를 피한다)
@@ -473,6 +474,7 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
                 </ul>
               )}
             </div>
+            <StudentListImport pool={students} picked={targets} onAdd={(ids) => setTargets([...new Set([...targets, ...ids])])} className="self-start" />
             {targets.length > 0 && (
               <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
                 {targets.map((id) => (

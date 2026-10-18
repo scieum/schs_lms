@@ -32,4 +32,15 @@ describe("이동반 명단 읽기", () => {
     expect(r.matched).toHaveLength(0);
     expect(r.unmatched).toHaveLength(1);
   });
+  it("붙여넣기: 2-3-12 · 2학년 3반 12번 · 이름만", () => {
+    const lines = readRosterTable(splitPasted("2-1-3 김민준\n2학년 4반 12번 이서연\n박지훈\n"));
+    expect(lines.map((l) => [l.grade, l.classNo, l.number, l.name])).toEqual([[2, 1, 3, "김민준"], [2, 4, 12, "이서연"], [null, null, null, "박지훈"]]);
+    expect(matchRoster(lines, students).matched.map((s) => s.id)).toEqual(["a", "b", "c"]);
+  });
+  it("화면 학생 모양만 있어도 맞춤 (고를 수 있는 학생 안에서만)", () => {
+    const pool = students.filter((s) => s.grade === 2).map(({ id, studentNo, grade, classNo, number, name }) => ({ id, studentNo, grade, classNo, number, name }));
+    const r = matchRoster(readRosterTable([["학번", "이름"], ["20103", "김민준"], ["30103", "김민준"]]), pool);
+    expect(r.matched.map((s) => s.id)).toEqual(["a"]);
+    expect(r.unmatched.map((l) => l.studentNo)).toEqual(["30103"]);
+  });
 });

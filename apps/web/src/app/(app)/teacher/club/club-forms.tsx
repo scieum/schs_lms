@@ -2,7 +2,7 @@
 import { useActionState, useState } from "react";
 import { Check } from "lucide-react";
 import { Button, Field, cx } from "@/components/ui";
-import { matchRosterText, type RosterMatch } from "@/lib/domain/teacher-assist";
+import { StudentListImport } from "@/components/student-list-import";
 import { createClub, saveMembers, type ClubState } from "./actions";
 import { makeStudentNo } from "@/lib/domain/roster";
 
@@ -32,7 +32,7 @@ export function MembersForm({ clubId, students, initial }: { clubId: string; stu
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="payload" value={JSON.stringify({ clubId, studentIds: [...picked] })} />
-      <RosterPaste students={students} picked={picked} onApply={(ids) => setPicked((p) => new Set([...p, ...ids]))} />
+      <StudentListImport pool={students} picked={picked} onAdd={(ids) => setPicked((p) => new Set([...p, ...ids]))} className="self-start" />
       <div className="flex flex-wrap gap-1.5">
         {[1, 2, 3].map((g) => (
           <button key={g} type="button" onClick={() => { setGrade(g); setClassNo(0); }} aria-pressed={grade === g}
@@ -64,50 +64,5 @@ export function MembersForm({ clubId, students, initial }: { clubId: string; stu
       {state.saved && <p className="text-sm text-ok" role="status">저장했어요</p>}
       <Button disabled={pending}>{pending ? "저장하는 중…" : `부원 ${picked.size}명 저장`}</Button>
     </form>
-  );
-}
-
-/**
- * 부원 명단 붙여넣기(엑셀 복사·텍스트) → 학번·학년반번호·이름으로 학생 찾기.
- * 이름이 들어 있어 AI에 보내지 않고 브라우저 안에서 규칙으로만 맞춘다 ("자동").
- */
-function RosterPaste({ students, picked, onApply }: { students: S[]; picked: Set<string>; onApply: (ids: string[]) => void }) {
-  const [open, setOpen] = useState(false);
-  const [text, setText] = useState("");
-  const [res, setRes] = useState<RosterMatch | null>(null);
-  const fresh = res ? res.matched.filter((id) => !picked.has(id)) : [];
-
-  return (
-    <div className="rounded-inner bg-soft px-4 py-3.5">
-      <div className="flex items-center gap-3">
-        <span className="rounded-chip bg-key-soft px-2.5 py-1 text-xs font-bold text-key-strong">자동</span>
-        <div className="min-w-0 flex-1">
-          <div className="text-[15px] font-bold">명단으로 고르기</div>
-          <div className="truncate text-[13px] text-sub">엑셀에서 복사한 부원 명단을 붙여 넣으면 학생을 찾아 골라요</div>
-        </div>
-        <Button type="button" kind="outline" size="sm" onClick={() => setOpen((o) => !o)}>{open ? "닫기" : "붙여넣기"}</Button>
-      </div>
-      {open && (
-        <div className="mt-3 flex flex-col gap-2">
-          <textarea value={text} onChange={(e) => { setText(e.target.value); setRes(null); }} rows={4} maxLength={10000}
-            placeholder={"한 줄에 한 명 (예: 20312 김민수 / 2-3-12 / 2학년 3반 12번 김민수)"} aria-label="부원 명단"
-            className="w-full resize-y rounded-field bg-white p-3 text-sm leading-6 outline-none focus:ring-2 focus:ring-key" />
-          {res && (
-            <div className="flex flex-col gap-1 text-[13px]">
-              <p className="text-sub">찾은 학생 {res.matched.length}명{res.matched.length !== fresh.length ? ` (이미 고른 ${res.matched.length - fresh.length}명)` : ""}</p>
-              {res.ambiguous.length > 0 && <p className="text-wait">같은 이름이 여러 명이라 직접 골라 주세요: {res.ambiguous.slice(0, 5).join(", ")}{res.ambiguous.length > 5 ? ` 외 ${res.ambiguous.length - 5}줄` : ""}</p>}
-              {res.unknown.length > 0 && <p className="text-bad">명단에서 못 찾았어요: {res.unknown.slice(0, 5).join(", ")}{res.unknown.length > 5 ? ` 외 ${res.unknown.length - 5}줄` : ""}</p>}
-            </div>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" kind="ghost" size="sm" disabled={!text.trim()} onClick={() => setRes(matchRosterText(text, students))}>학생 찾기</Button>
-            <Button type="button" kind="outline" size="sm" disabled={!fresh.length}
-              onClick={() => { onApply(fresh); setText(""); setRes(null); setOpen(false); }}>
-              {fresh.length ? `확인 후 ${fresh.length}명 고르기` : "확인 후 고르기"}
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }

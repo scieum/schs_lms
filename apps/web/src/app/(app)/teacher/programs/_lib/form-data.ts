@@ -9,7 +9,10 @@ export async function programFormOptions() {
   return {
     students: students
       .sort((a, b) => a.grade - b.grade || a.classNo - b.classNo || a.number - b.number)
-      .map((s) => ({ id: s.id, name: s.name, classKey: `${s.grade}-${s.classNo}`, label: `${makeStudentNo(s.grade, s.classNo, s.number)} ${s.name}` })),
+      .map((s) => {
+        const studentNo = makeStudentNo(s.grade, s.classNo, s.number);
+        return { id: s.id, name: s.name, grade: s.grade, classNo: s.classNo, number: s.number, studentNo, classKey: `${s.grade}-${s.classNo}`, label: `${studentNo} ${s.name}` };
+      }),
     teachers: teachers.sort((a, b) => a.name.localeCompare(b.name, "ko")).map((t) => ({ id: t.id, label: teacherLabel(t) })),
   };
 }

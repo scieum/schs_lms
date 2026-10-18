@@ -5,7 +5,9 @@
 import type { Student } from "./types";
 
 export interface RosterLine { studentNo: string | null; grade: number | null; classNo: number | null; number: number | null; name: string | null; raw: string }
-export interface RosterMatch { matched: Student[]; unmatched: RosterLine[]; duplicates: number }
+/** 명단 맞추기에 필요한 학생 정보만 (화면마다 가진 학생 모양이 달라서) */
+export type RosterStudent = Pick<Student, "id" | "studentNo" | "grade" | "classNo" | "number" | "name">;
+export interface RosterMatch<T extends RosterStudent = Student> { matched: T[]; unmatched: RosterLine[]; duplicates: number }
 
 export const ROSTER_MAX_LINES = 400;
 
@@ -15,6 +17,7 @@ const num = (s: string) => {
   return m ? Number(m[0]) : null;
 };
 const isName = (s: string) => /^[가-힣]{2,5}$/.test(s);
+const NOT_NAME = /^(학년|학생|번호|이름|성명|남자|여자|부원|동아리)$/;
 
 const HEAD = {
   studentNo: /^학번$/,
@@ -56,28 +59,32 @@ export function readRosterTable(rows: string[][]): RosterLine[] {
   } else {
     for (const r of table) {
       const no = r.map((c) => c.replace(/\D/g, "")).find((c) => /^\d{5}$/.test(c)) ?? null;
-      const name = r.map((c) => c.replace(/\s/g, "")).find(isName) ?? null;
-      if (!no && !name) continue;
-      out.push({ studentNo: no, grade: null, classNo: null, number: null, name, raw: r.filter(Boolean).join(" ") });
+      const raw = r.filter(Boolean).join(" ");
+      // 2-3-12 · 2학년 3반 12번 · 2 3 12 (학번 대신)
+      const gcn = no ? null : raw.match(/([1-3])\s*학년\s*(\d{1,2})\s*반\s*(\d{1,2})\s*번?/) ?? raw.match(/(?<!\d)([1-3])\s*[-.\s]\s*(\d{1,2})\s*[-.\s]\s*(\d{1,2})(?!\d)/);
+      const name = r.flatMap((c) => c.match(/[가-힣]{2,5}/g) ?? []).find((w) => isName(w) && !NOT_NAME.test(w)) ?? null;
+      if (!no && !gcn && !name) continue;
+      out.push({ studentNo: no, grade: gcn ? Number(gcn[1]) : null, classNo: gcn ? Number(gcn[2]) : null, number: gcn ? Number(gcn[3]) : null, name, raw });
     }
   }
   return out.slice(0, ROSTER_MAX_LINES);
 }
 
-/** 명단 줄 → 우리 학생. 학번 → 학년·반·번호 → (그 학년에서 한 명뿐인) 이름 순으로 찾는다 */
-export function matchRoster(lines: RosterLine[], students: Student[], grade?: number): RosterMatch {
+/** 명단 줄 → 우리 학생. 학번 → 학년·반·번호 → (번호가 없을 때만, 그 학년에서 한 명뿐인) 이름 순으로 찾는다 */
+export function matchRoster<T extends RosterStudent>(lines: RosterLine[], students: T[], grade?: number): RosterMatch<T> {
   const byNo = new Map(students.map((s) => [s.studentNo, s]));
   const pool = grade ? students.filter((s) => s.grade === grade) : students;
   const seen = new Set<string>();
-  const matched: Student[] = [];
+  const matched: T[] = [];
   const unmatched: RosterLine[] = [];
   let duplicates = 0;
   for (const l of lines) {
-    let s: Student | undefined;
+    let s: T | undefined;
     if (l.studentNo) s = byNo.get(l.studentNo);
     if (!s && l.grade && l.classNo && l.number) s = students.find((x) => x.grade === l.grade && x.classNo === l.classNo && x.number === l.number);
     if (!s && l.classNo && l.number && grade) s = pool.find((x) => x.classNo === l.classNo && x.number === l.number);
-    if (!s && l.name) {
+    // 학번·학년반번호를 적었는데 못 찾았으면 이름으로 넘겨짚지 않는다 (다른 학생이 잡힐 수 있어서)
+    if (!s && l.name && !l.studentNo && !(l.grade && l.classNo && l.number)) {
       const same = pool.filter((x) => x.name === l.name);
       if (same.length === 1) s = same[0];
     }
