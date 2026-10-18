@@ -2,7 +2,7 @@ import "server-only";
 import { store } from "../demo";
 import { check, db, isUuid } from "../supabase";
 
-// 이동반 분반 명단: 교사·과목·분반마다 학생 목록 (나이스 명단으로 채움).
+// 이동반 분반 명단: 교사·과목·분반마다 학생 목록 (명단 양식으로 채움).
 // 표는 0013_course_rosters.sql + 0016(section 열). 적용 전 DB면 읽기는 빈 목록, 저장은 안내 문구로 실패한다.
 
 export interface CourseRoster { teacherId: string; courseId: string; section: string; studentIds: string[]; updatedAt: string }

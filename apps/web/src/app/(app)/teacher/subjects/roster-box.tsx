@@ -1,19 +1,19 @@
 "use client";
 import { startTransition, useActionState, useState } from "react";
-import Link from "next/link";
-import { FileUp, Users } from "lucide-react";
+import { Users, X } from "lucide-react";
 import { Button, Card, cx } from "@/components/ui";
+import { ExcelButtons } from "@/components/excel-buttons";
 import { previewRoster, saveRoster, type RosterPreview, type RosterSave } from "./roster-actions";
 
 export type RosterSection = { name: string; count: number };
 export type RosterCourse = { id: string; label: string; meta: string; sections: RosterSection[] };
 
-// 이동반 분반 명단 (Figma N2 179:1456): 이동반 과목 → 분반마다 나이스 명단 파일을 올리거나 표를 붙여 넣으면 학생을 자동으로 찾는다 → 확인 후 저장
+// 이동반 분반 명단 (Figma N25 342:8991, N2 대신): 이동반 과목 → 분반마다 명단 양식(.xlsx)을 올리면 학생을 찾는다 → 확인 후 저장
 export function RosterBox({ teacherId, courses, fixedNote }: { teacherId: string; courses: RosterCourse[]; fixedNote: string | null }) {
   const [open, setOpen] = useState<string | null>(null);
   if (!courses.length) return null;
   return (
-    <Card title="이동반 명단" action={<span className="text-[13px] text-mute">이동반 과목만 · 분반마다 나이스 명단</span>}>
+    <Card title="이동반 명단" action={<span className="text-[13px] text-mute">이동반 과목만 · 분반마다 양식 명단</span>}>
       <div className="flex flex-col gap-4">
         {courses.map((c) => (
           <div key={c.id} className="flex flex-col gap-2">
@@ -50,57 +50,45 @@ export function RosterBox({ teacherId, courses, fixedNote }: { teacherId: string
 function RosterEditor({ teacherId, courseId, section, count, onDone }: { teacherId: string; courseId: string; section: string; count: number; onDone: () => void }) {
   const [preview, previewAction, reading] = useActionState<RosterPreview, FormData>(previewRoster, {});
   const [save, saveAction, saving] = useActionState<RosterSave, FormData>(saveRoster, {});
-  const [fileName, setFileName] = useState("");
   const [drop, setDrop] = useState<Set<string>>(new Set());
   const matched = preview.matched ?? [];
 
   return (
-    <div className="mt-3 flex flex-col gap-3 border-t border-line pt-3">
-      <form action={previewAction} className="flex flex-col gap-2.5">
-        <input type="hidden" name="teacherId" value={teacherId} />
-        <input type="hidden" name="courseId" value={courseId} />
-        <input type="hidden" name="section" value={section} />
-        <label className={cx("flex cursor-pointer items-center gap-3 rounded-inner border-2 border-dashed border-hair bg-soft px-4 py-3.5", fileName && "border-key")}>
-          <FileUp size={20} className="shrink-0 text-key" />
-          <span className="min-w-0 flex-1">
-            <span className="block text-[14px] font-medium">{fileName || "나이스 명단 파일 고르기"}</span>
-            <span className="block text-[12px] text-mute">나이스 출석부·명단 엑셀(.xlsx·.xls)·CSV, 또는 양식</span>
-          </span>
-          <input type="file" name="file" accept=".xlsx,.xls,.csv,text/csv" className="sr-only" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")} />
-        </label>
-        <textarea name="pasted" rows={3} placeholder={"또는 나이스 화면의 명단을 복사해 붙여 넣기\n예) 1	20605	박지훈"} className="w-full resize-y rounded-field bg-soft p-3 text-[13px] outline-none focus:ring-2 focus:ring-key" />
-        <div className="flex items-center gap-2">
-          <Link href="/students/list-template" prefetch={false} className="mr-auto whitespace-nowrap text-[13px] font-medium text-key-strong">양식 받기</Link>
-          <Button size="sm" kind="soft" disabled={reading}>{reading ? "읽는 중…" : "명단 읽기"}</Button>
-        </div>
-      </form>
-      {preview.error && <p className="text-sm text-bad" role="alert">{preview.error}</p>}
+    <div className="mt-3 flex flex-col gap-3 rounded-inner bg-[#fff] p-3.5 md:p-4">
+      <ExcelButtons kind="list" busy={reading} error={preview.error} onPick={(file) => {
+        const fd = new FormData();
+        fd.set("teacherId", teacherId);
+        fd.set("courseId", courseId);
+        fd.set("section", section);
+        fd.set("file", file);
+        startTransition(() => previewAction(fd));
+      }} />
 
       {preview.matched && (
         <form action={saveAction} className="flex flex-col gap-2.5">
           <input type="hidden" name="teacherId" value={teacherId} />
           <input type="hidden" name="courseId" value={courseId} />
-        <input type="hidden" name="section" value={section} />
+          <input type="hidden" name="section" value={section} />
           <div className="flex flex-wrap items-center gap-2 text-[13px]">
-            <span className="font-bold text-ok">찾음 {matched.length - drop.size}명</span>
-            {(preview.unmatched?.length ?? 0) > 0 && <span className="font-bold text-wait">못 찾음 {preview.unmatched!.length}명</span>}
+            <span className="rounded-chip bg-ok-soft px-2 py-0.5 font-bold text-ok">찾음 {matched.length - drop.size}명</span>
+            {(preview.unmatched?.length ?? 0) > 0 && <span className="rounded-chip bg-wait-soft px-2 py-0.5 font-bold text-[#9A6400]">못 찾음 {preview.unmatched!.length}명</span>}
             {(preview.duplicates ?? 0) > 0 && <span className="text-mute">중복 {preview.duplicates}줄 뺌</span>}
             <span className="text-mute">· 누르면 빼기</span>
           </div>
-          <div className="flex max-h-56 flex-wrap gap-1.5 overflow-y-auto rounded-inner bg-soft p-2.5">
+          <div className="flex max-h-56 flex-wrap gap-1.5 overflow-y-auto">
             {matched.map((s) => {
               const off = drop.has(s.id);
               return (
                 <button key={s.id} type="button" onClick={() => { const d = new Set(drop); if (off) d.delete(s.id); else d.add(s.id); setDrop(d); }}
-                  className={cx("rounded-chip px-2 py-0.5 text-[12px] tabular-nums", off ? "bg-white text-faint line-through" : "bg-white text-ink")}>
-                  {s.label}
+                  aria-pressed={!off} className={cx("inline-flex items-center gap-1 rounded-chip border border-line bg-[#fff] px-2 py-1 text-[12px] tabular-nums", off ? "text-faint line-through" : "text-ink")}>
+                  {s.label} {!off && <X size={12} className="text-mute" aria-hidden />}
                 </button>
               );
             })}
           </div>
           {matched.filter((s) => !drop.has(s.id)).map((s) => <input key={s.id} type="hidden" name="studentId" value={s.id} />)}
           {(preview.unmatched?.length ?? 0) > 0 && (
-            <p className="text-[12px] text-[#9A6400]">찾지 못함: {preview.unmatched!.slice(0, 10).join(", ")}{preview.unmatched!.length > 10 ? ` 외 ${preview.unmatched!.length - 10}줄` : ""} · 잘 안 맞으면 양식에 옮겨 올려 주세요</p>
+            <p className="text-[12px] text-[#9A6400]">찾지 못함: {preview.unmatched!.slice(0, 10).join(", ")}{preview.unmatched!.length > 10 ? ` 외 ${preview.unmatched!.length - 10}줄` : ""} · 이 수업 학생이 아니에요</p>
           )}
           {save.error && <p className="text-sm text-bad" role="alert">{save.error}</p>}
           {save.done && <p className="text-sm text-ok" role="status">{save.done}</p>}

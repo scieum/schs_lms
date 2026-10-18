@@ -1,8 +1,7 @@
-import { Download } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { ButtonLink, Segmented } from "@/components/ui";
+import { Segmented } from "@/components/ui";
 import { requireCan } from "@/lib/server/viewer";
-import { ExcelUpload } from "./excel-upload";
+import { ExcelUpload, RegisterHeaderButton } from "./excel-upload";
 import { OneForm } from "./one-form";
 
 export const metadata = { title: "학생 등록 · 속초고등학교 학생관리시스템" };
@@ -12,14 +11,7 @@ export default async function NewStudentsPage({ searchParams }: { searchParams: 
   const one = (await searchParams).mode === "one";
   return (
     <>
-      <PageHeader
-        title="학생 등록"
-        actions={
-          <ButtonLink href="/students/template" kind="outline" size="sm" prefetch={false}>
-            <Download size={14} /> <span className="hidden md:inline">양식 다운로드</span><span className="md:hidden">양식</span>
-          </ButtonLink>
-        }
-      />
+      <PageHeader title="학생 등록" actions={one ? undefined : <RegisterHeaderButton />} />
       <PageBody>
         <Segmented
           active={one ? 1 : 0}

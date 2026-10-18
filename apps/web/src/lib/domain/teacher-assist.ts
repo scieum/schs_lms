@@ -1,7 +1,6 @@
 // 교사 화면 AI 도우미의 규칙 부분 (키가 없을 때 쓰는 "자동" 결과 + AI 결과 검사).
 // 순수 함수만 둔다. AI 호출은 lib/server/ai/teacher-ai.ts.
 import { SUBJECT_GROUPS, type Course, type SubjectGroup } from "./curriculum";
-import { matchHeaders, type Field } from "./roster";
 import { sentences, toNeisSentence } from "./writing";
 
 // ---------- 교사 홈: 오늘 브리핑 ----------
@@ -50,74 +49,6 @@ export function polishLogRule(raw: string): string {
   // 3조각 이상이면 앞 조각들을 이어 2문장으로 맞춘다
   const two = parts.length <= 2 ? parts : [parts.slice(0, -1).map((p) => p.replace(/[.!?]$/, "")).join(", "), parts[parts.length - 1]];
   return two.map(toNeisSentence).filter(Boolean).join(" ");
-}
-
-// ---------- 동아리: 부원 명단 붙여넣기 ----------
-
-export interface RosterPerson {
-  id: string;
-  name: string;
-  grade: number;
-  classNo: number;
-  number: number;
-  studentNo: string;
-}
-export interface RosterMatch {
-  matched: string[];
-  /** 같은 이름이 여러 명이라 고르지 못한 줄 */
-  ambiguous: string[];
-  /** 명단에서 찾지 못한 줄 */
-  unknown: string[];
-}
-
-/**
- * 엑셀 복사·텍스트 명단을 학생과 맞춘다. 한 줄(또는 쉼표로 나뉜 칸)에 한 명.
- * 학번(5자리) → 학년-반-번호 → 이름 순으로 찾는다. 이름은 AI에 보내지 않고 여기서만 맞춘다.
- */
-export function matchRosterText(text: string, people: RosterPerson[]): RosterMatch {
-  const res: RosterMatch = { matched: [], ambiguous: [], unknown: [] };
-  const seen = new Set<string>();
-  const add = (id: string) => {
-    if (!seen.has(id)) {
-      seen.add(id);
-      res.matched.push(id);
-    }
-  };
-  const lines = text
-    .replace(/\r\n/g, "\n")
-    .split(/\n|;/)
-    .flatMap((l) => (/\t/.test(l) || /\d/.test(l) ? [l] : l.split(/,/)))
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  for (const line of lines) {
-    const no = line.match(/(?<!\d)([1-3]\d{4})(?!\d)/)?.[1];
-    if (no) {
-      const s = people.find((p) => p.studentNo === no);
-      if (s) { add(s.id); continue; }
-    }
-    const gcn =
-      line.match(/([1-3])\s*학년\s*(\d{1,2})\s*반\s*(\d{1,2})\s*번/) ??
-      line.match(/(?<!\d)([1-3])\s*[-.]\s*(\d{1,2})\s*[-.]\s*(\d{1,2})(?!\d)/) ??
-      line.match(/(?<!\d)([1-3])\t+(\d{1,2})\t+(\d{1,2})(?!\d)/);
-    // 번호 없이 학년·반만 있으면 동명이인 좁히기에만 쓴다
-    const gc = gcn ?? line.match(/([1-3])\s*학년\s*(\d{1,2})\s*반/) ?? line.match(/(?<!\d)([1-3])\s*-\s*(\d{1,2})(?![\d-])/);
-    const [g, c, n] = gc ? [Number(gc[1]), Number(gc[2]), Number(gcn?.[3] ?? 0)] : [0, 0, 0];
-    if (gcn) {
-      const s = people.find((p) => p.grade === g && p.classNo === c && p.number === n);
-      if (s) { add(s.id); continue; }
-    }
-    const names = [...line.matchAll(/[가-힣]{2,5}/g)].map((m) => m[0]).filter((w) => !/^(학년|학생|번호|이름|성명|남자|여자|부원|동아리)$/.test(w));
-    let done = false;
-    for (const w of names) {
-      let same = people.filter((p) => p.name.replace(/\s/g, "") === w);
-      if (same.length > 1 && gc) same = same.filter((p) => p.grade === g && p.classNo === c);
-      if (same.length === 1) { add(same[0].id); done = true; break; }
-      if (same.length > 1) { res.ambiguous.push(line); done = true; break; }
-    }
-    if (!done) res.unknown.push(line);
-  }
-  return res;
 }
 
 // ---------- 내 교과·과목: 추천 ----------
@@ -173,44 +104,6 @@ const QUESTIONS: Record<string, string[]> = {
 export function counselQuestionsRule(records: { area: string; date: string }[]): string[] {
   const latest = [...records].sort((a, b) => b.date.localeCompare(a.date))[0];
   return QUESTIONS[latest?.area ?? "진로"] ?? QUESTIONS.진로;
-}
-
-// ---------- 학생 등록: 엑셀 열 맞추기 ----------
-
-const LOOSE: [Field, RegExp][] = [
-  ["grade", /학년|grade|year/i],
-  ["classNo", /반|학급|class|room/i],
-  ["number", /번호|번|출석|number|no\b|num/i],
-  ["name", /이름|성명|학생명|name/i],
-  ["gender", /성별|남녀|gender|sex/i],
-  ["track", /계열|track/i],
-];
-
-/** 양식 이름으로 맞추고, 남은 열은 포함 관계로 느슨하게 맞춘다 (키가 없을 때) */
-export function guessHeaders(headers: string[]): Partial<Record<Field, number>> {
-  const map = { ...matchHeaders(headers).map };
-  const used = new Set(Object.values(map));
-  for (const [f, re] of LOOSE) {
-    if (map[f] !== undefined) continue;
-    const idx = headers.findIndex((h, i) => !used.has(i) && !!h && re.test(h));
-    if (idx >= 0) {
-      map[f] = idx;
-      used.add(idx);
-    }
-  }
-  return map;
-}
-
-/** AI 가 준 열 번호를 검사: 범위 안, 한 열은 한 항목에만 */
-export function cleanHeaderMap(raw: Partial<Record<Field, number | null>>, count: number): Partial<Record<Field, number>> {
-  const out: Partial<Record<Field, number>> = {};
-  const used = new Set<number>();
-  for (const [f, v] of Object.entries(raw) as [Field, number | null][]) {
-    if (v === null || v === undefined || !Number.isInteger(v) || v < 0 || v >= count || used.has(v)) continue;
-    out[f] = v;
-    used.add(v);
-  }
-  return out;
 }
 
 // ---------- 학생 목록: 말로 찾기 ----------

@@ -1,6 +1,6 @@
-// 이동반(선택 과목 반) 명단: 나이스에서 받은 학생 명단(엑셀·CSV·복사 붙여넣기)을 읽어 우리 학생과 맞춘다.
+// 학생 명단(엑셀로 학생 넣기 · 이동반 명단): 명단 양식(학번·학년·반·번호·이름, excel-template.ts)을 읽어 우리 학생과 맞춘다.
 // 2·3학년은 선택 과목마다 반이 섞이므로, 담당 과목의 학생을 "반"이 아니라 명단으로 정한다.
-// 머리글(학번·학년·반·번호·성명/이름)이 있으면 그 열을 쓰고, 없으면 5자리 학번과 한글 이름을 찾아 읽는다.
+// 양식이 아닌 파일·붙여넣기·나이스 출석부는 읽지 않는다 (Figma N25).
 
 import type { Student } from "./types";
 
@@ -11,68 +11,27 @@ export interface RosterMatch<T extends RosterStudent = Student> { matched: T[]; 
 
 export const ROSTER_MAX_LINES = 400;
 
-const clean = (s: unknown) => String(s ?? "").replace(/\s+/g, " ").trim();
 const num = (s: string) => {
   const m = s.match(/\d+/);
   return m ? Number(m[0]) : null;
 };
-const isName = (s: string) => /^[가-힣]{2,5}$/.test(s);
-const NOT_NAME = /^(학년|학생|번호|이름|성명|남자|여자|부원|동아리|연번|학과|교과|과목|비고|성별|담임|출석|결석|지각|조퇴|공동)$/;
-/** 이름 칸의 덧붙임은 빼고 이름만 (나이스: "이재혁(공동)", "김민준 [전입]") — 학번·이름만 보고 맞춘다 */
+/** 이름 칸의 덧붙임은 빼고 이름만 ("이재혁(공동)", "김민준 [전입]") — 학번·이름만 보고 맞춘다 */
 const cleanName = (s: string) => s.replace(/\(.*?\)|（.*?）|\[.*?\]/g, "").replace(/[^가-힣a-zA-Z]/g, "");
-// 나이스 출석부의 제목·학과·학교 칸 (예: 교과시간별, 일반학과, 속초고등학교)
-const NOT_NAME_PART = /(학과|학교|고등학|중학|교과|과정|시간별|학기|학년도|출석부|명단|계열)/;
-const nameLike = (w: string) => isName(w) && !NOT_NAME.test(w) && !NOT_NAME_PART.test(w);
-/** 머리글은 띄어 쓴 것도 같게 본다 (나이스 출석부: "성  명", "학  번") */
-const head = (c: string) => c.replace(/\s/g, "");
 
-const HEAD = {
-  studentNo: /^학번$/,
-  grade: /^학년$/,
-  classNo: /^반$/,
-  number: /^(번호|번)$/,
-  name: /^(성명|이름|학생명|학생이름)$/,
-};
-
-/** 붙여넣은 글(탭·쉼표·여러 칸 공백 구분) → 표 */
-export function splitPasted(text: string): string[][] {
-  return text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => (l.includes("\t") ? l.split("\t") : l.includes(",") ? l.split(",") : l.split(/\s{2,}|\s(?=\d)|(?<=\d)\s/)).map(clean));
-}
-
-/** 표(행×칸) → 명단 줄. 머리글이 있으면 그 열로, 없으면 칸 모양으로 */
-export function readRosterTable(rows: string[][]): RosterLine[] {
-  const table = rows.map((r) => r.map(clean)).filter((r) => r.some(Boolean));
-  const headAt = table.findIndex((r) => r.some((c) => HEAD.name.test(head(c))) && r.some((c) => HEAD.studentNo.test(head(c)) || HEAD.number.test(head(c)) || HEAD.classNo.test(head(c))));
+/** 명단 양식 본문(readTemplate(rows, "list")) → 명단 줄. 학번·학년반번호·이름이 모두 없는 줄은 뺀다 */
+export function listLines(body: { cells: string[] }[]): RosterLine[] {
   const out: RosterLine[] = [];
-  if (headAt >= 0) {
-    const headRow = table[headAt];
-    const col = (re: RegExp) => headRow.findIndex((c) => re.test(head(c)));
-    const at = { studentNo: col(HEAD.studentNo), grade: col(HEAD.grade), classNo: col(HEAD.classNo), number: col(HEAD.number), name: col(HEAD.name) };
-    for (const r of table.slice(headAt + 1)) {
-      const get = (i: number) => (i >= 0 ? r[i] ?? "" : "");
-      const no = get(at.studentNo).replace(/\D/g, "");
-      const name = cleanName(get(at.name));
-      if (!no && !name) continue;
-      out.push({
-        studentNo: /^\d{5}$/.test(no) ? no : null,
-        grade: num(get(at.grade)), classNo: num(get(at.classNo)), number: num(get(at.number)),
-        name: name || null, raw: r.filter(Boolean).join(" "),
-      });
-    }
-  } else {
-    for (const r of table) {
-      const no = r.map((c) => c.replace(/\D/g, "")).find((c) => /^\d{5}$/.test(c)) ?? null;
-      const raw = r.filter(Boolean).join(" ");
-      // 2-3-12 · 2학년 3반 12번 · 2 3 12 (학번 대신)
-      const gcn = no ? null : raw.match(/([1-3])\s*학년\s*(\d{1,2})\s*반\s*(\d{1,2})\s*번?/) ?? raw.match(/(?<!\d)([1-3])\s*[-.\s]\s*(\d{1,2})\s*[-.\s]\s*(\d{1,2})(?!\d)/);
-      const name = r.flatMap((c) => c.match(/[가-힣]{2,5}/g) ?? []).find(nameLike) ?? null;
-      if (!no && !gcn && !name) continue;
-      out.push({ studentNo: no, grade: gcn ? Number(gcn[1]) : null, classNo: gcn ? Number(gcn[2]) : null, number: gcn ? Number(gcn[3]) : null, name, raw });
-    }
+  for (const { cells } of body) {
+    const [no = "", grade = "", classNo = "", number = "", name = ""] = cells;
+    const digits = no.replace(/\D/g, "");
+    const clean = cleanName(name);
+    const g = num(grade), c = num(classNo), n = num(number);
+    if (!digits && !clean && !(g && c && n)) continue;
+    out.push({
+      studentNo: /^\d{5}$/.test(digits) ? digits : null,
+      grade: g, classNo: c, number: n,
+      name: clean || null, raw: cells.filter(Boolean).join(" "),
+    });
   }
   return out.slice(0, ROSTER_MAX_LINES);
 }
