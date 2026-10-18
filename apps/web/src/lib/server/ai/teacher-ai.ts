@@ -1,9 +1,8 @@
 import "server-only";
 import { z } from "zod";
 import { SUBJECT_GROUPS, type Course, type SubjectGroup } from "@/lib/domain/curriculum";
-import { FIELD_LABEL, type Field } from "@/lib/domain/roster";
 import {
-  briefingRule, cleanCourseSuggestion, cleanHeaderMap, counselQuestionsRule, guessHeaders, parseStudentQuery, polishLogRule, suggestCoursesRule,
+  briefingRule, cleanCourseSuggestion, counselQuestionsRule, parseStudentQuery, polishLogRule, suggestCoursesRule,
   type BriefingInput, type BriefingLine, type CourseSuggestion, type StudentFilter,
 } from "@/lib/domain/teacher-assist";
 import { aiEnabled, aiJson } from "./claude";
@@ -91,24 +90,6 @@ export async function suggestMyCourses(dept: string | null, current: SubjectGrou
   if (!r.ok) return { data: rule, label: "자동", error: r.error };
   const clean = cleanCourseSuggestion(r.data, courses);
   return clean.groups.length ? { data: { ...clean, reason: r.data.reason.trim() }, label: "AI" } : { data: rule, label: "자동" };
-}
-
-const FIELDS: Field[] = ["grade", "classNo", "number", "name", "gender", "track"];
-
-/** 학생 등록 엑셀 열 맞추기: 1행(제목)만 보낸다 */
-export async function mapRosterHeaders(headers: string[]): Promise<Assisted<Partial<Record<Field, number>>>> {
-  const rule = guessHeaders(headers);
-  if (!aiEnabled()) return { data: rule, label: "자동" };
-  const r = await aiJson(z.object(Object.fromEntries(FIELDS.map((f) => [f, z.number().int().nullable()])) as Record<Field, z.ZodNullable<z.ZodNumber>>), {
-    model: "fast",
-    system: `너는 학생 명단 엑셀의 열 제목을 등록 양식 항목에 맞춘다. 각 항목에 맞는 열 번호(0부터)를 주고, 없으면 null.
-항목: ${FIELDS.map((f) => `${f}=${FIELD_LABEL[f]}`).join(", ")}
-한 열은 한 항목에만 쓴다. 학번(5자리)처럼 여러 값이 합쳐진 열은 고르지 않는다.`,
-    content: `열 제목:\n${headers.map((h, i) => `${i}: ${h || "(빈 칸)"}`).join("\n")}`,
-  });
-  if (!r.ok) return { data: rule, label: "자동", error: r.error };
-  const map = cleanHeaderMap(r.data, headers.length);
-  return { data: Object.keys(map).length ? map : rule, label: Object.keys(map).length ? "AI" : "자동" };
 }
 
 /** 학생 목록 말로 찾기. 이름이 들어 있으면 부르는 쪽에서 규칙만 쓴다 */

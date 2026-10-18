@@ -1,13 +1,13 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { matchRoster, readRosterTable, splitPasted } from "@/lib/domain/class-roster";
+import { listLines, matchRoster } from "@/lib/domain/class-roster";
 import { isAdmin } from "@/lib/domain/policy";
 import { makeStudentNo } from "@/lib/domain/roster";
+import { readTemplateFile } from "@/lib/server/excel";
 import { repo } from "@/lib/server/repo";
-import { fileRows } from "@/lib/server/roster-file";
 import { requireCan } from "@/lib/server/viewer";
 
-// 이동반 명단: 나이스에서 받은 명단 파일(엑셀·CSV) 또는 복사한 표를 읽어 학생과 맞춘 뒤, 교사가 확인하고 저장한다.
+// 이동반 명단 (Figma N25): 명단_양식.xlsx 만 읽어 학생과 맞춘 뒤, 교사가 확인하고 저장한다. 나이스 출석부·붙여넣기는 읽지 않는다.
 
 /** 내 것만, 관리자는 다른 교사 것도 */
 async function who(teacherId: string) {
@@ -37,20 +37,10 @@ export async function previewRoster(prev: RosterPreview, form: FormData): Promis
   if (!course || !a) return { error: "맡은 과목을 먼저 저장해 주세요", n };
   if (a.mode !== "moving" || !a.sections?.includes(section)) return { error: "이동반 분반을 먼저 저장해 주세요", n };
 
-  const pasted = String(form.get("pasted") ?? "").trim();
-  const f = form.get("file");
-  let rows: string[][];
-  if (f instanceof File && f.size > 0) {
-    const r = await fileRows(f);
-    if (typeof r === "string") return { error: r, courseId, n };
-    rows = r;
-  } else if (pasted) {
-    rows = splitPasted(pasted);
-  } else {
-    return { error: "명단 파일을 고르거나 나이스 명단을 붙여 넣어 주세요", courseId, n };
-  }
-  const lines = readRosterTable(rows);
-  if (!lines.length) return { error: "명단에서 학번이나 이름을 찾지 못했어요. 양식 받기 → 학번·이름을 옮겨 올려 주세요", courseId, n };
+  const f = await readTemplateFile(form.get("file"), "list");
+  if ("error" in f) return { error: f.error, courseId, n };
+  const lines = listLines(f.body);
+  if (!lines.length) return { error: "학생 줄이 없어요. 2행부터 학번이나 학년·반·번호를 적어 주세요", courseId, n };
   const r = matchRoster(lines, await repo.listStudents(), course.grade);
   return {
     courseId, n, duplicates: r.duplicates,

@@ -131,7 +131,7 @@ export function SubjectsForm({
                                 <Plus size={12} /> 분반
                               </button>
                             </div>
-                            <p className="text-[12px] text-mute">분반마다 나이스 명단을 올려 학생을 정해요 · 저장한 뒤 위 이동반 명단에서 올려요</p>
+                            <p className="text-[12px] text-mute">분반마다 양식 명단을 올려 학생을 정해요 · 저장한 뒤 위 이동반 명단에서 올려요</p>
                           </>
                         )}
                       </div>

@@ -1,60 +1,16 @@
-// 학생 등록 규칙: 엑셀 열 맞추기, 행 검사, 학번·가명ID 만들기.
-// 엑셀 파일 읽기(exceljs)는 lib/server/excel.ts 에서 하고, 여기는 순수 함수만 둔다.
+// 학생 등록 규칙: 양식 줄 읽기, 행 검사, 학번·가명ID 만들기.
+// 엑셀 파일 읽기(exceljs)는 lib/server/excel.ts, 양식 제목 검사는 excel-template.ts.
 
-export const TEMPLATE_COLUMNS = ["학년", "반", "번호", "이름", "성별", "계열"] as const;
 export type Field = "grade" | "classNo" | "number" | "name" | "gender" | "track";
-/** 계열은 비워 두면 1 (속초고는 1로 통일) — 그래서 필수 열이 아니다 */
-const OPTIONAL: Field[] = ["track"];
 export const DEFAULT_TRACK = 1;
 export type Gender = "남" | "여";
+/** 한 학생 입력 칸. studentNo(학번)는 양식에서만 오고, 적었으면 학년·반·번호와 같은지 본다 */
+export type RawStudent = Record<Field, string> & { studentNo?: string };
 
-const ALIASES: Record<Field, string[]> = {
-  grade: ["학년", "grade"],
-  classNo: ["반", "학급", "class"],
-  number: ["번호", "번", "출석번호", "number", "no"],
-  name: ["이름", "성명", "학생명", "학생이름", "name"],
-  gender: ["성별", "남녀", "gender", "sex"],
-  track: ["계열", "track"],
-};
-
-const norm = (s: string) => s.replace(/\s|\(.*?\)/g, "").toLowerCase();
-
-export interface HeaderMatch {
-  map: Partial<Record<Field, number>>; // field -> column index
-  /** 양식과 이름이 달랐지만 맞춘 열 (예: 성명 → 이름) */
-  renamed: { from: string; to: string }[];
-  missing: Field[];
+/** 학생 등록 양식 본문(학번·학년·반·번호·이름·성별·계열) → 입력 칸 */
+export function registerRows(body: { line: number; cells: string[] }[]): (RawStudent & { line: number })[] {
+  return body.map(({ line, cells: [studentNo, grade, classNo, number, name, gender, track] }) => ({ line, studentNo, grade, classNo, number, name, gender, track }));
 }
-
-export function matchHeaders(headers: string[]): HeaderMatch {
-  const map: Partial<Record<Field, number>> = {};
-  const renamed: { from: string; to: string }[] = [];
-  headers.forEach((raw, idx) => {
-    const h = norm(raw ?? "");
-    if (!h) return;
-    for (const f of Object.keys(ALIASES) as Field[]) {
-      if (map[f] !== undefined) continue;
-      const aliases = ALIASES[f].map(norm);
-      if (aliases.includes(h)) {
-        map[f] = idx;
-        const canonical = ALIASES[f][0];
-        if (norm(canonical) !== h) renamed.push({ from: raw.trim(), to: canonical });
-        return;
-      }
-    }
-  });
-  const missing = (Object.keys(ALIASES) as Field[]).filter((f) => map[f] === undefined && !OPTIONAL.includes(f));
-  return { map, renamed, missing };
-}
-
-export const FIELD_LABEL: Record<Field, string> = {
-  grade: "학년",
-  classNo: "반",
-  number: "번호",
-  name: "이름",
-  gender: "성별",
-  track: "계열",
-};
 
 export interface RosterInput {
   grade: number;
@@ -69,7 +25,7 @@ export type RowStatus = "new" | "duplicate" | "invalid";
 
 export interface CheckedRow {
   line: number; // 엑셀 행 번호 (헤더가 1행)
-  input: Partial<RosterInput> & { raw: Record<Field, string> };
+  input: Partial<RosterInput> & { raw: RawStudent };
   status: RowStatus;
   problems: string[];
   studentNo: string | null;
@@ -105,7 +61,7 @@ export function nextPseudonymIds(existing: string[], count: number): string[] {
 }
 
 /** 한 학생 입력 검사. 문제 목록이 비어 있으면 통과. */
-export function checkOne(raw: Record<Field, string>): { input: Partial<RosterInput>; problems: string[] } {
+export function checkOne(raw: RawStudent): { input: Partial<RosterInput>; problems: string[] } {
   const problems: string[] = [];
   const grade = toInt(raw.grade);
   const classNo = toInt(raw.classNo);
@@ -122,6 +78,10 @@ export function checkOne(raw: Record<Field, string>): { input: Partial<RosterInp
   if (!(raw.gender ?? "").trim()) problems.push("성별이 비어 있어요");
   else if (!gender) problems.push("성별은 남·여로 써 주세요");
   if (track === null || track < 1 || track > 9) problems.push("계열은 숫자 1~9 (비우면 1)");
+  const no = (raw.studentNo ?? "").trim();
+  if (no && grade !== null && classNo !== null && number !== null && !problems.length && no !== makeStudentNo(grade, classNo, number)) {
+    problems.push("학번이 학년·반·번호와 달라요");
+  }
 
   return {
     input: {
@@ -141,10 +101,10 @@ export function checkOne(raw: Record<Field, string>): { input: Partial<RosterInp
  * - 같은 파일 안에서 학년·반·번호가 겹치면 뒤 행은 invalid
  * - 이미 등록된 학번이면 duplicate (등록하지 않고 건너뜀)
  */
-export function checkRows(rows: Record<Field, string>[], existingStudentNos: Set<string>): CheckedRow[] {
+export function checkRows(rows: (RawStudent & { line?: number })[], existingStudentNos: Set<string>): CheckedRow[] {
   const seen = new Map<string, number>();
-  return rows.map((raw, i) => {
-    const line = i + 2;
+  return rows.map(({ line: at, ...raw }, i) => {
+    const line = at ?? i + 2;
     const { input, problems } = checkOne(raw);
     let studentNo: string | null = null;
     let status: RowStatus = problems.length ? "invalid" : "new";
