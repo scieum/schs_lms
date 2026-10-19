@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { canLog, homeroomStudents, isAreaOf } from "@/lib/domain/activity";
 import { maskIdentity } from "@/lib/domain/program";
-import { withActivity } from "@/lib/domain/activity-name";
+import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
 import { polishLog, polishStudentLog } from "@/lib/server/ai/teacher-ai";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
@@ -16,6 +16,8 @@ const Schema = z.object({
   area: z.string(),
   clubId: z.string().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "날짜를 골라 주세요"),
+  /** 활동명 (Figma N32): 기록 맨 앞에 "[활동명] "으로 붙인다 */
+  activity: z.string().max(60).optional().default(""),
   content: z.string().trim().min(5, "5자 이상 써 주세요").max(1000, "1000자까지 쓸 수 있어요"),
   studentIds: z.array(z.string()).min(1, "학생을 한 명 이상 골라 주세요").max(60),
 });
@@ -31,8 +33,11 @@ export async function addLogs(_: LogState, form: FormData): Promise<LogState> {
   }
   const p = Schema.safeParse({ ...Object.fromEntries(form), studentIds: ids, clubId: form.get("clubId") || undefined });
   if (!p.success) return { error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
-  const { area, date, content, studentIds } = p.data;
+  const { area, date, studentIds } = p.data;
   if (!isAreaOf(area)) return { error: "영역을 골라 주세요" };
+  if (!cleanActivity(p.data.activity)) return { error: "활동명을 적어 주세요" };
+  const content = withActivity(p.data.activity, p.data.content);
+  if (content.length > 1000) return { error: "1000자까지 쓸 수 있어요" };
 
   let club: { advisorId: string; memberIds: Set<string> } | undefined;
   let clubId: string | null = null;

@@ -19,27 +19,30 @@ type Focus = { competency: Competency; sub?: string } | null;
 /**
  * 본문 카드 머리: 제목 + (역량 보기 중이면) 수정하기 + 역량 보기 스위치. 꺼져 있으면 children(편집기·기록 목록)을 보여 준다.
  * editable=false 는 읽기 전용 기록(누가기록·초안·조각, Figma N18)에 쓴다 — 수정하기 버튼 없음.
+ * bare: 바깥 상자 없이 (Figma N32 ③ 본문 — 흰 면 위에 바로, 회색 안 회색 금지). toggle=false 면 역량 보기 스위치를 숨긴다(글이 없을 때).
+ * title 이 글자가 아니면(단계 머리 등) 그대로 그린다.
  */
-export function BodyCard({ text, tag, children, title = "본문", editable = true, className }: {
-  text: string; tag: (text: string) => Promise<TagResult>; children: React.ReactNode; title?: React.ReactNode; editable?: boolean; className?: string;
+export function BodyCard({ text, tag, children, title = "본문", editable = true, className, bare = false, toggle = true }: {
+  text: string; tag: (text: string) => Promise<TagResult>; children: React.ReactNode; title?: React.ReactNode; editable?: boolean; className?: string; bare?: boolean; toggle?: boolean;
 }) {
-  const [on, setOn] = useState(false);
+  const [state, setOn] = useState(false);
+  const on = state && toggle;
   return (
-    <section className={cx("@container flex flex-col gap-3", className ?? "rounded-inner bg-white p-4")}>
+    <section className={cx("@container flex flex-col gap-3", className ?? (bare ? "" : "rounded-inner bg-white p-4"))}>
       <div className="flex items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-[14px] font-bold">{title}</span>
+        {typeof title === "string" ? <span className="min-w-0 flex-1 truncate text-[14px] font-bold">{title}</span> : <div className="min-w-0 flex-1">{title}</div>}
         {on && editable && (
           <button type="button" onClick={() => setOn(false)} className="hidden items-center gap-1 rounded-control border border-hair bg-[#fff] px-2.5 py-1 text-[12px] font-medium md:flex">
             <Pencil size={12} /> 수정하기
           </button>
         )}
-        <label className={cx("flex shrink-0 items-center gap-2 whitespace-nowrap text-[13px] text-sub", text.trim() ? "cursor-pointer" : "cursor-not-allowed opacity-50")}>
+        {toggle && <label className={cx("flex shrink-0 items-center gap-2 whitespace-nowrap text-[13px] text-sub", text.trim() ? "cursor-pointer" : "cursor-not-allowed opacity-50")}>
           역량 보기
           <input type="checkbox" role="switch" className="peer sr-only" checked={on} onChange={(e) => setOn(e.target.checked)} disabled={!text.trim()} />
           <span aria-hidden className={cx("relative h-5 w-9 rounded-full transition-colors", on ? "bg-key" : "bg-faint")}>
             <span className={cx("absolute top-0.5 size-4 rounded-full bg-[#fff] transition-all", on ? "left-[18px]" : "left-0.5")} />
           </span>
-        </label>
+        </label>}
       </div>
       {/* 편집기는 늘 그려 두고(폼 제출용) 역량 보기일 때만 숨긴다 */}
       <div className={cx(on && "hidden")}>{children}</div>

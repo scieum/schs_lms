@@ -46,6 +46,12 @@ export function RecordChecks({ text, range, who, fit, length, onFind }: {
   );
 }
 
+/** ③ 단계 머리 설명 (Figma N32): 빈 본문 · 확인 n · 통과 */
+export function checkMeta(text: string, range: LengthRange, who: Who): string {
+  const c = autoCheck(text, range, findIdentity(text, who));
+  return c.status === "empty" ? "본문을 쓰면 검사해요" : c.rows.length ? `확인 ${c.rows.length}` : "통과";
+}
+
 /** "찾기": 본문 입력칸에서 그 말을 골라 보이게 한다 */
 export function selectIn(el: HTMLTextAreaElement | null, s: string) {
   if (!el) return;

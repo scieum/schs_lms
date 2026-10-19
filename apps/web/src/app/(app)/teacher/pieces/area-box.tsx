@@ -4,19 +4,13 @@ import Link from "next/link";
 import { ChevronDown, ChevronRight, Combine, Layers } from "lucide-react";
 import { cx } from "@/components/ui";
 import { neisBytes } from "@/lib/domain/length";
-import { orderPieces, type PieceSource } from "@/lib/domain/merge";
+import { orderPieces } from "@/lib/domain/merge";
+import { PIECE_CHIP } from "@/components/writing/piece-chip";
 import type { AreaBox } from "@/lib/server/pieces-board";
 import { RecordCompetency } from "@/components/writing/record-competency";
 
 // 영역 카드 (Figma N13 261:3155…): 제목·조각 수 + 분량(조각 · 본문/한도) 막대 + 합치기 / 조각 줄은 날짜 순, 본문 줄은 맨 아래
 
-const CHIP: Record<PieceSource, string> = {
-  누가기록: "bg-key-soft text-key-strong",
-  메모: "bg-soft text-sub",
-  본문: "bg-line text-ink",
-  "특색 활동": "bg-navy-2 text-white",
-  "공통 활동": "bg-[#DFE3FF] text-[#2F43B8]",
-};
 const STATUS = { 확정: "bg-ok-soft text-ok", "작성 중": "bg-wait-soft text-[#9A6400]", 미작성: "bg-soft text-mute" } as const;
 const md = (d: string | null) => (d ? `${+d.slice(5, 7)}.${+d.slice(8, 10)}` : "");
 const SHOWN = 3;
@@ -83,7 +77,7 @@ export function AreaBoxCard({ box, studentId }: { box: AreaBox & { piecesBytes: 
                 <button type="button" onClick={() => setOpen(on ? null : p.id)} aria-expanded={on}
                   className={cx("flex w-full flex-col gap-1.5 px-3.5 py-3 text-left", on ? "bg-bg" : "hover:bg-bg/60")}>
                   <span className="flex items-center gap-2">
-                    <span className={cx("shrink-0 rounded-chip px-1.5 py-0.5 text-[12px] font-medium", CHIP[p.source])}>{p.source}</span>
+                    <span className={cx("shrink-0 rounded-chip px-1.5 py-0.5 text-[12px] font-medium", PIECE_CHIP[p.source])}>{p.source}</span>
                     {p.status && <span className={cx("shrink-0 rounded-chip px-1.5 py-0.5 text-[12px] font-bold", STATUS[p.status])}>{p.status}</span>}
                     <span className="text-[12px] text-mute">{md(p.date)}</span>
                     <span className="ml-auto shrink-0 text-[12px] tabular-nums text-sub">{neisBytes(p.text).toLocaleString()}B</span>
