@@ -1,16 +1,19 @@
 "use client";
 import { useActionState, useRef, useState } from "react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui";
 import { AiDraftPanel } from "@/components/writing/ai-draft-panel";
-import { RecordChecks, selectIn, type Who } from "@/components/writing/record-checks";
+import { checkMeta, RecordChecks, selectIn, type Who } from "@/components/writing/record-checks";
 import { checkLength, MIN_RATIO, NEIS_MAX_BYTES, neisMax, resolveLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
+import type { MergePiece } from "@/lib/domain/merge";
 import { BodyCard } from "@/components/writing/competency-view";
 import { PiecesCard } from "@/components/writing/pieces-card";
-import { addSetukPiece, aiSetukDraft, draftSetukFromPiece, summarizeSetukFile, fitSetuk, listSetukPieces, mergeSetuk, readSetukFile, saveSetuk, tagSetuk, type SetukState } from "./actions";
+import { StepHead, STEP_GAP } from "@/components/writing/step-head";
+import { addSetukPiece, aiSetukDraft, summarizeSetukFile, fitSetuk, listSetukPieces, mergeSetuk, saveSetuk, tagSetuk, type SetukState } from "./actions";
 import { OverApproval } from "@/components/writing/over-approval";
 
-// 세특 쓰기: AI 초안(관찰 메모) + 본문 + 자동 검사·분량(단위·최대) + 임시 저장 / 확정.
-// AI 초안은 본문에 채우기만 하고 저장은 교사가 누른다.
+// 세특 쓰기 (Figma N32): ① 조각 모으기 → ② 본문 만들기 → ③ 본문 · 검사 · 확정.
+// 활동명은 ①의 칸 하나를 ②가 같이 쓴다. AI 결과는 본문에 채우기만 하고 저장은 교사가 누른다.
 export function SetukEditor({
   courseId,
   studentId,
@@ -45,47 +48,53 @@ export function SetukEditor({
   const length = checkLength(text, range);
   const over = length.reason === "too_long";
   const [allowOver, setAllowOver] = useState(false);
+  // ①·②가 같이 쓰는 활동명과 조각
+  const [activity, setActivity] = useState("");
+  const activityRef = useRef<HTMLInputElement>(null);
+  const [pieces, setPieces] = useState<MergePiece[] | null>(null);
+  const editActivity = () => { activityRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }); activityRef.current?.focus({ preventScroll: true }); };
+  const hasBody = !!text.trim();
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* 조각 칸이 맨 위 (Figma N22): 자료로 조각 만들기 → 활동 요약 + 고른 분량의 초안 */}
-      <PiecesCard key={`${courseId}-${studentId}`} studentId={studentId} placeholder="수업 중 본 것을 한 조각으로 (예: 오차 원인을 스스로 찾아 다시 측정함)"
-        load={() => listSetukPieces({ courseId, studentId })} add={(t, a) => addSetukPiece({ courseId, studentId, text: t, activity: a })}
-        maker={{
-          summarize: (fd) => { fd.set("courseId", courseId); fd.set("studentId", studentId); return summarizeSetukFile(fd); },
-          draft: (d) => draftSetukFromPiece({ courseId, studentId, ...d }),
-          unit: range.unit,
-          neisMax: Math.min(neisMax("세특", range.unit), capMax),
-          onApply: setText,
-        }} />
-      <AiDraftPanel
-        initialMemo={memo}
-        placeholder="관찰 메모 (예: 빗면 실험 설계 주도, 오차 원인 질문, 산업디자인 진로와 연결)"
-        unit={range.unit}
-        bodyEmpty={!text.trim()}
-        generate={(m, a) => aiSetukDraft({ courseId, studentId, memo: m, activity: a, unit: range.unit, max: range.max })}
-        readFile={(fd) => { fd.set("courseId", courseId); fd.set("studentId", studentId); return readSetukFile(fd); }}
-        merge={{
-          load: () => listSetukPieces({ courseId, studentId }),
-          body: text,
-          neisMax: Math.min(neisMax("세특", range.unit), capMax),
-          run: (pieces, max) => mergeSetuk({ courseId, studentId, pieces, unit: range.unit, max }),
-        }}
-        onApply={setText}
-      />
-      <form action={action} className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
+      <PiecesCard key={`${courseId}-${studentId}`} studentId={studentId} placeholder="지금 본 것을 짧게 (예: 오차 원인을 찾아 다시 측정)"
+        activity={activity} setActivity={setActivity} activityRef={activityRef} onPieces={setPieces} done={!!pieces?.length && hasBody}
+        load={() => listSetukPieces({ courseId, studentId })}
+        add={(t, a, kind) => addSetukPiece({ courseId, studentId, text: t, activity: a, kind })}
+        summarize={(fd) => { fd.set("courseId", courseId); fd.set("studentId", studentId); return summarizeSetukFile(fd); }} />
+      <div className={STEP_GAP}>
+        <AiDraftPanel
+          initialMemo={memo}
+          placeholder="관찰 메모 (예: 빗면 실험 설계 주도, 오차 원인 질문, 산업디자인 진로와 연결)"
+          unit={range.unit}
+          bodyEmpty={!hasBody}
+          activity={activity}
+          onEditActivity={editActivity}
+          generate={(m, a, max) => aiSetukDraft({ courseId, studentId, memo: m, activity: a, unit: range.unit, max })}
+          merge={{
+            pieces,
+            body: text,
+            neisMax: Math.min(neisMax("세특", range.unit), capMax),
+            run: (ps, max) => mergeSetuk({ courseId, studentId, pieces: ps, unit: range.unit, max }),
+          }}
+          onApply={setText}
+          done={hasBody}
+        />
+      </div>
+      <form action={action} className={`flex flex-col gap-3 ${STEP_GAP}`}>
+        <StepHead n={3} title="본문 · 검사 · 확정" meta={checkMeta(text, range, who)} done={confirmed && hasBody && text === initial} />
         <input type="hidden" name="courseId" value={courseId} />
         <input type="hidden" name="studentId" value={studentId} />
-        <BodyCard text={text} tag={(t) => tagSetuk({ courseId, studentId, text: t })}>
+        <BodyCard bare toggle={hasBody} text={text} tag={(t) => tagSetuk({ courseId, studentId, text: t })}>
           <textarea
             ref={body}
             name="content"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            rows={9}
+            rows={4}
             maxLength={5000}
-            placeholder="수업 중 관찰한 활동·탐구·태도를 '~함.'으로 끝나는 문장으로 써 주세요"
-            className="w-full resize-y rounded-field bg-white p-4 text-[15px] leading-7 outline-none focus:ring-2 focus:ring-key"
+            placeholder="② 결과를 넣거나 직접 써 주세요. 문장은 '~함.'으로 끝내요"
+            className="min-h-[120px] w-full resize-y rounded-field bg-soft [field-sizing:content] px-4 py-3.5 text-[15px] leading-[26px] outline-none focus:ring-2 focus:ring-key"
             aria-label="세특 내용"
           />
         </BodyCard>
@@ -109,8 +118,8 @@ export function SetukEditor({
           <Button kind="outline" name="intent" value="draft" disabled={pending} className="flex-1">
             임시 저장
           </Button>
-          <Button name="intent" value="confirmed" disabled={pending || (over && !allowOver) || !text.trim()} className="flex-1">
-            {confirmed ? "다시 확정" : "확정"}
+          <Button name="intent" value="confirmed" disabled={pending || (over && !allowOver) || !hasBody} className="flex-1 disabled:bg-key disabled:opacity-40">
+            <Check size={16} strokeWidth={2.5} /> {confirmed ? "다시 확정" : "확정"}
           </Button>
         </div>
       </form>

@@ -15,7 +15,7 @@ import { fitRecord, mergeRecord, tagCompetency } from "@/lib/server/ai/merge-rec
 import { listMemosWithPieces, logPieces, memoPieces, programPieces } from "@/lib/server/merge-pieces";
 import { seoulNow } from "@/lib/domain/night";
 import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
-import { fitRange, PIECE_MAX, PIECE_MIN, pieceScope, type MergePiece } from "@/lib/domain/merge";
+import { fitRange, PIECE_MAX, PIECE_MIN, PIECE_SOURCES, pieceScopeOf, type MergePiece, type PieceKind } from "@/lib/domain/merge";
 import type { TaggedSentence } from "@/lib/domain/competency";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
 
@@ -112,8 +112,8 @@ export async function saveRecord(_: RecordState, form: FormData): Promise<Record
   return { saved: intent, at: r.createdAt };
 }
 
-/** 자료로 쓰기 (Figma N10): 학생 자료 파일 하나 → (주제)(활동)(키워드) 근거. 저장하지 않는다 */
-export async function readRecordFile(form: FormData): Promise<EvidenceResult> {
+/** 조각 모으기 · 자료 (Figma N32): 활동 자료 → 활동 요약 1~2문장 (조각 후보, 저장하지 않음). 큰 PDF는 화면이 쪽을 나눠 여러 번 부른다 */
+export async function summarizeRecordFile(form: FormData): Promise<EvidenceResult> {
   const v = await requireCan("record.write");
   const area = String(form.get("area") ?? "");
   if (!isRecordArea(area)) return { ok: false, error: "영역을 골라 주세요" };
@@ -121,15 +121,15 @@ export async function readRecordFile(form: FormData): Promise<EvidenceResult> {
   if ("error" in t) return { ok: false, error: t.error };
   const file = await takeEvidenceFile(form);
   if (typeof file === "string") return { ok: false, error: file };
-  const r = await readEvidence(file, { mode: "record", kind: RECORD_LABEL[area], context: t.clubName, people: peopleAround(t.student, await repo.listStudents()) });
-  await repo.audit(v.accountId, "record.ai_read_file", `${area} ${t.student.pseudonymId}`);
+  const r = await readEvidence(file, { mode: "log", kind: t.clubName ? `${t.clubName} ${RECORD_LABEL[area]}` : RECORD_LABEL[area], people: peopleAround(t.student, await repo.listStudents()) });
+  await repo.audit(v.accountId, "record.ai_piece_file", `${area} ${t.student.pseudonymId}`);
   return r;
 }
 
 // ---------- 합치기 · 맞추기 · 역량 보기 (Figma N11) ----------
 
 const MergeSchema = z.object({
-  pieces: z.array(z.object({ id: z.string(), source: z.enum(["누가기록", "메모", "본문", "특색 활동", "공통 활동"]), date: z.string().nullable(), text: z.string().max(6000), weight: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional() })).min(1, "합칠 조각을 골라 주세요").max(80),
+  pieces: z.array(z.object({ id: z.string(), source: z.enum(PIECE_SOURCES), date: z.string().nullable(), text: z.string().max(6000), weight: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional() })).min(1, "합칠 조각을 골라 주세요").max(80),
   unit: z.enum(["bytes", "chars"]),
   max: z.number().int().min(1),
 });
@@ -165,14 +165,14 @@ export async function listRecordPieces(input: { area: string; studentId: string;
  * 조각 칸 (Figma N19): 지금 본 것을 바로 한 조각으로 남긴다 (추가만, C4).
  * 자율·자치·동아리·진로는 누가기록으로 쌓고(누가기록 화면에도 보인다), 행발은 조각 메모로 쌓는다.
  */
-export async function addRecordPiece(input: { area: string; studentId: string; clubId?: string | null; text: string; activity: string }): Promise<{ error?: string }> {
+export async function addRecordPiece(input: { area: string; studentId: string; clubId?: string | null; text: string; activity: string; kind?: PieceKind }): Promise<{ error?: string }> {
   const t = await recordTarget(input.area, input.studentId, input.clubId);
   if ("error" in t) return { error: t.error };
   if (!cleanActivity(input.activity)) return { error: "활동명을 적어 주세요" };
   const text = withActivity(input.activity, String(input.text ?? ""));
   if (text.length < PIECE_MIN || text.length > PIECE_MAX) return { error: `조각은 ${PIECE_MIN}~${PIECE_MAX.toLocaleString()}자로 써 주세요` };
   if (t.area === "행발") {
-    await repo.addRecordMemo({ scope: pieceScope("행발"), studentId: t.student.id, authorId: t.v.accountId, content: text });
+    await repo.addRecordMemo({ scope: pieceScopeOf("행발", input.kind === "file" ? "file" : "memo"), studentId: t.student.id, authorId: t.v.accountId, content: text });
   } else {
     if (t.area === "동아리" && !input.clubId) return { error: "동아리를 골라 주세요" };
     await repo.addActivityLogs([{ area: t.area, studentId: t.student.id, authorId: t.v.accountId, clubId: t.area === "동아리" ? input.clubId! : null, date: seoulNow().date, content: text }]);

@@ -1,8 +1,10 @@
 "use client";
 import { useActionState, useMemo, useRef, useState, useTransition } from "react";
-import { Check, Paperclip } from "lucide-react";
+import { CalendarDays, Check, Paperclip, Sparkles, X } from "lucide-react";
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { ACCEPT } from "@/components/writing/evidence-files";
+import { ACTIVITY_MAX, cleanActivity, withActivity } from "@/lib/domain/activity-name";
+import { chipDate, chipOf, shortMd, type DateChip } from "@/lib/domain/log-date";
 import { Button, Card, Tag, cx } from "@/components/ui";
 import { neisBytes } from "@/lib/domain/length";
 import { addLogs, polishLogMemo, readLogFile, type LogState, type PolishResult } from "./actions";
@@ -15,13 +17,24 @@ type S = { id: string; name: string; grade: number; classNo: number; number: num
 type L = { id: string; studentId: string; date: string; content: string };
 
 // 왼쪽: 학생 고르기(여러 명) · 오른쪽: 같은 기록을 한 번에 추가 + 최근 기록
+const chipCls = (on: boolean) => cx("flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-field px-3.5 text-[14px]", on ? "bg-key-soft font-bold text-key-strong" : "bg-soft font-medium text-sub");
 export function LogBoard({ area, clubId, students, logs, today }: { area: string; clubId?: string; students: S[]; logs: L[]; today: string }) {
-  const [state, action, pending] = useActionState<LogState, FormData>(addLogs, {});
+  const [text, setText] = useState("");
+  // 추가하면 글만 비운다 (활동명·날짜·학생은 이어서 쓰게 둔다)
+  const [state, action, pending] = useActionState<LogState, FormData>(async (prev, fd) => {
+    const r = await addLogs(prev, fd);
+    if (r.added && !r.error) setText("");
+    return r;
+  }, {});
+  const [activity, setActivity] = useState("");
+  const [chip, setChip] = useState<DateChip>("today");
+  const [pickedDate, setPickedDate] = useState(today);
+  const date = chipDate(chip, today, pickedDate);
+  const full = withActivity(activity, text);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   // 한 명씩 = 고른 학생 모두에게 같은 글 · 한꺼번에 = 학생마다 참여도·특징 문장을 붙인 다른 글 (Figma N28)
   const [mode, setMode] = useState<"one" | "batch">("one");
   const [batchAdded, setBatchAdded] = useState(0);
-  const [text, setText] = useState("");
   const [polish, setPolish] = useState<PolishResult | null>(null);
   const [polishing, startPolish] = useTransition();
   const runPolish = () => startPolish(async () => {
@@ -94,7 +107,7 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
       <div className="flex flex-col gap-4 md:gap-6">
         <Card title={`${area} 기록 쓰기`} action={
           <div className="flex items-center gap-3">
-            {mode === "one" && <span className="whitespace-nowrap text-[13px] text-mute">{picked.size}명 선택</span>}
+            {mode === "batch" && <span className="whitespace-nowrap text-[13px] text-mute">{picked.size}명 선택</span>}
             <div role="tablist" aria-label="쓰는 방식" className="flex rounded-full bg-soft p-[3px]">
               {([["one", "한 명씩"], ["batch", "한꺼번에"]] as const).map(([k, label]) => (
                 <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => setMode(k)}
@@ -111,19 +124,45 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
               <BatchWriter area={area} clubId={clubId} today={today} students={students.filter((s) => picked.has(s.id))} onAdded={setBatchAdded} />
             </>
           ) : (
+          // 한 명씩 (Figma N32 405:12816): 받는 학생 칩 → 활동명 + 날짜 칩 → 기록 내용 → 글 수·바이트 + 파일로 쓰기 · AI로 다듬기 → n명에게 추가
           <form action={action} key={state.added ? `ok-${logs.length}` : "form"} className="flex flex-col gap-3">
             <input type="hidden" name="area" value={area} />
             {clubId && <input type="hidden" name="clubId" value={clubId} />}
             <input type="hidden" name="studentIds" value={JSON.stringify([...picked])} />
-            <label className="flex items-center gap-3">
-              <span className="text-[13px] font-medium text-sub">날짜</span>
-              <input type="date" name="date" defaultValue={today} required className="h-10 rounded-field bg-white px-3 text-[15px] outline-none focus:ring-2 focus:ring-key" />
-            </label>
-            <textarea name="content" value={text} onChange={(e) => setText(e.target.value)} rows={4} maxLength={1000} required
+            <input type="hidden" name="date" value={date} />
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 whitespace-nowrap text-[13px] font-medium text-sub">받는 학생</span>
+              {picked.size === 0 && <span className="text-[13px] text-mute">학생을 골라 주세요</span>}
+              {students.filter((s) => picked.has(s.id)).map((s) => (
+                <span key={s.id} className="inline-flex h-[26px] items-center gap-1 rounded-chip bg-key-soft pl-2 pr-1.5 text-[12px] font-medium text-key-strong">
+                  {s.name}
+                  <button type="button" aria-label={`${s.name} 빼기`} onClick={() => toggle(s.id)} className="flex size-4 items-center justify-center"><X size={12} strokeWidth={3} /></button>
+                </span>
+              ))}
+            </div>
+            <div className="flex flex-col gap-2 md:flex-row">
+              <input name="activity" value={activity} onChange={(e) => setActivity(e.target.value)} maxLength={ACTIVITY_MAX} required aria-label="활동명"
+                placeholder="활동명 (예: 과학의 날 실험 부스)"
+                className="h-11 w-full min-w-0 rounded-field bg-soft px-3 text-[15px] outline-none placeholder:text-mute focus:ring-2 focus:ring-key md:h-10 md:flex-1 md:text-[14px]" />
+              <div className="flex gap-2" role="radiogroup" aria-label="날짜">
+                <button type="button" role="radio" aria-checked={chip === "today"} onClick={() => setChip("today")} className={chipCls(chip === "today")}>오늘 {shortMd(today)}</button>
+                <button type="button" role="radio" aria-checked={chip === "yesterday"} onClick={() => setChip("yesterday")} className={chipCls(chip === "yesterday")}>어제</button>
+                {chip === "pick" ? (
+                  <input type="date" value={date} max={today} aria-label="날짜 고르기" autoFocus
+                    onChange={(e) => { const d = e.target.value; if (!d) return; setPickedDate(d); setChip(chipOf(d, today)); }}
+                    className="h-10 rounded-field bg-key-soft px-2.5 text-[14px] font-bold text-key-strong outline-none focus:ring-2 focus:ring-key" />
+                ) : (
+                  <button type="button" role="radio" aria-checked={false} onClick={() => { setPickedDate(date); setChip("pick"); }} className={chipCls(false)}>
+                    <CalendarDays size={15} /> 날짜
+                  </button>
+                )}
+              </div>
+            </div>
+            <textarea name="content" value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} required
               placeholder="관찰한 활동을 짧게 적거나 받아쓰기를 붙여 넣어 주세요. 고른 학생 모두에게 같은 내용이 들어가요"
-              className="w-full resize-y rounded-field bg-white p-4 text-[15px] leading-7 outline-none focus:ring-2 focus:ring-key" aria-label="기록 내용" />
+              className="min-h-[104px] w-full resize-y rounded-field bg-soft px-4 py-3 text-[15px] leading-6 outline-none placeholder:text-mute focus:ring-2 focus:ring-key md:min-h-[88px] md:text-[14px]" aria-label="기록 내용" />
             {polish?.ok && (
-              <div className="flex flex-col gap-2 rounded-inner border border-line bg-white p-3.5">
+              <div className="flex flex-col gap-2 rounded-inner bg-bg p-3.5">
                 <div className="flex items-center gap-1.5">
                   <Tag tone={polish.label === "AI" ? "bg-new-soft text-new" : "bg-key-soft text-key-strong"}>{polish.label}</Tag>
                   <span className="min-w-0 flex-1 truncate text-[13px] text-sub">{source ? `${source}에서` : "다듬은 문장"} · 모두에게 같은 글이 들어가요</span>
@@ -137,38 +176,43 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
               </div>
             )}
             {polish && !polish.ok && <p className="text-[13px] text-bad" role="alert">{polish.error}</p>}
-            <div className="flex items-center justify-between gap-2 text-[13px] text-mute">
-              <span className="flex-1">{text.length}자 · {neisBytes(text).toLocaleString()}바이트</span>
-              {state.error && <span className="text-bad" role="alert">{state.error}</span>}
-              {state.added && !state.error && <span className="text-ok" role="status">{state.added}명에게 추가했어요</span>}
+            <div className="flex flex-col gap-2 md:flex-row md:items-center">
+              <span className="min-w-0 flex-1 text-[12px] text-mute">활동명이 맨 앞에 붙어요 · {full.length}자 · {neisBytes(full).toLocaleString()}B</span>
               <input ref={fileInput} type="file" accept={ACCEPT} hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) runFile(f); e.target.value = ""; }} />
-              <Button type="button" kind="outline" size="sm" onClick={() => fileInput.current?.click()} disabled={polishing}>
-                <Paperclip size={13} /> 파일로 쓰기
-              </Button>
-              <Button type="button" kind="outline" size="sm" onClick={runPolish} disabled={polishing || text.trim().length < 2}>
-                {polishing ? "읽는 중…" : "AI로 다듬기"}
-              </Button>
+              <div className="flex gap-2">
+                <Button type="button" kind="outline" size="sm" onClick={() => fileInput.current?.click()} disabled={polishing} className="h-8 px-3">
+                  <Paperclip size={13} /> 파일로 쓰기
+                </Button>
+                <Button type="button" kind="outline" size="sm" onClick={runPolish} disabled={polishing || text.trim().length < 2} className="h-8 px-3 disabled:opacity-40">
+                  <Sparkles size={13} /> {polishing ? "읽는 중…" : "AI로 다듬기"}
+                </Button>
+              </div>
             </div>
-            <Button disabled={pending || picked.size === 0 || text.trim().length < 5}>
+            {state.error && <p className="text-[13px] text-bad" role="alert">{state.error}</p>}
+            {state.added && !state.error && <p className="text-[13px] text-ok" role="status">{state.added}명에게 추가했어요</p>}
+            <Button disabled={pending || picked.size === 0 || !cleanActivity(activity) || text.trim().length < 5} className="h-11 w-full py-0 disabled:bg-key disabled:opacity-40 md:h-[42px]">
               {pending ? "추가하는 중…" : picked.size ? `${picked.size}명에게 추가` : "학생을 골라 주세요"}
             </Button>
           </form>
           )}
         </Card>
 
-        <Card title="최근 기록" action={<span className="text-[13px] text-mute">{picked.size ? "고른 학생" : "전체"} {shown.length}건</span>}>
+        <Card title="최근 기록" action={<span className="text-[13px] text-mute">{picked.size ? "고른 학생" : "전체"} · {shown.length}건</span>}>
           {shown.length === 0 ? (
-            <p className="py-4 text-center text-sm text-mute">아직 기록이 없어요</p>
+            <p className="text-[13px] text-mute">아직 기록이 없어요</p>
           ) : (
             // 역량 보기 (Figma N18): 학생 한 명을 고르면 그 학생 기록 전체를 한 글로 보고 역량으로 나눈다
             <RecordCompetency studentId={one ?? ""} text={one ? [...shown].reverse().map((l) => l.content.trim()).join(" ") : ""}
               title={one ? `${nameOf.get(one)} 기록 ${shown.length}건` : "학생 한 명을 고르면"}>
+              {/* 상자 없는 행 (Figma N32 405:12962): PC 날짜 · 이름 · 글 두 줄, 모바일 위 줄(이름 · 날짜) + 글 */}
               <ul className="flex flex-col">
-                {shown.slice(0, 30).map((l, i) => (
-                  <li key={l.id} className={cx("flex gap-3 py-3", i > 0 && "border-t border-line")}>
-                    <span className="w-20 shrink-0 text-[13px] text-mute">{l.date.slice(5).replace("-", ".")}</span>
-                    <span className="w-14 shrink-0 text-[13px] font-medium">{nameOf.get(l.studentId)}</span>
-                    <span className="min-w-0 flex-1 text-sm text-sub">{l.content}</span>
+                {shown.slice(0, 30).map((l) => (
+                  <li key={l.id} className="flex flex-col gap-1 border-t border-soft py-2.5 md:flex-row md:gap-3">
+                    <span className="flex items-center gap-2 md:contents">
+                      <span className="shrink-0 text-[13px] font-medium md:order-2 md:w-[52px] md:truncate">{nameOf.get(l.studentId)}</span>
+                      <span className="shrink-0 text-[12px] tabular-nums text-mute md:order-1 md:w-10 md:pt-px md:text-[13px]">{shortMd(l.date)}</span>
+                    </span>
+                    <span className="line-clamp-2 min-w-0 flex-1 text-[13px] leading-5 text-sub md:order-3">{l.content}</span>
                   </li>
                 ))}
               </ul>

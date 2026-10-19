@@ -12,7 +12,7 @@ import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence
 import { fitRecord, mergeRecord, tagCompetency } from "@/lib/server/ai/merge-record";
 import { listMemosWithPieces, memoPieces } from "@/lib/server/merge-pieces";
 import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
-import { fitRange, PIECE_MAX, PIECE_MIN, pieceScope, type MergePiece } from "@/lib/domain/merge";
+import { fitRange, PIECE_MAX, PIECE_MIN, PIECE_SOURCES, pieceScopeOf, type MergePiece, type PieceKind } from "@/lib/domain/merge";
 import type { TaggedSentence } from "@/lib/domain/competency";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
 
@@ -101,27 +101,7 @@ export async function aiSetukDraft(input: z.input<typeof AiSchema>): Promise<AiD
   return { ok: true, text: r.text, sample: r.sample, notice: r.notice };
 }
 
-/**
- * 자료로 쓰기 (Figma N10): 학생 자료 파일 하나 → (주제)(활동)(키워드) 근거. 저장하지 않고 돌려주기만 한다.
- * 패널이 이 근거를 메모와 함께 AI 초안에 넣는다.
- */
-export async function readSetukFile(form: FormData): Promise<EvidenceResult> {
-  const v = await requireCan("setuk.write");
-  const courseId = String(form.get("courseId") ?? "");
-  const studentId = String(form.get("studentId") ?? "");
-  const [course, mine, student, roster] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getStudent(studentId), repo.getCourseRosters(v.accountId, courseId)]);
-  const assignment = mine.find((a) => a.courseId === courseId);
-  if (!course || !assignment || !student || !studentsInCourse([student], course, assignment, roster).length) {
-    return { ok: false, error: "내 담당 과목·반 학생만 쓸 수 있어요" };
-  }
-  const file = await takeEvidenceFile(form);
-  if (typeof file === "string") return { ok: false, error: file };
-  const r = await readEvidence(file, { mode: "record", kind: "교과 세특", context: course.subject, people: peopleAround(student, await repo.listStudents()) });
-  await repo.audit(v.accountId, "setuk.ai_read_file", `${course.subject} ${student.pseudonymId}`);
-  return r;
-}
-
-// ---------- 자료로 조각 만들기 (Figma N22) ----------
+// ---------- 조각 모으기 · 자료 (Figma N22 → N32) ----------
 
 /** ① 활동 자료 → 활동 요약 1~2문장 (조각 후보, 저장하지 않음). 큰 PDF는 화면이 쪽을 나눠 여러 번 부른다 */
 export async function summarizeSetukFile(form: FormData): Promise<EvidenceResult> {
@@ -134,37 +114,10 @@ export async function summarizeSetukFile(form: FormData): Promise<EvidenceResult
   return r;
 }
 
-const PieceDraftSchema = z.object({
-  courseId: z.string().min(1),
-  studentId: z.string().min(1),
-  note: z.string().max(2000, "설명은 2000자까지예요"),
-  summary: z.string().max(3000),
-  /** 활동명 (N27): 초안을 "활동명에서 …"로 */
-  activity: z.string().max(60).optional().default(""),
-  unit: z.enum(["bytes", "chars"]),
-  max: z.number().int().min(1),
-});
-
-/** ② 교사 설명 + 활동 요약 → 고른 분량의 세특 초안 (저장하지 않음, 교사가 확인 후 본문에 넣는다) */
-export async function draftSetukFromPiece(input: z.input<typeof PieceDraftSchema>): Promise<AiDraftResult> {
-  const p = PieceDraftSchema.safeParse(input);
-  if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
-  const t = await setukTarget(p.data.courseId, p.data.studentId);
-  if (!t) return { ok: false, error: "내 담당 과목·반 학생만 쓸 수 있어요" };
-  // 교사 설명 다음 줄에 자료 요약 (머리말을 붙이면 AI 없이 이을 때 본문에 섞인다)
-  const memo = [p.data.note.trim(), p.data.summary.trim()].filter(Boolean).join("\n");
-  if (!memo) return { ok: false, error: "자료를 올리거나 활동을 간단히 적어 주세요" };
-  const range = resolveLength("세특", { unit: p.data.unit, max: p.data.max });
-  const r = await writeRecord({ kind: "세특", student: t.student, context: t.course.subject, memo, logs: [], range, activity: p.data.activity });
-  await repo.audit(t.v.accountId, "setuk.ai_piece_draft", `${t.course.subject} ${t.student.pseudonymId}`);
-  if (!r.text) return { ok: false, error: r.notice ?? "초안을 만들지 못했어요. 직접 써 주세요" };
-  return { ok: true, text: r.text, sample: r.sample, notice: r.notice };
-}
-
 // ---------- 합치기 · 맞추기 · 역량 보기 (Figma N11) ----------
 
 const MergeSchema = z.object({
-  pieces: z.array(z.object({ id: z.string(), source: z.enum(["누가기록", "메모", "본문", "특색 활동", "공통 활동"]), date: z.string().nullable(), text: z.string().max(6000), weight: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional() })).min(1, "합칠 조각을 골라 주세요").max(80),
+  pieces: z.array(z.object({ id: z.string(), source: z.enum(PIECE_SOURCES), date: z.string().nullable(), text: z.string().max(6000), weight: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional() })).min(1, "합칠 조각을 골라 주세요").max(80),
   unit: z.enum(["bytes", "chars"]),
   max: z.number().int().min(1),
 });
@@ -188,14 +141,14 @@ export async function listSetukPieces(input: { courseId: string; studentId: stri
   return memoPieces(await listMemosWithPieces(`세특:${input.courseId}`, [input.studentId]));
 }
 
-/** 조각 칸 (Figma N19): 수업 중 본 것을 바로 한 조각으로 남긴다 (추가만, C4) */
-export async function addSetukPiece(input: { courseId: string; studentId: string; text: string; activity: string }): Promise<{ error?: string }> {
+/** 조각 칸 (Figma N19 · N32): 수업 중 본 것(메모) 또는 자료 요약을 한 조각으로 남긴다 (추가만, C4) */
+export async function addSetukPiece(input: { courseId: string; studentId: string; text: string; activity: string; kind?: PieceKind }): Promise<{ error?: string }> {
   const t = await setukTarget(input.courseId, input.studentId);
   if (!t) return { error: "내 담당 과목·반 학생만 쓸 수 있어요" };
   if (!cleanActivity(input.activity)) return { error: "활동명을 적어 주세요" };
   const text = withActivity(input.activity, String(input.text ?? ""));
   if (text.length < PIECE_MIN || text.length > PIECE_MAX) return { error: `조각은 ${PIECE_MIN}~${PIECE_MAX.toLocaleString()}자로 써 주세요` };
-  await repo.addRecordMemo({ scope: pieceScope(`세특:${input.courseId}`), studentId: t.student.id, authorId: t.v.accountId, content: text });
+  await repo.addRecordMemo({ scope: pieceScopeOf(`세특:${input.courseId}`, input.kind === "file" ? "file" : "memo"), studentId: t.student.id, authorId: t.v.accountId, content: text });
   await repo.audit(t.v.accountId, "record.piece", `세특 ${t.course.subject} ${t.student.pseudonymId}`);
   revalidatePath("/teacher/pieces");
   return {};
