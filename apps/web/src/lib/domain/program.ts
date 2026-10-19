@@ -1,7 +1,8 @@
 // 프로그램·설문·제출 서류·생기부 초안 파이프라인의 순수 규칙.
 // 화면·서버 액션·저장소가 같은 판정을 쓰도록 여기 한 곳에 둔다 (부수효과 없음).
 import { checkLength, type DraftCategory, type LengthRange, type LengthUnit } from "./length";
-import type { Student } from "./types";
+import { isAdmin } from "./policy";
+import type { Student, Viewer } from "./types";
 
 // ---------- 프로그램 ----------
 
@@ -167,6 +168,27 @@ export interface Material {
   text: string | null;
   uploaderId: string;
   createdAt: string;
+}
+
+/**
+ * 올린 파일을 지울 수 있나 (N33). 화면·서버 액션이 같이 쓴다.
+ * - 교사: 프로그램 담당(등록·공동) 또는 관리자 → 그 프로그램의 모든 자료(학생이 올린 것 포함)
+ * - 학생: 내가 올린(matchedBy "student") 내 파일 + 발행된 프로그램이 열려 있고 마감 전
+ * - 그 밖(담임·다른 교사)은 안 된다
+ */
+export function canDeleteMaterial(
+  v: Viewer,
+  program: Pick<Program, "id" | "ownerId" | "coOwnerIds" | "status" | "endDate" | "targetIds">,
+  material: Pick<Material, "programId" | "studentId" | "uploaderId" | "matchedBy">,
+  today: string,
+): boolean {
+  if (material.programId !== program.id) return false;
+  if (v.kind === "teacher") return isProgramOwner(program, v.accountId) || isAdmin(v);
+  const me = v.student.id;
+  return (
+    material.uploaderId === me && material.studentId === me && material.matchedBy === "student" &&
+    program.targetIds.includes(me) && effectiveStatus(program, today) === "open" && daysLeft(program.endDate, today) >= 0
+  );
 }
 
 /** 제출 서류 형식. HWPX 는 서버가 글을 뽑아 둔다 (lib/server/hwpx.ts, hwpx 스킬 방식) */

@@ -3,7 +3,9 @@ import { useEffect, useRef, useState, useTransition, type KeyboardEvent, type Mo
 import Link from "next/link";
 import { Bell, ChevronRight, FileText, Paperclip, X } from "lucide-react";
 import { cx } from "@/components/ui";
+import { ChipDeleteButton, DeleteConfirm, useDelayedDelete } from "@/components/materials/delete-file";
 import { remindOne, studentDetail, type StudentDetail } from "./actions";
+import { deleteMaterials } from "./materials/actions";
 
 // 프로그램 상세 · 학생 활동 팝업 (Figma N24 339:331): PC 가운데 560 창 · 모바일 바텀시트.
 // 행을 누르면 열리고, 그 학생 것만 서버 액션으로 불러온다. 행 오른쪽 버튼(보기·알림·직접 작성)은 그대로 동작한다.
@@ -54,11 +56,23 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
   const box = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
+  const [reload, setReload] = useState(0);
   useEffect(() => {
     let alive = true;
     studentDetail(programId, student.id).then((d) => alive && setData(d)).catch(() => alive && setFailed(true));
     return () => { alive = false; };
-  }, [programId, student.id]);
+  }, [programId, student.id, reload]);
+
+  // N33 서류 칩 지우기: 칩 × → 칩 줄 아래 작은 확인 → 5초 되돌리기, 지운 뒤 팝업 데이터 다시 읽기
+  const [asking, setAsking] = useState<string | null>(null);
+  const del = useDelayedDelete((ids) => {
+    const fd = new FormData();
+    fd.set("programId", programId);
+    for (const id of ids) fd.append("materialId", id);
+    return deleteMaterials(fd);
+  }, { onDone: () => setReload((n) => n + 1) });
+  const mats = data ? data.materials.filter((m) => !del.isHidden(m.id)) : [];
+  const askedFile = mats.find((m) => m.id === asking);
 
   // 열릴 때 닫기 버튼에 초점, 닫히면 원래 자리로 · 뒤 화면 스크롤 막기
   useEffect(() => {
@@ -86,7 +100,7 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
     startSend(async () => { await remindOne(fd); setSent(true); });
   };
 
-  const empty = !!data && data.answers.length === 0 && data.materials.length === 0;
+  const empty = !!data && data.answers.length === 0 && mats.length === 0;
   const [dLabel, dTone] = draftChip(data?.review ?? "대기");
   const unit = data?.draft?.unit === "chars" ? "자" : "B";
   const pct = data?.draft ? Math.min(100, Math.round((data.draft.length / Math.max(1, data.draft.max)) * 100)) : 0;
@@ -94,6 +108,7 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-navy/48 md:items-center md:p-6" onClick={onClose}>
+      {del.snackbar && <div onClick={(e) => e.stopPropagation()}>{del.snackbar}</div>}
       <div
         ref={box}
         role="dialog"
@@ -124,7 +139,7 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
               {/* 상태 칩 */}
               <div className="-mt-1 flex flex-wrap gap-1.5">
                 {data.survey !== null && <span className={cx(CHIP, data.survey ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad")}>{data.survey ? "설문 응답함" : "설문 안 함"}</span>}
-                {data.docs !== null && <span className={cx(CHIP, data.docs ? "bg-key-soft text-key-strong" : "bg-soft text-mute")}>{data.docs ? `서류 ${data.docs}개` : "서류 없음"}</span>}
+                {data.docs !== null && <span className={cx(CHIP, mats.length ? "bg-key-soft text-key-strong" : "bg-soft text-mute")}>{mats.length ? `서류 ${mats.length}개` : "서류 없음"}</span>}
                 <span className={cx(CHIP, dTone)}>{dLabel}</span>
               </div>
 
@@ -134,7 +149,7 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
                   한 활동
                   {!empty && (
                     <span className="text-[12px] font-normal text-mute">
-                      {[data.answers.length ? `설문 ${data.answers.length}` : "", data.materials.length ? `서류 ${data.materials.length}` : ""].filter(Boolean).join(" · ")}
+                      {[data.answers.length ? `설문 ${data.answers.length}` : "", mats.length ? `서류 ${mats.length}` : ""].filter(Boolean).join(" · ")}
                     </span>
                   )}
                 </h3>
@@ -155,16 +170,25 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
                         ))}
                       </div>
                     )}
-                    {data.materials.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {data.materials.map((m) => (
-                          <a key={m.id} href={`/teacher/programs/${programId}/materials/file/${m.id}`} target="_blank" rel="noopener"
-                            className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-chip border border-line bg-[#fff] px-2.5 py-1.5 text-[13px] font-medium text-ink hover:bg-soft">
-                            <Paperclip size={14} className="shrink-0 text-sub" aria-hidden />
-                            <span className="truncate">{m.fileName}</span>
-                            <ChevronRight size={12} className="shrink-0 text-mute" aria-hidden />
-                          </a>
-                        ))}
+                    {mats.length > 0 && (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          {mats.map((m) => (
+                            <span key={m.id} className={cx("group/chip inline-flex min-w-0 max-w-full items-center rounded-chip border bg-[#fff] pr-1", asking === m.id ? "border-bad" : "border-line")}>
+                              <a href={`/teacher/programs/${programId}/materials/file/${m.id}`} target="_blank" rel="noopener"
+                                className="inline-flex min-w-0 items-center gap-1.5 rounded-chip py-1.5 pl-2.5 pr-1 text-[13px] font-medium text-ink hover:underline">
+                                <Paperclip size={14} className="shrink-0 text-sub" aria-hidden />
+                                <span className="truncate">{m.fileName}</span>
+                                <ChevronRight size={12} className={cx("shrink-0 text-mute", "max-md:hidden md:group-hover/chip:hidden md:group-focus-within/chip:hidden", asking === m.id && "md:hidden")} aria-hidden />
+                              </a>
+                              <ChipDeleteButton fileName={m.fileName} active={asking === m.id} onClick={() => setAsking(asking === m.id ? null : m.id)} />
+                            </span>
+                          ))}
+                        </div>
+                        {askedFile && (
+                          <DeleteConfirm layout="small" title={`‘${askedFile.fileName}’ 파일을 지울까요?`} onCancel={() => setAsking(null)}
+                            onConfirm={() => { setAsking(null); del.remove([askedFile.id]); }} />
+                        )}
                       </div>
                     )}
                   </>

@@ -3,7 +3,8 @@ import { startTransition, useActionState, useState } from "react";
 import { Check, FileText, ListChecks, Send, ShieldCheck, Upload } from "lucide-react";
 import { Button, cx } from "@/components/ui";
 import { MAX_ANSWER_CHARS, type Question } from "@/lib/domain/program";
-import { docCheckAction, hintAction, saveSurvey, uploadMyDoc, type DocCheckState, type DocState, type HintState, type SurveyState } from "./actions";
+import { Collapse, DeleteConfirm, DeleteFileButton, LockNote, useDelayedDelete } from "@/components/materials/delete-file";
+import { deleteMyDoc, docCheckAction, hintAction, saveSurvey, uploadMyDoc, type DocCheckState, type DocState, type HintState, type SurveyState } from "./actions";
 
 // S2 설문·서류 제출 (Figma 50:1116 / 50:1264)
 export function SurveyForm({
@@ -16,7 +17,7 @@ export function SurveyForm({
   survey: boolean;
   docs: boolean;
   docTitle: string;
-  myDocs: { id: string; name: string }[];
+  myDocs: { id: string; name: string; mine: boolean }[];
   deadline: string;
   closed: boolean;
   aiOn: boolean;
@@ -26,6 +27,15 @@ export function SurveyForm({
   const [doc, docAction, uploading] = useActionState<DocState, FormData>(uploadMyDoc, {});
   const [check, checkRun, checking] = useActionState<DocCheckState, FormData>(docCheckAction, {});
   const [answers, setAnswers] = useState<Record<string, string>>(initial);
+  // N33 내 파일 지우기: 마감 전 내가 올린 파일만 × → 행 확인 → 바로 지우고 3초 알림 (되돌리기 없음)
+  const [asking, setAsking] = useState<string | null>(null);
+  const del = useDelayedDelete((ids) => {
+    const fd = new FormData();
+    fd.set("programId", programId);
+    fd.set("materialId", ids[0]);
+    return deleteMyDoc(fd);
+  }, { undo: false, label: () => "파일을 지웠어요" });
+  const docsShown = myDocs.filter((d) => !del.isHidden(d.id));
   const [picked, setPicked] = useState({ n: 0, name: "" });
   const fileName = picked.n === (doc.n ?? 0) ? picked.name : "";
   const done = questions.filter((q) => (answers[q.id] ?? "").trim().length >= q.minChars).length;
@@ -124,14 +134,25 @@ export function SurveyForm({
                 </form>
               )}
               {myDocs.length > 0 && (
-                <ul className="mt-2 flex flex-col gap-2">
+                <ul className="mt-2 flex flex-col">
                   {myDocs.map((d) => (
-                    <li key={d.id} className="flex items-center gap-2 rounded-inner bg-white px-4 py-3 text-[14px] font-medium">
-                      <FileText size={16} className="shrink-0" /> <span className="min-w-0 flex-1 truncate">{d.name}</span> <Check size={16} className="text-ok" />
-                    </li>
+                    <Collapse key={d.id} as="li" hidden={del.isHidden(d.id)}>
+                      <div className="pb-2">
+                        {asking === d.id ? (
+                          <DeleteConfirm title="이 파일을 지울까요?" sub={`${d.name} · 마감 전엔 다시 올릴 수 있어요`} tone="bg-white"
+                            onCancel={() => setAsking(null)} onConfirm={() => { setAsking(null); del.remove([d.id]); }} />
+                        ) : (
+                          <div className={cx("flex items-center gap-2 rounded-inner bg-white pl-4 text-[14px] font-medium", !closed && d.mine ? "py-2 pr-2" : "py-3 pr-4")}>
+                            <FileText size={16} className="shrink-0" /> <span className="min-w-0 flex-1 truncate">{d.name}</span>
+                            {!closed && d.mine ? <DeleteFileButton icon="x" fileName={d.name} onClick={() => setAsking(d.id)} /> : <Check size={16} className="text-ok" />}
+                          </div>
+                        )}
+                      </div>
+                    </Collapse>
                   ))}
                 </ul>
               )}
+              {closed && docsShown.length > 0 && <LockNote />}
               {!closed && (
                 <div className="mt-2 rounded-inner bg-white px-3.5 py-3">
                   <div className="flex items-center gap-2">
@@ -167,7 +188,7 @@ export function SurveyForm({
             <h3 className="mb-3 text-[17px] font-bold">제출 현황</h3>
             <dl className="flex flex-col gap-2.5 text-[14px]">
               {survey && <div className="flex justify-between"><dt className="text-mute">설문 응답</dt><dd className="font-bold">{submitted ? "제출 완료" : `${done} / ${questions.length} 문항`}</dd></div>}
-              {docs && <div className="flex justify-between"><dt className="text-mute">{docTitle}</dt><dd className="font-bold">{myDocs.length}개 업로드</dd></div>}
+              {docs && <div className="flex justify-between"><dt className="text-mute">{docTitle}</dt><dd className="font-bold">{docsShown.length}개 업로드</dd></div>}
               <div className="flex justify-between"><dt className="text-mute">마감</dt><dd className="font-bold">{deadline}</dd></div>
             </dl>
             {state.error && <p className="mt-3 text-[13px] text-bad" role="alert">{state.error}</p>}
@@ -178,6 +199,7 @@ export function SurveyForm({
           </section>
         </aside>
       </div>
+      {del.snackbar}
     </div>
   );
 }
