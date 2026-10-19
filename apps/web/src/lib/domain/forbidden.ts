@@ -3,11 +3,15 @@
 // - check: 맥락에 따라 문제가 될 수 있는 내용 → 경고만 (교사가 판단)
 // 해마다 기재요령이 바뀌므로 학교 담당자가 최신 기재요령과 대조해 이 목록을 고친다.
 // 근거(basis)는 「2026학년도 학교생활기록부 기재요령(고등학교)」 원문에서 옮겨 적은 것만 둔다 (2026-10-19 확인, 쪽 = 인쇄 쪽수).
+// 원문은 인용 모음 guide-bank.json 한 곳에 있다 (scripts/verify-guide-bank.mjs 로 PDF와 대조).
+
+import { GUIDE_URL, guideEntry, guideSource } from "./guide-data";
 
 export type ForbiddenLevel = "ban" | "check";
 
-/** 기재요령 원문 짧은 인용 + 출처 (Figma N34 근거 블록). 원문을 확인한 것만 넣는다 — 없으면 화면이 근거 블록을 숨긴다 */
-export type ForbiddenBasis = { quote: string; source: string; url?: string };
+/** 기재요령 원문 짧은 인용 + 출처 (Figma N34 근거 블록). 원문을 확인한 것만 넣는다 — 없으면 화면이 근거 블록을 숨긴다.
+ * id = 인용 모음(guide-bank.json) 항목 id — N34 칩을 누르면 기재요령 패널(N43)이 그 원문 카드를 펼친다 */
+export type ForbiddenBasis = { quote: string; source: string; url?: string; id?: string };
 
 /** 규칙으로 고칠 말: to=null 이면 그 구를 뺀다. 규칙으로 못 고치면 undefined(→ AI로 고치기) */
 export type ForbiddenFix = { from: string; to: string | null };
@@ -32,18 +36,24 @@ export interface ForbiddenRule {
 }
 
 /** 2026학년도 학교생활기록부 기재요령(고등학교) — 울산광역시교육청 게시 원본 (교육부·17개 시도교육청 공통, 첨부 PDF) */
-export const GUIDE_URL = "https://use.go.kr/user/bbs/BD_selectBbs.do?q_bbsSn=1971&q_bbsDocNo=20260226090749132";
-const guide = (page: number, quote: string): ForbiddenBasis => ({ quote, source: `2026 기재요령 ${page}쪽`, url: GUIDE_URL });
+export { GUIDE_URL };
+
+/** 인용 모음(guide-bank.json)에서 꺼낸 근거 (N34 칩 · N43 패널이 같은 id) */
+function guide(id: string): ForbiddenBasis {
+  const e = guideEntry(id);
+  if (!e) throw new Error(`기재요령 인용 모음에 ${id} 가 없어요`);
+  return { quote: e.quote, source: guideSource(e), url: GUIDE_URL, id };
+}
 
 // 「학교생활기록부 작성 시 유의사항」 2·3항 (18~19쪽)
 const BASIS = {
-  paper: guide(18, "논문을 학회지 등에 투고 또는 등재하거나 학회 등에서 발표한 사실"),
-  award: guide(18, "교외대회는 학교장의 참가 허락을 받아 참여한 경우에도 기재할 수 없음."),
-  mock: guide(18, "모의고사･전국연합학력평가 성적(원점수, 석차, 석차등급, 백분위 등 성적 관련 내용 일체)"),
-  parent: guide(18, "부모(친인척 포함)의 사회･경제적 지위(직종명, 직업명, 직장명, 직위명 등) 암시 내용"),
-  name: guide(19, "구체적인 특정 대학명, 기관명(기구, 단체, 조직 등 포함), 상호명, 강사명 등"),
-  outside: guide(18, "학교교육계획 이외의 체험활동은 교육관련기관(…)에서 주최하고 주관한 행사, 봉사활동 실적 등만 학교장이 승인한 경우에 한해 기재 가능함."),
-  scholarship: guide(18, "장학생･장학금 관련 내용"),
+  paper: guide("paper"),
+  award: guide("award"),
+  mock: guide("mock"),
+  parent: guide("parent"),
+  name: guide("name"),
+  outside: guide("outside"),
+  scholarship: guide("scholarship"),
 } satisfies Record<string, ForbiddenBasis>;
 
 // ---------- 걸린 구 · 고칠 말 ----------

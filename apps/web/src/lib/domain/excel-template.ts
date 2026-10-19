@@ -2,7 +2,7 @@
 // 첫 시트 1행 제목이 양식과 똑같을 때만(앞뒤 공백만 무시) 읽고, 아니면 TEMPLATE_ERROR.
 // 파일 열기(exceljs)는 lib/server/excel.ts, 여기는 순수 함수만.
 
-export type TemplateKind = "register" | "list" | "teacher";
+export type TemplateKind = "register" | "list" | "teacher" | "lesson";
 
 export interface TemplateSpec {
   /** 내려받는 파일 이름 */
@@ -38,6 +38,14 @@ export const TEMPLATES: Record<TemplateKind, TemplateSpec> = {
     widths: [64, 96, 72, 64],
     examples: [["교사A", "교육과정부", "2", "3"], ["교사B", "과학부", "", ""]],
     guide: ["이름은 로그인 ID가 돼요", "담임이 아니면 담임 학년·반을 비워 두세요", "역할은 교과로 만들어요. 담임 반이 있으면 담임도 붙어요"],
+  },
+  // 차시별 활동 (Figma N43 ②): 수업 계획 — 학생 정보 없음
+  lesson: {
+    file: "수업계획_양식.xlsx",
+    columns: ["차시", "날짜", "활동명", "활동 내용"],
+    widths: [44, 72, 120, 220],
+    examples: [["1", "2026-03-04", "운동 법칙 탐구", "뉴턴 운동 법칙을 일상 사례로 설명하기"], ["5", "10.14", "빗면 실험", "경사각을 바꾸며 가속도를 재고 그래프로 정리"]],
+    guide: ["차시는 숫자, 날짜는 2026-03-04 또는 10.14처럼 적어요", "날짜를 모르면 비워 두세요 (올린 뒤 확인 화면에서 채워요)", "활동명은 40자까지 · 활동 내용은 짧게 (메모 칸에는 활동명만 들어가요)"],
   },
 };
 

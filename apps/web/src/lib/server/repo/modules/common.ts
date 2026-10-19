@@ -54,9 +54,9 @@ export const demoCommon: CommonRepo = {
 
 const NEED19 = "공통 활동을 쓰려면 DB 업데이트(0019)가 필요해요. 관리자에게 알려 주세요";
 const missingTable = (e: { message: string } | null) => !!e && /common_activit/.test(e.message);
-type ActRow = { id: string; scope: string; name: string; date: string | null; description: string | null; author_id: string; created_at: string };
+type ActRow = { id: string; scope: string; name: string; date: string | null; description: string | null; author_id: string; created_at: string; lesson_item_id?: string | null };
 type PieceRow = { id: string; activity_id: string; student_id: string; author_id: string; content: string; file_count: number; created_at: string };
-const toAct = (r: ActRow): CommonActivity => ({ id: r.id, scope: r.scope, name: r.name, date: r.date, description: r.description ?? "", authorId: r.author_id, createdAt: r.created_at });
+const toAct = (r: ActRow): CommonActivity => ({ id: r.id, scope: r.scope, name: r.name, date: r.date, description: r.description ?? "", authorId: r.author_id, createdAt: r.created_at, lessonItemId: r.lesson_item_id ?? null });
 const toPiece = (r: PieceRow): CommonActivityPiece => ({ id: r.id, activityId: r.activity_id, studentId: r.student_id, authorId: r.author_id, content: r.content, fileCount: r.file_count, createdAt: r.created_at });
 
 export const supabaseCommon: CommonRepo = {
@@ -73,7 +73,7 @@ export const supabaseCommon: CommonRepo = {
     return r ? toAct(r) : null;
   },
   async addCommonActivity(a) {
-    const res = await db().from("common_activities").insert({ scope: a.scope, name: a.name, date: a.date, description: a.description, author_id: a.authorId }).select("*").single();
+    const res = await db().from("common_activities").insert({ scope: a.scope, name: a.name, date: a.date, description: a.description, author_id: a.authorId, ...(a.lessonItemId ? { lesson_item_id: a.lessonItemId } : {}) }).select("*").single();
     if (missingTable(res.error)) throw new Error(NEED19);
     return toAct(check(res) as ActRow);
   },

@@ -10,8 +10,8 @@ import { linkSentences } from "./sentence-flow";
 /** 공통 활동 = 과목·반 전체 활동(Figma N26)에서 학생 자료로 만든 조각 */
 /** 자료 요약 = 조각 모으기(Figma N32)에서 활동 자료를 AI가 읽어 요약한 조각 */
 /** 보관함 = 문장 보관함(Figma N35 ②)에서 "조각으로 넣기"한 문장 */
-export type PieceSource = "누가기록" | "메모" | "본문" | "특색 활동" | "공통 활동" | "자료 요약" | "보관함";
-export const PIECE_SOURCES = ["누가기록", "메모", "본문", "특색 활동", "공통 활동", "자료 요약", "보관함"] as const satisfies readonly PieceSource[];
+export type PieceSource = "누가기록" | "메모" | "본문" | "특색 활동" | "공통 활동" | "자료 요약" | "보관함" | "차시";
+export const PIECE_SOURCES = ["누가기록", "메모", "본문", "특색 활동", "공통 활동", "자료 요약", "보관함", "차시"] as const satisfies readonly PieceSource[];
 export type MergePiece = { id: string; source: PieceSource; date: string | null; text: string; weight?: Importance };
 
 // 조각 고르기 (Figma N20): 교사가 조각마다 중요도를 매기고, 목표 분량에 맞춰 고른다.

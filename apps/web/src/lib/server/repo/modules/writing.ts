@@ -105,13 +105,13 @@ type DraftRow = {
   id: string; area: RecordArea; student_id: string; author_id: string; year: number; semester: 1 | 2 | null;
   content: string; unit: RecordDraft["unit"]; max_len: number; status: RecordDraft["status"]; created_at: string;
 } & ProvRow;
-type MemoRow = { id: string; scope: string; student_id: string; author_id: string; content: string; created_at: string };
+type MemoRow = { id: string; scope: string; student_id: string; author_id: string; content: string; created_at: string; lesson_item_id?: string | null; date?: string | null };
 
 const toDraft = (r: DraftRow): RecordDraft => ({
   id: r.id, area: r.area, studentId: r.student_id, authorId: r.author_id, year: r.year, semester: r.semester,
   content: r.content, unit: r.unit, max: r.max_len, status: r.status, createdAt: r.created_at, ...provFrom(r),
 });
-const toMemo = (r: MemoRow): RecordMemo => ({ id: r.id, scope: r.scope, studentId: r.student_id, authorId: r.author_id, content: r.content, createdAt: r.created_at });
+const toMemo = (r: MemoRow): RecordMemo => ({ id: r.id, scope: r.scope, studentId: r.student_id, authorId: r.author_id, content: r.content, createdAt: r.created_at, lessonItemId: r.lesson_item_id ?? null, date: r.date ?? null });
 
 export const supabaseWriting: WritingRepo = {
   async listRecordDrafts({ area, year, studentIds }) {

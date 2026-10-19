@@ -20,6 +20,8 @@ import type { BehaviorPick } from "@/lib/server/repo/modules/keywords";
 import { provView } from "@/lib/server/provenance";
 import { repo } from "@/lib/server/repo";
 import { recordSourcePool } from "./actions";
+import { GuideBookButton } from "@/components/writing/guide-panel";
+import type { LessonView } from "@/lib/domain/lesson-plan";
 
 // 기록 쓰기 작업 화면 (Figma T4 초안 검토와 같은 배치): 왼쪽 학생 목록 · 가운데 본문(AI 초안·자동 검사·분량) · 오른쪽 근거 자료
 // 특기사항(/teacher/write?area=…)과 행발(/homeroom/behavior)이 함께 쓴다.
@@ -42,7 +44,10 @@ export async function RecordWorkspace({
   href,
   openCheck = false,
   behavior,
+  lesson,
 }: {
+  /** 차시별 활동 메뉴 (Figma N43 ②) — 동아리 · 담임 반 (행발은 없음) */
+  lesson?: LessonView;
   /** 반 전체 검사(N35)에서 "열기": ③ 첫 걸린 행 펼침 */
   openCheck?: boolean;
   /** 행발 키워드 메뉴판 (N35 ④): 내 메뉴판 · 학생별 고른 키워드 */
@@ -85,6 +90,7 @@ export async function RecordWorkspace({
     studentId: selected.id, clubId, who, initial: cur?.content ?? "", memo: m?.content ?? "", unit: cur?.unit ?? ("bytes" as const),
     max: cur?.max ?? recordMax(area, "bytes"), confirmed: cur?.status === "confirmed", aiOn: aiEnabled(), openCheck,
     prov: { original: pv.original, pins: pv.pins, pool, editRatioMin: settings.editRatioMin, who: selected.name },
+    lesson,
   };
 
   return (
@@ -140,6 +146,8 @@ export async function RecordWorkspace({
                 </div>
               </div>
               <span className="hidden text-[13px] text-mute md:inline">{idx + 1} / {students.length}</span>
+              {/* N43 기재요령 찾아보기 */}
+              <GuideBookButton area={area} className="max-sm:px-2" />
               <div className="flex gap-1">
                 <StepLink href={prev ? href(prev.id) : undefined} label="이전 학생"><ChevronLeft size={16} /></StepLink>
                 <StepLink href={next ? href(next.id) : undefined} label="다음 학생"><ChevronRight size={16} /></StepLink>

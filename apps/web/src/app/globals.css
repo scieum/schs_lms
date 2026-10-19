@@ -225,3 +225,13 @@ body {
   .print-root > div { padding: 0; gap: 0; }
   .print-paper { box-shadow: none !important; break-after: page; }
 }
+
+/* N43 기재요령 찾아보기: 1280 이상은 오른쪽 400 패널이 본문을 밀어낸다 (덮지 않음 — 이 글에서 찾기가 글을 가리지 않게).
+   작업 화면 칸(data-guide-grid)은 한 칸으로 · 학생 목록(data-guide-hide)은 숨기고 카드 머리 "‹ 이전 · 다음 ›"(data-guide-only)로 넘긴다 */
+[data-guide-only] { display: none; }
+@media (min-width: 1280px) {
+  html[data-guide="open"] [data-shell-main] { padding-right: 400px; }
+  html[data-guide="open"] [data-guide-grid] { grid-template-columns: minmax(0, 1fr); }
+  html[data-guide="open"] [data-guide-hide] { display: none; }
+  html[data-guide="open"] [data-guide-only] { display: inline-flex; }
+}

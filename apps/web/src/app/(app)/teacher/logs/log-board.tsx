@@ -10,6 +10,7 @@ import { neisBytes } from "@/lib/domain/length";
 import { addLogs, polishLogMemo, readLogFile, softenLogMemo, type LogState, type PolishResult } from "./actions";
 import { bluntWords } from "@/lib/domain/soften";
 import { HighlightTextarea } from "@/components/writing/highlight-textarea";
+import { useGuideMarks, useGuideTarget } from "@/components/writing/guide-store";
 import { SoftenNotice, SoftenResult } from "@/components/writing/soften";
 import { makeStudentNo } from "@/lib/domain/roster";
 import { StudentListImport } from "@/components/student-list-import";
@@ -30,6 +31,9 @@ export function LogBoard({ area, clubId, students, logs, today, aiOn = false }: 
     return r;
   }, {});
   const [activity, setActivity] = useState("");
+  // N43 기재요령 "이 글에서 찾기": 누가기록 내용 칸이 대상
+  useGuideTarget(text, "누가기록");
+  const gm = useGuideMarks(text);
   const [chip, setChip] = useState<DateChip>("today");
   const [pickedDate, setPickedDate] = useState(today);
   const date = chipDate(chip, today, pickedDate);
@@ -181,10 +185,11 @@ export function LogBoard({ area, clubId, students, logs, today, aiOn = false }: 
               </div>
             </div>
             <HighlightTextarea name="content" value={text} onChange={setText} maxLength={1000} required
-              marks={blunt.map((h) => ({ start: h.start, end: h.end, tone: "warn" as const }))}
+              marks={[...blunt.map((h) => ({ start: h.start, end: h.end, tone: "warn" as const })), ...gm.marks]} focusKey={gm.focusKey}
               placeholder="관찰한 활동을 짧게 적거나 받아쓰기를 붙여 넣어 주세요. 고른 학생 모두에게 같은 내용이 들어가요"
               boxClassName="rounded-field bg-soft focus-within:ring-2 focus-within:ring-key"
               textClassName="min-h-[104px] px-4 py-3 text-[15px] leading-6 md:min-h-[88px] md:text-[14px]" aria-label="기록 내용" />
+            {gm.line}
             <SoftenNotice hits={blunt} busy={polishing} onRun={aiOn ? runSoften : undefined} />
             {softShown?.r.ok && (
               <SoftenResult memo={softShown.memo} soft={softShown.r.text} hits={blunt} label={softShown.r.label} busy={polishing || pending}

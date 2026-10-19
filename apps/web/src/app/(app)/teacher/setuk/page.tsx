@@ -24,6 +24,10 @@ import { LibrarySaveProvider } from "@/components/writing/library-save";
 import { LevelsProvider } from "@/components/writing/level-picker";
 import { piecesPool, provView } from "@/lib/server/provenance";
 import { listMemosWithPieces, memoPieces } from "@/lib/server/merge-pieces";
+import { GuideBookButton } from "@/components/writing/guide-panel";
+import { GuideStepLinks } from "@/components/writing/guide-step-links";
+import { LessonPlanCard } from "@/components/writing/lesson-plan-card";
+import { lessonView } from "@/lib/server/lessons";
 
 export const metadata = { title: "교과 세특 · 속초고등학교 학생관리시스템" };
 
@@ -101,6 +105,9 @@ export default async function SetukPage({ searchParams }: Props) {
     ? await Promise.all([provView(cur), listMemosWithPieces(`세특:${course.id}`, [selected.id]).then((m) => piecesPool(memoPieces(m), course.subject)), repo.getProvenanceSettings()])
     : [{ original: null, pins: [] }, [], await repo.getProvenanceSettings()];
   const listTitle = tab.section ? `${course.subject} ${tab.section}` : `${course.subject} · ${assignment?.classes.join("·")}반`;
+  // 차시별 활동 메뉴 (N43 ②): 이 분반 수업 계획 · 학생별 남긴 차시
+  const lesson = await lessonView(commonScopeKey, students, tab.section ? `${course.subject} ${tab.section}` : course.subject);
+  const stepOf = (id: string, d: number) => { const o = students[students.findIndex((s) => s.id === id) + d]; return o ? href(o.id) : undefined; };
   const peersOf = (id: string) => pairs.filter((p) => p.a === id || p.b === id).map((p) => (p.a === id ? p.b : p.a));
 
   return (
@@ -130,7 +137,8 @@ export default async function SetukPage({ searchParams }: Props) {
           <p className="rounded-inner bg-wait-soft px-4 py-3 text-[13px] text-[#9a6400]">이 분반 명단이 아직 없어요. 내 수업 → 이동반 명단에서 양식 명단을 올려 주세요</p>
         )}
         <StatTiles items={[["학생", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
-        {students.length > 0 && <CommonActivitiesCard scope={commonScopeKey} rows={commonRows} detailBase="/teacher/setuk/activity" today={seoulNow().date} />}
+        {lesson && <LessonPlanCard view={lesson} year={schoolYear()} />}
+        {students.length > 0 && <CommonActivitiesCard scope={commonScopeKey} rows={commonRows} detailBase="/teacher/setuk/activity" today={seoulNow().date} lessons={lesson?.items} />}
         <AiBanner title="AI로 세특 쓰기" label={aiEnabled() ? "AI" : "자동"} line="활동 메모를 남기고 AI로 글 쓰기를 누르면 세특 글이 채워져요. 고치고 확정은 선생님이 해요" />
 
         {students.length === 0 ? (
@@ -156,7 +164,14 @@ export default async function SetukPage({ searchParams }: Props) {
                 main={selected && (
                   <Card
                     title={`${selected.name} · ${selected.classNo}반 ${selected.number}번`}
-                    action={cur ? <span className="text-[13px] text-mute">{new Date(cur.createdAt).toLocaleDateString("ko-KR")} 저장</span> : undefined}
+                    action={
+                      <span className="flex items-center gap-2">
+                        {cur && <span className="hidden text-[13px] text-mute sm:inline">{new Date(cur.createdAt).toLocaleDateString("ko-KR")} 저장</span>}
+                        {/* N43: 기재요령 패널이 열리면 학생 목록 대신 이전 · 다음 */}
+                        <GuideStepLinks prev={stepOf(selected.id, -1)} next={stepOf(selected.id, 1)} />
+                        <GuideBookButton area="세특" />
+                      </span>
+                    }
                   >
                     <LibrarySaveProvider area="세특" subject={course.subject} studentId={selected.id} who={{ name: selected.name, studentNo: selected.studentNo }}>
                       <SetukEditor
@@ -172,6 +187,7 @@ export default async function SetukPage({ searchParams }: Props) {
                         memo={memo?.content ?? ""}
                         subject={course.subject}
                         openCheck={q.check === "1" && q.student === selected.id}
+                        lesson={lesson}
                         prov={{ original: pv.original, pins: pv.pins, pool, editRatioMin: provSettings.editRatioMin, who: selected.name }}
                         similar={{
                           self: { id: selected.id, name: selected.name, no: makeStudentNo(selected.grade, selected.classNo, selected.number), href: href(selected.id) },

@@ -19,6 +19,9 @@ import { LevelPicker, useLevels } from "@/components/writing/level-picker";
 import { LibraryToggle, useBodyLibrary } from "@/components/writing/library-save";
 import { pieceFromLibrary } from "@/app/(app)/teacher/library/actions";
 import { BodyViewSwitch, useProvenance, type ProvInit } from "@/components/writing/provenance";
+import { useGuideMarks, useGuideTarget } from "@/components/writing/guide-store";
+import { useLessonMenu } from "@/components/writing/use-lesson-menu";
+import type { LessonView } from "@/lib/domain/lesson-plan";
 
 // 세특 쓰기 (Figma N40, N32 구조): 진행 줄 · ① 활동 메모 → ② AI로 쓰기 → ③ 글 확인 · 확정.
 // 활동명은 ①의 칸 하나를 ②가 같이 쓴다. AI 결과는 ③ 글에 채우기만 하고(되돌리기 있음) 저장은 교사가 누른다.
@@ -36,7 +39,10 @@ export function SetukEditor({
   similar,
   openCheck = false,
   prov,
+  lesson,
 }: {
+  /** 차시별 활동 메뉴 (Figma N43 (f)): 이 분반 수업 계획 · 학생별 남긴 차시 */
+  lesson?: LessonView;
   /** N38 문장 근거 · AI 원안 (원안이 없으면 근거 · 원안 비교 · 수정 칩이 숨는다) */
   prov?: ProvInit;
   /** 반 전체 검사(N35)의 "열기": ③ 자동 검사 첫 걸린 행을 펼친다 */
@@ -87,6 +93,10 @@ export function SetukEditor({
   const more = useMemo(() => ({ ...pv.more, praise }), [pv.more, praise]);
   const bc = useBodyChecks({ text, setText, range, who, context: subject, extraMarks: simMarks, openFirst: openCheck, more });
   useEffect(() => { replaceRef.current = bc.replace; });
+  // N43 기재요령 "이 글에서 찾기": ③ 글이 대상 · 찾은 자리 밑줄 + 찾은 곳 줄
+  useGuideTarget(text, "세특", () => body.current?.scrollIntoView({ block: "center", behavior: "smooth" }));
+  const gm = useGuideMarks(text);
+  const marks = useMemo(() => (gm.marks.length ? [...bc.marks, ...gm.marks] : bc.marks), [bc.marks, gm.marks]);
   const { needFromServer } = pv;
   useEffect(() => { needFromServer(state.needReason); }, [state.needReason, needFromServer]);
   // ② 문장 보관함
@@ -97,6 +107,7 @@ export function SetukEditor({
   });
   const [variants, setVariants] = useState(false);
   const [compare, setCompare] = useState(false);
+  const lm = useLessonMenu(lesson, studentId);
 
   return (
     <div className="flex flex-col gap-5">
@@ -104,7 +115,7 @@ export function SetukEditor({
       <PiecesCard key={`${courseId}-${studentId}-${piecesKey}`} studentId={studentId} placeholder="지금 본 것을 짧게 (예: 오차 원인을 찾아 다시 측정)"
         activity={activity} setActivity={setActivity} activityRef={activityRef} onPieces={setPieces} done={!!pieces?.length && hasBody}
         load={() => listSetukPieces({ courseId, studentId })}
-        add={(t, a, kind) => addSetukPiece({ courseId, studentId, text: t, activity: a, kind })}
+        add={(t, a, kind) => addSetukPiece({ courseId, studentId, text: t, activity: a, kind })} lesson={lm.menu}
         summarize={(fd) => { fd.set("courseId", courseId); fd.set("studentId", studentId); return summarizeSetukFile(fd); }} />
       <div className={STEP_GAP}>
         <AiDraftPanel
@@ -130,6 +141,7 @@ export function SetukEditor({
       </div>
       <form action={action} className={`flex flex-col gap-3 ${STEP_GAP}`}>
         <StepHead n={3} title="글 확인 · 확정" meta={checkMeta(bc.check, sim.length).replace("본문", "글")} done={confirmed && hasBody && text === initial} />
+        {gm.line}
         <input type="hidden" name="courseId" value={courseId} />
         <input type="hidden" name="studentId" value={studentId} />
         {pv.inputs()}
@@ -141,9 +153,9 @@ export function SetukEditor({
             name="content"
             value={text}
             onChange={setText}
-            marks={bc.marks}
+            marks={marks}
             onPickMark={bc.setOpen}
-            focusKey={bc.open}
+            focusKey={gm.focusKey ?? bc.open}
             maxLength={5000}
             placeholder="AI로 쓰거나 직접 써요. 문장은 '~함.'으로 끝내요"
             boxClassName="rounded-field bg-soft focus-within:ring-2 focus-within:ring-key"
@@ -190,6 +202,7 @@ export function SetukEditor({
       </form>
       {bc.snack}
       {pv.dialog}
+      {lm.node}
       {compare && similar && sim.length > 0 && (
         <SimilarSheet self={similar.self} text={text} unit={range.unit} state={sim} onClose={() => setCompare(false)}
           onRewriteSelf={() => { setCompare(false); body.current?.focus(); }} />

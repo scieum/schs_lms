@@ -1,5 +1,6 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useState, type MouseEvent, type ReactNode } from "react";
+import { guideStore } from "./guide-store";
 import { BookOpen, Check, ChevronDown, ChevronUp, RotateCcw, Sparkles, X } from "lucide-react";
 import { cx } from "@/components/ui";
 import { isSpellRow, type AutoCheck, type CheckRow } from "@/lib/domain/auto-check";
@@ -127,11 +128,16 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** 기재요령 칩 (N34 417:485): 누르면 기재요령 원문 새 탭 */
-export function SourceChip({ source, url }: { source: string; url?: string }) {
+/** 기재요령 칩 (N34 417:485): 누르면 기재요령 패널(N43)이 그 원문 카드를 펼친 채 열린다. ⌘/Ctrl 클릭 · 가운데 클릭은 원문 PDF 새 탭 그대로 */
+export function SourceChip({ source, url, id }: { source: string; url?: string; id?: string }) {
   const body = <><BookOpen size={12} className="shrink-0" />{source}</>;
   const cls = "inline-flex h-6 items-center gap-1 whitespace-nowrap rounded-chip border border-line bg-[#fff] px-2 text-[12px] font-medium text-sub";
-  return url ? <a href={url} target="_blank" rel="noreferrer" className={cx(cls, "hover:bg-soft")}>{body}</a> : <span className={cls}>{body}</span>;
+  const open = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (!id || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    guideStore.open({ focusId: id });
+  };
+  return url ? <a href={url} target="_blank" rel="noreferrer" onClick={open} className={cx(cls, "hover:bg-soft")}>{body}</a> : <span className={cls}>{body}</span>;
 }
 
 /** 맞춤법·띄어쓰기 묶음 (N38 (e)): 머리 "n곳 · 규칙 사전" ↔ [모두 바꾸기 n] → N38 맞춤법 행 → 맞춤법 AI 검사 줄. 한 번에 하나만 펼침 */
@@ -193,7 +199,7 @@ function SpellRowItem({ r, open, onToggle, onReplace }: { r: CheckRow; open: boo
           {(h.more || h.basis) && (
             <div className="flex flex-col items-start gap-1.5 rounded-control bg-bg px-3 py-2.5">
               {h.more && <p className="text-[13px] leading-5 text-sub">{h.more}</p>}
-              {h.basis && <><p className="text-[13px] leading-5 text-sub">“{h.basis.quote}”</p><SourceChip source={h.basis.source} url={h.basis.url} /></>}
+              {h.basis && <><p className="text-[13px] leading-5 text-sub">“{h.basis.quote}”</p><SourceChip source={h.basis.source} url={h.basis.url} id={"id" in h.basis ? (h.basis.id as string | undefined) : undefined} /></>}
             </div>
           )}
           <p className="text-[12px] text-mute">{r.origin === "ai" ? "AI 검사 · 틀릴 수 있어요 — 하나씩 확인해 바꿔 주세요" : "규칙 사전 · AI 검사 아님"}</p>
@@ -243,7 +249,7 @@ function CheckRowItem({ r, open, onToggle, onReplace, body }: { r: CheckRow; ope
             <Field label="근거">
               <div className="flex flex-col items-start gap-1.5 rounded-control bg-bg px-3 py-2.5">
                 <p className="text-[13px] leading-5 text-sub">“{r.basis.quote}”</p>
-                <SourceChip source={r.basis.source} url={r.basis.url} />
+                <SourceChip source={r.basis.source} url={r.basis.url} id={r.basis.id} />
               </div>
             </Field>
           )}

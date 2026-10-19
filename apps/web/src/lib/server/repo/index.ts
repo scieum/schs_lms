@@ -17,11 +17,12 @@ import { demoLevels, supabaseLevels, type LevelsRepo } from "./modules/levels";
 import { demoKeywords, supabaseKeywords, type KeywordsRepo } from "./modules/keywords";
 import { demoRetention, supabaseRetention, type RetentionRepo } from "./modules/retention";
 import { demoProvenance, supabaseProvenance, type ProvenanceRepo } from "./modules/provenance";
+import { demoLessons, supabaseLessons, type LessonsRepo } from "./modules/lessons";
 
 // 기능별 모듈을 하나의 repo 로 합친다. 메서드 이름은 모듈끼리 겹치지 않게 짓는다.
-export type FullRepo = Repo & ProgramsRepo & ScoresRepo & CounselRepo & AdminRepo & WritingRepo & RostersRepo & EventsRepo & PrefsRepo & CommonRepo & LibraryRepo & LevelsRepo & KeywordsRepo & RetentionRepo & ProvenanceRepo;
+export type FullRepo = Repo & ProgramsRepo & ScoresRepo & CounselRepo & AdminRepo & WritingRepo & RostersRepo & EventsRepo & PrefsRepo & CommonRepo & LibraryRepo & LevelsRepo & KeywordsRepo & RetentionRepo & ProvenanceRepo & LessonsRepo;
 
 export const repo: FullRepo = isDemo
-  ? { ...demoRepo, ...demoPrograms, ...demoScores, ...demoCounsel, ...demoAdmin, ...demoWriting, ...demoRosters, ...demoEvents, ...demoPrefs, ...demoCommon, ...demoLibrary, ...demoLevels, ...demoKeywords, ...demoRetention, ...demoProvenance }
-  : { ...supabaseRepo, ...supabasePrograms, ...supabaseScores, ...supabaseCounsel, ...supabaseAdmin, ...supabaseWriting, ...supabaseRosters, ...supabaseEvents, ...supabasePrefs, ...supabaseCommon, ...supabaseLibrary, ...supabaseLevels, ...supabaseKeywords, ...supabaseRetention, ...supabaseProvenance };
+  ? { ...demoRepo, ...demoPrograms, ...demoScores, ...demoCounsel, ...demoAdmin, ...demoWriting, ...demoRosters, ...demoEvents, ...demoPrefs, ...demoCommon, ...demoLibrary, ...demoLevels, ...demoKeywords, ...demoRetention, ...demoProvenance, ...demoLessons }
+  : { ...supabaseRepo, ...supabasePrograms, ...supabaseScores, ...supabaseCounsel, ...supabaseAdmin, ...supabaseWriting, ...supabaseRosters, ...supabaseEvents, ...supabasePrefs, ...supabaseCommon, ...supabaseLibrary, ...supabaseLevels, ...supabaseKeywords, ...supabaseRetention, ...supabaseProvenance, ...supabaseLessons };
 export type { Repo, NewStudent } from "./types";

@@ -11,6 +11,8 @@ import type { EvidenceResult } from "@/lib/server/ai/read-evidence";
 import { bluntWords } from "@/lib/domain/soften";
 import { HighlightTextarea } from "./highlight-textarea";
 import { SoftenNotice, SoftenResult } from "./soften";
+import { LessonChips } from "./lesson-chips";
+import { lessonDate, lessonMd, type LessonChipItem } from "@/lib/domain/lesson-plan";
 
 // 활동 메모 추가 (Figma N40 482:813): 흰 칸 하나 — 머리 줄 [메모 | 자료] 탭 · 활동명 줄 · 메모(또는 자료) · 아래 줄(상태 글 ↔ 버튼).
 // 버튼이 꺼져 있으면 왜 꺼졌는지 아래 줄이 말한다. Ctrl(⌘)+Enter 로 남긴다.
@@ -31,6 +33,19 @@ export type ComposerProps = {
   soften?: (text: string) => Promise<{ ok: true; text: string; label: "AI" } | { ok: false; error: string }>;
   /** 메모 칸 밑줄·알림 줄을 보일지 (기록 쓰기 화면) */
   bluntCheck?: boolean;
+  /** 차시별 활동 메뉴 (Figma N43 (f)): 칩을 누르면 활동명 · 날짜가 채워지고, 남기면 그 차시 메모(출처 "차시")가 된다 */
+  lesson?: LessonMenu;
+};
+
+export type LessonMenu = {
+  items: LessonChipItem[];
+  /** 이 학생에게 메모가 있는 차시 */
+  done: string[];
+  today: string;
+  /** 차시 메모 남기기 (활동 내용은 메모에 넣지 않음) */
+  add: (text: string, activity: string, itemId: string) => Promise<{ error?: string }>;
+  onBulk?: (itemId?: string) => void;
+  onCommon?: (item: LessonChipItem) => void;
 };
 
 type Summary = { text: string; label: "AI" | "자동" };
@@ -67,7 +82,11 @@ const MAIN = "h-11 w-full md:h-9 md:w-auto";
 const NO_RING = { outline: "none" } as const;
 const OFF = "disabled:bg-soft disabled:text-mute disabled:opacity-100";
 
-export function PieceComposer({ activity, setActivity, activityRef, add, summarize, placeholder, onAdded, soften, bluntCheck = !!soften }: ComposerProps) {
+export function PieceComposer({ activity, setActivity, activityRef, add, summarize, placeholder, onAdded, soften, bluntCheck = !!soften, lesson }: ComposerProps) {
+  // N43 차시: 고른 차시 (활동명을 손으로 고치면 풀린다) · 이 화면에서 남긴 차시
+  const [picked, setPicked] = useState<LessonChipItem | null>(null);
+  const [doneHere, setDoneHere] = useState<string[]>([]);
+  const memoRef = useRef<HTMLTextAreaElement>(null);
   const [mode, setMode] = useState<"memo" | "file">("memo");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -89,9 +108,11 @@ export function PieceComposer({ activity, setActivity, activityRef, add, summari
 
   const save = (body: string, kind: PieceKind) => start(async () => {
     setMsg(null);
-    const r = await add(body, activity, kind).catch(() => ({ error: "남기지 못했어요" }));
+    const viaLesson = kind === "memo" && picked && lesson ? picked : null;
+    const r = await (viaLesson ? lesson!.add(body, activity, viaLesson.id) : add(body, activity, kind)).catch(() => ({ error: "남기지 못했어요" }));
     if (r.error) return setMsg({ ok: false, text: r.error });
-    setMsg({ ok: true, text: "메모를 남겼어요 · 아래 목록에 있어요" });
+    if (viaLesson) setDoneHere((d) => [...d, viaLesson.id]);
+    setMsg({ ok: true, text: viaLesson ? `${viaLesson.no}차시 메모를 남겼어요 · 아래 목록에 있어요` : "메모를 남겼어요 · 아래 목록에 있어요" });
     if (kind === "memo") setText("");
     else { setSummary(null); setFile(null); setNote(""); }
     onAdded();
@@ -149,12 +170,13 @@ export function PieceComposer({ activity, setActivity, activityRef, add, summari
   const activityRow = (
     <label className={cx("flex min-h-11 items-center gap-2.5 border-y border-soft py-1.5 pl-3.5 pr-3", needActivity && "bg-[#FFFBF2]")}>
       <span className={cx("shrink-0 text-[13px] font-bold", needActivity ? "text-[#9A6400]" : "text-sub")}>활동명</span>
-      <input ref={activityRef} value={activity} onChange={(e) => { setActivity(e.target.value); setMsg(null); }} onKeyDown={onKey} maxLength={ACTIVITY_MAX}
+      <input ref={activityRef} value={activity} onChange={(e) => { setActivity(e.target.value); setMsg(null); if (picked && e.target.value !== picked.title) setPicked(null); }} onKeyDown={onKey} maxLength={ACTIVITY_MAX}
         style={NO_RING} aria-label="활동명" aria-invalid={needActivity || undefined} placeholder="예: 빗면 실험 탐구"
         className="h-8 min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-mute" />
       <span className={cx("shrink-0 whitespace-nowrap rounded-chip px-1.5 text-[11px] font-medium leading-[18px]",
         needActivity ? "bg-wait-soft text-[#9A6400]" : "bg-soft text-mute")}>
-        {needActivity ? "먼저 적어 주세요" : hasActivity ? <><span className="max-md:hidden">기록 맨 앞에 붙어요</span><span className="md:hidden">맨 앞에 붙어요</span></> : "꼭 적어요"}
+        {picked && memoMode && lesson ? <>{picked.no}차시 · {lessonMd(lessonDate(picked, lesson.today))}<span className="max-md:hidden">로 남겨요</span></>
+          : needActivity ? "먼저 적어 주세요" : hasActivity ? <><span className="max-md:hidden">기록 맨 앞에 붙어요</span><span className="md:hidden">맨 앞에 붙어요</span></> : "꼭 적어요"}
       </span>
     </label>
   );
@@ -184,8 +206,18 @@ export function PieceComposer({ activity, setActivity, activityRef, add, summari
     <Status>자료를 올리면 AI가 활동 요약을 만들어요</Status>
   );
 
+  const pickLesson = (i: LessonChipItem | null) => {
+    setPicked(i);
+    setMsg(null);
+    if (i) { setMode("memo"); setActivity(i.title); window.setTimeout(() => memoRef.current?.focus(), 0); }
+  };
+
   return (
     <div className="flex flex-col gap-3">
+      {lesson && lesson.items.length > 0 && (
+        <LessonChips items={lesson.items} done={new Set([...lesson.done, ...doneHere])} picked={picked?.id ?? null} today={lesson.today}
+          onPick={pickLesson} onBulk={lesson.onBulk ? () => lesson.onBulk!(picked?.id) : undefined} onCommon={lesson.onCommon} />
+      )}
       <div className={cx("flex flex-col overflow-hidden rounded-inner bg-[#fff] transition-colors",
         memoMode && text.trim() ? "outline outline-[1.5px] -outline-offset-1 outline-key" : "border border-hair focus-within:border-key")}>
         <div className="flex items-center gap-2.5 py-2 pl-2 pr-3.5">
@@ -197,7 +229,7 @@ export function PieceComposer({ activity, setActivity, activityRef, add, summari
         {activityRow}
 
         {memoMode ? (
-          <HighlightTextarea value={text} onChange={(v) => { setText(v); setMsg(null); }} onKeyDown={onKey} maxLength={PIECE_MAX} aria-label="활동 메모" style={NO_RING}
+          <HighlightTextarea ref={memoRef} value={text} onChange={(v) => { setText(v); setMsg(null); }} onKeyDown={onKey} maxLength={PIECE_MAX} aria-label="활동 메모" style={NO_RING}
             placeholder={placeholder} marks={blunt.map((h) => ({ start: h.start, end: h.end, tone: "warn" as const }))}
             boxClassName="min-w-0"
             textClassName="min-h-24 px-3.5 py-3 text-[14px] leading-[22px] md:min-h-[76px]" />

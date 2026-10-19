@@ -19,6 +19,8 @@ import { EditRatioChip } from "@/components/writing/edit-ratio-chip";
 import { isSpellRow } from "@/lib/domain/auto-check";
 import { applySpell } from "@/lib/domain/spelling";
 import { ratioLevel } from "@/lib/domain/provenance";
+import { useGuideMarks, useGuideTarget } from "@/components/writing/guide-store";
+import { GuideBookButton } from "@/components/writing/guide-panel";
 
 // T4 초안 본문 편집 + 자동 검사 + 검토 도우미 + 반려·직접 수정·확정
 export function DraftEditor({
@@ -95,6 +97,9 @@ export function DraftEditor({
       ...g, tone: r.level === "block" ? ("block" as const) : r.underline === "wavy" ? ("spell" as const) : ("warn" as const), style: r.underline, key: r.key, strong: r.key === open,
     }))),
   ];
+  // N43 기재요령 "이 글에서 찾기": 초안 본문이 대상
+  useGuideTarget(text, "초안", () => area_.current?.scrollIntoView({ block: "center", behavior: "smooth" }));
+  const gm = useGuideMarks(text);
   const items = (review.items ?? []).filter((x) => !applied.includes(x.phrase) && text.includes(x.phrase));
 
   const runReview = () => {
@@ -208,8 +213,9 @@ export function DraftEditor({
       <form id={formId} action={saveAction} className="flex flex-col gap-3">
         <input type="hidden" name="jobId" value={jobId} />
         {pv.inputs()}
-        {/* 편집 머리 태그 줄 (N38 (f)): 태그 + 수정 칩 ↔ AI 원안 비교 */}
+        {/* 편집 머리 태그 줄 (N38 (f)): 태그 + 수정 칩 ↔ AI 원안 비교 · N43 기재요령 */}
         <div className="flex items-start gap-2">
+          <GuideBookButton area="초안" className="order-last mt-0.5" />
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] md:flex-wrap">
             {tags.map((t) => <span key={t} className={cx("shrink-0 whitespace-nowrap rounded-chip px-2.5 py-1 text-xs font-medium", t === "예시" ? "bg-white text-mute" : "bg-soft text-sub")}>{t}</span>)}
             {pv.original && <EditRatioChip ratio={pv.ratio} min={pv.min} className="py-1" />}
@@ -228,11 +234,12 @@ export function DraftEditor({
             </button>
           </div>
         )}
+        {gm.line}
         {/* 역량 보기 (Figma N18): 켜면 본문을 3대 역량 색으로 — 편집칸은 숨겨 둘 뿐 폼에 그대로 남는다 */}
         <RecordCompetency studentId={studentId} text={text} title="본문">
           {pv.body(<HighlightTextarea
             ref={area_} name="content" value={text} onChange={setText} maxLength={5000}
-            marks={marks} onPickMark={setOpen} focusKey={open}
+            marks={gm.marks.length ? [...marks, ...gm.marks] : marks} onPickMark={setOpen} focusKey={gm.focusKey ?? open}
             boxClassName="rounded-inner border border-line bg-white focus-within:ring-2 focus-within:ring-key"
             textClassName="min-h-[200px] p-4 text-[15px] leading-8 md:p-5"
             aria-label="초안 본문" placeholder="근거 자료를 보고 '~함.'으로 끝나는 문장으로 써 주세요"

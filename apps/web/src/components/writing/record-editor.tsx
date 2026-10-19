@@ -20,6 +20,9 @@ import { pieceFromLibrary } from "@/app/(app)/teacher/library/actions";
 import { libraryAreaOf } from "@/lib/domain/library";
 import type { AiDraftResult } from "@/lib/domain/writing";
 import { BodyViewSwitch, useProvenance, type ProvInit } from "./provenance";
+import { useGuideMarks, useGuideTarget } from "./guide-store";
+import { useLessonMenu } from "./use-lesson-menu";
+import type { LessonView } from "@/lib/domain/lesson-plan";
 
 const MEMO_HINT: Record<RecordArea, string> = {
   "자율·자치": "관찰 메모 (예: 학급회의 사회, 체육대회 준비 위원, 규칙 제안)",
@@ -52,7 +55,10 @@ export function RecordEditor({
   openCheck = false,
   keywordPane,
   prov,
+  lesson,
 }: {
+  /** 차시별 활동 메뉴 (Figma N43 (f)): 동아리 · 담임 반 수업 계획 (행발은 없음) */
+  lesson?: LessonView;
   /** N38 문장 근거 · AI 원안 (원안이 없으면 근거 · 원안 비교 · 수정 칩이 숨는다) */
   prov?: ProvInit;
   /** 반 전체 검사(N35)의 "열기": ③ 자동 검사 첫 걸린 행을 펼친다 */
@@ -94,6 +100,10 @@ export function RecordEditor({
   const more = useMemo(() => ({ ...pv.more, praise: { level: null, evidence } }), [pv.more, evidence]);
   const bc = useBodyChecks({ text, setText, range, who, context: undefined, openFirst: openCheck, more });
   useEffect(() => { replaceRef.current = bc.replace; });
+  // N43 기재요령 "이 글에서 찾기": ③ 글이 대상 · 찾은 자리 밑줄 + 찾은 곳 줄
+  useGuideTarget(text, area, () => body.current?.scrollIntoView({ block: "center", behavior: "smooth" }));
+  const gm = useGuideMarks(text);
+  const marks = useMemo(() => (gm.marks.length ? [...bc.marks, ...gm.marks] : bc.marks), [bc.marks, gm.marks]);
   const { needFromServer } = pv;
   useEffect(() => { needFromServer(state.needReason); }, [state.needReason, needFromServer]);
   const apply = (t: string, r?: AiDraftResult) => { setText(t); pv.adopt(r); };
@@ -103,6 +113,7 @@ export function RecordEditor({
     addPiece: async (id) => { const r = await pieceFromLibrary({ id, target: { kind: "record", area, studentId, clubId } }); if (!r.error) setPiecesKey((k) => k + 1); return r; },
   });
   const [variants, setVariants] = useState(false);
+  const lm = useLessonMenu(area === "행발" ? undefined : lesson, studentId);
 
   return (
     <div className="flex flex-col gap-5">
@@ -111,7 +122,7 @@ export function RecordEditor({
         note={area === "행발" ? undefined : "누가기록에도 남아요"} what={`${area} 글`}
         activity={activity} setActivity={setActivity} activityRef={activityRef} onPieces={setPieces} done={!!pieces?.length && hasBody}
         load={() => listRecordPieces({ area, studentId, clubId })}
-        add={(t, a, kind) => addRecordPiece({ area, studentId, clubId, text: t, activity: a, kind })}
+        add={(t, a, kind) => addRecordPiece({ area, studentId, clubId, text: t, activity: a, kind })} lesson={lm.menu}
         soften={aiOn ? (t) => softenRecordMemo({ area, studentId, clubId, text: t }) : undefined} bluntCheck
         summarize={(fd) => { fd.set("area", area); fd.set("studentId", studentId); if (clubId) fd.set("clubId", clubId); return summarizeRecordFile(fd); }} />
       <div className={STEP_GAP}>
@@ -138,6 +149,7 @@ export function RecordEditor({
       </div>
       <form action={action} className={`flex flex-col gap-3 ${STEP_GAP}`}>
         <StepHead n={3} title="글 확인 · 확정" meta={checkMeta(bc.check).replace("본문", "글")} done={confirmed && hasBody && text === initial} />
+        {gm.line}
         <input type="hidden" name="area" value={area} />
         <input type="hidden" name="studentId" value={studentId} />
         {clubId && <input type="hidden" name="clubId" value={clubId} />}
@@ -150,9 +162,9 @@ export function RecordEditor({
             name="content"
             value={text}
             onChange={setText}
-            marks={bc.marks}
+            marks={marks}
             onPickMark={bc.setOpen}
-            focusKey={bc.open}
+            focusKey={gm.focusKey ?? bc.open}
             maxLength={5000}
             placeholder="AI로 쓰거나 직접 써요. 문장은 '~함.'으로 끝내요"
             boxClassName="rounded-field bg-soft focus-within:ring-2 focus-within:ring-key"
@@ -194,6 +206,7 @@ export function RecordEditor({
       </form>
       {bc.snack}
       {pv.dialog}
+      {lm.node}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
 import { commonScope, parseScope } from "@/lib/domain/common-activity";
 import { PIECE_MAX, PIECE_MIN } from "@/lib/domain/merge";
 import { seoulNow } from "@/lib/domain/night";
+import { schoolYear } from "@/lib/domain/curriculum";
 import type { Viewer } from "@/lib/domain/types";
 import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence";
 import { resolveScope } from "@/lib/server/common-activity";
@@ -29,6 +30,8 @@ const CreateSchema = z.object({
   name: z.string().max(80),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   description: z.string().max(300, "설명은 300자까지예요").optional().default(""),
+  /** "차시에서 고르기"(N43)로 채웠으면 그 차시 */
+  lessonItemId: z.string().max(60).nullable().optional(),
 });
 
 export async function createCommonActivity(input: z.input<typeof CreateSchema>): Promise<{ error?: string; id?: string }> {
@@ -40,8 +43,10 @@ export async function createCommonActivity(input: z.input<typeof CreateSchema>):
   if (!r) return { error: NO };
   const name = cleanActivity(p.data.name);
   if (!name) return { error: "활동명을 적어 주세요" };
+  // 차시 연결은 이 범위 수업 계획의 차시만
+  const lessonItemId = p.data.lessonItemId && (await repo.getLessonPlan(p.data.scope, schoolYear()))?.items.some((i) => i.id === p.data.lessonItemId) ? p.data.lessonItemId : null;
   try {
-    const a = await repo.addCommonActivity({ scope: p.data.scope, name, date: p.data.date ?? null, description: p.data.description.trim(), authorId: v.accountId });
+    const a = await repo.addCommonActivity({ scope: p.data.scope, name, date: p.data.date ?? null, description: p.data.description.trim(), authorId: v.accountId, lessonItemId });
     await repo.audit(v.accountId, "common.create", `${r.ref.kind} ${r.label} · ${name}`);
     revalidatePath(r.backHref.split("?")[0]);
     return { id: a.id };

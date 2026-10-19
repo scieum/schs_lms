@@ -9,6 +9,7 @@ import { writeRecord } from "@/lib/server/ai/write-record";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { evidenceLogs } from "./data";
+import { lessonBackgroundFor } from "@/lib/server/lessons";
 import { forbiddenBlock } from "@/lib/domain/forbidden";
 import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence";
 import { fitRecord, fixRecord, mergeRecord, tagCompetency, variantsRecord } from "@/lib/server/ai/merge-record";
@@ -217,7 +218,10 @@ export async function mergeRecordAction(input: { area: string; studentId: string
   const p = MergeSchema.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
   const range = fitRange(resolveRecordLength(t.area, { unit: p.data.unit, max: p.data.max }));
-  const r = await mergeRecord({ kind: t.area, context: t.clubName, student: t.student, pieces: p.data.pieces, range, level: null, keepOrder: p.data.keepOrder });
+  // 차시 메모(N43)가 있으면 그 차시 활동 내용을 배경으로 (학생 행동 아님)
+  const lessonLogs = t.area !== "행발" && p.data.pieces.some((x) => x.source === "차시") ? await evidenceLogs(t.area, [t.student.id], input.clubId) : [];
+  const background = await lessonBackgroundFor(lessonLogs.map((l) => l.lessonItemId), p.data.pieces.filter((x) => x.source === "차시").map((x) => x.text), t.student);
+  const r = await mergeRecord({ kind: t.area, context: t.clubName, student: t.student, pieces: p.data.pieces, range, level: null, keepOrder: p.data.keepOrder, background });
   await repo.audit(t.v.accountId, "record.ai_merge", `${t.area} ${t.student.pseudonymId} ${p.data.pieces.length}조각`);
   const d = toDraft(r);
   if (!d.ok) return d;

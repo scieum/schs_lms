@@ -87,7 +87,7 @@ const NO_NEW_PRAISE = `
  * tone: 성취수준 말투 한 줄 (achievement.levelPrompt) · level: 고른 수준 (N41, 없으면 사실 그대로)
  * keepOrder: 교사가 정한 순서(메모 모아 쓰기 N41) 그대로 — 아니면 날짜 순
  */
-export async function mergeRecord(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange; tone?: string; level?: Level | null; keepOrder?: boolean }): Promise<WriteResult> {
+export async function mergeRecord(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange; tone?: string; level?: Level | null; keepOrder?: boolean; background?: string[] }): Promise<WriteResult> {
   const { student } = input;
   const pid = student.pseudonymId;
   const pieces = (input.keepOrder ? input.pieces : orderPieces(input.pieces)).map((p) => ({ ...p, text: scrubIdentity(p.text, student, pid).text.trim() })).filter((p) => p.text);
@@ -104,6 +104,8 @@ export async function mergeRecord(input: { kind: WriteKind; context?: string; st
       ...g.pieces.map(({ piece: p, n }) => `  ${n}. [S${n}] ${p.weight === 3 ? "[핵심] " : p.weight === 1 ? "[참고] " : ""}(${p.source}${p.date ? ` ${p.date}` : ""}) ${stripActivity(p.text)}`),
     ]),
     "</조각>",
+    // 차시 메뉴(N43): 반 전체 수업 계획의 활동 내용 — 이 학생의 행동이 아니다
+    input.background?.length ? ["<수업 활동 배경>", ...input.background.map((b) => `- ${b}`), "</수업 활동 배경>", "수업 활동 배경은 반 전체가 한 활동 설명이다. 배경만으로 학생 행동을 지어내지 말고, 학생 행동은 조각에 있는 것만 쓴다."].join("\n") : null,
     // 세특: 그 과목 성취기준 가운데 조각과 이어지는 것 (lib/data, 교육부 고시)
     input.kind === "세특" ? subjectStandards(input.context, pieces.map((p) => p.text).join(" ")) || null : null,
   ].filter((x) => x !== null).join("\n");
