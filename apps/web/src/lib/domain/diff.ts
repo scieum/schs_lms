@@ -44,6 +44,18 @@ export function wordDiff(before: string, after: string): { removed: Range[]; add
   return { removed: r, added: ad, changes: Math.max(r.length, ad.length) };
 }
 
+/** 두 어절 목록의 가장 긴 공통 부분 수열 길이 (N38 수정 비율) */
+export function lcsLength(a: string[], b: string[]): number {
+  if (!a.length || !b.length) return 0;
+  let prev = new Array<number>(b.length + 1).fill(0);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = new Array<number>(b.length + 1).fill(0);
+    for (let j = 1; j <= b.length; j++) cur[j] = a[i - 1] === b[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], cur[j - 1]);
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
 /** 글을 구간 표시용 조각으로 */
 export function splitByRanges(text: string, ranges: Range[]): { text: string; on: boolean }[] {
   const out: { text: string; on: boolean }[] = [];

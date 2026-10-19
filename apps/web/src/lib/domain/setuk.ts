@@ -2,10 +2,11 @@
 import type { Course, TeacherCourse } from "./curriculum";
 import type { LengthUnit } from "./length";
 import type { Student } from "./types";
+import type { RecordProv } from "./provenance";
 
 export type SetukStatus = "draft" | "confirmed";
 
-export interface SetukRecord {
+export interface SetukRecord extends RecordProv {
   id: string;
   courseId: string;
   studentId: string;

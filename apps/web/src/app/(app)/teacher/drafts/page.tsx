@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Avatar, ButtonLink, Card, Tag, cx } from "@/components/ui";
-import { measure } from "@/lib/domain/length";
 import { isAdmin } from "@/lib/domain/policy";
 import { buildEvidence, latestVersion, reviewStatus, SOURCE_LABEL, type ReviewStatus } from "@/lib/domain/program";
 import { aiEnabled } from "@/lib/server/ai/claude";
@@ -16,6 +15,9 @@ import { SimilarBadge } from "@/components/writing/similar-sheet";
 import { makeStudentNo } from "@/lib/domain/roster";
 import { CheckSwap, CheckStatus, WorkspaceProvider } from "@/components/writing/workspace";
 import { ClassCheckButton, ClassCheckPanel } from "@/components/writing/class-check-panel";
+import { EditRatioChip } from "@/components/writing/edit-ratio-chip";
+import { editRatio } from "@/lib/domain/provenance";
+import { draftPool, provView } from "@/lib/server/provenance";
 
 export const metadata = { title: "초안 검토·확정 · 속초고등학교 학생관리시스템" };
 
@@ -71,9 +73,22 @@ export default async function DraftsPage({ searchParams }: Props) {
   const checkProgram = q.program && programs.some((p) => p.id === q.program) ? q.program : programs.length === 1 ? programs[0].id : null;
   const count = (k: string) => items.filter((x) => TABS.find((t) => t[0] === k)![2].includes(x.status)).length;
 
+  // N38: AI 원안에서 고친 비율 (최신 버전 기준). 원안이 없는 초안(마이그레이션 전 · 직접 쓴 글)은 모름 → 칩 없음
+  const [originals, settings] = await Promise.all([repo.listAiOriginals(items.map((x) => x.latest?.aiOriginalId ?? "").filter(Boolean)), repo.getProvenanceSettings()]);
+  const origOf = new Map(originals.map((o) => [o.id, o]));
+  const ratioOf = (x: (typeof items)[number]): number | undefined => {
+    const o = x.latest?.aiOriginalId ? origOf.get(x.latest.aiOriginalId) : undefined;
+    return o && x.latest ? x.latest.editRatio ?? editRatio(o.content, x.latest.content) : undefined;
+  };
+  const ratios = new Map(items.map((x) => [x.job.id, ratioOf(x)]));
+
   const picked = items.find((x) => x.job.id === q.d);
   const tabKey = TABS.some((t) => t[0] === q.tab) ? q.tab! : picked ? TABS.find((t) => t[2].includes(picked.status))?.[0] ?? "wait" : "wait";
-  const list = items.filter((x) => TABS.find((t) => t[0] === tabKey)![2].includes(x.status));
+  // 목록: 수정 적은 순 (같으면 지금 순서 · 모르는 초안과 초안 없음은 뒤로)
+  const list = items.filter((x) => TABS.find((t) => t[0] === tabKey)![2].includes(x.status))
+    .map((x, i) => ({ x, i, r: ratios.get(x.job.id) }))
+    .sort((a, b) => (a.r ?? 101) - (b.r ?? 101) || a.i - b.i)
+    .map((y) => y.x);
   const sel = picked ?? list[0];
   const idx = sel ? list.indexOf(sel) : -1;
   const base = (extra: string) => `/teacher/drafts?${q.program ? `program=${q.program}&` : ""}${extra}`;
@@ -90,6 +105,11 @@ export default async function DraftsPage({ searchParams }: Props) {
     const jobVersions = versions.filter((x) => x.jobId === sel.job.id);
     const answered = p.questions.filter((qq) => response?.submittedAt && (response.answers[qq.id] ?? "").trim());
     const initial = sel.latest?.content ?? "";
+    // N38: 원안 · 근거 표 (설문 문항 · 서류, 이름·학번 가림)
+    const set = new Set(p.targetIds);
+    const people = students.filter((x) => set.has(x.id) || x.id === s.id).map((x) => ({ name: x.name, studentNo: x.studentNo }));
+    const pv = await provView(sel.latest);
+    const pool = draftPool(p, response, mats, people);
 
     detail = (
       <>
@@ -135,6 +155,7 @@ export default async function DraftsPage({ searchParams }: Props) {
                 }}
                 aiOn={aiEnabled()}
                 openCheck={q.check === "1"}
+                prov={{ original: pv.original, pins: pv.pins, pool, editRatioMin: settings.editRatioMin, who: s.name }}
                 finalized={sel.status === "확정"}
                 tags={[`근거: ${SOURCE_LABEL[p.source]}`, `버전 ${jobVersions.length}`, ...(sel.latest?.source === "sample" ? ["예시"] : sel.latest?.source === "ai" ? ["AI 초안"] : [])]}
               />
@@ -216,6 +237,27 @@ export default async function DraftsPage({ searchParams }: Props) {
                   <a href="#queue" className="flex-1 truncate font-medium text-sub">{sel.student?.name ?? "학생"}{list.length > 1 ? ` 외 ${list.length - 1}명` : ""} {TABS.find((t) => t[0] === tabKey)![1]}</a>
                   <span className="font-bold">{idx + 1} / {list.length}</span>
                 </div>
+                {/* 검토 대기 목록 카드 (N38 (f) 모바일): 수정 적은 순 4명 + 더 보기 */}
+                <div className="flex flex-col gap-1 rounded-card border border-line bg-white px-4 py-3.5">
+                  <div className="flex items-center pb-1">
+                    <span className="flex-1 text-[14px] font-bold">검토 {TABS.find((t) => t[0] === tabKey)![1]} {list.length}</span>
+                    <span className="text-[11px] font-medium text-mute">AI 원안에서 수정 ↓</span>
+                  </div>
+                  {list.slice(0, 4).map((x) => (
+                    <Link key={x.job.id} href={base(`tab=${tabKey}&d=${x.job.id}`)} aria-current={x.job.id === sel.job.id ? "true" : undefined}
+                      className={cx("flex items-center gap-2 rounded-inner px-2.5 py-2", x.job.id === sel.job.id ? "bg-bg" : "")}>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14px] font-bold">{x.student!.name}</span>
+                        <span className="block truncate text-[12px] text-mute">{x.program.title}</span>
+                      </span>
+                      {!x.latest ? <span className="text-[11px] text-faint">초안 없음</span> : <EditRatioChip ratio={ratios.get(x.job.id)} min={settings.editRatioMin} />}
+                    </Link>
+                  ))}
+                  <div className="flex items-center gap-2 pt-1 text-[12px]">
+                    {list.length > 4 ? <a href="#queue" className="font-medium text-sub">+ {list.length - 4}명 더 보기</a> : <span />}
+                    <span className="ml-auto text-mute">{settings.editRatioMin}% 미만은 확정 전에 한 번 더 물어봐요</span>
+                  </div>
+                </div>
                 <div className="flex gap-1 rounded-full bg-soft p-1 text-sm" role="radiogroup">
                   <label className="flex-1 cursor-pointer rounded-full py-2.5 text-center text-mute has-[:checked]:bg-white has-[:checked]:font-bold has-[:checked]:text-ink">
                     <input type="radio" name="pane" id="pane-draft" defaultChecked className="sr-only" />초안
@@ -236,25 +278,36 @@ export default async function DraftsPage({ searchParams }: Props) {
               {list.length === 0 ? (
                 <p className="py-6 text-center text-[13px] text-mute">없어요</p>
               ) : (
+                <>
+                <div className="mb-1 flex items-center px-0 text-[11px] font-medium text-mute">
+                  <span className="flex-1">학생</span><span>AI 원안에서 수정 ↓</span>
+                </div>
                 <ul className="-mx-2 flex max-h-[620px] flex-col overflow-y-auto">
                   {list.map((x) => {
                     const on = x.job.id === sel?.job.id;
-                    const len = x.latest ? measure(x.latest.content, x.job.unit) : null;
+                    const ratio = ratios.get(x.job.id);
                     return (
                       <li key={x.job.id}>
                         <Link href={base(`tab=${tabKey}&d=${x.job.id}`)} aria-current={on ? "true" : undefined} className={cx("flex items-center gap-3 rounded-inner px-2 py-2.5", on ? "bg-white" : "hover:bg-white/60")}>
                           <Avatar name={x.student!.name} size={34} />
                           <span className="min-w-0 flex-1">
                             <span className={cx("block truncate text-[14px]", on && "font-bold")}>{x.student!.name}</span>
-                            <span className="block truncate text-[12px] text-mute">{x.program.title}{len !== null ? ` · ${len.toLocaleString()}${x.job.unit === "bytes" ? "B" : "자"}` : ""}</span>
+                            <span className="block truncate text-[12px] text-mute">{x.program.title}</span>
                             {simOf(x) > 0 && <span className="mt-0.5 block"><SimilarBadge n={simOf(x)} /></span>}
                           </span>
-                          <CheckStatus id={x.job.id}>{x.status !== "검토 대기" && x.status !== "확정" && x.status !== "반려" && <Tag>{x.status === "생성 실패" && x.job.manualRequestedAt ? "수동 작성 요청" : x.status}</Tag>}</CheckStatus>
+                          <CheckStatus id={x.job.id}>
+                            {x.status !== "검토 대기" && x.status !== "확정" && x.status !== "반려"
+                              ? <Tag>{x.status === "생성 실패" && x.job.manualRequestedAt ? "수동 작성 요청" : x.status}</Tag>
+                              : !x.latest ? <span className="shrink-0 whitespace-nowrap text-[11px] text-faint">초안 없음</span>
+                              : <EditRatioChip ratio={ratio} min={settings.editRatioMin} />}
+                          </CheckStatus>
                         </Link>
                       </li>
                     );
                   })}
                 </ul>
+                <p className="mt-3 rounded-inner bg-bg px-3 py-2.5 text-[12px] leading-[18px] text-sub">수정 {settings.editRatioMin}% 미만은 노란 칩 · 확정 전에 한 번 더 물어봐요</p>
+                </>
               )}
             </Card></div>
             <CheckSwap panel={<ClassCheckPanel />} className="order-1 md:order-none xl:col-span-2">

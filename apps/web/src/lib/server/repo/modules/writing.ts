@@ -5,6 +5,7 @@ import type { RecordArea, RecordDraft, RecordMemo } from "@/lib/domain/writing";
 import { isDemo } from "../../env";
 import { store } from "../demo";
 import { check, db, isUuid, selectIn } from "../supabase";
+import { insertWithProv, provFrom, type ProvRow } from "./provenance";
 
 // 교사 AI 기록 쓰기(세특·누가기록 특기사항·행발).
 // 인터페이스 + 데모(메모리) 구현 + Supabase 구현을 이 파일 한 곳에 둔다. index.ts 가 합친다.
@@ -103,12 +104,12 @@ export const demoWriting: WritingRepo = {
 type DraftRow = {
   id: string; area: RecordArea; student_id: string; author_id: string; year: number; semester: 1 | 2 | null;
   content: string; unit: RecordDraft["unit"]; max_len: number; status: RecordDraft["status"]; created_at: string;
-};
+} & ProvRow;
 type MemoRow = { id: string; scope: string; student_id: string; author_id: string; content: string; created_at: string };
 
 const toDraft = (r: DraftRow): RecordDraft => ({
   id: r.id, area: r.area, studentId: r.student_id, authorId: r.author_id, year: r.year, semester: r.semester,
-  content: r.content, unit: r.unit, max: r.max_len, status: r.status, createdAt: r.created_at,
+  content: r.content, unit: r.unit, max: r.max_len, status: r.status, createdAt: r.created_at, ...provFrom(r),
 });
 const toMemo = (r: MemoRow): RecordMemo => ({ id: r.id, scope: r.scope, studentId: r.student_id, authorId: r.author_id, content: r.content, createdAt: r.created_at });
 
@@ -121,11 +122,11 @@ export const supabaseWriting: WritingRepo = {
     return r.map(toDraft);
   },
   async addRecordDraft(x) {
-    const r = check(await db().from("record_drafts").insert({
+    const r = await insertWithProv<DraftRow>("record_drafts", {
       area: x.area, student_id: x.studentId, author_id: x.authorId, year: x.year, semester: x.semester,
       content: x.content, unit: x.unit, max_len: x.max, status: x.status,
-    }).select("*").single());
-    return toDraft(r as DraftRow);
+    }, x);
+    return toDraft(r);
   },
   async listRecordMemos(scope, studentIds) {
     const ids = studentIds.filter(isUuid);

@@ -17,6 +17,7 @@ import { forbiddenBlock } from "@/lib/domain/forbidden";
 import { latestVersion } from "@/lib/domain/program";
 import type { ClassCheckView } from "@/lib/domain/class-check";
 import { buildClassView, classAudit } from "@/lib/server/class-check";
+import { classProv, confirmAudit, provForSave } from "@/lib/server/provenance";
 
 /** 이 초안 작업을 다룰 수 있는 교사인지 (자기 프로그램 · 관리자) */
 async function loadJob(jobId: string) {
@@ -33,7 +34,8 @@ const refresh = (programId: string) => {
   revalidatePath(`/teacher/programs/${programId}`);
 };
 
-export type SaveState = { error?: string; saved?: "draft" | "finalized" | "rejected"; n?: number };
+/** needReason (N38): 적게 고친 채 확정 — 까닭을 받아 다시 확정 */
+export type SaveState = { error?: string; saved?: "draft" | "finalized" | "rejected"; n?: number; needReason?: { ratio: number; nosource: number; n: number } };
 
 const Save = z.object({
   jobId: z.string().min(1),
@@ -70,10 +72,19 @@ export async function saveDraft(prev: SaveState, form: FormData): Promise<SaveSt
     if (banned) return { error: banned, n };
   }
 
-  await repo.addDraftVersion({
+  // N38: 이 초안의 AI 원안은 서버가 앞 버전에서 이어 받는다 (화면 값을 믿지 않음). 적게 고친 채 확정이면 까닭을 받는다
+  const prevVersion = latestVersion(await repo.listDraftVersions({ jobIds: [job.id] }), job.id);
+  const pv = intent === "rejected"
+    ? null
+    : await provForSave({ aiOriginalId: prevVersion?.aiOriginalId, pins: form.get("pins"), content, studentId: student.id, confirm: intent === "finalized", reason: String(form.get("lowEditReason") ?? "") });
+  if (pv?.needReason) return { needReason: { ratio: pv.ratio ?? 0, nosource: pv.nosource, n: Date.now() }, n };
+
+  const added = await repo.addDraftVersion({
     jobId: job.id, programId: program.id, studentId: student.id, content, status: intent,
     reason: intent === "rejected" ? reason : null, source: "manual", authorId: v.accountId,
+    ...(pv?.prov ?? (prevVersion?.aiOriginalId ? { aiOriginalId: prevVersion.aiOriginalId } : {})),
   });
+  if (intent === "finalized" && pv?.ratio != null) await repo.audit(v.accountId, "record.confirm", confirmAudit("program", added.id, pv));
   // 실패 건을 교사가 직접 쓰면 파이프라인에서도 처리된 것으로 본다
   if (job.state !== "DONE" && intent !== "rejected") await repo.updateDraftJob(job.id, { state: "DONE", error: null });
   await repo.audit(v.accountId, `draft.${intent === "finalized" ? "finalize" : intent === "rejected" ? "reject" : "edit"}`, `${program.id} ${student.pseudonymId}`);
@@ -173,12 +184,18 @@ export async function classCheckDrafts(input: { programId: string }): Promise<Cl
   if (!program || !canOwn(v, program)) return { ok: false, error: "내 프로그램 초안만 검사할 수 있어요" };
   const [jobs, versions, students] = await Promise.all([repo.listDraftJobs({ programIds: [program.id] }), repo.listDraftVersions({ programIds: [program.id] }), repo.listStudents()]);
   const byId = new Map(students.map((s) => [s.id, s]));
+  // N38: 근거 없는 문장 · 수정 비율 (AI 원안이 있는 초안만)
+  const lasts = jobs.map((j) => latestVersion(versions, j.id));
+  const [originals, settings] = await Promise.all([repo.listAiOriginals(lasts.map((x) => x?.aiOriginalId ?? "").filter(Boolean)), repo.getProvenanceSettings()]);
+  const origOf = new Map(originals.map((o) => [o.id, o]));
   const view = buildClassView(jobs.flatMap((j) => {
     const s = byId.get(j.studentId);
     if (!s) return [];
     const last = latestVersion(versions, j.id);
+    const text = last && last.status !== "rejected" ? last.content : "";
     return [{
-      id: j.id, student: s, text: last && last.status !== "rejected" ? last.content : "", locked: last?.status === "finalized",
+      id: j.id, student: s, text, locked: last?.status === "finalized",
+      ...classProv(last?.aiOriginalId && text ? origOf.get(last.aiOriginalId) : undefined, last, text, settings),
       range: resolveLength(program.area, { unit: j.unit, max: j.max }),
       href: `/teacher/drafts?program=${program.id}&d=${j.id}&check=1`,
     }];

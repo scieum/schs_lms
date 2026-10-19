@@ -14,7 +14,11 @@ function Marked({ text, ranges, on }: { text: string; ranges: Range[]; on: strin
   );
 }
 
-export function BeforeAfter({ before, after, beforeLabel = "지금", afterLabel = "고친 뒤", afterTag, beforeMarks, block = "bg-[#fff]" }: {
+export function BeforeAfter({ before, after, beforeLabel = "지금", afterLabel = "고친 뒤", afterTag, beforeMarks, block = "bg-[#fff]", beforeMeta, afterMeta, bold = false }: {
+  /** N38 원안 비교: 머리 오른쪽 메타 ("10/12 14:03 · 1,288B · 고칠 수 없음" · "1,462B") · 굵은 이름표 */
+  beforeMeta?: ReactNode;
+  afterMeta?: ReactNode;
+  bold?: boolean;
   before: string;
   after: string;
   beforeLabel?: string;
@@ -31,7 +35,10 @@ export function BeforeAfter({ before, after, beforeLabel = "지금", afterLabel 
     <div className="@container">
       <div className="grid gap-2.5 @lg:grid-cols-2">
         <div className={cx("flex flex-col gap-1.5 rounded-control p-3", block)}>
-          <span className="text-[12px] font-medium text-mute">{beforeLabel}</span>
+          <span className="flex items-center gap-2">
+            <span className={cx("min-w-0 flex-1 text-[12px] text-mute", bold ? "font-bold" : "font-medium")}>{beforeLabel}</span>
+            {beforeMeta && <span className="shrink-0 text-[11px] tabular-nums text-mute">{beforeMeta}</span>}
+          </span>
           <p className="whitespace-pre-wrap break-keep text-[14px] leading-6">
             {beforeMarks
               ? <Marked text={before} ranges={beforeMarks} on="underline decoration-wait decoration-2 underline-offset-[3px]" />
@@ -40,8 +47,9 @@ export function BeforeAfter({ before, after, beforeLabel = "지금", afterLabel 
         </div>
         <div className={cx("flex flex-col gap-1.5 rounded-control p-3", block)}>
           <span className="flex items-center gap-2">
-            <span className="min-w-0 flex-1 text-[12px] font-medium text-key-strong">{afterLabel}</span>
+            <span className={cx("min-w-0 flex-1 text-[12px] text-key-strong", bold ? "font-bold" : "font-medium")}>{afterLabel}</span>
             {afterTag}
+            {afterMeta && <span className="shrink-0 text-[11px] tabular-nums text-mute">{afterMeta}</span>}
           </span>
           <p className="whitespace-pre-wrap break-keep text-[14px] leading-6">
             <Marked text={after} ranges={d.added} on={cx("font-medium text-key-strong underline decoration-key decoration-1 underline-offset-[3px]")} />

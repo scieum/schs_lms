@@ -26,6 +26,8 @@ import { homeroomStudents } from "@/lib/domain/activity";
 import type { ClassCheckView } from "@/lib/domain/class-check";
 import { buildClassView, classAudit } from "@/lib/server/class-check";
 import { latestRecordByStudent } from "@/lib/domain/writing";
+import { classProv, confirmAudit, pieceKey, piecesPool, provForSave, saveOriginal } from "@/lib/server/provenance";
+import { sourceKey, type SourceItem } from "@/lib/domain/provenance";
 
 // 창체 특기사항(자율·자치/동아리/진로)·행발: AI 초안 → 교사 수정 → 저장(새 버전) → 확정
 
@@ -69,17 +71,23 @@ export async function aiRecordDraft(input: z.input<typeof AiSchema>): Promise<Ai
   // 메모가 바뀌었으면 새 버전으로 남긴다 (다음에 열면 이어서 보이게)
   const memo = p.data.memo.trim();
   const prev = latestMemoByStudent(await repo.listRecordMemos(area, [studentId])).get(studentId);
-  if (memo && memo !== prev?.content) await repo.addRecordMemo({ scope: area, studentId, authorId: v.accountId, content: memo });
+  const saved = memo && memo !== prev?.content ? await repo.addRecordMemo({ scope: area, studentId, authorId: v.accountId, content: memo }) : prev?.content === memo ? prev : undefined;
 
   const logs = await evidenceLogs(area, [studentId], clubId);
   const range = resolveRecordLength(area, { unit, max });
-  const r = await writeRecord({ kind: area, student: t.student, context: t.clubName, memo, logs: logs.map((l) => ({ date: l.date, content: l.content })), range, activity: p.data.activity });
+  const r = await writeRecord({
+    kind: area, student: t.student, context: t.clubName, memo, memoKey: saved ? sourceKey({ type: "piece", ref: saved.id }) : undefined, range, activity: p.data.activity,
+    logs: logs.map((l) => ({ date: l.date, content: l.content, key: pieceKey({ id: `log-${l.id}`, source: l.commonActivityId ? "공통 활동" : "누가기록" }) })),
+  });
   await repo.audit(v.accountId, "record.ai_draft", `${area} ${t.student.pseudonymId}`);
   if (!r.text) return { ok: false, error: r.notice ?? "초안을 만들지 못했어요. 직접 써 주세요" };
-  return { ok: true, text: r.text, sample: r.sample, notice: r.notice };
+  // AI 원안 (N38): 고칠 수 없게 남기고 문장 근거를 붙인다
+  const o = await saveOriginal({ kind: "record", studentId, scope: area, text: r.text, aiSentences: r.sentences, pool: await recordPool(area, studentId, clubId), model: r.sample ? "sample" : "write" });
+  return { ok: true, text: r.text, sample: r.sample, notice: r.notice, ...(o ?? {}) };
 }
 
-export type RecordState = { error?: string; saved?: "draft" | "confirmed"; at?: string };
+/** needReason (N38): 적게 고친 채 확정 — 까닭을 받아 다시 확정 */
+export type RecordState = { error?: string; saved?: "draft" | "confirmed"; at?: string; needReason?: { ratio: number; nosource: number; n: number } };
 
 const SaveSchema = z.object({
   area: z.string(),
@@ -114,8 +122,14 @@ export async function saveRecord(_: RecordState, form: FormData): Promise<Record
     if (banned) return { error: banned };
   }
 
-  const r = await repo.addRecordDraft({ area, studentId, authorId: v.accountId, year: schoolYear(), semester: null, content, unit: range.unit, max: range.max, status: intent });
-  await repo.audit(v.accountId, intent === "confirmed" ? "record.confirm" : "record.save", `${area} ${t.student.pseudonymId}`);
+  // N38: AI 원안이 있으면 서버가 문장 근거 · 수정 비율을 다시 계산. 적게 고쳤는데 까닭이 없으면 확인 창
+  const pv = await provForSave({ aiOriginalId: String(form.get("aiOriginalId") ?? "") || null, pins: form.get("pins"), content, studentId, confirm: intent === "confirmed", reason: String(form.get("lowEditReason") ?? "") });
+  if (pv.needReason) return { needReason: { ratio: pv.ratio ?? 0, nosource: pv.nosource, n: Date.now() } };
+
+  const r = await repo.addRecordDraft({ area, studentId, authorId: v.accountId, year: schoolYear(), semester: null, content, unit: range.unit, max: range.max, status: intent, ...pv.prov });
+  // 확정: 수정 비율을 아는 글은 숫자만 남긴다 (글 · 까닭 · 이름 · 학번 없음)
+  if (intent === "confirmed" && pv.ratio != null) await repo.audit(v.accountId, "record.confirm", confirmAudit(area, r.id, pv));
+  else await repo.audit(v.accountId, intent === "confirmed" ? "record.confirm" : "record.save", `${area} ${t.student.pseudonymId}`);
   revalidatePath(area === "행발" ? "/homeroom/behavior" : "/teacher/write");
   return { saved: intent, at: r.createdAt };
 }
@@ -201,8 +215,23 @@ export async function mergeRecordAction(input: { area: string; studentId: string
   const range = fitRange(resolveRecordLength(t.area, { unit: p.data.unit, max: p.data.max }));
   const r = await mergeRecord({ kind: t.area, context: t.clubName, student: t.student, pieces: p.data.pieces, range });
   await repo.audit(t.v.accountId, "record.ai_merge", `${t.area} ${t.student.pseudonymId} ${p.data.pieces.length}조각`);
-  return toDraft(r);
+  const d = toDraft(r);
+  if (!d.ok) return d;
+  // AI 원안 (N38): 근거 표는 서버가 다시 읽은 조각 (지금 본문 조각은 교사 글)
+  const o = await saveOriginal({ kind: "record", studentId: t.student.id, scope: t.area, text: r.text, aiSentences: r.sentences, pool: await recordPool(t.area, t.student.id, input.clubId), model: r.sample ? "sample" : "write", ownKeys: ["body"] });
+  return o ? { ...d, ...o } : d;
 }
+
+/** 근거 표 (N38): 합칠 조각과 같은 묶음 + 행발 에피소드 메모 */
+async function recordPool(area: RecordArea, studentId: string, clubId?: string | null): Promise<SourceItem[]> {
+  const pool = piecesPool(await listRecordPieces({ area, studentId, clubId }));
+  if (area === "행발") {
+    const pick = (await repo.listBehaviorPicks([studentId], schoolYear()).catch(() => []))[0];
+    if (pick?.memo.trim()) pool.push({ type: "piece", ref: "pick", key: sourceKey({ type: "piece", ref: "pick" }), kind: "조각", where: "에피소드 메모", chip: "조각 · 에피소드 메모", text: pick.memo });
+  }
+  return pool;
+}
+export { recordPool as recordSourcePool };
 
 export async function fitRecordAction(input: { area: string; studentId: string; clubId?: string | null } & z.input<typeof FitSchema>): Promise<AiDraftResult> {
   const t = await recordTarget(input.area, input.studentId, input.clubId);
@@ -287,10 +316,15 @@ export async function classCheckRecords(input: { area: string; clubId?: string |
   if (!students.length) return { ok: false, error: area === "동아리" ? "부원이 없어요" : "우리 반 학생만 검사할 수 있어요" };
   // 학생마다 쓸 수 있는지 한 번 더 (canWriteRecord)
   const latest = latestRecordByStudent(await repo.listRecordDrafts({ area, year: schoolYear(), studentIds: students.map((s) => s.id) }));
+  // N38: 근거 없는 문장 · 수정 비율 (AI 원안이 있는 학생만)
+  const [originals, settings] = await Promise.all([repo.listAiOriginals([...latest.values()].map((r) => r.aiOriginalId ?? "").filter(Boolean)), repo.getProvenanceSettings()]);
+  const origOf = new Map(originals.map((o) => [o.id, o]));
   const view = buildClassView(students.map((s) => {
     const r = latest.get(s.id);
+    const text = r?.content ?? "";
     return {
-      id: s.id, student: s, text: r?.content ?? "", locked: r?.status === "confirmed",
+      id: s.id, student: s, text, locked: r?.status === "confirmed",
+      ...classProv(r?.aiOriginalId ? origOf.get(r.aiOriginalId) : undefined, r, text, settings),
       range: resolveRecordLength(area, { unit: r?.unit ?? "bytes", max: r?.max }),
       href: `${base}student=${s.id}&check=1`,
     };

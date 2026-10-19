@@ -13,6 +13,8 @@ import { aiEnabled, aiJson } from "./claude";
 import { subjectStandards } from "../standards";
 import { recordSystemPrompt } from "./record-prompts";
 import type { WriteKind, WriteResult } from "./write-record";
+import { joinSentences, SOURCED_RULES, SourcedOut, toKeys } from "./sourced";
+import { pieceKey } from "../provenance";
 
 // 합치기·맞추기·역량 보기 (Figma N11). 교사가 버튼을 눌렀을 때만, 결과는 돌려주기만 한다 (저장은 교사가).
 // AI에는 가명ID만 보낸다. 조각 속 이름·학번은 지운 뒤 보내고, 결과도 다시 지운다.
@@ -43,20 +45,33 @@ const FIT_RULES = (range: LengthRange) => `
 - 줄이거나 늘릴 때 문장을 쪼개 짧은 문장을 늘어놓지 않는다. 이어진 문장은 이어진 채로 둔다.
 - 한 문단, draft 에 최종본만 넣는다.`;
 
-async function rewrite(input: { kind: WriteKind; context?: string; student: Student; range: LengthRange; system: string; content: string; fallback: () => string; tone?: string }): Promise<WriteResult> {
+async function rewrite(input: { kind: WriteKind; context?: string; student: Student; range: LengthRange; system: string; content: string; fallback: () => string; tone?: string; labels?: Map<string, string> }): Promise<WriteResult> {
   const { student, range } = input;
   const fallback = (notice: string): WriteResult => ({ text: polishStyle(input.fallback()), sample: true, notice });
   if (!aiEnabled()) return fallback("AI 키가 없어 조각을 순서대로 이어 붙였어요");
   // 성취수준 말투(N35 ③)는 시스템 프롬프트 끝에 한 줄만 — 학생 정보와 함께 보내지 않는다
-  const r = await aiJson(Out, { system: recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null) + input.system + (input.tone ?? ""), content: input.content, model: "write", maxTokens: 3000 });
-  if (!r.ok) return fallback(`${r.error} — 조각을 이어 붙였어요`);
-  const clean = polishStyle(scrubIdentity(r.data.draft, student).text.replaceAll(student.pseudonymId, ""));
+  const system = recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null) + input.system + (input.tone ?? "");
+  // N38: 근거 표지가 있으면 문장마다 기댄 표지를 같이 받는다
+  let draft: string;
+  let sentences: WriteResult["sentences"];
+  if (input.labels) {
+    const r = await aiJson(SourcedOut, { system: system.replace(/draft 에 최종본만 넣는다\./g, "최종본만 쓴다.") + SOURCED_RULES, content: input.content, model: "write", maxTokens: 3500 });
+    if (!r.ok) return fallback(`${r.error} — 조각을 이어 붙였어요`);
+    draft = joinSentences(r.data.sentences);
+    sentences = toKeys(r.data.sentences, input.labels);
+  } else {
+    const r = await aiJson(Out, { system, content: input.content, model: "write", maxTokens: 3000 });
+    if (!r.ok) return fallback(`${r.error} — 조각을 이어 붙였어요`);
+    draft = r.data.draft;
+  }
+  const clean = polishStyle(scrubIdentity(draft, student).text.replaceAll(student.pseudonymId, ""));
   const fitted = fitToMax(clean, range);
   const short = measure(fitted, range.unit) < range.min;
   return {
     text: fitted,
     sample: false,
     notice: fitted !== clean ? "분량을 넘어 마지막 문장을 뺐어요" : short ? `근거가 적어 목표(${range.min.toLocaleString()}${UNIT_LABEL[range.unit]}~)보다 짧아요. 없는 내용은 만들지 않았어요` : undefined,
+    sentences,
   };
 }
 
@@ -75,13 +90,15 @@ export async function mergeRecord(input: { kind: WriteKind; context?: string; st
     // 같은 활동명([활동명])의 조각을 한데 묶어 보낸다 — 조각마다 활동명이 붙어 있으면 AI가 문장마다 활동명을 되풀이한다
     ...groupByActivity(pieces).flatMap((g) => [
       g.activity ? `활동: ${g.activity}` : "활동: (이름 없음)",
-      ...g.pieces.map(({ piece: p, n }) => `  ${n}. ${p.weight === 3 ? "[핵심] " : p.weight === 1 ? "[참고] " : ""}(${p.source}${p.date ? ` ${p.date}` : ""}) ${stripActivity(p.text)}`),
+      ...g.pieces.map(({ piece: p, n }) => `  ${n}. [S${n}] ${p.weight === 3 ? "[핵심] " : p.weight === 1 ? "[참고] " : ""}(${p.source}${p.date ? ` ${p.date}` : ""}) ${stripActivity(p.text)}`),
     ]),
     "</조각>",
     // 세특: 그 과목 성취기준 가운데 조각과 이어지는 것 (lib/data, 교육부 고시)
     input.kind === "세특" ? subjectStandards(input.context, pieces.map((p) => p.text).join(" ")) || null : null,
   ].filter((x) => x !== null).join("\n");
-  return rewrite({ ...input, system: MERGE_RULES(input.range), content, fallback: () => mergeByRules(input.pieces.map((p) => ({ ...p, text: scrubIdentity(p.text, student).text })), input.range) });
+  // 근거 표지 [S1] … ↔ 조각 key (서버에만)
+  const labels = new Map(pieces.map((p, i) => [`S${i + 1}`, pieceKey(p)]));
+  return rewrite({ ...input, system: MERGE_RULES(input.range), content, labels, fallback: () => mergeByRules(input.pieces.map((p) => ({ ...p, text: scrubIdentity(p.text, student).text })), input.range) });
 }
 
 export async function fitRecord(input: { kind: WriteKind; context?: string; student: Student; text: string; range: LengthRange }): Promise<WriteResult> {
@@ -205,26 +222,28 @@ const BEHAVIOR_RULES = (range: LengthRange) => `
  * 행발 키워드 초안 (Sonnet): 고른 키워드 + 에피소드 메모 + (켜면) 누가기록. 메모·누가기록은 이름·학번을 가명ID로 바꿔 보낸다.
  * 결과는 돌려주기만 한다 — 교사가 본문에 넣고 저장·확정한다.
  */
-export async function behaviorDraft(input: { student: Student; keywords: string[]; memo: string; logs: { date: string; content: string }[]; range: LengthRange }): Promise<WriteResult> {
+export async function behaviorDraft(input: { student: Student; keywords: string[]; memo: string; logs: { date: string; content: string; key?: string }[]; range: LengthRange; memoKey?: string }): Promise<WriteResult> {
   const { student } = input;
   const pid = student.pseudonymId;
   const memo = scrubIdentity(input.memo.trim(), student, pid).text;
-  const logs = input.logs.map((l) => ({ date: l.date, content: scrubIdentity(l.content, student, pid).text })).filter((l) => l.content.trim());
+  const logs = input.logs.map((l) => ({ date: l.date, content: scrubIdentity(l.content, student, pid).text, key: l.key })).filter((l) => l.content.trim());
   if (!memo && !logs.length) return { text: "", sample: false, notice: "에피소드 메모나 누가기록이 있어야 초안을 만들 수 있어요" };
   const content = [
     `학생: ${pid}`,
     `분량: ${target(input.range)}`,
     `고른 키워드(말의 방향): ${input.keywords.length ? input.keywords.join(", ") : "(없음)"}`,
     "",
-    "<에피소드 메모>", memo || "(없음)", "</에피소드 메모>",
+    "<에피소드 메모>", memo ? `[S1] ${memo}` : "(없음)", "</에피소드 메모>",
     "",
-    "<누가기록>", logs.length ? logs.map((l, i) => `${i + 1}. [${l.date}] ${l.content}`).join("\n") : "(없음)", "</누가기록>",
+    "<누가기록>", logs.length ? logs.map((l, i) => `${i + 1}. [S${i + 2}] [${l.date}] ${l.content}`).join("\n") : "(없음)", "</누가기록>",
   ].join("\n");
   const pieces: MergePiece[] = [
     ...(memo ? [{ id: "memo", source: "메모" as const, date: null, text: scrubIdentity(input.memo, student).text }] : []),
     ...input.logs.map((l, i) => ({ id: `log-${i}`, source: "누가기록" as const, date: l.date, text: scrubIdentity(l.content, student).text })),
   ];
-  return rewrite({ kind: "행발", student, range: input.range, system: BEHAVIOR_RULES(input.range), content, fallback: () => mergeByRules(pieces, input.range) });
+  // 근거 표지 [S1] 메모 · [S2…] 누가기록 ↔ key (서버에만)
+  const labels = new Map<string, string>([["S1", input.memoKey ?? ""] as [string, string], ...logs.map((l, i): [string, string] => [`S${i + 2}`, l.key ?? ""])].filter(([, k]) => !!k));
+  return rewrite({ kind: "행발", student, range: input.range, system: BEHAVIOR_RULES(input.range), content, labels, fallback: () => mergeByRules(pieces, input.range) });
 }
 
 const TagOut = z.object({ tags: z.array(z.object({ index: z.number().int(), competency: z.string().nullable(), sub: z.string().nullable() })) });

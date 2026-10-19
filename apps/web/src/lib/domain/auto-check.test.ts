@@ -14,7 +14,7 @@ describe("자동 검사 (N23)", () => {
     const r = check("빗면 실험에서 변인을 정해 설계함. 오차 원인을 스스로 찾아 다시 측정함.");
     expect(r.status).toBe("pass");
     expect(r.rows).toEqual([]);
-    expect(r.passed).toEqual(["글자수", "학번·실명", "어미", "문체", "금칙어"]);
+    expect(r.passed).toEqual(["글자수", "학번·실명", "어미", "문체", "금칙어", "맞춤법"]);
   });
   it("못 지난 항목은 걸린 말과 함께, 금칙어 금지가 맨 앞 · 확정 불가", () => {
     const r = check("한지민 학생은 빗면 실험을 설계하였다. 교외 대회에서 상을 받음.");
@@ -36,5 +36,35 @@ describe("자동 검사 (N23)", () => {
     const r = autoCheck("빗면 실험을 설계함. 오차를 분석함.", range, [], { evidence: { ok: false, hits: 0 }, specific: { ok: true, grounded: 2, total: 2 } });
     expect(r.rows.map((x) => x.key)).toContain("evidence");
     expect(r.passed).toContain("학생 근거 문장 2/2");
+  });
+});
+
+describe("자동 검사 N38 (근거 없음 · 맞춤법)", () => {
+  it("근거 없는 문장은 확인 행(점선 밑줄), 확정을 막지 않는다", () => {
+    const t = "빗면 실험에서 변인을 정해 설계함. 광섬유의 원리로 관심을 넓혀 자료를 찾음.";
+    const at = t.indexOf("광섬유");
+    const r = autoCheck(t, range, [], undefined, undefined, { provenance: { nosource: [{ i: 1, start: at, end: t.length }] } });
+    expect(r.status).toBe("check");
+    const row = r.rows.find((x) => x.key === "nosource-1")!;
+    expect(row).toMatchObject({ level: "warn", underline: "dotted", sentenceIndex: 1 });
+    expect(row.detail).toContain("2번 문장");
+    expect(r.passed).not.toContain("근거");
+  });
+  it("원안이 있고 근거 없는 문장이 없으면 '근거' 통과, 원안이 없으면 근거 항목 자체가 없다", () => {
+    const t = "빗면 실험에서 변인을 정해 설계함. 오차 원인을 스스로 찾아 다시 측정함.";
+    expect(autoCheck(t, range, [], undefined, undefined, { provenance: { nosource: [] } }).passed).toContain("근거");
+    expect(check(t).passed).not.toContain("근거");
+  });
+  it("맞춤법 행: 규칙 사전 → 물결 밑줄 · 바꿀 말", () => {
+    const r = check("빗면 실험에서 끝까지 확인할수 있도록 자료를 찾아 정리함.");
+    const row = r.rows.find((x) => x.key.startsWith("spell-"))!;
+    expect(row).toMatchObject({ level: "warn", underline: "wavy", origin: "rule", fix: { from: "확인할수", to: "확인할 수" } });
+    expect(r.passed).not.toContain("맞춤법");
+  });
+  it("AI 맞춤법 결과는 규칙과 겹치지 않을 때만 행으로", () => {
+    const t = "빗면 실험을 했읍니다 하고 확인할수 있도록 정리함.";
+    const at = t.indexOf("했읍니다");
+    const r = autoCheck(t, range, [], undefined, undefined, { spellAi: [{ start: at, end: at + 4, from: "했읍니다", to: "했습니다", kind: "맞춤법", why: "옛 표기", rule: "ai" }] });
+    expect(r.rows.filter((x) => x.key.startsWith("spell-")).map((x) => x.origin)).toEqual(["ai", "rule"]);
   });
 });

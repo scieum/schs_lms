@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronDown, ChevronRight, ChevronUp, Lock, RotateCw, Sparkles, X } from "lucide-react";
 import { Button, cx } from "@/components/ui";
-import { barParts, CLASS_FIX_LIMIT, fixTargets, type ClassStatus, type ClassViewRow } from "@/lib/domain/class-check";
+import { barParts, CLASS_FIX_LIMIT, fixTargets, provenanceCounts, type ClassStatus, type ClassViewRow } from "@/lib/domain/class-check";
+import { EditRatioChip } from "./edit-ratio-chip";
 import { RESULT, ResultTag, useWorkspace, type FixItem } from "./workspace";
 import { BeforeAfter, changeCount } from "./before-after";
 import { measure as measureText } from "@/lib/domain/length";
@@ -13,7 +14,9 @@ import { measure as measureText } from "@/lib/domain/length";
 // 걸린 학생을 AI로 한꺼번에 고치되, 학생마다 선생님이 보고 "본문에 넣기"를 눌러야 바뀐다(자동 확정 없음 · "모두 넣기" 없음).
 
 const unitMark = (u: ClassViewRow["unit"]) => (u === "bytes" ? "B" : "자");
-type Filter = "all" | ClassStatus;
+/** N38: 근거 없음 · 맞춤법 · 수정 적음 (확인 쪽) 칩 */
+type Filter = "all" | ClassStatus | "nosource" | "spell" | "low";
+const match = (r: ClassViewRow, f: Filter) => (f === "all" ? true : f === "nosource" ? r.nosource > 0 : f === "spell" ? r.spell > 0 : f === "low" ? r.lowEdit : r.status === f);
 
 /** 목록 카드 머리 "✓ 반 전체 검사" (soft 꽉 찬 36). 모바일은 탭 아래 외곽선 44 (mobile) */
 export function ClassCheckButton({ mobile = false, className }: { mobile?: boolean; className?: string }) {
@@ -71,7 +74,7 @@ function Result() {
   );
   const desc = (
     <p className="break-keep text-[13px] leading-5 text-sub">
-      지금 저장된 글을 규칙으로만 검사해요 (AI 없음)<span className="hidden @lg:inline"> · 금칙어 · 분량 · 학번·실명 · 어미 · 문체 · 비슷한 문장</span>
+      지금 저장된 글을 규칙으로만 검사해요 (AI 없음)<span className="hidden @lg:inline"> · 금칙어 · 분량 · 학번·실명 · 어미 · 문체 · 비슷한 문장 · 근거 · 맞춤법</span>
     </p>
   );
 
@@ -81,8 +84,14 @@ function Result() {
   if (!v.ok) return <>{head}<p className="text-[13px] text-bad" role="alert">{v.error}</p></>;
 
   const t = v.totals;
-  const chips: [Filter, string, number][] = [["all", "전체", v.rows.length], ["block", "확정 불가", t.block], ["warn", "확인", t.warn], ["pass", "통과", t.pass], ["empty", "빈 글", t.empty]];
-  const shownAll = filter === "all" ? v.rows : v.rows.filter((r) => r.status === filter);
+  const pc = provenanceCounts(v.rows);
+  const chips: [Filter, string, number][] = [
+    ["all", "전체", v.rows.length], ["block", "확정 불가", t.block], ["warn", "확인", t.warn], ["pass", "통과", t.pass], ["empty", "빈 글", t.empty],
+    ...(pc.nosource ? [["nosource", "근거 없음", pc.nosource] as [Filter, string, number]] : []),
+    ...(pc.spell ? [["spell", "맞춤법", pc.spell] as [Filter, string, number]] : []),
+    ...(pc.low ? [["low", "수정 적음", pc.low] as [Filter, string, number]] : []),
+  ];
+  const shownAll = v.rows.filter((r) => match(r, filter));
   const folded = filter === "all" && !more ? shownAll.filter((r) => r.status === "pass" || r.status === "empty") : [];
   const shown = folded.length ? shownAll.filter((r) => r.status === "block" || r.status === "warn") : shownAll;
   const targets = fixTargets(v.rows, Infinity);
@@ -104,7 +113,7 @@ function Result() {
             <button key={k} type="button" role="radio" aria-checked={on} onClick={() => setFilter(k)}
               className={cx("inline-flex h-[34px] items-center gap-1.5 whitespace-nowrap rounded-[16px] border px-3 text-[13px] @lg:h-8",
                 on ? "border-key bg-key-soft font-bold text-key-strong" : "border-line bg-[#fff] font-medium text-ink")}>
-              {k !== "all" && <span className={cx("size-2 rounded-full", RESULT[k].dot)} />}{label} {count}
+              {k !== "all" && <span className={cx("size-2 rounded-full", k in RESULT ? RESULT[k as ClassStatus].dot : "bg-wait")} />}{label} {count}{k === "nosource" || k === "spell" || k === "low" ? "명" : ""}
             </button>
           );
         })}
@@ -143,6 +152,7 @@ function Result() {
                   <span className={cx("ml-auto shrink-0 text-[12px] tabular-nums", r.over ? "text-[#9A6400]" : "text-mute")}>{r.status === "empty" ? "" : `${r.bytes.toLocaleString()}${unitMark(r.unit)}`}</span>
                 </span>
                 <span className="truncate text-[13px] text-sub">{r.top ? `${r.top.label}${r.top.more ? ` 외 ${r.top.more}곳` : ""}` : r.status === "empty" ? "아직 쓴 글이 없어요" : "걸린 곳 없음"}</span>
+                <ProvLine r={r} />
               </span>
               <ChevronRight size={16} className="shrink-0 text-mute" />
             </Link>
@@ -171,10 +181,23 @@ function Result() {
 }
 
 function Problem({ r }: { r: ClassViewRow }) {
-  if (!r.top) return <span className="min-w-0 flex-1 truncate text-[14px] text-mute">{r.status === "empty" ? "아직 쓴 글이 없어요" : "걸린 곳 없음"}</span>;
+  if (!r.top) return <span className="flex min-w-0 flex-1 items-center gap-2"><span className="min-w-0 truncate text-[14px] text-mute">{r.status === "empty" ? "아직 쓴 글이 없어요" : "걸린 곳 없음"}</span><ProvLine r={r} /></span>;
   return (
-    <span className="min-w-0 flex-1 truncate text-[14px]">
-      {r.top.label}{r.top.more > 0 && <span className="ml-1.5 text-[13px] text-mute">외 {r.top.more}곳</span>}
+    <span className="flex min-w-0 flex-1 items-center gap-2">
+      <span className="min-w-0 truncate text-[14px]">{r.top.label}{r.top.more > 0 && <span className="ml-1.5 text-[13px] text-mute">외 {r.top.more}곳</span>}</span>
+      <ProvLine r={r} />
+    </span>
+  );
+}
+
+/** N38: 문제 요약 "근거 없음 1 · 맞춤법 3" + 수정 칩 (원안이 없으면 칩 없음) */
+function ProvLine({ r }: { r: ClassViewRow }) {
+  const parts = [r.nosource ? `근거 없음 ${r.nosource}` : "", r.spell ? `맞춤법 ${r.spell}` : ""].filter(Boolean).join(" · ");
+  if (!parts && r.editRatio == null) return null;
+  return (
+    <span className="flex shrink-0 items-center gap-1.5">
+      {parts && <span className="whitespace-nowrap text-[12px] text-mute">{parts}</span>}
+      {r.editRatio != null && <EditRatioChip ratio={r.editRatio} />}
     </span>
   );
 }

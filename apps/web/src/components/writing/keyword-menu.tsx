@@ -26,7 +26,7 @@ export function KeywordMenuCard({ studentId, menu: initialMenu, pick, logs, unit
   unit: LengthUnit;
   neisMax: number;
   bodyEmpty: boolean;
-  onApply: (text: string) => void;
+  onApply: (text: string, result?: AiDraftResult) => void;
   aiOn?: boolean;
 }) {
   const [menu, setMenu] = useState(initialMenu);
@@ -90,7 +90,7 @@ export function KeywordMenuCard({ studentId, menu: initialMenu, pick, logs, unit
     }
     if (!r.ok) { setResult(null); setError(r.error); return; }
     setResult(r);
-    if (bodyEmpty) onApply(r.text);
+    if (bodyEmpty) onApply(r.text, r);
   });
   const copy = async () => {
     if (!result) return;
@@ -221,7 +221,7 @@ export function KeywordMenuCard({ studentId, menu: initialMenu, pick, logs, unit
               <Button type="button" kind="outline" size="sm" onClick={copy}><Copy size={13} /> {copied ? "복사했어요" : "복사"}</Button>
               <Button type="button" kind="ghost" size="sm" onClick={run}><RotateCcw size={13} /> 다시 쓰기</Button>
             </div>
-            <Button type="button" size="sm" className="h-11 max-md:w-full md:ml-auto md:h-9" onClick={() => onApply(result.text)}>본문에 넣기</Button>
+            <Button type="button" size="sm" className="h-11 max-md:w-full md:ml-auto md:h-9" onClick={() => onApply(result.text, result)}>본문에 넣기</Button>
           </div>
         </div>
       )}

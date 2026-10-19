@@ -3,6 +3,7 @@
 import { checkLength, type DraftCategory, type LengthRange, type LengthUnit } from "./length";
 import { isAdmin } from "./policy";
 import type { Student, Viewer } from "./types";
+import type { RecordProv } from "./provenance";
 
 // ---------- 프로그램 ----------
 
@@ -317,7 +318,7 @@ export type DraftVersionStatus = "draft" | "finalized" | "rejected";
 export type DraftSource = "ai" | "sample" | "manual";
 
 /** 초안 버전. 고칠 때마다 새로 추가하고 지우거나 덮어쓰지 않는다 (C4) */
-export interface DraftVersion {
+export interface DraftVersion extends RecordProv {
   id: string;
   jobId: string;
   programId: string;
