@@ -19,12 +19,12 @@ export const RECORD_LABEL: Record<RecordArea, string> = {
   행발: "행동특성 및 종합의견",
 };
 
-/** NEIS 입력 한도(바이트, 학년 단위). 2026 기재요령 208쪽: 자율·자치·동아리·진로 500자(1500B), 행동특성 및 종합의견 300자(900B) */
+/** NEIS 입력 한도(바이트, 학년 단위). 자율·자치·동아리·진로 500자(1500B, 진로는 2026부터 700→500자). 행동특성 및 종합의견은 아직 500자(1500B) 그대로 (2026-10-19 사용자 확인) */
 export const RECORD_MAX_BYTES: Record<RecordArea, number> = {
   "자율·자치": 1500,
   동아리: 1500,
   진로: 1500,
-  행발: 900,
+  행발: 1500,
 };
 
 export function recordMax(area: RecordArea, unit: LengthUnit): number {
