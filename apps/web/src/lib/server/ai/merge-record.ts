@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { applyTags, SUB_ITEMS, tagByRules, type TaggedSentence } from "@/lib/domain/competency";
 import { measure, UNIT_LABEL, type LengthRange } from "@/lib/domain/length";
-import { groupByActivity, mergeByRules, orderPieces, type MergePiece } from "@/lib/domain/merge";
+import { fitGap, fitGoal, groupByActivity, mergeByRules, orderPieces, type MergePiece } from "@/lib/domain/merge";
 import { stripActivity } from "@/lib/domain/activity-name";
 import { polishStyle } from "@/lib/domain/neis-style";
 import type { Student } from "@/lib/domain/types";
@@ -47,7 +47,7 @@ const FIT_RULES = (range: LengthRange) => `
 - 줄이거나 늘릴 때 문장을 쪼개 짧은 문장을 늘어놓지 않는다. 이어진 문장은 이어진 채로 둔다.
 - 한 문단, draft 에 최종본만 넣는다.`;
 
-async function rewrite(input: { kind: WriteKind; context?: string; student: Student; range: LengthRange; system: string; content: string; fallback: () => string; tone?: string; guard?: string; labels?: Map<string, string> }): Promise<WriteResult> {
+async function rewrite(input: { kind: WriteKind; context?: string; student: Student; range: LengthRange; system: string; content: string; fallback: () => string; tone?: string; guard?: string; labels?: Map<string, string>; keepLong?: boolean }): Promise<WriteResult> {
   const { student, range } = input;
   const fallback = (notice: string): WriteResult => ({ text: polishStyle(input.fallback()), sample: true, notice });
   if (!aiEnabled()) return fallback("AI 키가 없어 조각을 순서대로 이어 붙였어요");
@@ -68,7 +68,8 @@ async function rewrite(input: { kind: WriteKind; context?: string; student: Stud
     draft = r.data.draft;
   }
   const clean = polishStyle(scrubIdentity(draft, student).text.replaceAll(student.pseudonymId, ""));
-  const fitted = fitToMax(clean, range);
+  // keepLong: 맞추기는 넘친 글을 여기서 자르지 않고 다시 맞춘다 (fitRecord)
+  const fitted = input.keepLong ? clean : fitToMax(clean, range);
   const short = measure(fitted, range.unit) < range.min;
   return {
     text: fitted,
@@ -117,11 +118,29 @@ export async function mergeRecord(input: { kind: WriteKind; context?: string; st
 }
 
 export async function fitRecord(input: { kind: WriteKind; context?: string; student: Student; text: string; range: LengthRange }): Promise<WriteResult> {
-  const { student } = input;
+  const { student, range } = input;
   const body = scrubIdentity(input.text.trim(), student, student.pseudonymId).text;
   if (!body) return { text: "", sample: false, notice: "본문이 비어 있어요" };
-  const content = [`학생: ${student.pseudonymId}`, `분량: ${target(input.range)}`, "", "<본문>", body, "</본문>"].join("\n");
-  return rewrite({ ...input, system: FIT_RULES(input.range), content, fallback: () => mergeByRules([{ id: "body", source: "본문", date: null, text: scrubIdentity(input.text, student).text }], input.range) });
+  const goal = fitGoal(range, body);
+  const aim = `분량: ${target(range)} · 겨냥: 약 ${goal.value.toLocaleString()}${UNIT_LABEL[range.unit]}${range.unit === "bytes" ? ` (공백 포함 약 ${goal.chars}자)` : ""} · 지금 ${measure(body, range.unit).toLocaleString()}${UNIT_LABEL[range.unit]}`;
+  const content = [`학생: ${student.pseudonymId}`, aim, "", "<본문>", body, "</본문>"].join("\n");
+  const first = await rewrite({ ...input, system: FIT_RULES(range), content, fallback: () => mergeByRules([{ id: "body", source: "본문", date: null, text: scrubIdentity(input.text, student).text }], range), keepLong: true });
+  if (first.sample) return first;
+  // AI는 분량을 어림으로 맞춘다 → 재어 보고 범위 밖이면 세 번까지 다시 맞춘다 (넘친다고 문장을 통째로 빼지 않는다)
+  let text = first.text;
+  for (let i = 0; i < 3; i++) {
+    const gap = fitGap(text, range);
+    if (!gap) break;
+    const g = fitGoal(range, text);
+    const u = UNIT_LABEL[range.unit];
+    const note = `지금 ${gap.now.toLocaleString()}${u} → 약 ${g.value.toLocaleString()}${u}${range.unit === "bytes" ? ` (공백 포함 약 ${g.chars}자)` : ""}로 ${gap.dir === "늘리기" ? `약 ${gap.by.toLocaleString()}${u} 늘린다. 본문에 이미 있는 활동의 과정·까닭·의미를 문장 안에서 더 풀어 쓴다` : `약 ${gap.by.toLocaleString()}${u} 줄인다. 꾸밈말·겹치는 말을 줄이고 문장은 남긴다`}.`;
+    const again = await rewrite({ ...input, system: FIT_RULES(range), content: [`학생: ${student.pseudonymId}`, `분량: ${target(range)}`, note, "", "<본문>", text, "</본문>"].join("\n"), fallback: () => text, keepLong: true });
+    if (again.sample) break;
+    text = again.text;
+  }
+  const fitted = fitToMax(text, range);
+  const short = measure(fitted, range.unit) < range.min;
+  return { text: fitted, sample: false, notice: fitted !== text ? "분량을 넘어 마지막 문장을 뺐어요" : short ? `근거가 적어 목표(${range.min.toLocaleString()}${UNIT_LABEL[range.unit]}~)보다 짧아요. 없는 내용은 만들지 않았어요` : undefined };
 }
 
 // ---------- AI로 고치기 · 다른 버전 (Figma N34) ----------

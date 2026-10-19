@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { neisBytes } from "./length";
-import { budgetStatus, fitRange, groupByActivity, mergeByRules, nextImportance, orderPieces, pickByBudget, type Importance, type MergePiece } from "./merge";
+import { budgetStatus, fitGap, fitGoal, fitRange, groupByActivity, mergeByRules, nextImportance, orderPieces, pickByBudget, type Importance, type MergePiece } from "./merge";
 
 const P = (id: string, date: string | null, text: string, source: MergePiece["source"] = "누가기록"): MergePiece => ({ id, source, date, text });
 
@@ -64,5 +64,20 @@ describe("합치기", () => {
     ];
     const max = neisBytes("핵심 실험을 설계함. 보통 발표를 함.");
     expect(mergeByRules(pieces, { unit: "bytes", max })).toBe("핵심 실험을 설계함. 보통 발표를 함.");
+  });
+});
+
+describe("분량 맞추기 겨냥 (fitGoal · fitGap)", () => {
+  const range = { unit: "bytes" as const, min: 1350, max: 1500 };
+  it("범위 가운데를 겨냥하고, 바이트는 그 글의 비율로 글자 수를 셈한다", () => {
+    expect(fitGoal(range).value).toBe(1425);
+    expect(fitGoal(range).chars).toBe(Math.round(1425 / 2.6));
+    const ko = "가".repeat(60); // 한글만: 3B/자
+    expect(fitGoal(range, ko).chars).toBe(475);
+  });
+  it("범위 안이면 null, 짧으면 늘리기 · 길면 줄이기", () => {
+    expect(fitGap("가".repeat(470), range)).toBeNull();
+    expect(fitGap("가".repeat(300), range)).toEqual({ dir: "늘리기", now: 900, by: 525 });
+    expect(fitGap("가".repeat(520), range)).toEqual({ dir: "줄이기", now: 1560, by: 135 });
   });
 });

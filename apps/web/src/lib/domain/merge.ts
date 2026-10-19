@@ -45,6 +45,26 @@ export function fitRange(range: Pick<LengthRange, "unit" | "max">): LengthRange 
   return { unit: range.unit, max: range.max, min: Math.ceil(range.max * FIT_RATIO), capped: false };
 }
 
+/**
+ * 맞추기 겨냥점: 범위 가운데(최대의 약 95%)와, 바이트일 때 그 글의 바이트/글자 비율로 셈한 글자 수.
+ * AI는 바이트를 못 세므로 "약 N자(공백 포함)"로 같이 알려 준다. sample 이 비면 한글 글의 보통 비율(2.6)을 쓴다.
+ */
+export function fitGoal(range: Pick<LengthRange, "unit" | "min" | "max">, sample = ""): { value: number; chars: number } {
+  const value = Math.round((range.min + range.max) / 2);
+  if (range.unit !== "bytes") return { value, chars: value };
+  const len = [...sample].length;
+  const ratio = len >= 40 ? measure(sample, "bytes") / len : 2.6;
+  return { value, chars: Math.round(value / ratio) };
+}
+
+/** 지금 글이 범위 밖이면 얼마나 늘리거나 줄여야 하는지 (안이면 null) */
+export function fitGap(text: string, range: Pick<LengthRange, "unit" | "min" | "max">): { dir: "늘리기" | "줄이기"; now: number; by: number } | null {
+  const now = measure(text, range.unit);
+  if (now < range.min) return { dir: "늘리기", now, by: fitGoal(range).value - now };
+  if (now > range.max) return { dir: "줄이기", now, by: now - fitGoal(range).value };
+  return null;
+}
+
 /** 날짜 순(날짜 없는 본문은 맨 앞), 같은 날짜는 들어온 순서 */
 export function orderPieces(pieces: MergePiece[]): MergePiece[] {
   return pieces.map((p, i) => ({ p, i })).sort((a, b) => (a.p.date ?? "").localeCompare(b.p.date ?? "") || a.i - b.i).map((x) => x.p);
