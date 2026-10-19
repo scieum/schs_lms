@@ -6,6 +6,7 @@ import { usesDocs, type EvidenceSource, type Material } from "@/lib/domain/progr
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { programRows, requireProgram } from "../../_lib/data";
 import { assignMaterial, setMissing, setSource } from "./actions";
+import { FileList, type FileItem } from "./file-list";
 import { ReadBox, UploadBox } from "./parts";
 import { makeStudentNo } from "@/lib/domain/roster";
 
@@ -43,30 +44,41 @@ export default async function MaterialsPage({ params, searchParams }: Props) {
   const toRead = materials.filter((m) => m.mime !== "text/plain" && (m.status === "needs_review" || (m.status === "matched" && !m.text))).length;
   const step = !docs ? 2 : materials.length === 0 ? 1 : counts.review + counts.bundle > 0 ? 2 : 3;
 
-  const fileRow = (m: Material, i: number, all: Material[]) => (
-    <li key={m.id} className={cx("flex items-center gap-3 py-3", i < all.length - 1 && "border-b border-line")}>
-      <span className={cx("flex size-10 shrink-0 items-center justify-center rounded-field", m.status === "needs_review" ? "bg-wait-soft text-wait" : "bg-soft text-sub")}><FileText size={18} /></span>
-      <div className="min-w-0 flex-1">
-        <a href={`/teacher/programs/${p.id}/materials/file/${m.id}`} target="_blank" rel="noreferrer" className="block truncate text-[14px] font-bold hover:underline">{m.fileName}</a>
-        <div className="flex items-center gap-1 truncate text-[12px] text-mute">
-          {m.status === "matched" ? <Check size={13} className="shrink-0 text-ok" /> : m.status === "needs_review" ? <AlertCircle size={13} className="shrink-0 text-wait" /> : null}
-          {kb(m.size)}{m.pages ? ` · ${m.pages}쪽` : ""} · {m.status === "matched" ? `${nameOf.get(m.studentId ?? "") ?? "?"} · ${BY[m.matchedBy ?? ""] ?? ""}${m.text ? " · 글 읽음" : ""}` : m.status === "needs_review" ? "학생을 지정해 주세요" : m.status === "bundle" ? "합본 파일 · 여러 학생" : "나누기 완료 (원본)"}
+  const metaOf = (m: Material) => m.status === "matched" ? `${nameOf.get(m.studentId ?? "") ?? "?"} · ${BY[m.matchedBy ?? ""] ?? ""}${m.text ? " · 글 읽음" : ""}` : m.status === "needs_review" ? "학생을 지정해 주세요" : m.status === "bundle" ? "합본 파일 · 여러 학생" : "나누기 완료 (원본)";
+  const fileItem = (m: Material): FileItem => ({
+    id: m.id,
+    fileName: m.fileName,
+    status: m.status,
+    sub: m.status === "matched" ? nameOf.get(m.studentId ?? "") ?? "" : "",
+    body: (
+      <>
+        <span className={cx("flex size-10 shrink-0 items-center justify-center rounded-field", m.status === "needs_review" ? "bg-wait-soft text-wait" : "bg-soft text-sub")}><FileText size={18} /></span>
+        <div className="min-w-0 flex-1">
+          <a href={`/teacher/programs/${p.id}/materials/file/${m.id}`} target="_blank" rel="noreferrer" className="block truncate text-[14px] font-bold hover:underline">{m.fileName}</a>
+          <div className="flex items-center gap-1 truncate text-[12px] text-mute">
+            {m.status === "matched" ? <Check size={13} className="shrink-0 text-ok" /> : m.status === "needs_review" ? <AlertCircle size={13} className="shrink-0 text-wait" /> : null}
+            {kb(m.size)}{m.pages ? ` · ${m.pages}쪽` : ""} · {metaOf(m)}
+          </div>
         </div>
-      </div>
-      {m.status === "needs_review" && (
-        <form action={assignMaterial} className="flex shrink-0 items-center gap-1.5">
-          <input type="hidden" name="programId" value={p.id} />
-          <input type="hidden" name="materialId" value={m.id} />
-          <select name="studentId" required defaultValue="" className="h-9 w-28 rounded-field bg-soft px-2 text-[13px] outline-none md:w-36" aria-label="학생 지정">
-            <option value="" disabled>학생 지정</option>
-            {opts.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-          </select>
-          <Button size="sm" kind="outline">지정</Button>
-        </form>
-      )}
-      {m.status === "bundle" && <ButtonLink href={`/teacher/programs/${p.id}/split?file=${m.id}`} size="sm" kind="outline" className="shrink-0"><Scissors size={14} /> 페이지 나누기</ButtonLink>}
-    </li>
-  );
+      </>
+    ),
+    actions: (
+      <>
+        {m.status === "needs_review" && (
+          <form action={assignMaterial} className="flex shrink-0 items-center gap-1.5">
+            <input type="hidden" name="programId" value={p.id} />
+            <input type="hidden" name="materialId" value={m.id} />
+            <select name="studentId" required defaultValue="" className="h-9 w-28 rounded-field bg-soft px-2 text-[13px] outline-none md:w-36" aria-label="학생 지정">
+              <option value="" disabled>학생 지정</option>
+              {opts.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+            <Button size="sm" kind="outline">지정</Button>
+          </form>
+        )}
+        {m.status === "bundle" && <ButtonLink href={`/teacher/programs/${p.id}/split?file=${m.id}`} size="sm" kind="outline" className="shrink-0"><Scissors size={14} /> 페이지 나누기</ButtonLink>}
+      </>
+    ),
+  });
   const shownFiles = mode === "bundle" ? materials.filter((m) => m.status === "bundle" || m.status === "split_done") : materials.filter((m) => m.status !== "split_done");
 
   return (
@@ -116,15 +128,7 @@ export default async function MaterialsPage({ params, searchParams }: Props) {
             </nav>
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-6">
               <UploadBox programId={p.id} mode={mode} students={opts} />
-              <div className="min-w-0">
-                <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[14px] font-bold">
-                  올린 파일 {shownFiles.length}개
-                  <span className="rounded-chip bg-white px-2 py-0.5 text-xs font-medium text-sub">매칭 {counts.matched}</span>
-                  {counts.review > 0 && <span className="rounded-chip bg-wait-soft px-2 py-0.5 text-xs font-medium text-wait">확인 필요 {counts.review}</span>}
-                  {counts.bundle > 0 && <span className="rounded-chip bg-white px-2 py-0.5 text-xs font-medium text-sub">합본 {counts.bundle}</span>}
-                </div>
-                {shownFiles.length === 0 ? <p className="py-8 text-center text-sm text-mute">아직 올린 파일이 없어요</p> : <ul>{shownFiles.map(fileRow)}</ul>}
-              </div>
+              <FileList programId={p.id} items={shownFiles.map(fileItem)} />
             </div>
           </Card>
         ) : (

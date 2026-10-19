@@ -1,8 +1,9 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { matchStudent } from "@/lib/domain/activity";
+import { today } from "@/lib/domain/activity";
 import {
-  isReadableByAi, looksLikeBundle, maskIdentity, matchFileName, MATERIAL_MAX_BYTES, MATERIAL_TYPES, type EvidenceSource, type Material,
+  canDeleteMaterial, isReadableByAi, looksLikeBundle, maskIdentity, matchFileName, MATERIAL_MAX_BYTES, MATERIAL_TYPES, type EvidenceSource, type Material,
 } from "@/lib/domain/program";
 import type { Student } from "@/lib/domain/types";
 import { aiEnabled } from "@/lib/server/ai/claude";
@@ -172,4 +173,36 @@ export async function setMissing(form: FormData) {
   const s = await repo.getStudent(studentId);
   await repo.audit(v.accountId, "material.missing", `${program.id} ${s?.pseudonymId ?? ""}`);
   paths(program.id);
+}
+
+export type DeleteState = { deleted?: number; error?: string };
+
+/**
+ * 올린 파일 지우기 (N33): 한 개 또는 여러 개(최대 60). 자료 화면·학생 팝업·초안 검토 근거 자료가 같이 부른다.
+ * 주인·공동 주인·관리자만, 이 프로그램 자료만. 감사 로그에는 가명ID만 (파일 이름·실명 없음).
+ * 이미 만든 초안은 그대로 둔다 — 다시 만들 때만 새 근거를 쓴다.
+ */
+export async function deleteMaterials(form: FormData): Promise<DeleteState> {
+  const { v, program } = await requireProgram(String(form.get("programId") ?? ""));
+  const ids = [...new Set(form.getAll("materialId").map(String).filter(Boolean))];
+  if (ids.length === 0) return { error: "지울 파일을 골라 주세요" };
+  if (ids.length > 60) return { error: "한 번에 60개까지 지울 수 있어요" };
+  const t = today();
+  const who = new Set<string>();
+  let n = 0;
+  for (const id of ids) {
+    const m = await repo.getMaterial(id);
+    if (!m || !canDeleteMaterial(v, program, m, t)) continue;
+    const gone = await repo.deleteMaterial(m.id);
+    if (!gone) continue;
+    n++;
+    if (gone.studentId) who.add(gone.studentId);
+  }
+  if (n === 0) return { error: "지울 수 있는 파일이 없어요" };
+  const pseudo = (await Promise.all([...who].map((sid) => repo.getStudent(sid)))).map((s) => s?.pseudonymId).filter(Boolean);
+  await repo.audit(v.accountId, "material.delete", `${program.id} ${n}개${pseudo.length ? ` ${pseudo.join(",")}` : ""}`);
+  paths(program.id);
+  revalidatePath("/teacher/drafts");
+  revalidatePath("/student/submit");
+  return { deleted: n };
 }

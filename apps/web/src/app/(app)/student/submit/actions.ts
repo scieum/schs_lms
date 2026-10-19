@@ -2,9 +2,9 @@
 import { revalidatePath } from "next/cache";
 import { today } from "@/lib/domain/activity";
 import {
-  answeredCount, daysLeft, effectiveStatus, maskIdentity, MATERIAL_TYPES, usesDocs, usesSurvey, validateAnswers, type Program,
+  answeredCount, canDeleteMaterial, daysLeft, effectiveStatus, maskIdentity, MATERIAL_TYPES, usesDocs, usesSurvey, validateAnswers, type Program,
 } from "@/lib/domain/program";
-import type { Student } from "@/lib/domain/types";
+import type { Student, Viewer } from "@/lib/domain/types";
 import type { DocCheck } from "@/lib/domain/student-assist";
 import { docCheck, followUps } from "@/lib/server/ai/student-ai";
 import { repo } from "@/lib/server/repo";
@@ -15,14 +15,14 @@ import { readUpload } from "@/lib/server/hwpx";
 const STUDENT_MAX_BYTES = 20 * 1024 * 1024;
 
 /** 내가 대상이고, 발행됐고, 마감 전인 프로그램만 */
-async function myOpenProgram(programId: string): Promise<{ me: Student; program: Program } | string> {
+async function myOpenProgram(programId: string): Promise<{ me: Student; program: Program; v: Viewer } | string> {
   const v = await requireCan("student.self");
   if (v.kind !== "student") return "학생만 낼 수 있어요";
   const program = await repo.getProgram(programId);
   if (!program || program.status === "draft" || !program.targetIds.includes(v.student.id)) return "내 프로그램이 아니에요";
   const t = today();
   if (effectiveStatus(program, t) !== "open" || daysLeft(program.endDate, t) < 0) return "마감된 프로그램이에요";
-  return { me: v.student, program };
+  return { me: v.student, program, v };
 }
 
 export type SurveyState = { error?: string; errors?: Record<string, string>; saved?: "draft" | "submit"; n?: number };
@@ -75,6 +75,24 @@ export async function uploadMyDoc(prev: DocState, form: FormData): Promise<DocSt
   revalidatePath("/student/submit");
   revalidatePath("/student");
   return { done: "올렸어요", n };
+}
+
+/** 내 파일 지우기 (N33): 마감 전, 내가 올린 내 파일만. 되돌리기 없이 바로 지운다 */
+export async function deleteMyDoc(form: FormData): Promise<{ deleted?: number; error?: string }> {
+  const ctx = await myOpenProgram(String(form.get("programId") ?? ""));
+  if (typeof ctx === "string") return { error: ctx === "마감된 프로그램이에요" ? "마감 후에는 선생님께 말해 주세요" : ctx };
+  const { me, program, v } = ctx;
+  const m = await repo.getMaterial(String(form.get("materialId") ?? ""));
+  if (!m || !canDeleteMaterial(v, program, m, today())) return { error: "지울 수 없는 파일이에요" };
+  const gone = await repo.deleteMaterial(m.id);
+  if (!gone) return { error: "이미 지운 파일이에요" };
+  await repo.audit(me.id, "material.student.delete", `${program.id} ${me.pseudonymId}`);
+  revalidatePath("/student/submit");
+  revalidatePath("/student");
+  revalidatePath(`/teacher/programs/${program.id}/materials`);
+  revalidatePath(`/teacher/programs/${program.id}`);
+  revalidatePath("/teacher/drafts");
+  return { deleted: 1 };
 }
 
 export type HintState = { asks?: Record<string, string[]>; label?: "AI" | "자동"; error?: string; n?: number };

@@ -58,6 +58,8 @@ interface BaseRepo {
   addMaterial(m: NewMaterial, bytes: Uint8Array): Promise<Material>;
   updateMaterial(id: string, patch: MaterialPatch): Promise<void>;
   getMaterialFile(m: Material): Promise<Uint8Array | null>;
+  /** 자료 한 개를 지운다 (행 → 저장소 파일 순). 지운 행을 돌려준다. 이미 만든 초안은 건드리지 않는다 (N33) */
+  deleteMaterial(id: string): Promise<Material | null>;
 
   /** 미제출 사유 (학생 id → 사유) */
   listMissingReasons(programId: string): Promise<Record<string, string>>;
@@ -396,6 +398,14 @@ const demoBase: BaseRepo = {
   async getMaterialFile(m) {
     return ps().files.get(m.filePath) ?? null;
   },
+  async deleteMaterial(id) {
+    const s = ps();
+    const m = s.materials.find((x) => x.id === id);
+    if (!m) return null;
+    s.materials = s.materials.filter((x) => x.id !== id);
+    s.files.delete(m.filePath);
+    return copy(m);
+  },
   async listMissingReasons(programId) {
     return Object.fromEntries(ps().missing.filter((x) => x.programId === programId).map((x) => [x.studentId, x.reason]));
   },
@@ -616,6 +626,16 @@ const supabaseBase: BaseRepo = {
     const r = await db().storage.from(BUCKET).download(m.filePath);
     if (r.error || !r.data) return null;
     return new Uint8Array(await r.data.arrayBuffer());
+  },
+  async deleteMaterial(id) {
+    if (!isUuid(id)) return null;
+    const r = check(await db().from("program_materials").delete().eq("id", id).select("*").maybeSingle());
+    if (!r) return null;
+    const m = toMaterial(r as MaterialRow);
+    // 행을 먼저 지운다 → 파일 보기는 바로 404. 저장소 실패는 로그만 (deleteProgram 과 같은 순서)
+    const rm = await db().storage.from(BUCKET).remove([m.filePath]);
+    if (rm.error) console.error("자료 파일을 저장소에서 지우지 못했어요", rm.error.message);
+    return m;
   },
   async listMissingReasons(programId) {
     if (!isUuid(programId)) return {};

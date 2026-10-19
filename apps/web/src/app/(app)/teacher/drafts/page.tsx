@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Avatar, ButtonLink, Card, Tag, cx } from "@/components/ui";
 import { measure } from "@/lib/domain/length";
@@ -10,6 +10,7 @@ import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { DraftEditor } from "./editor";
+import { EvidenceDocs } from "./evidence-docs";
 
 export const metadata = { title: "초안 검토·확정 · 속초고등학교 학생관리시스템" };
 
@@ -122,17 +123,7 @@ export default async function DraftsPage({ searchParams }: Props) {
 
         <Card title="근거 자료" className="pane-ev h-full min-w-0 md:col-start-2 xl:col-start-auto">
           {evidence.length === 0 && <p className="text-[13px] text-mute">근거 자료가 없어요</p>}
-          {mats.length > 0 && (
-            <div className="mb-4 flex flex-col gap-2">
-              <span className="text-[13px] font-medium text-sub">제출 서류 {mats.length}</span>
-              {mats.map((m) => (
-                <a key={m.id} href={`/teacher/programs/${p.id}/materials/file/${m.id}`} target="_blank" rel="noreferrer" className="flex flex-col gap-2 rounded-inner bg-white p-3 hover:bg-key-soft">
-                  <span className="flex items-center gap-1.5 truncate text-[13px] font-medium"><FileText size={14} className="shrink-0" /> {m.fileName}{m.pages ? ` · ${m.pages}쪽` : ""}</span>
-                  {m.text ? <span className="rounded-field bg-soft p-2.5 text-[13px] leading-6 text-sub">&quot;{m.text.length > 160 ? `${m.text.slice(0, 160)}…` : m.text}&quot;</span> : <span className="text-[12px] text-mute">글을 아직 읽지 않았어요 (자료 등록에서 AI로 읽기)</span>}
-                </a>
-              ))}
-            </div>
-          )}
+          <EvidenceDocs key={`${p.id}-${s.id}`} programId={p.id} docs={mats.map((m) => ({ id: m.id, fileName: m.fileName, pages: m.pages, text: m.text }))} />
           {answered.length > 0 && (
             <div className="flex flex-col gap-2">
               <span className="text-[13px] font-medium text-sub">설문 응답 {answered.length}</span>

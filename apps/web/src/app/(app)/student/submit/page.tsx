@@ -84,7 +84,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
                   survey={usesSurvey(sel.p.source)}
                   docs={sel.docs}
                   docTitle={sel.p.docKinds[0] ?? "서류"}
-                  myDocs={sel.myDocs.map((m) => ({ id: m.id, name: m.fileName }))}
+                  myDocs={sel.myDocs.map((m) => ({ id: m.id, name: m.fileName, mine: m.uploaderId === me.id && m.matchedBy === "student" }))}
                   deadline={`${md(sel.p.endDate)} (${WEEK[new Date(`${sel.p.endDate}T00:00:00`).getDay()]}) 23:59`}
                   closed={sel.closed}
                   aiOn={aiEnabled()}
