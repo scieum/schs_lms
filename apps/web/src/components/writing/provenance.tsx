@@ -182,8 +182,8 @@ export function useProvenance({ init, text, replace, spell, focusBody }: {
     if (!s) return undefined;
     const sentence = text.slice(s.start, s.end);
     const items = [...pool.values()];
-    const count = (k: string) => items.filter((x) => (k === "설문" ? x.type === "survey" : k === "파일" ? x.type === "file" : k === "누가기록" ? x.type === "log" : x.type === "piece" || x.type === "common")).length;
-    const seen = [["설문", "설문 응답", "문항"], ["조각", "조각", ""], ["누가기록", "누가기록", ""], ["파일", "파일", ""]]
+    const count = (k: string) => items.filter((x) => (k === "설문" ? x.type === "survey" : k === "파일" ? x.type === "file" : k === "누가기록" ? x.type === "log" : k === "메모" ? x.type === "memo" : x.type === "piece" || x.type === "common")).length;
+    const seen = [["설문", "설문 응답", "문항"], ["메모", "교사 메모", ""], ["조각", "조각", ""], ["누가기록", "누가기록", ""], ["파일", "파일", ""]]
       .map(([k, label, unit]) => [label, count(k), unit] as const).filter(([, n]) => n > 0).map(([l, n, u]) => `${l} ${n}${u}`).join(" · ");
     return (
       <div className="flex flex-col gap-2.5 pb-3 pl-[30px] break-keep">

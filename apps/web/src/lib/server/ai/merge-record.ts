@@ -7,7 +7,7 @@ import { stripActivity } from "@/lib/domain/activity-name";
 import { polishStyle } from "@/lib/domain/neis-style";
 import type { Student } from "@/lib/domain/types";
 import { findIdentity, fitToMax, scrubIdentity, sentences } from "@/lib/domain/writing";
-import { applyRuleFixes, autoCheck, fixableRows } from "@/lib/domain/auto-check";
+import { applyRuleFixes, autoCheck, fixableRows, type PraiseCheck } from "@/lib/domain/auto-check";
 import { sampleVariants, type VariantMode } from "@/lib/domain/variants";
 import { aiEnabled, aiJson } from "./claude";
 import { subjectStandards } from "../standards";
@@ -15,6 +15,8 @@ import { recordSystemPrompt } from "./record-prompts";
 import type { WriteKind, WriteResult } from "./write-record";
 import { joinSentences, SOURCED_RULES, SourcedOut, toKeys } from "./sourced";
 import { pieceKey } from "../provenance";
+import type { Level } from "@/lib/domain/achievement";
+import { evidenceAmount, praisePrompt } from "@/lib/domain/praise";
 
 // 합치기·맞추기·역량 보기 (Figma N11). 교사가 버튼을 눌렀을 때만, 결과는 돌려주기만 한다 (저장은 교사가).
 // AI에는 가명ID만 보낸다. 조각 속 이름·학번은 지운 뒤 보내고, 결과도 다시 지운다.
@@ -45,12 +47,13 @@ const FIT_RULES = (range: LengthRange) => `
 - 줄이거나 늘릴 때 문장을 쪼개 짧은 문장을 늘어놓지 않는다. 이어진 문장은 이어진 채로 둔다.
 - 한 문단, draft 에 최종본만 넣는다.`;
 
-async function rewrite(input: { kind: WriteKind; context?: string; student: Student; range: LengthRange; system: string; content: string; fallback: () => string; tone?: string; labels?: Map<string, string> }): Promise<WriteResult> {
+async function rewrite(input: { kind: WriteKind; context?: string; student: Student; range: LengthRange; system: string; content: string; fallback: () => string; tone?: string; guard?: string; labels?: Map<string, string> }): Promise<WriteResult> {
   const { student, range } = input;
   const fallback = (notice: string): WriteResult => ({ text: polishStyle(input.fallback()), sample: true, notice });
   if (!aiEnabled()) return fallback("AI 키가 없어 조각을 순서대로 이어 붙였어요");
   // 성취수준 말투(N35 ③)는 시스템 프롬프트 끝에 한 줄만 — 학생 정보와 함께 보내지 않는다
-  const system = recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null) + input.system + (input.tone ?? "");
+  // N41 과장 막기: 평가 수위 규칙 (맞추기는 본문에 없는 칭찬을 보태지 않는다)
+  const system = recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null) + input.system + (input.tone ?? "") + (input.guard ?? NO_NEW_PRAISE);
   // N38: 근거 표지가 있으면 문장마다 기댄 표지를 같이 받는다
   let draft: string;
   let sentences: WriteResult["sentences"];
@@ -75,11 +78,19 @@ async function rewrite(input: { kind: WriteKind; context?: string; student: Stud
   };
 }
 
-/** tone: 성취수준 말투 한 줄 (achievement.levelPrompt) */
-export async function mergeRecord(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange; tone?: string }): Promise<WriteResult> {
+/** 본문을 다시 쓰는 일(맞추기·다른 버전·고치기)에 붙는 한 줄 */
+const NO_NEW_PRAISE = `
+
+평가 수위 규칙: 본문에 없는 칭찬어나 높은 평가(탁월함, 뛰어남, 인상적임, 돋보임, 두드러짐 등)와 학생 전체를 단정하는 총평을 새로 보태지 않음.`;
+
+/**
+ * tone: 성취수준 말투 한 줄 (achievement.levelPrompt) · level: 고른 수준 (N41, 없으면 사실 그대로)
+ * keepOrder: 교사가 정한 순서(메모 모아 쓰기 N41) 그대로 — 아니면 날짜 순
+ */
+export async function mergeRecord(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange; tone?: string; level?: Level | null; keepOrder?: boolean }): Promise<WriteResult> {
   const { student } = input;
   const pid = student.pseudonymId;
-  const pieces = orderPieces(input.pieces).map((p) => ({ ...p, text: scrubIdentity(p.text, student, pid).text.trim() })).filter((p) => p.text);
+  const pieces = (input.keepOrder ? input.pieces : orderPieces(input.pieces)).map((p) => ({ ...p, text: scrubIdentity(p.text, student, pid).text.trim() })).filter((p) => p.text);
   if (!pieces.length) return { text: "", sample: false, notice: "합칠 조각을 골라 주세요" };
   const content = [
     `학생: ${pid}`,
@@ -98,7 +109,9 @@ export async function mergeRecord(input: { kind: WriteKind; context?: string; st
   ].filter((x) => x !== null).join("\n");
   // 근거 표지 [S1] … ↔ 조각 key (서버에만)
   const labels = new Map(pieces.map((p, i) => [`S${i + 1}`, pieceKey(p)]));
-  return rewrite({ ...input, system: MERGE_RULES(input.range), content, labels, fallback: () => mergeByRules(input.pieces.map((p) => ({ ...p, text: scrubIdentity(p.text, student).text })), input.range) });
+  // 근거 양: 지금 글(본문)은 빼고 센다 — 메모 한두 개면 총평·최상급 칭찬을 막는다
+  const guard = praisePrompt(input.level, evidenceAmount(pieces.filter((p) => p.source !== "본문").map((p) => p.text)));
+  return rewrite({ ...input, system: MERGE_RULES(input.range), content, labels, guard, fallback: () => mergeByRules(input.pieces.map((p) => ({ ...p, text: scrubIdentity(p.text, student).text })), input.range) });
 }
 
 export async function fitRecord(input: { kind: WriteKind; context?: string; student: Student; text: string; range: LengthRange }): Promise<WriteResult> {
@@ -124,10 +137,11 @@ export type FixResult = { text: string; changes: { from: string; to: string }[];
  * AI로 고치기: 자동 검사에 걸린 곳만 고친다 (Haiku). 보내기 전 이름·학번 → 가명ID, 받은 글은 가명ID를 지운다.
  * AI가 꺼져 있거나 실패하면 규칙 고칠 말만 모두 적용한다 (label "자동"). 분량은 range.max 를 넘지 않게 자른다.
  */
-export async function fixRecord(input: { kind: WriteKind; context?: string; student: Student; text: string; range: LengthRange }): Promise<FixResult> {
+/** praise (N41): 화면 자동 검사와 같은 "근거보다 높은 평가" 행을 같이 고친다 */
+export async function fixRecord(input: { kind: WriteKind; context?: string; student: Student; text: string; range: LengthRange; praise?: PraiseCheck }): Promise<FixResult> {
   const { student, range } = input;
   const pid = student.pseudonymId;
-  const check = autoCheck(input.text, range, findIdentity(input.text, student), undefined, input.kind === "세특" ? input.context : undefined);
+  const check = autoCheck(input.text, range, findIdentity(input.text, student), undefined, input.kind === "세특" ? input.context : undefined, input.praise ? { praise: input.praise } : undefined);
   const rows = fixableRows(check);
   const byRule = (notice?: string): FixResult => {
     const t = fitToMax(applyRuleFixes(input.text, rows), range);
@@ -140,12 +154,13 @@ export async function fixRecord(input: { kind: WriteKind; context?: string; stud
   const body = scrub(input.text.trim());
   const issues = rows.map((r, i) => `${i + 1}. ${r.label.replace(/'.*'/, "")}${r.phrase ? ` — 걸린 말: "${scrub(r.phrase)}"` : ""} — 이유: ${r.why}${r.fix ? ` — 규칙 제안: ${r.fix.to ? `"${scrub(r.fix.to)}"(으)로 바꾸기` : "그 구 빼기"}` : ""}`);
   const content = [`학생: ${pid}`, `분량: ${range.max.toLocaleString()}${UNIT_LABEL[range.unit]} 이하`, "", "<본문>", body, "</본문>", "", "<걸린 곳>", ...issues, "</걸린 곳>"].join("\n");
-  const system = `${recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null)}
+  const system = `${recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null)}${NO_NEW_PRAISE}
 
 고치기 규칙:
 - 아래 <걸린 곳>만 고치고 나머지 문장은 글자 그대로 둔다. 문장 순서를 바꾸지 않는다.
 - 문장을 둘로 나누지 않는다. 쉼표가 많은 문장은 나열을 '와/과'나 '~하고', '~하며' 같은 연결어미로 바꿔 한 문장으로 둔다.
 - 사실·활동·수치를 보태지 않는다. 기재 금지 표현은 일반 명사로 바꾸거나 그 구를 뺀다.
+- '근거보다 높은 평가'로 걸린 칭찬어는 관찰한 행동을 담백하게 쓰는 말(드러남, 설명함, 수행함 등)로 낮춘다.
 - 학생 이름·가명ID·"이 학생은" 같은 주어는 쓰지 않는다.
 - 문장은 "~함." "~임." 같은 명사형 어미로 끝낸다.
 - 분량: ${range.max.toLocaleString()}${UNIT_LABEL[range.unit]}를 넘지 않는다.
@@ -187,7 +202,7 @@ export async function variantsRecord(input: { kind: WriteKind; context?: string;
     return { versions: sampleVariants(plain, input.mode).map((t) => fitToMax(t, range)).filter((t) => t).slice(0, 3).map(judge), label: "자동", sample: true, notice: "AI 키가 없어 규칙으로 만든 예시예요" };
   }
   const content = [`학생: ${pid}`, `분량: 버전마다 ${range.max.toLocaleString()}${UNIT_LABEL[range.unit]} 이하`, "", "<본문>", body, "</본문>"].join("\n");
-  const system = `${recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null)}
+  const system = `${recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null)}${NO_NEW_PRAISE}
 
 다른 버전 규칙:
 - 본문을 서로 다른 3개 버전으로 다시 쓴다. ${VARIANT_RULE[input.mode]}
@@ -243,7 +258,8 @@ export async function behaviorDraft(input: { student: Student; keywords: string[
   ];
   // 근거 표지 [S1] 메모 · [S2…] 누가기록 ↔ key (서버에만)
   const labels = new Map<string, string>([["S1", input.memoKey ?? ""] as [string, string], ...logs.map((l, i): [string, string] => [`S${i + 2}`, l.key ?? ""])].filter(([, k]) => !!k));
-  return rewrite({ kind: "행발", student, range: input.range, system: BEHAVIOR_RULES(input.range), content, labels, fallback: () => mergeByRules(pieces, input.range) });
+  const guard = praisePrompt(null, evidenceAmount([memo, ...logs.map((l) => l.content)]));
+  return rewrite({ kind: "행발", student, range: input.range, system: BEHAVIOR_RULES(input.range), content, labels, guard, fallback: () => mergeByRules(pieces, input.range) });
 }
 
 const TagOut = z.object({ tags: z.array(z.object({ index: z.number().int(), competency: z.string().nullable(), sub: z.string().nullable() })) });

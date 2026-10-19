@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Tag, cx } from "@/components/ui";
-import { AREA_LABEL, daysLeft, ddayLabel, md, SOURCE_LABEL, usesSurvey, type Program } from "@/lib/domain/program";
+import { AREA_LABEL, daysLeft, ddayLabel, md, sourceLabel, usesSurvey, type Program } from "@/lib/domain/program";
 import { programStage, type Stage, type StageCounts } from "@/lib/domain/program-stage";
 import { CardRunButton } from "./card-action";
 import { CARD_BTN, StageDots } from "./stage-dots";
@@ -96,7 +96,7 @@ export function ProgramCard({ p, view, today }: { p: Program; view: CardView; to
         <span className="whitespace-nowrap">{chip}</span>
       </div>
       <div className="truncate text-[13px] text-mute">
-        {AREA_LABEL[p.area]}{p.subject ? ` ${p.subject}` : ""} · {md(p.startDate)} ~ {md(p.endDate)} · {SOURCE_LABEL[p.source]} · {p.targetIds.length}명
+        {AREA_LABEL[p.area]}{p.subject ? ` ${p.subject}` : ""} · {md(p.startDate)} ~ {md(p.endDate)} · {sourceLabel(p)} · {p.targetIds.length}명
       </div>
       <div className="mt-auto flex h-8 items-center gap-2">
         <StageDots current={draft ? null : stage.index} />

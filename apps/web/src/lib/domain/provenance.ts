@@ -9,7 +9,8 @@ import { lcsLength } from "./diff";
 export const PROVENANCE_DEFAULTS = { editRatioMin: 10, sourceMatchMin: 0.5 } as const;
 export type ProvenanceSettings = { editRatioMin: number; sourceMatchMin: number };
 
-export type SourceType = "survey" | "piece" | "log" | "file" | "common";
+/** memo (N41): 프로그램 교사 관찰 메모 (record_memos id) */
+export type SourceType = "survey" | "piece" | "log" | "file" | "common" | "memo";
 /** 저장하는 근거 (인용 글은 저장하지 않는다 — ref 로 그때 읽는다) */
 export type SourceRef = { type: SourceType; ref: string; q?: string; page?: number };
 /** AI 원안 문장 (ai_originals.sentences) */
@@ -267,7 +268,7 @@ export function pinsFrom(text: string, list: SentenceSource[] | null | undefined
 /** 서버로 받은 sentence_sources / pins JSON 을 믿을 수 있는 모양으로 */
 export function parsePins(raw: unknown): Pin[] {
   if (!Array.isArray(raw)) return [];
-  const types = new Set<SourceType>(["survey", "piece", "log", "file", "common"]);
+  const types = new Set<SourceType>(["survey", "piece", "log", "file", "common", "memo"]);
   return raw.slice(0, 80).flatMap((p): Pin[] => {
     if (!p || typeof p !== "object") return [];
     const o = p as Record<string, unknown>;

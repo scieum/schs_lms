@@ -17,7 +17,8 @@ export type MergePiece = { id: string; source: PieceSource; date: string | null;
 // 조각 고르기 (Figma N20): 교사가 조각마다 중요도를 매기고, 목표 분량에 맞춰 고른다.
 /** 3 핵심 · 2 보통 · 1 참고 */
 export type Importance = 1 | 2 | 3;
-export const IMPORTANCE_LABEL: Record<Importance, string> = { 3: "핵심", 2: "보통", 1: "참고" };
+/** N41: 핵심 → "꼭 넣기" (메모 모아 쓰기 칩) */
+export const IMPORTANCE_LABEL: Record<Importance, string> = { 3: "꼭 넣기", 2: "보통", 1: "참고" };
 /** 누를 때마다 보통 → 핵심 → 참고 → 보통 */
 export const nextImportance = (w: Importance): Importance => (w === 2 ? 3 : w === 3 ? 1 : 2);
 /** 고른 조각이 목표의 몇 배까지면 알맞은지 (넘치는 만큼은 합치기가 줄인다) */

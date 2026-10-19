@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui";
 import { checkLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
@@ -89,7 +89,10 @@ export function RecordEditor({
   // N38: 문장 근거 · AI 원안 · 맞춤법 (본문 바꾸기는 검사 묶음의 되돌리기 스낵바로)
   const replaceRef = useRef<(next: string, msg: string) => void>(() => {});
   const pv = useProvenance({ init: prov, text, replace: (n, m) => replaceRef.current(n, m), spell: { kind: "record", studentId }, focusBody: () => body.current?.focus() });
-  const bc = useBodyChecks({ text, setText, range, who, context: undefined, openFirst: openCheck, more: pv.more });
+  // N41 근거보다 높은 평가: 창체·행발은 성취수준이 없다 → 사실 그대로 (근거 글 = 활동 메모 · 관찰 메모)
+  const evidence = useMemo(() => [memo, ...(pieces ?? []).map((p) => p.text)].join(" / "), [memo, pieces]);
+  const more = useMemo(() => ({ ...pv.more, praise: { level: null, evidence } }), [pv.more, evidence]);
+  const bc = useBodyChecks({ text, setText, range, who, context: undefined, openFirst: openCheck, more });
   useEffect(() => { replaceRef.current = bc.replace; });
   const { needFromServer } = pv;
   useEffect(() => { needFromServer(state.needReason); }, [state.needReason, needFromServer]);
@@ -124,7 +127,7 @@ export function RecordEditor({
             pieces,
             body: text,
             neisMax: recordMax(area, range.unit),
-            run: (ps, max) => mergeRecordAction({ area, studentId, clubId, pieces: ps, unit: range.unit, max }),
+            run: (ps, max) => mergeRecordAction({ area, studentId, clubId, pieces: ps, unit: range.unit, max, keepOrder: true }),
           }}
           onApply={apply}
           what={`${area} 글`}
@@ -167,7 +170,7 @@ export function RecordEditor({
         )}
         <RecordChecks text={text} range={range} check={bc.check} recheck={bc.recheck} open={bc.open} onOpen={bc.setOpen} onReplace={bc.onReplace}
           onReplaceAll={bc.onReplaceAll} spellAi={pv.spellLine} renderOpen={pv.renderOpen}
-          aiFix={{ run: (t) => aiFixRecordAction({ area, studentId, clubId, text: t, unit: range.unit, max: range.max }), onApply: (t) => bc.replace(t, "고친 글을 넣었어요") }}
+          aiFix={{ run: (t) => aiFixRecordAction({ area, studentId, clubId, text: t, unit: range.unit, max: range.max, praise: { evidence } }), onApply: (t) => bc.replace(t, "고친 글을 넣었어요") }}
           length={{ unit: len.unit, max: len.max, limit: recordMax(area, len.unit), onChange: setLen }}
           fit={{ run: () => fitRecordAction({ area, studentId, clubId, text, unit: range.unit, max: range.max }), onApply: setText }} />
 

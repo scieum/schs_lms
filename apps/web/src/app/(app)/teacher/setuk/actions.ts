@@ -20,7 +20,7 @@ import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
 import { latestByStudent } from "@/lib/domain/setuk";
 import { setukScope } from "@/lib/domain/common-activity";
 import { schoolYear } from "@/lib/domain/curriculum";
-import { levelIn, levelPrompt, type Level } from "@/lib/domain/achievement";
+import { isLevel, levelIn, levelPrompt, type Level } from "@/lib/domain/achievement";
 import type { ClassCheckView } from "@/lib/domain/class-check";
 import { buildClassView, classAudit } from "@/lib/server/class-check";
 import { classProv, confirmAudit, piecesPool, provForSave, saveOriginal } from "@/lib/server/provenance";
@@ -115,7 +115,7 @@ export async function aiSetukDraft(input: z.input<typeof AiSchema>): Promise<AiD
   const notes = memos.filter((m) => m.content !== memo).map((m) => ({ date: m.createdAt.slice(0, 10), content: m.content, key: sourceKey({ type: "piece", ref: m.id }) }));
 
   const range = resolveLength("세특", { unit, max });
-  const r = await writeRecord({ kind: "세특", student, context: course.subject, memo, memoKey: saved ? sourceKey({ type: "piece", ref: saved.id }) : undefined, logs: notes, range, activity: p.data.activity, tone: await toneFor(p.data.level) });
+  const r = await writeRecord({ kind: "세특", student, context: course.subject, memo, memoKey: saved ? sourceKey({ type: "piece", ref: saved.id }) : undefined, logs: notes, range, activity: p.data.activity, tone: await toneFor(p.data.level), level: await levelFor(p.data.level) });
   await repo.audit(v.accountId, "setuk.ai_draft", `${course.subject} ${student.pseudonymId}`);
   if (!r.text) return { ok: false, error: r.notice ?? "초안을 만들지 못했어요. 직접 써 주세요" };
   // AI 원안 (N38): 고칠 수 없게 남기고 문장 근거를 붙인다
@@ -144,6 +144,8 @@ const MergeSchema = z.object({
   unit: z.enum(["bytes", "chars"]),
   max: z.number().int().min(1),
   level: z.string().nullish(),
+  /** 메모 모아 쓰기 (N41): 교사가 정한 순서 그대로 */
+  keepOrder: z.boolean().optional(),
 });
 const FitSchema = z.object({ text: z.string().min(1, "본문이 비어 있어요").max(6000), unit: z.enum(["bytes", "chars"]), max: z.number().int().min(1) });
 const toDraft = (r: { text: string; sample: boolean; notice?: string }): AiDraftResult =>
@@ -186,7 +188,7 @@ export async function mergeSetuk(input: { courseId: string; studentId: string } 
   const p = MergeSchema.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
   const range = fitRange(resolveLength("세특", { unit: p.data.unit, max: p.data.max }));
-  const r = await mergeRecord({ kind: "세특", context: t.course.subject, student: t.student, pieces: p.data.pieces, range, tone: await toneFor(p.data.level) });
+  const r = await mergeRecord({ kind: "세특", context: t.course.subject, student: t.student, pieces: p.data.pieces, range, tone: await toneFor(p.data.level), level: await levelFor(p.data.level), keepOrder: p.data.keepOrder });
   await repo.audit(t.v.accountId, "setuk.ai_merge", `${t.course.subject} ${t.student.pseudonymId} ${p.data.pieces.length}조각`);
   if (!r.text) return toDraft(r);
   // AI 원안 (N38): 근거 표는 서버가 다시 읽은 조각으로 (지금 본문 조각은 교사 글)
@@ -210,16 +212,19 @@ export async function fitSetuk(input: { courseId: string; studentId: string } & 
 // ---------- AI로 고치기 · 다른 버전 (Figma N34) ----------
 
 const LenSchema = z.object({ text: z.string().min(1, "본문이 비어 있어요").max(6000), unit: z.enum(["bytes", "chars"]), max: z.number().int().min(1) });
+/** N41: 화면 자동 검사와 같은 "근거보다 높은 평가" 행을 같이 고친다 (근거 글은 검사에만 — AI에는 걸린 말만 간다) */
+const FixSchema = LenSchema.extend({ praise: z.object({ level: z.string().nullable(), evidence: z.string().max(40000) }).optional() });
 const VarSchema = LenSchema.extend({ mode: z.enum(["keep", "fresh"]) });
 
 /** AI로 고치기: 자동 검사에 걸린 곳만 고친 글 (저장하지 않음 — 교사가 "본문에 넣기") */
-export async function aiFixSetuk(input: { courseId: string; studentId: string; batch?: boolean } & z.input<typeof LenSchema>): Promise<AiFixResult> {
+export async function aiFixSetuk(input: { courseId: string; studentId: string; batch?: boolean } & z.input<typeof FixSchema>): Promise<AiFixResult> {
   const t = await setukTarget(input.courseId, input.studentId);
   if (!t) return { ok: false, error: "내 담당 과목·반 학생만 쓸 수 있어요" };
-  const p = LenSchema.safeParse(input);
+  const p = FixSchema.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
   const range = resolveLength("세특", { unit: p.data.unit, max: p.data.max });
-  const r = await fixRecord({ kind: "세특", context: t.course.subject, student: t.student, text: p.data.text, range });
+  const praise = p.data.praise ? { level: isLevel(p.data.praise.level) ? p.data.praise.level : null, evidence: p.data.praise.evidence } : undefined;
+  const r = await fixRecord({ kind: "세특", context: t.course.subject, student: t.student, text: p.data.text, range, praise });
   await repo.audit(t.v.accountId, "setuk.ai_fix", `${t.course.subject} ${t.student.pseudonymId}${input.batch ? " class" : ""}`);
   return { ok: true, text: r.text, changes: r.changes, label: r.label, bytes: measure(r.text, range.unit), notice: r.notice };
 }
@@ -308,6 +313,13 @@ export async function setLevels(input: z.input<typeof LevelSchema>): Promise<{ o
 }
 
 /** 성취수준 말투 한 줄 (학교 설정 단계에 있는 수준만) */
+/** 고른 성취수준 (학교 설정 단계에 있는 것만, 없으면 null — N41 과장 막기) */
+async function levelFor(level: unknown): Promise<Level | null> {
+  if (!level) return null;
+  const scale = await repo.getAchievementScale();
+  return levelIn(scale, level) ? level : null;
+}
+
 async function toneFor(level: unknown): Promise<string> {
   if (!level) return "";
   const scale = await repo.getAchievementScale();

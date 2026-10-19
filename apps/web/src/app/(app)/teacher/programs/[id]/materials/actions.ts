@@ -27,7 +27,7 @@ async function targetsOf(targetIds: string[]): Promise<Student[]> {
 export async function setSource(form: FormData) {
   const { v, program } = await requireProgram(String(form.get("programId") ?? ""));
   const source = String(form.get("source")) as EvidenceSource;
-  if (!["survey", "docs", "both"].includes(source)) return;
+  if (!["survey", "docs", "both", "memo"].includes(source)) return;
   await repo.updateProgram(program.id, { source });
   await repo.audit(v.accountId, "program.source", `${program.id} ${source}`);
   paths(program.id);

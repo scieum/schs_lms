@@ -1,6 +1,6 @@
 import "server-only";
 import type { MergePiece } from "@/lib/domain/merge";
-import { maskIdentity, usesDocs, usesSurvey, type Material, type Program, type SurveyResponse } from "@/lib/domain/program";
+import { maskIdentity, usesDocs, usesMemos, usesSurvey, type Material, type Program, type SurveyResponse } from "@/lib/domain/program";
 import {
   alignSentences, buildOriginalSentences, editRatio, guessSentences, noSourceSentences, parsePins, pinsFrom, sourceKey,
   type OriginalView, type Pin, type ProvenanceSettings, type RecordProv, type SourceItem, type SourceType,
@@ -42,8 +42,11 @@ export function piecesPool(pieces: MergePiece[], context?: string): SourceItem[]
   });
 }
 
-/** 초안 검토(프로그램) 근거 표: 설문 문항 답 · 연결된 서류 (이름·학번 가림) */
-export function draftPool(program: Pick<Program, "source" | "questions">, response: Pick<SurveyResponse, "answers" | "submittedAt"> | null | undefined, materials: Material[], people: { name: string; studentNo: string }[]): SourceItem[] {
+/** 초안 검토(프로그램) 근거 표: 설문 문항 답 · 연결된 서류 · 교사 관찰 메모(N41) (이름·학번 가림) */
+export function draftPool(
+  program: Pick<Program, "source" | "questions" | "useMemos">, response: Pick<SurveyResponse, "answers" | "submittedAt"> | null | undefined, materials: Material[],
+  people: { name: string; studentNo: string }[], memo?: { id: string; content: string; createdAt: string } | null,
+): SourceItem[] {
   const out: SourceItem[] = [];
   if (usesSurvey(program.source) && response?.submittedAt) {
     program.questions.forEach((q, i) => {
@@ -59,6 +62,9 @@ export function draftPool(program: Pick<Program, "source" | "questions">, respon
       const name = m.fileName.length > 14 ? `${m.fileName.slice(0, 12)}…` : m.fileName;
       out.push({ type: "file", ref: m.id, key: sourceKey({ type: "file", ref: m.id }), kind: "파일", where: `${m.fileName}${m.pages ? ` · ${m.pages}쪽` : ""}`, chip: name, text: maskIdentity(m.text ?? "", people) });
     }
+  }
+  if (usesMemos(program) && memo?.content.trim()) {
+    out.push({ type: "memo", ref: memo.id, key: sourceKey({ type: "memo", ref: memo.id }), kind: "교사 메모", where: `${md(memo.createdAt.slice(0, 10))} 관찰 메모`, chip: "교사 메모", text: maskIdentity(memo.content.trim(), people) });
   }
   return out;
 }

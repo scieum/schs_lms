@@ -1,7 +1,7 @@
 import "server-only";
 import { resolveLength, UNIT_LABEL } from "@/lib/domain/length";
 import {
-  afterAttempt, buildEvidence, checkDraft, fitToLength, maskIdentity, MAX_ATTEMPTS, sampleDraft, usesSurvey,
+  afterAttempt, buildEvidence, checkDraft, fitToLength, maskIdentity, MAX_ATTEMPTS, sampleDraft, usesMemos, usesSurvey,
   isReadableByAi, type DraftJob, type DraftSource, type Material,
 } from "@/lib/domain/program";
 import type { Student } from "@/lib/domain/types";
@@ -13,6 +13,8 @@ import { readMaterial } from "./program-ai";
 import { kindOfArea, recordSystemPrompt } from "./record-prompts";
 import { joinSentences, SOURCED_RULES, SourcedOut, toKeys, type SourcedSentence } from "./sourced";
 import { draftPool, saveOriginal } from "../provenance";
+import { evidenceAmount, praisePrompt } from "@/lib/domain/praise";
+import { programMemo } from "../program-memo";
 
 // 생기부 초안 파이프라인 (PRD F3): PENDING → RUNNING → DONE / ERROR.
 // - AI 입력: 가명ID + 설문 답 + 서류 글(이름·학번 가림) + 희망 진로 + 프로그램 개요. 이름·학번은 보내지 않는다.
@@ -25,11 +27,12 @@ import { draftPool, saveOriginal } from "../provenance";
 const APP_RULES = (min: number, max: number, unit: string) => `
 
 앱 규칙 (가장 중요):
-- 이 기록은 프로그램 소개가 아니라 이 학생 한 명의 기록이다. 근거 자료(설문 답, 제출 서류)에서 이 학생이 실제로 고른 주제, 한 일과 방법, 다룬 자료·개념, 알게 된 점, 어려움과 해결, 생각의 변화, 후속 계획을 찾아 구체적으로 쓴다.
+- 이 기록은 프로그램 소개가 아니라 이 학생 한 명의 기록이다. 근거 자료(설문 답, 제출 서류, 교사 메모)에서 이 학생이 실제로 고른 주제, 한 일과 방법, 다룬 자료·개념, 알게 된 점, 어려움과 해결, 생각의 변화, 후속 계획을 찾아 구체적으로 쓴다.
 - 문장마다 근거 자료의 특정 내용(주제 이름, 대상, 방법, 결과, 학생이 쓴 표현)에 기대야 한다. 근거 자료의 핵심 낱말을 살려 쓰되 설문 답 한 줄을 문장 하나로 옮겨 늘어놓지 않고, 같은 활동의 사실은 이어진 문장으로 새로 쓴다.
 - "프로그램 정보"는 무슨 활동인지 이해하는 데만 쓴다. 활동 개요를 본문에 옮기거나 풀어 쓰지 않는다. 프로그램 이름은 첫 문장에 한 번만 짧게 쓴다.
 - 다른 학생 기록에 그대로 붙여도 말이 되는 문장(프로그램 일반 설명, "성실히 참여함", "적극적인 태도를 보임" 같은 상투어)은 쓰지 않는다.
 - 분량이 모자라면 근거 자료 속 과정·이유·의미를 더 풀어 쓴다. 일반론이나 꾸밈말로 채우지 않는다.
+- [교사 메모]는 담당 교사가 수업에서 직접 본 일이다. 설문·서류와 같은 무게의 근거로 쓰되, 메모에 적힌 평가 말(예: 뛰어남)은 메모에 있을 때만 옮긴다.
 - 근거 자료 하나하나를 (활동) 블록으로 보고, 프로그램 이름을 (주제)로 본다. 없는 활동, 수치, 수상은 만들지 않는다.
 - 가명ID를 본문에 쓰지 않는다.
 - 분량: ${min}~${max}${unit} (NEIS 기준, 한글 1글자 = 3바이트).`;
@@ -56,17 +59,19 @@ async function readUnreadMaterials(list: Material[], people: { name: string; stu
 async function attemptOnce(job: DraftJob, people: { name: string; studentNo: string }[], student: Student): Promise<{ ok: boolean; error?: string }> {
   const program = await repo.getProgram(job.programId);
   if (!program) return { ok: false, error: "프로그램 없음" };
-  const [response, listed] = await Promise.all([
+  const [response, listed, memo] = await Promise.all([
     repo.getResponse(program.id, student.id),
     repo.listMaterials(program.id).then((ms) => ms.filter((m) => m.studentId === student.id)),
+    usesMemos(program) ? programMemo(program.id, student.id) : Promise.resolve(null),
   ]);
   const materials = await readUnreadMaterials(listed, people);
-  const evidence = buildEvidence(program, response, materials).map((e) => ({ label: maskIdentity(e.label, people), text: maskIdentity(e.text, people) }));
+  // N41 교사 관찰 메모: 이름·학번을 가린 글만 근거로
+  const evidence = buildEvidence(program, response, materials, memo?.content).map((e) => ({ label: maskIdentity(e.label, people), text: maskIdentity(e.text, people) }));
   if (evidence.length === 0) return { ok: false, error: "근거 자료 없음" };
   const range = resolveLength(program.area, { unit: job.unit, max: job.max });
 
   // 근거 표 (N38): 설문 문항 · 서류 → [S1] 표지 (표지 ↔ id 는 서버에만)
-  const pool = draftPool(program, response, materials, people);
+  const pool = draftPool(program, response, materials, people, memo);
   const labels = new Map(pool.map((p, i) => [`S${i + 1}`, p.key]));
   let text: string;
   let source: DraftSource;
@@ -76,14 +81,16 @@ async function attemptOnce(job: DraftJob, people: { name: string; studentNo: str
       `학생: ${student.pseudonymId}`,
       `희망 진로: ${student.careerGoal ?? "없음"}`,
       "",
-      "근거 자료 (이 학생이 직접 쓰거나 낸 것 — 기록은 여기서 나온다):",
+      "근거 자료 (이 학생이 직접 쓰거나 낸 것과 담당 교사가 관찰해 적은 메모 — 기록은 여기서 나온다):",
       ...(pool.length ? pool.map((e, i) => `[S${i + 1}] [${e.chip}${e.kind === "설문" ? ` ${e.where}` : ""}] ${e.text || "(내용을 읽지 못한 서류)"}`) : evidence.map((e) => `[${e.label}] ${e.text || "(내용을 읽지 못한 서류)"}`)),
       "",
       "프로그램 정보 (맥락 참고용 — 본문에 옮기지 않는다):",
       `이름: ${program.title}${program.subject ? ` (${program.subject})` : ""}`,
       `개요: ${maskIdentity(program.overview, people) || "없음"}`,
     ].join("\n");
-    const system = recordSystemPrompt(kindOfArea(program.area), program.subject) + APP_RULES(range.min, range.max, UNIT_LABEL[range.unit]) + SOURCED_RULES;
+    // N41 과장 막기: 프로그램 초안은 성취수준을 고르지 않는다 → 사실 그대로, 근거가 적으면 총평·최상급 칭찬 금지
+    const amount = evidenceAmount(pool.length ? pool.map((p) => p.text) : evidence.map((e) => e.text));
+    const system = recordSystemPrompt(kindOfArea(program.area), program.subject) + APP_RULES(range.min, range.max, UNIT_LABEL[range.unit]) + SOURCED_RULES + praisePrompt(null, amount);
     const r = await aiJson(SourcedOut, { system, content, model: "write", maxTokens: 3500 });
     if (!r.ok) return { ok: false, error: r.error };
     text = joinSentences(r.data.sentences).trim();
@@ -92,7 +99,7 @@ async function attemptOnce(job: DraftJob, people: { name: string; studentNo: str
   } else {
     const answers = usesSurvey(program.source) && response?.submittedAt ? program.questions.map((q) => maskIdentity(response.answers[q.id] ?? "", people)) : [];
     const docs = materials.filter((m) => m.status === "matched").map((m) => ({ kind: program.docKinds[0] ?? "서류", text: m.text ? maskIdentity(m.text, people) : null }));
-    text = sampleDraft({ title: program.title, area: program.area, answers, docs, careerGoal: student.careerGoal, range });
+    text = sampleDraft({ title: program.title, area: program.area, answers, docs, careerGoal: student.careerGoal, range, memo: memo ? maskIdentity(memo.content, people) : null });
     source = "sample";
   }
 
