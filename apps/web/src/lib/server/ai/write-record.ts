@@ -5,6 +5,8 @@ import { UNIT_LABEL, type LengthRange } from "@/lib/domain/length";
 import type { Student } from "@/lib/domain/types";
 import { fitToMax, plainMemo, sampleDraft, scrubIdentity, type RecordArea } from "@/lib/domain/writing";
 import { polishStyle } from "@/lib/domain/neis-style";
+import type { Level } from "@/lib/domain/achievement";
+import { evidenceAmount, praisePrompt } from "@/lib/domain/praise";
 import { aiEnabled, aiJson } from "./claude";
 import { recordSystemPrompt } from "./record-prompts";
 import { joinSentences, SOURCED_RULES, SourcedOut, toKeys, type SourcedSentence } from "./sourced";
@@ -31,6 +33,8 @@ export interface WriteInput {
   activity?: string;
   /** 성취수준 말투 한 줄 (N35 ③, achievement.levelPrompt) — 시스템 프롬프트 끝에 붙는다 */
   tone?: string;
+  /** 고른 성취수준 (N41 과장 막기 — 안 골랐으면 null: 사실 그대로, 최상급 칭찬 금지) */
+  level?: Level | null;
 }
 
 /** sentences: AI가 쓴 문장과 기댄 근거 key (N38). 예시 초안·실패면 없음 → 규칙으로 근거를 붙인다 */
@@ -99,7 +103,8 @@ export async function writeRecord(input: WriteInput): Promise<WriteResult> {
     .filter((x) => x !== null)
     .join("\n");
 
-  const system = recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null) + APP_RULES + SOURCED_RULES + (input.tone ?? "");
+  const system = recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null) + APP_RULES + SOURCED_RULES + (input.tone ?? "")
+    + praisePrompt(input.level, evidenceAmount([memo, ...logs.map((l) => l.content)]));
   const r = await aiJson(SourcedOut, { system, content, model: "write", maxTokens: 3500 });
   if (!r.ok) return fallback(`${r.error} — 예시 초안을 대신 채웠어요`);
 

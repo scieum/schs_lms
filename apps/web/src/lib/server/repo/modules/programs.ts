@@ -213,7 +213,7 @@ function seed(): ProgramStore {
   s.programs.push(
     {
       id: P.science, ownerId: "t-subject", coOwnerIds: [], title: "과학 탐구 발표", subject: "물리학", area: "세특", unit: "bytes", max: 1500,
-      startDate: ymd(-3), endDate: ymd(4), source: "both", requestDocs: true, docKinds: ["탐구 보고서", "활동지"],
+      startDate: ymd(-3), endDate: ymd(4), source: "both", useMemos: true, requestDocs: true, docKinds: ["탐구 보고서", "활동지"],
       questions: [...FIXED_QUESTIONS, extra], targetIds: all, status: "open", createdAt: ago(24 * 5),
       overview: "모둠별로 생활 속 과학 현상을 하나 골라 가설을 세우고 실험·관찰한 뒤 결과를 발표한다.",
     },
@@ -491,7 +491,7 @@ const BUCKET = "program-docs";
 
 type ProgramRow = {
   id: string; owner_id: string; co_owner_ids: string[] | null; title: string; subject: string | null; area: Program["area"]; unit: LengthUnit; max_len: number;
-  start_date: string; end_date: string; source: Program["source"]; request_docs: boolean; doc_kinds: string[];
+  start_date: string; end_date: string; source: Program["source"]; use_memos?: boolean | null; request_docs: boolean; doc_kinds: string[];
   questions: Program["questions"]; target_ids: string[]; overview: string; status: Program["status"]; created_at: string;
 };
 type ResponseRow = { id: string; program_id: string; student_id: string; answers: Record<string, string>; submitted_at: string | null; updated_at: string };
@@ -512,7 +512,7 @@ type ReminderRow = { id: string; program_id: string; student_ids: string[]; mess
 
 const toProgram = (r: ProgramRow): Program => ({
   id: r.id, ownerId: r.owner_id, coOwnerIds: r.co_owner_ids ?? [], title: r.title, subject: r.subject, area: r.area, unit: r.unit, max: r.max_len, startDate: r.start_date, endDate: r.end_date,
-  source: r.source, requestDocs: r.request_docs, docKinds: r.doc_kinds ?? [], questions: r.questions ?? [], targetIds: r.target_ids ?? [],
+  source: r.source, useMemos: !!r.use_memos, requestDocs: r.request_docs, docKinds: r.doc_kinds ?? [], questions: r.questions ?? [], targetIds: r.target_ids ?? [],
   overview: r.overview ?? "", status: r.status, createdAt: r.created_at,
 });
 const toResponse = (r: ResponseRow): SurveyResponse => ({ id: r.id, programId: r.program_id, studentId: r.student_id, answers: r.answers ?? {}, submittedAt: r.submitted_at, updatedAt: r.updated_at });
@@ -555,6 +555,8 @@ const supabaseBase: BaseRepo = {
       owner_id: p.ownerId, co_owner_ids: p.coOwnerIds.filter(isUuid), title: p.title, subject: p.subject, area: p.area, unit: p.unit, max_len: p.max, start_date: p.startDate, end_date: p.endDate,
       source: p.source, request_docs: p.requestDocs, doc_kinds: p.docKinds, questions: p.questions, target_ids: p.targetIds.filter(isUuid),
       overview: p.overview, status: p.status,
+      // N41 (0023): 메모를 쓰지 않으면 칸을 보내지 않는다 — 0023 전 DB에서도 등록이 된다
+      ...(p.useMemos ? { use_memos: true } : {}),
     };
     let res = await db().from("programs").insert(row).select("*").single();
     if (noCoOwnerColumn(res.error) && row.co_owner_ids.length === 0) {
@@ -569,6 +571,7 @@ const supabaseBase: BaseRepo = {
     const row: Partial<ProgramRow> = {};
     if (p.status !== undefined) row.status = p.status;
     if (p.source !== undefined) row.source = p.source;
+    if (p.useMemos !== undefined) row.use_memos = p.useMemos;
     if (p.requestDocs !== undefined) row.request_docs = p.requestDocs;
     if (p.docKinds !== undefined) row.doc_kinds = p.docKinds;
     if (p.coOwnerIds !== undefined) row.co_owner_ids = p.coOwnerIds.filter(isUuid);
@@ -585,6 +588,11 @@ const supabaseBase: BaseRepo = {
     let res = await db().from("programs").update(row).eq("id", id);
     if (noCoOwnerColumn(res.error) && !row.co_owner_ids?.length) {
       delete row.co_owner_ids;
+      res = await db().from("programs").update(row).eq("id", id);
+    }
+    // 0023 전 DB: use_memos 칸이 없으면 메모를 끈 채로는 그 칸만 빼고 다시
+    if (res.error && /use_memos/.test(res.error.message ?? "") && !row.use_memos) {
+      delete row.use_memos;
       res = await db().from("programs").update(row).eq("id", id);
     }
     check(res);

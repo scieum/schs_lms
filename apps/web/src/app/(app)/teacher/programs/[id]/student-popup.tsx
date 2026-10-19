@@ -6,8 +6,9 @@ import { cx } from "@/components/ui";
 import { ChipDeleteButton, DeleteConfirm, useDelayedDelete } from "@/components/materials/delete-file";
 import { remindOne, studentDetail, type StudentDetail } from "./actions";
 import { deleteMaterials } from "./materials/actions";
+import { ProgramMemoBox } from "./memo-box";
 
-// 프로그램 상세 · 학생 활동 팝업 (Figma N24 339:331): PC 가운데 560 창 · 모바일 바텀시트.
+// 프로그램 상세 · 학생 활동 팝업 (Figma N24 339:331 · N41 교사 메모 492:29957): PC 가운데 560 창 · 모바일 바텀시트.
 // 행을 누르면 열리고, 그 학생 것만 서버 액션으로 불러온다. 행 오른쪽 버튼(보기·알림·직접 작성)은 그대로 동작한다.
 
 export type PopupStudent = { id: string; name: string; sub: string };
@@ -141,6 +142,7 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
                 {data.survey !== null && <span className={cx(CHIP, data.survey ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad")}>{data.survey ? "설문 응답함" : "설문 안 함"}</span>}
                 {data.docs !== null && <span className={cx(CHIP, mats.length ? "bg-key-soft text-key-strong" : "bg-soft text-mute")}>{mats.length ? `서류 ${mats.length}개` : "서류 없음"}</span>}
                 <span className={cx(CHIP, dTone)}>{dLabel}</span>
+                {data.memo && <span className={cx(CHIP, "bg-key-soft text-key-strong")}>교사 메모</span>}
               </div>
 
               {/* 한 활동 */}
@@ -215,6 +217,10 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
                   </div>
                 </section>
               )}
+
+              {/* 이 학생 관찰 메모 (N41) */}
+              <ProgramMemoBox programId={programId} studentId={student.id} initial={data.memo} canRewrite={data.canRewrite} others={data.others}
+                onRewritten={() => setReload((n) => n + 1)} />
             </>
           )}
 

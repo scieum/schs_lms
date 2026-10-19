@@ -18,11 +18,29 @@ export function isArea(v: string): v is DraftCategory {
   return (AREAS as string[]).includes(v);
 }
 
-/** 초안 근거: 설문 응답 · 학생 제출 서류 · 둘 다 (설문 없이 서류만으로도 만든다) */
-export type EvidenceSource = "survey" | "docs" | "both";
-export const SOURCE_LABEL: Record<EvidenceSource, string> = { survey: "설문", docs: "서류", both: "설문 + 서류" };
-export const usesSurvey = (s: EvidenceSource) => s !== "docs";
-export const usesDocs = (s: EvidenceSource) => s !== "survey";
+/**
+ * 초안 근거: 설문 응답 · 학생 제출 서류 · 둘 다 · 교사 메모만(N41 "memo").
+ * 교사 메모는 설문·서류와 함께 쓸 수도 있다 (Program.useMemos). 메모만이면 source = "memo".
+ */
+export type EvidenceSource = "survey" | "docs" | "both" | "memo";
+export const EVIDENCE_SOURCES = ["survey", "docs", "both", "memo"] as const satisfies readonly EvidenceSource[];
+export const SOURCE_LABEL: Record<EvidenceSource, string> = { survey: "설문", docs: "서류", both: "설문 + 서류", memo: "교사 메모" };
+export const usesSurvey = (s: EvidenceSource) => s === "survey" || s === "both";
+export const usesDocs = (s: EvidenceSource) => s === "docs" || s === "both";
+/** 교사 메모를 근거로 쓰나 (메모만 · 설문/서류와 함께) */
+export const usesMemos = (p: Pick<Program, "source" | "useMemos">) => p.source === "memo" || !!p.useMemos;
+/** 화면 이름: "설문 + 교사 메모" 처럼 */
+export const sourceLabel = (p: Pick<Program, "source" | "useMemos">) => (p.source !== "memo" && p.useMemos ? `${SOURCE_LABEL[p.source]} + 교사 메모` : SOURCE_LABEL[p.source]);
+/** 체크 셋(설문 · 서류 · 교사 메모) → source · useMemos. 아무것도 없으면 null */
+export function sourceFromPicks(p: { survey: boolean; docs: boolean; memo: boolean }): { source: EvidenceSource; useMemos: boolean } | null {
+  if (p.survey && p.docs) return { source: "both", useMemos: p.memo };
+  if (p.survey) return { source: "survey", useMemos: p.memo };
+  if (p.docs) return { source: "docs", useMemos: p.memo };
+  return p.memo ? { source: "memo", useMemos: true } : null;
+}
+/** 프로그램 × 학생 관찰 메모 범위 (record_memos.scope, 추가만 — 최신 한 건이 지금 메모) */
+export const programMemoScope = (programId: string) => `프로그램:${programId}`;
+export const PROGRAM_MEMO_MAX = 1000;
 
 export type ProgramStatus = "draft" | "open" | "closed";
 
@@ -47,6 +65,8 @@ export interface Program {
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD (설문·서류 마감)
   source: EvidenceSource;
+  /** N41: 설문·서류에 더해 교사 관찰 메모도 근거로 (source = "memo" 면 메모만) */
+  useMemos?: boolean;
   requestDocs: boolean;
   docKinds: string[];
   questions: Question[];
@@ -390,11 +410,12 @@ export interface EvidenceItem {
   text: string;
 }
 
-/** 학생 한 명의 근거: 설문 답(답한 문항) + 연결된 서류. 프로그램의 근거 설정을 따른다 */
+/** 학생 한 명의 근거: 설문 답(답한 문항) + 연결된 서류 + 교사 관찰 메모(N41). 프로그램의 근거 설정을 따른다 */
 export function buildEvidence(
-  program: Pick<Program, "source" | "questions">,
+  program: Pick<Program, "source" | "questions" | "useMemos">,
   response: Pick<SurveyResponse, "answers" | "submittedAt"> | null | undefined,
   materials: Pick<Material, "fileName" | "text" | "status">[],
+  memo?: string | null,
 ): EvidenceItem[] {
   const out: EvidenceItem[] = [];
   if (usesSurvey(program.source) && response?.submittedAt) {
@@ -406,6 +427,7 @@ export function buildEvidence(
   if (usesDocs(program.source)) {
     for (const m of materials) if (m.status === "matched") out.push({ label: `서류 ${m.fileName}`, text: m.text ?? "" });
   }
+  if (usesMemos(program) && memo?.trim()) out.push({ label: "교사 메모", text: memo.trim() });
   return out;
 }
 
@@ -481,11 +503,14 @@ export function sampleDraft(input: {
   docs: { kind: string; text: string | null }[];
   careerGoal: string | null;
   range: LengthRange;
+  /** 교사 관찰 메모 (N41, 가린 글) */
+  memo?: string | null;
 }): string {
   const [a1, a2, a3, a4] = input.answers.map((a) => (a ?? "").trim());
   const out: string[] = [];
   out.push(`${input.title} 활동에 참여하여 스스로 정한 주제로 탐구를 수행함.`);
   if (a1) out.push(`활동 과정에서 '${clip(a1)}'라고 정리하며 탐구 과정을 구체적으로 기록함.`);
+  if (input.memo?.trim()) out.push(`활동 중 '${clip(input.memo, 60)}'(이)라는 모습이 관찰됨.`);
   for (const d of input.docs.slice(0, 2)) {
     out.push(d.text ? `제출한 ${d.kind}에서 '${clip(d.text, 40)}'라는 내용을 근거로 결과를 정리함.` : `제출한 ${d.kind}에 탐구 과정과 결과를 체계적으로 정리함.`);
   }

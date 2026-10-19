@@ -4,13 +4,15 @@ import { today } from "@/lib/domain/activity";
 import { measure } from "@/lib/domain/length";
 import { isAdmin, type Action } from "@/lib/domain/policy";
 import {
-  effectiveStatus, isProgramOwner, latestVersion, responseRate, reviewStatus, studentStage, usesDocs, usesSurvey,
+  effectiveStatus, isProgramOwner, latestVersion, responseRate, reviewStatus, studentStage, usesDocs, usesMemos, usesSurvey,
   type DraftJob, type DraftVersion, type Material, type Program, type ProgramStatus, type ReviewStatus, type Stage, type SurveyResponse,
 } from "@/lib/domain/program";
 import type { Student, Viewer } from "@/lib/domain/types";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import type { StageCounts } from "@/lib/domain/program-stage";
+import type { RecordMemo } from "@/lib/domain/writing";
+import { programMemos } from "@/lib/server/program-memo";
 
 /** 내 프로그램만 (관리자는 전부). 없으면 404, 남의 것이면 403 */
 export async function requireProgram(id: string, action: Action = "program.manage"): Promise<{ v: Viewer; program: Program }> {
@@ -33,8 +35,10 @@ export interface StudentRow {
   latest: DraftVersion | undefined;
   review: ReviewStatus;
   stage: Stage;
-  /** 근거가 하나라도 있나 (설문 제출 또는 연결된 서류) */
+  /** 근거가 하나라도 있나 (설문 제출 · 연결된 서류 · 교사 메모 N41) */
   hasEvidence: boolean;
+  /** 교사 관찰 메모 (N41, 메모를 쓰는 프로그램만) */
+  memo: RecordMemo | null;
   evidenceLabel: string;
   missingReason: string | null;
   length: number | null;
@@ -42,13 +46,14 @@ export interface StudentRow {
 
 /** T2·A4 가 같이 쓰는 학생별 현황 */
 export async function programRows(program: Program): Promise<{ rows: StudentRow[]; materials: Material[]; responses: SurveyResponse[] }> {
-  const [students, responses, materials, jobs, versions, missing] = await Promise.all([
+  const [students, responses, materials, jobs, versions, missing, memos] = await Promise.all([
     repo.listStudents(),
     repo.listResponses(program.id),
     repo.listMaterials(program.id),
     repo.listDraftJobs({ programIds: [program.id] }),
     repo.listDraftVersions({ programIds: [program.id] }),
     repo.listMissingReasons(program.id),
+    usesMemos(program) ? programMemos(program.id, program.targetIds) : Promise.resolve(new Map<string, RecordMemo>()),
   ]);
   const closed = effectiveStatus(program, today()) === "closed";
   const targets = new Set(program.targetIds);
@@ -62,12 +67,14 @@ export async function programRows(program: Program): Promise<{ rows: StudentRow[
       const latest = job ? latestVersion(versions, job.id) : undefined;
       const survey = usesSurvey(program.source) && !!response?.submittedAt;
       const docs = usesDocs(program.source) && mats.length > 0;
+      const memo = memos.get(student.id) ?? null;
+      const label = [survey ? "설문" : "", docs ? "서류" : "", memo ? "메모" : ""].filter(Boolean).join("+");
       return {
-        student, response, materials: mats, job, latest,
+        student, response, materials: mats, job, latest, memo,
         review: reviewStatus(job, latest),
         stage: studentStage({ job, latest, closed }),
-        hasEvidence: survey || docs,
-        evidenceLabel: survey && docs ? "설문+서류" : survey ? "설문" : docs ? "서류" : "—",
+        hasEvidence: survey || docs || !!memo,
+        evidenceLabel: label || "—",
         missingReason: missing[student.id] ?? null,
         length: latest && latest.status !== "rejected" ? measure(latest.content, job?.unit ?? program.unit) : null,
       };
@@ -94,11 +101,12 @@ export interface ProgramSummary {
  */
 export async function programSummaries(programs: Program[]): Promise<ProgramSummary[]> {
   const ids = programs.map((p) => p.id);
-  const [jobs, versions, responses, materials] = await Promise.all([
+  const [jobs, versions, responses, materials, memos] = await Promise.all([
     ids.length ? repo.listDraftJobs({ programIds: ids }) : Promise.resolve([]),
     ids.length ? repo.listDraftVersions({ programIds: ids }) : Promise.resolve([]),
     Promise.all(programs.map((p) => (usesSurvey(p.source) ? repo.listResponses(p.id) : Promise.resolve([])))),
     Promise.all(programs.map((p) => (usesDocs(p.source) ? repo.listMaterials(p.id) : Promise.resolve([])))),
+    Promise.all(programs.map((p) => (usesMemos(p) ? programMemos(p.id, p.targetIds) : Promise.resolve(new Map<string, RecordMemo>())))),
   ]);
   const t = today();
   return programs.map((p, i) => {
@@ -112,7 +120,7 @@ export async function programSummaries(programs: Program[]): Promise<ProgramSumm
     let evidence = 0;
     let ready = 0;
     for (const id of targets) {
-      if (!surveyed.has(id) && !docs.has(id)) continue;
+      if (!surveyed.has(id) && !docs.has(id) && !memos[i].has(id)) continue;
       evidence++;
       const j = jobOf.get(id);
       if (!j || j.state === "PENDING") ready++;

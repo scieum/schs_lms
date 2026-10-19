@@ -9,7 +9,7 @@ export const ALL_LEVELS: Level[] = ["A", "B", "C", "D", "E", "상", "중", "하"
 export type LevelInfo = { level: Level; name: string; tone: string; example: string };
 
 const FIVE: LevelInfo[] = [
-  { level: "A", name: "매우 우수", tone: "깊이 이해하고 스스로 넓혀 감 · 주도적·탁월하게", example: "원리를 스스로 확장해 설명함 · 주도적으로 탐구를 이끎" },
+  { level: "A", name: "매우 우수", tone: "깊이 이해하고 스스로 넓혀 감 · 주도적으로", example: "원리를 스스로 확장해 설명함 · 주도적으로 탐구를 이끎" },
   { level: "B", name: "우수", tone: "정확히 이해하고 성실하게 해냄", example: "정확하게 설명함 · 꼼꼼히 정리함" },
   { level: "C", name: "보통", tone: "기본 개념을 이해하고 과제를 수행함", example: "기본 개념을 이해하고 실험을 수행함" },
   { level: "D", name: "미흡", tone: "기본 개념을 익히려 꾸준히 노력함(노력·참여 중심)", example: "모둠 활동에 참여하며 개념을 익혀 감" },
@@ -48,7 +48,7 @@ export function toneLine(level: Level): string {
 
 /** 화면 안내 줄: "B · ‘정확히 이해하고 성실하게 해냄’ 쪽 말투로 써요 · 예: 정확하게 설명함 · 꼼꼼히 정리함" */
 export function guideLine(level: Level | null): string {
-  if (!level) return "고르지 않으면 조각 그대로의 말투로 써요";
+  if (!level) return "안 고르면 사실 그대로 써요 · 메모에 없는 높은 평가는 하지 않아요";
   const i = levelInfo(level);
   return `${level} · ‘${i.tone.replace(/\(.*\)$/, "").replace(/ · .*$/, "")}’ 쪽 말투로 써요 · 예: ${i.example}`;
 }

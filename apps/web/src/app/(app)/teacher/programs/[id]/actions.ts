@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { today } from "@/lib/domain/activity";
 import { isAdmin } from "@/lib/domain/policy";
-import { effectiveStatus, maskIdentity, responseDigest, usesDocs, usesSurvey, type ReviewStatus } from "@/lib/domain/program";
+import { effectiveStatus, maskIdentity, PROGRAM_MEMO_MAX, programMemoScope, responseDigest, usesDocs, usesMemos, usesSurvey, type ReviewStatus } from "@/lib/domain/program";
 import { measure, type LengthUnit } from "@/lib/domain/length";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { resetDraftJob, runDraftJobs } from "@/lib/server/ai/draft";
@@ -14,6 +14,7 @@ import { programRows, requireProgram } from "../_lib/data";
 import { makeStudentNo } from "@/lib/domain/roster";
 import { kstToday, noticeLine } from "@/lib/domain/retention";
 import { programRetention } from "@/lib/server/retention-sweep";
+import { programMemo } from "@/lib/server/program-memo";
 
 export type RemindDraft = { text?: string; label?: "AI" | "자동"; error?: string; sent?: string; n?: number };
 
@@ -185,6 +186,11 @@ export type StudentDetail = {
   retention: { line: string; soon: boolean; purgedOn: string | null } | null;
   draft: { content: string; length: number; max: number; unit: LengthUnit } | null;
   jobId: string | null;
+  /** 교사 관찰 메모 (N41) · 메모를 근거로 쓰는지 · 다시 쓸 수 있는지(발행됨) · 같은 메모를 넣을 다른 대상 학생 */
+  memo: { content: string; at: string } | null;
+  usesMemo: boolean;
+  canRewrite: boolean;
+  others: { id: string; name: string }[];
   canRemind: boolean;
 };
 
@@ -203,6 +209,8 @@ export async function studentDetail(programId: string, studentId: string): Promi
     ? program.questions.map((q) => ({ title: q.title, text: (r.response!.answers[q.id] ?? "").trim() })).filter((a) => a.text)
     : [];
   const unit = r.job?.unit ?? program.unit;
+  // 메모를 쓰지 않던 프로그램이어도 적어 둔 메모는 보여 준다
+  const memoNow = r.memo ?? (await programMemo(program.id, studentId));
   return {
     survey: usesSurvey(program.source) ? submitted : null,
     docs: usesDocs(program.source) ? r.materials.length : null,
@@ -212,6 +220,10 @@ export async function studentDetail(programId: string, studentId: string): Promi
     retention: await retentionOf(program, r.materials),
     draft: r.job && r.latest ? { content: r.latest.content, length: measure(r.latest.content, unit), max: r.job.max || program.max, unit } : null,
     jobId: r.job?.id ?? null,
+    memo: memoNow ? { content: memoNow.content, at: memoNow.createdAt } : null,
+    usesMemo: usesMemos(program),
+    canRewrite: program.status !== "draft",
+    others: rows.filter((x) => x.student.id !== studentId).map((x) => ({ id: x.student.id, name: x.student.name })),
     canRemind: effectiveStatus(program, today()) === "open" && !r.hasEvidence && !r.missingReason,
   };
 }
@@ -226,4 +238,51 @@ async function retentionOf(program: { id: string; endDate: string }, mats: { pur
   const { rawDue } = await programRetention(program);
   const n = noticeLine(rawDue, kstToday());
   return { line: n.soon ? `서류 원본은 ${n.title.replace("이 자료는 ", "")}` : `서류 원본은 ${rawDue}에 지워져요`, soon: n.soon, purgedOn: null };
+}
+
+// ---------- 교사 메모 (Figma N41) ----------
+
+export type MemoSaveResult = { ok: true; saved: number; at: string; turnedOn: boolean } | { ok: false; error: string };
+
+/**
+ * 이 학생 관찰 메모 저장 (프로그램 × 학생, 추가만 — 최신 한 건이 지금 메모). 같은 메모를 여러 학생에게 한 번에 넣을 수 있다(대상 학생만, 최대 40명).
+ * 메모를 근거로 쓰지 않던 프로그램이면 근거에 "교사 메모"를 더한다. 감사 기록은 학생 수만 (글 · 이름 없음).
+ */
+export async function saveProgramMemo(input: { programId: string; studentIds: string[]; content: string }): Promise<MemoSaveResult> {
+  const { v, program } = await requireProgram(String(input?.programId ?? ""), "draft.review");
+  const ids = [...new Set((Array.isArray(input?.studentIds) ? input.studentIds : []).map(String))].filter((id) => program.targetIds.includes(id));
+  if (!ids.length) return { ok: false, error: "이 프로그램 대상 학생만 적을 수 있어요" };
+  if (ids.length > 40) return { ok: false, error: "한 번에 40명까지 넣을 수 있어요" };
+  const content = String(input?.content ?? "").replace(/\r\n/g, "\n").trim();
+  if (content.length > PROGRAM_MEMO_MAX) return { ok: false, error: `메모는 ${PROGRAM_MEMO_MAX.toLocaleString()}자까지예요` };
+  for (const id of ids) await repo.addRecordMemo({ scope: programMemoScope(program.id), studentId: id, authorId: v.accountId, content });
+  const turnedOn = !!content && !usesMemos(program);
+  if (turnedOn) await repo.updateProgram(program.id, { useMemos: true });
+  await repo.audit(v.accountId, "program.memo", `${program.id} ${ids.length}명${content ? "" : " 지움"}${turnedOn ? " 근거+메모" : ""}`);
+  revalidatePath(`/teacher/programs/${program.id}`);
+  revalidatePath("/teacher/drafts");
+  return { ok: true, saved: ids.length, at: new Date().toISOString(), turnedOn };
+}
+
+export type MemoRewriteResult = { ok: true; done: string; running: boolean } | { ok: false; error: string };
+
+/** 메모 반영해 다시 쓰기: 이 학생 초안을 처음부터 다시 만든다 (앞 버전은 그대로 남는다). 초안 작업이 없으면 만든다 */
+export async function rewriteWithMemo(input: { programId: string; studentId: string }): Promise<MemoRewriteResult> {
+  const { v, program } = await requireProgram(String(input?.programId ?? ""), "draft.review");
+  const studentId = String(input?.studentId ?? "");
+  if (!program.targetIds.includes(studentId)) return { ok: false, error: "이 프로그램 대상 학생이 아니에요" };
+  if (program.status === "draft") return { ok: false, error: "먼저 발행해 주세요" };
+  if (!usesMemos(program)) return { ok: false, error: "메모를 먼저 저장해 주세요" };
+  const [job] = await repo.ensureDraftJobs(program.id, [studentId], { unit: program.unit, max: program.max });
+  if (!job) return { ok: false, error: "초안 작업을 만들지 못했어요" };
+  await resetDraftJob(job.id);
+  await repo.audit(v.accountId, "draft.regenerate_memo", `${program.id} 1명`);
+  revalidatePath(`/teacher/programs/${program.id}`);
+  revalidatePath("/teacher/drafts");
+  if (aiEnabled()) {
+    after(() => runDraftJobs([job.id]));
+    return { ok: true, done: "메모를 반영해 다시 쓰는 중이에요. 잠시 뒤 새로고침해 주세요", running: true };
+  }
+  const r = await runDraftJobs([job.id]);
+  return r.done ? { ok: true, done: "메모를 반영해 예시 초안을 다시 썼어요", running: false } : { ok: false, error: "다시 쓰지 못했어요 (근거 자료를 확인해 주세요)" };
 }

@@ -18,6 +18,7 @@ import { latestVersion } from "@/lib/domain/program";
 import type { ClassCheckView } from "@/lib/domain/class-check";
 import { buildClassView, classAudit } from "@/lib/server/class-check";
 import { classProv, confirmAudit, provForSave } from "@/lib/server/provenance";
+import { programMemo } from "@/lib/server/program-memo";
 
 /** 이 초안 작업을 다룰 수 있는 교사인지 (자기 프로그램 · 관리자) */
 async function loadJob(jobId: string) {
@@ -125,8 +126,8 @@ export async function reviewDraftAction(prev: ReviewState, form: FormData): Prom
   const people = (await repo.listStudents()).filter((s) => set.has(s.id) || s.id === student.id).map((s) => ({ name: s.name, studentNo: s.studentNo }));
   const draft = String(form.get("content") ?? "").slice(0, 5000);
   if (!draft.trim()) return { error: "검토할 초안이 없어요", n };
-  const [response, materials] = await Promise.all([repo.getResponse(program.id, student.id), repo.listMaterials(program.id)]);
-  const evidence = buildEvidence(program, response, materials.filter((m) => m.studentId === student.id))
+  const [response, materials, memo] = await Promise.all([repo.getResponse(program.id, student.id), repo.listMaterials(program.id), programMemo(program.id, student.id)]);
+  const evidence = buildEvidence(program, response, materials.filter((m) => m.studentId === student.id), memo?.content)
     .map((e) => ({ label: maskIdentity(e.label, people), text: maskIdentity(e.text, people) }));
   // 초안에 이름이 있으면 가려서 보낸다. 제안의 phrase 는 가린 글 기준이라, 이름이 섞인 문장은 반영되지 않을 수 있다
   const r = await reviewDraft(maskIdentity(draft, people), evidence);
@@ -143,7 +144,10 @@ export async function aiFixDraft(input: { jobId: string; text: string; batch?: b
   const text = String(input.text ?? "").slice(0, 6000);
   if (!text.trim()) return { ok: false, error: "본문이 비어 있어요" };
   const range = resolveLength(ctx.program.area, { unit: ctx.job.unit, max: ctx.job.max });
-  const r = await fixRecord({ kind: KIND[ctx.program.area], student: ctx.student, text, range });
+  // N41: 화면 검사와 같은 "근거보다 높은 평가" 행도 고친다 (근거 글은 검사에만 — AI에는 걸린 말만)
+  const [response, materials, memo] = await Promise.all([repo.getResponse(ctx.program.id, ctx.student.id), repo.listMaterials(ctx.program.id), programMemo(ctx.program.id, ctx.student.id)]);
+  const evidence = buildEvidence(ctx.program, response, materials.filter((m) => m.studentId === ctx.student.id && m.status === "matched"), memo?.content).map((e) => e.text).join(" / ");
+  const r = await fixRecord({ kind: KIND[ctx.program.area], student: ctx.student, text, range, praise: { level: null, evidence } });
   await repo.audit(ctx.v.accountId, "draft.ai_fix", `${ctx.program.id} ${ctx.student.pseudonymId}${input.batch ? " class" : ""}`);
   return { ok: true, text: r.text, changes: r.changes, label: r.label, bytes: measure(r.text, range.unit), notice: r.notice };
 }
@@ -163,8 +167,8 @@ export async function rephraseAction(prev: RephraseState, form: FormData): Promi
   if (sentence.replace(/\s/g, "").length < 4) return { error: "바꿀 문장을 본문에서 골라 주세요", n };
   const set = new Set(program.targetIds);
   const people = (await repo.listStudents()).filter((s) => set.has(s.id) || s.id === student.id).map((s) => ({ name: s.name, studentNo: s.studentNo }));
-  const [response, materials] = await Promise.all([repo.getResponse(program.id, student.id), repo.listMaterials(program.id)]);
-  const evidence = buildEvidence(program, response, materials.filter((m) => m.studentId === student.id))
+  const [response, materials, memo] = await Promise.all([repo.getResponse(program.id, student.id), repo.listMaterials(program.id), programMemo(program.id, student.id)]);
+  const evidence = buildEvidence(program, response, materials.filter((m) => m.studentId === student.id), memo?.content)
     .map((e) => ({ label: maskIdentity(e.label, people), text: maskIdentity(e.text, people).slice(0, 1500) }));
   const avoid = String(form.get("avoid") ?? "").trim().slice(0, 600);
   const r = await rephraseSentence(program, maskIdentity(sentence, people), {

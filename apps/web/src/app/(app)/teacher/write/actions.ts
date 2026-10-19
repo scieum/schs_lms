@@ -154,8 +154,12 @@ const MergeSchema = z.object({
   pieces: z.array(z.object({ id: z.string(), source: z.enum(PIECE_SOURCES), date: z.string().nullable(), text: z.string().max(6000), weight: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional() })).min(1, "합칠 조각을 골라 주세요").max(80),
   unit: z.enum(["bytes", "chars"]),
   max: z.number().int().min(1),
+  /** 메모 모아 쓰기 (N41): 교사가 정한 순서 그대로 */
+  keepOrder: z.boolean().optional(),
 });
 const FitSchema = z.object({ text: z.string().min(1, "본문이 비어 있어요").max(6000), unit: z.enum(["bytes", "chars"]), max: z.number().int().min(1) });
+/** N41: 화면 자동 검사와 같은 "근거보다 높은 평가" 행을 같이 고친다 (창체·행발은 성취수준이 없다 → null) */
+const FixSchema = FitSchema.extend({ praise: z.object({ evidence: z.string().max(40000) }).optional() });
 const toDraft = (r: { text: string; sample: boolean; notice?: string }): AiDraftResult =>
   r.text ? { ok: true, text: r.text, sample: r.sample, notice: r.notice } : { ok: false, error: r.notice ?? "만들지 못했어요. 직접 고쳐 주세요" };
 
@@ -213,7 +217,7 @@ export async function mergeRecordAction(input: { area: string; studentId: string
   const p = MergeSchema.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
   const range = fitRange(resolveRecordLength(t.area, { unit: p.data.unit, max: p.data.max }));
-  const r = await mergeRecord({ kind: t.area, context: t.clubName, student: t.student, pieces: p.data.pieces, range });
+  const r = await mergeRecord({ kind: t.area, context: t.clubName, student: t.student, pieces: p.data.pieces, range, level: null, keepOrder: p.data.keepOrder });
   await repo.audit(t.v.accountId, "record.ai_merge", `${t.area} ${t.student.pseudonymId} ${p.data.pieces.length}조각`);
   const d = toDraft(r);
   if (!d.ok) return d;
@@ -249,13 +253,13 @@ export async function fitRecordAction(input: { area: string; studentId: string; 
 const VarSchema = FitSchema.extend({ mode: z.enum(["keep", "fresh"]) });
 
 /** AI로 고치기: 자동 검사에 걸린 곳만 고친 글 (저장하지 않음) */
-export async function aiFixRecordAction(input: { area: string; studentId: string; clubId?: string | null; batch?: boolean } & z.input<typeof FitSchema>): Promise<AiFixResult> {
+export async function aiFixRecordAction(input: { area: string; studentId: string; clubId?: string | null; batch?: boolean } & z.input<typeof FixSchema>): Promise<AiFixResult> {
   const t = await recordTarget(input.area, input.studentId, input.clubId);
   if ("error" in t) return { ok: false, error: t.error };
-  const p = FitSchema.safeParse(input);
+  const p = FixSchema.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
   const range = resolveRecordLength(t.area, { unit: p.data.unit, max: p.data.max });
-  const r = await fixRecord({ kind: t.area, context: t.clubName, student: t.student, text: p.data.text, range });
+  const r = await fixRecord({ kind: t.area, context: t.clubName, student: t.student, text: p.data.text, range, praise: p.data.praise ? { level: null, evidence: p.data.praise.evidence } : undefined });
   await repo.audit(t.v.accountId, "record.ai_fix", `${t.area} ${t.student.pseudonymId}${input.batch ? " class" : ""}`);
   return { ok: true, text: r.text, changes: r.changes, label: r.label, bytes: measure(r.text, range.unit), notice: r.notice };
 }

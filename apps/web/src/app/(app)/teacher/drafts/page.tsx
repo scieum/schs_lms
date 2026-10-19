@@ -4,7 +4,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Avatar, ButtonLink, Card, Tag, cx } from "@/components/ui";
 import { isAdmin } from "@/lib/domain/policy";
-import { buildEvidence, latestVersion, reviewStatus, SOURCE_LABEL, type ReviewStatus } from "@/lib/domain/program";
+import { buildEvidence, latestVersion, reviewStatus, sourceLabel, type ReviewStatus } from "@/lib/domain/program";
+import { programMemo } from "@/lib/server/program-memo";
+import { ProgramMemoBox } from "../programs/[id]/memo-box";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
@@ -99,9 +101,10 @@ export default async function DraftsPage({ searchParams }: Props) {
   if (sel && sel.student) {
     const s = sel.student;
     const p = sel.program;
-    const [response, materials] = await Promise.all([repo.getResponse(p.id, s.id), repo.listMaterials(p.id)]);
+    const [response, materials, memo] = await Promise.all([repo.getResponse(p.id, s.id), repo.listMaterials(p.id), programMemo(p.id, s.id)]);
     const mats = materials.filter((m) => m.studentId === s.id && m.status === "matched");
-    const evidence = buildEvidence(p, response, mats);
+    // N41 교사 관찰 메모도 근거 (메모를 쓰는 프로그램만)
+    const evidence = buildEvidence(p, response, mats, memo?.content);
     const jobVersions = versions.filter((x) => x.jobId === sel.job.id);
     const answered = p.questions.filter((qq) => response?.submittedAt && (response.answers[qq.id] ?? "").trim());
     const initial = sel.latest?.content ?? "";
@@ -109,7 +112,7 @@ export default async function DraftsPage({ searchParams }: Props) {
     const set = new Set(p.targetIds);
     const people = students.filter((x) => set.has(x.id) || x.id === s.id).map((x) => ({ name: x.name, studentNo: x.studentNo }));
     const pv = await provView(sel.latest);
-    const pool = draftPool(p, response, mats, people);
+    const pool = draftPool(p, response, mats, people, memo);
 
     detail = (
       <>
@@ -157,13 +160,18 @@ export default async function DraftsPage({ searchParams }: Props) {
                 openCheck={q.check === "1"}
                 prov={{ original: pv.original, pins: pv.pins, pool, editRatioMin: settings.editRatioMin, who: s.name }}
                 finalized={sel.status === "확정"}
-                tags={[`근거: ${SOURCE_LABEL[p.source]}`, `버전 ${jobVersions.length}`, ...(sel.latest?.source === "sample" ? ["예시"] : sel.latest?.source === "ai" ? ["AI 초안"] : [])]}
+                tags={[`근거: ${sourceLabel(p).split(" + ").join("+").replace("교사 메모", "메모")}`, `버전 ${jobVersions.length}`, ...(sel.latest?.source === "sample" ? ["예시"] : sel.latest?.source === "ai" ? ["AI 초안"] : [])]}
               />
             </>
           )}
         </Card>
 
         <Card title="근거 자료" className="pane-ev h-full min-w-0 md:col-start-2 xl:col-start-auto">
+          {/* 이 학생 관찰 메모 (N41): 저장 · 메모 반영해 다시 쓰기 */}
+          <div className="mb-3">
+            <ProgramMemoBox key={`${p.id}-${s.id}`} programId={p.id} studentId={s.id} narrow
+              initial={memo ? { content: memo.content, at: memo.createdAt } : null} canRewrite={p.status !== "draft"} />
+          </div>
           {evidence.length === 0 && <p className="text-[13px] text-mute">근거 자료가 없어요</p>}
           <EvidenceDocs key={`${p.id}-${s.id}`} programId={p.id} docs={mats.map((m) => ({ id: m.id, fileName: m.fileName, pages: m.pages, text: m.text }))} />
           {answered.length > 0 && (

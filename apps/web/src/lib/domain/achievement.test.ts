@@ -22,7 +22,7 @@ describe("성취수준 (N35 ③)", () => {
 
   it("안내 줄 · 프롬프트", () => {
     expect(guideLine("B")).toBe("B · ‘정확히 이해하고 성실하게 해냄’ 쪽 말투로 써요 · 예: 정확하게 설명함 · 꼼꼼히 정리함");
-    expect(guideLine(null)).toBe("고르지 않으면 조각 그대로의 말투로 써요");
+    expect(guideLine(null)).toBe("안 고르면 사실 그대로 써요 · 메모에 없는 높은 평가는 하지 않아요");
     const p = levelPrompt("D");
     expect(p).toContain("성취수준 말투: 기본 개념을 익히려 꾸준히 노력함");
     expect(p).toContain("수준 글자(A~E/상중하)를 쓰지 않는다");

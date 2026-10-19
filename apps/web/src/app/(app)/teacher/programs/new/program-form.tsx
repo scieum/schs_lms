@@ -1,12 +1,12 @@
 "use client";
 import { startTransition, useActionState, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Check, ChevronLeft, ClipboardList, Plus, Search, Sparkles, Upload, X } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, ClipboardList, NotebookPen, Plus, Search, Upload, X } from "lucide-react";
 import { LengthPicker } from "@/components/length-picker";
 import { StudentListImport } from "@/components/student-list-import";
 import { Button, cx } from "@/components/ui";
 import { neisMax, UNIT_LABEL, type DraftCategory, type LengthUnit } from "@/lib/domain/length";
-import { AREA_LABEL, AREAS, DEFAULT_DOC_KINDS, FIXED_QUESTIONS, MAX_EXTRA_QUESTIONS, SOURCE_LABEL, md, type EvidenceSource } from "@/lib/domain/program";
+import { AREA_LABEL, AREAS, DEFAULT_DOC_KINDS, FIXED_QUESTIONS, MAX_EXTRA_QUESTIONS, md, sourceFromPicks, sourceLabel, usesDocs, usesMemos, usesSurvey } from "@/lib/domain/program";
 import type { PlanFields } from "@/lib/domain/program-plan";
 import type { Program } from "@/lib/domain/program";
 import { createProgramAction, suggestQuestionsAction, updateProgramAction, type CreateState, type SuggestState } from "./actions";
@@ -22,10 +22,12 @@ const LABEL = "text-[13px] font-medium text-sub";
 const PICK_ON = "border-[1.5px] border-key bg-key-soft font-bold text-key-strong";
 const PICK_OFF = "border border-hair bg-[#fff] font-medium hover:bg-soft";
 
-const SOURCES: [EvidenceSource, string, string, typeof ClipboardList][] = [
+// 근거 자료 (Figma N41 492:15969): 설문 · 서류 · 교사 메모 중 하나 이상 (교사 메모만도 된다)
+type Pick = "survey" | "docs" | "memo";
+const SOURCES: [Pick, string, string, typeof ClipboardList][] = [
   ["survey", "설문 응답", "학생이 직접 쓰는 활동 설문", ClipboardList],
   ["docs", "학생 제출 서류", "보고서 · 활동지 · 소감문", Upload],
-  ["both", "둘 다 사용", "설문과 서류를 함께 근거로", Sparkles],
+  ["memo", "교사 메모", "내가 본 일을 학생마다 적어요", NotebookPen],
 ];
 
 type StepId = 1 | 2 | 3 | 4 | 5;
@@ -49,7 +51,10 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
   const [len, setLen] = useState<{ unit: LengthUnit; max: number }>(initial ? { unit: initial.unit, max: initial.max } : { unit: "bytes", max: neisMax("세특", "bytes") });
   const [start, setStart] = useState(initial?.startDate ?? today);
   const [endDate, setEndDate] = useState(initial?.endDate ?? end);
-  const [source, setSource] = useState<EvidenceSource>(initial?.source ?? "survey");
+  const [picks, setPicks] = useState<Record<Pick, boolean>>(() => (initial ? { survey: usesSurvey(initial.source), docs: usesDocs(initial.source), memo: usesMemos(initial) } : { survey: true, docs: false, memo: false }));
+  const picked = sourceFromPicks(picks);
+  const source = picked?.source ?? "survey";
+  const srcText = picked ? sourceLabel(picked) : "고르지 않음";
   const [requestDocs, setRequestDocs] = useState(initial?.requestDocs ?? true);
   const [kinds, setKinds] = useState<string[]>(initial ? initial.docKinds : ["탐구 보고서"]);
   const [kindOptions, setKindOptions] = useState([...new Set([...DEFAULT_DOC_KINDS, ...(initial?.docKinds ?? [])])]);
@@ -70,8 +75,8 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
 
   const classes = useMemo(() => [...new Set(students.map((s) => s.classKey))].sort(), [students]);
   const byId = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
-  const survey = source !== "docs";
-  const docs = source !== "survey";
+  const survey = picks.survey;
+  const docs = picks.docs;
   const qCount = survey ? FIXED_QUESTIONS.length + extras.length : 0;
   const matches = query.trim() ? students.filter((s) => !targets.includes(s.id) && (s.name.includes(query.trim()) || s.label.includes(query.trim()))).slice(0, 6) : [];
 
@@ -143,7 +148,7 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
     targets: { dirty: targets.length > 0, text: `${targets.length}명` },
     extras: { dirty: extras.length > 0, text: extras.join(" / ") },
     docKinds: { dirty: kinds.join() !== "탐구 보고서", text: kinds.join(", ") },
-    source: { dirty: source !== "survey", text: SOURCE_LABEL[source] },
+    source: { dirty: !(picks.survey && !picks.docs && !picks.memo), text: srcText },
   };
   const applyPlan = (keys: FillKey[], f: PlanFields) => {
     const has = (k: FillKey) => keys.includes(k);
@@ -155,7 +160,7 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
     if (has("targets") && f.targetClasses.length) setTargets(students.filter((s) => f.targetClasses.includes(s.classKey)).map((s) => s.id));
     if (has("extras") && f.extraQuestions.length) setExtras(f.extraQuestions.slice(0, MAX_EXTRA_QUESTIONS));
     if (has("docKinds") && f.docKinds.length) { setKindOptions([...new Set([...kindOptions, ...f.docKinds])]); setKinds(f.docKinds); }
-    if (has("source") && f.source) setSource(f.source);
+    if (has("source") && f.source) setPicks((p) => ({ survey: usesSurvey(f.source!), docs: usesDocs(f.source!), memo: p.memo || f.source === "memo" }));
   };
 
   const runSuggest = () => {
@@ -166,7 +171,7 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
 
   const preview: Record<StepId, string> = {
     1: title.trim(),
-    2: SOURCE_LABEL[source],
+    2: srcText,
     3: survey ? `${qCount}개` : "",
     4: targets.length ? `${targets.length}명` : "",
     5: "",
@@ -183,7 +188,7 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
       ["기간", period],
     ]],
     [2, [
-      ["근거", SOURCE_LABEL[source]],
+      ["근거", srcText],
       ...(docs ? [["서류", `${kinds.join(", ") || "—"}${requestDocs ? " · 제출 요청" : ""}`] as [string, string]] : []),
     ]],
     ...(survey ? [[3, [["문항", `기본 ${FIXED_QUESTIONS.length} · 추가 ${extras.length}`]]] as [StepId, [string, string][]]] : []),
@@ -337,17 +342,19 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
           </Section>
 
           <Section id={2} n={num(2)} step={step} ask={STEP_ASK[2]} title="초안 근거 자료">
-            <input type="hidden" name="source" value={source} />
-            <div className="grid gap-2 md:grid-cols-3" role="radiogroup" aria-label="초안 근거 자료">
+            <input type="hidden" name="source" value={picked ? source : ""} />
+            <input type="hidden" name="useMemos" value={picked?.useMemos ? "on" : ""} />
+            <p className="-mt-1 text-[13px] text-mute">여러 개 골라도 돼요 · 교사 메모만 골라도 돼요{!picked && <span className="font-medium text-bad"> · 하나 이상 골라 주세요</span>}</p>
+            <div className="grid gap-2 md:grid-cols-3" role="group" aria-label="초안 근거 자료">
               {SOURCES.map(([v, t, d, I]) => (
-                <button key={v} type="button" role="radio" aria-checked={source === v} onClick={() => setSource(v)}
-                  className={cx("flex items-center gap-3 rounded-inner p-4 text-left md:flex-col md:items-start md:gap-2", source === v ? PICK_ON : PICK_OFF)}>
-                  <span className={cx("flex size-9 shrink-0 items-center justify-center rounded-field", source === v ? "bg-[#fff] text-key" : "bg-soft text-sub")}><I size={18} /></span>
+                <button key={v} type="button" aria-pressed={picks[v]} onClick={() => setPicks((p) => ({ ...p, [v]: !p[v] }))}
+                  className={cx("flex items-center gap-3 rounded-inner p-4 text-left md:flex-col md:items-start md:gap-2", picks[v] ? PICK_ON : PICK_OFF)}>
+                  <span className={cx("flex size-9 shrink-0 items-center justify-center rounded-field", picks[v] ? "bg-[#fff] text-key" : "bg-soft text-sub")}><I size={18} /></span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="text-[15px] font-bold">{t}</span>
                     <span className="text-[13px] font-normal text-mute">{d}</span>
                   </span>
-                  {source === v && <Check size={18} strokeWidth={2.5} className="shrink-0 md:hidden" />}
+                  {picks[v] && <Check size={18} strokeWidth={2.5} className="shrink-0 md:hidden" />}
                 </button>
               ))}
             </div>

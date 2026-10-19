@@ -7,6 +7,8 @@ import { UNIT_LABEL, type LengthRange, checkLength } from "./length";
 import { styleIssues, type StyleIssue } from "./neis-style";
 import { badEndings, fixEnding } from "./writing";
 import { spellCheck, type SpellHit } from "./spelling";
+import type { Level } from "./achievement";
+import { OVER_PRAISE_WHY, overPraise } from "./praise";
 
 export type CheckLevel = "block" | "warn";
 export type TextRange = { start: number; end: number };
@@ -38,15 +40,20 @@ export type CheckRow = {
   origin?: "rule" | "ai";
 };
 
-/** N38: 근거 없는 문장 (AI 원안이 있을 때만) · 맞춤법 AI 검사 결과 */
+/** N41: 근거보다 높은 평가 — 고른 성취수준(없으면 null) · 근거 글(메모·누가기록·설문 답) */
+export type PraiseCheck = { level: Level | null; evidence: string };
+
+/** N38: 근거 없는 문장 (AI 원안이 있을 때만) · 맞춤법 AI 검사 결과 · N41 평가 수위 */
 export type CheckMore = {
   provenance?: { nosource: { i: number; start: number; end: number }[] };
   spellAi?: SpellHit[];
+  praise?: PraiseCheck;
 };
 
 export const NOSOURCE_WHY = "AI가 관찰하지 않은 활동을 보탰을 수 있어요. 학생이 실제로 한 일인지 확인하고, 근거를 잇거나 지워 주세요.";
 export const isSpellRow = (r: CheckRow) => r.key.startsWith("spell-");
 export const isNoSourceRow = (r: CheckRow) => r.key.startsWith("nosource-");
+export const isPraiseRow = (r: CheckRow) => r.key.startsWith("praise-");
 export type AutoCheck = {
   status: "empty" | "pass" | "check" | "block";
   rows: CheckRow[];
@@ -108,6 +115,21 @@ export function autoCheck(text: string, range: LengthRange, identity: string[], 
       ranges: s.end <= text.length ? [{ start: s.start, end: s.end }] : [], underline: "dotted", sentenceIndex: s.i,
     });
   });
+
+  // N41 근거보다 높은 평가 (확인 — 확정을 막지 않는다). 같은 낱말은 한 행으로
+  if (more?.praise) {
+    const hits = overPraise(text, more.praise.level, more.praise.evidence);
+    const words = [...new Set(hits.map((h) => h.word))];
+    for (const w of words) {
+      const h = hits.find((x) => x.word === w)!;
+      rows.push({
+        key: `praise-${w}`, level: "warn", label: `근거보다 높은 평가 '${w}'`, hit: `'${w}'`, detail: h.soft ? ` → '${h.soft}'처럼 낮춰 주세요` : " → 관찰한 행동으로 바꿔 주세요",
+        why: OVER_PRAISE_WHY, find: w, phrase: w, fix: h.soft ? { from: w, to: h.soft } : undefined,
+        ranges: hits.filter((x) => x.word === w).map((x) => ({ start: x.start, end: x.end })),
+      });
+    }
+    if (!words.length) passed.push("평가 수위");
+  }
 
   if (len.reason === "too_long") rows.push({ key: "len", level: "warn", label: `분량 초과 ${over.toLocaleString()}${u}`, detail: `${range.max.toLocaleString()}${u} 안으로 줄여 주세요`, why: `${range.max.toLocaleString()}${u} 안으로 줄여 주세요`, ranges: [] });
   else if (len.reason === "too_short") rows.push({ key: "len", level: "warn", label: `최소 ${range.min.toLocaleString()}${u}`, detail: `${(range.min - len.value).toLocaleString()}${u} 더 써 주세요`, why: `${(range.min - len.value).toLocaleString()}${u} 더 써 주세요`, ranges: [] });

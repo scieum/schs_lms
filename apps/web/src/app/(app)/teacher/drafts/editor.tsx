@@ -63,7 +63,9 @@ export function DraftEditor({
   const pv = useProvenance({ init: prov, text, replace: (n, m) => replaceRef.current(n, m), spell: { kind: "draft", studentId }, focusBody: () => area_.current?.focus() });
   const { needFromServer } = pv;
   useEffect(() => { needFromServer(save.needReason); }, [save.needReason, needFromServer]);
-  const auto = autoCheck(text, range, c.identity.found, { evidence: { ok: c.evidence.ok, hits: c.evidence.hits.length }, specific: c.specific }, undefined, pv.more);
+  // N41 근거보다 높은 평가: 프로그램 초안은 성취수준이 없다 → 근거(설문·서류·교사 메모)에 없는 최상급 칭찬은 확인
+  const praise = { level: null, evidence: evidence.map((e) => e.text).join(" / ") };
+  const auto = autoCheck(text, range, c.identity.found, { evidence: { ok: c.evidence.ok, hits: c.evidence.hits.length }, specific: c.specific }, undefined, { ...pv.more, praise });
   // 다시 만들 분량 (검사는 이 초안의 분량으로, 고른 분량은 다시 만들기에만)
   const [len, setLen] = useState<{ unit: LengthUnit; max: number }>({ unit, max });
   const regenId = `regen-${jobId}`;
@@ -208,8 +210,8 @@ export function DraftEditor({
         {pv.inputs()}
         {/* 편집 머리 태그 줄 (N38 (f)): 태그 + 수정 칩 ↔ AI 원안 비교 */}
         <div className="flex items-start gap-2">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-            {tags.map((t) => <span key={t} className={cx("rounded-chip px-2.5 py-1 text-xs font-medium", t === "예시" ? "bg-white text-mute" : "bg-soft text-sub")}>{t}</span>)}
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] md:flex-wrap">
+            {tags.map((t) => <span key={t} className={cx("shrink-0 whitespace-nowrap rounded-chip px-2.5 py-1 text-xs font-medium", t === "예시" ? "bg-white text-mute" : "bg-soft text-sub")}>{t}</span>)}
             {pv.original && <EditRatioChip ratio={pv.ratio} min={pv.min} className="py-1" />}
           </div>
           {pv.original && (

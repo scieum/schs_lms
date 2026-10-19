@@ -80,13 +80,16 @@ export function SetukEditor({
   // N38: 문장 근거 · AI 원안 · 맞춤법 (본문 바꾸기는 검사 묶음의 되돌리기 스낵바로)
   const replaceRef = useRef<(next: string, msg: string) => void>(() => {});
   const pv = useProvenance({ init: prov, text, replace: (n, m) => replaceRef.current(n, m), spell: { kind: "setuk", studentId }, focusBody: () => body.current?.focus() });
-  const bc = useBodyChecks({ text, setText, range, who, context: subject, extraMarks: simMarks, openFirst: openCheck, more: pv.more });
+  // N41 근거보다 높은 평가: 고른 성취수준 · 근거 글(활동 메모 · 관찰 메모)
+  const lv = useLevels();
+  const level = lv?.levels[studentId] ?? null;
+  const praise = useMemo(() => ({ level, evidence: [memo, ...(pieces ?? []).map((p) => p.text)].join(" / ") }), [level, memo, pieces]);
+  const more = useMemo(() => ({ ...pv.more, praise }), [pv.more, praise]);
+  const bc = useBodyChecks({ text, setText, range, who, context: subject, extraMarks: simMarks, openFirst: openCheck, more });
   useEffect(() => { replaceRef.current = bc.replace; });
   const { needFromServer } = pv;
   useEffect(() => { needFromServer(state.needReason); }, [state.needReason, needFromServer]);
-  // N35 ③ 성취수준 (말투만) · ② 문장 보관함
-  const lv = useLevels();
-  const level = lv?.levels[studentId] ?? null;
+  // ② 문장 보관함
   const [piecesKey, setPiecesKey] = useState(0);
   const lib = useBodyLibrary({
     text, body, area: "세특", subject, onInsert: (next) => bc.replace(next, "넣었어요"),
@@ -116,11 +119,12 @@ export function SetukEditor({
             pieces,
             body: text,
             neisMax: Math.min(neisMax("세특", range.unit), capMax),
-            run: (ps, max) => mergeSetuk({ courseId, studentId, pieces: ps, unit: range.unit, max, level }),
+            run: (ps, max) => mergeSetuk({ courseId, studentId, pieces: ps, unit: range.unit, max, level, keepOrder: true }),
           }}
           onApply={(t, r) => { setText(t); pv.adopt(r); }}
           what="세특 글"
           done={hasBody}
+          levelValue={level}
           levelBox={lv && <LevelPicker scale={lv.scale} value={level} onChange={(l) => { void lv.set([{ studentId, level: l }]); }} />}
         />
       </div>
@@ -163,7 +167,7 @@ export function SetukEditor({
         )}
         <RecordChecks text={text} range={range} check={bc.check} recheck={bc.recheck} open={bc.open} onOpen={bc.setOpen} onReplace={bc.onReplace}
           onReplaceAll={bc.onReplaceAll} spellAi={pv.spellLine} renderOpen={pv.renderOpen}
-          aiFix={{ run: (t) => aiFixSetuk({ courseId, studentId, text: t, unit: range.unit, max: range.max }), onApply: (t) => bc.replace(t, "고친 글을 넣었어요") }}
+          aiFix={{ run: (t) => aiFixSetuk({ courseId, studentId, text: t, unit: range.unit, max: range.max, praise }), onApply: (t) => bc.replace(t, "고친 글을 넣었어요") }}
           length={{ unit: len.unit, max: len.max, limit: neisMax("세특", len.unit), onChange: setLen }}
           fit={{ run: () => fitSetuk({ courseId, studentId, text, unit: range.unit, max: range.max }), onApply: setText }} />
 
