@@ -14,6 +14,7 @@ import { DeleteBox } from "./delete-box";
 import { AnalyzeBox, AutoSelect } from "./parts";
 import { NextActions, RemindSheet, StageStepper } from "./stage";
 import { StudentRowItem } from "./student-popup";
+import { RosterUpload } from "./roster-upload";
 import { programStage } from "@/lib/domain/program-stage";
 
 export const metadata = { title: "프로그램 상세 · 속초고등학교 학생관리시스템" };
@@ -136,7 +137,13 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
         <div className="grid grid-cols-1 items-start gap-4 pb-24 md:grid-cols-[1fr_360px] md:gap-6 md:pb-0 [&>*]:min-w-0">
         <Card
           title="학생별 현황"
-          action={<a href={`/teacher/programs/${p.id}/export`} download className="hidden items-center gap-1 text-[13px] font-medium text-sub md:inline-flex"><Download size={14} /> 엑셀 내보내기</a>}
+          action={
+            <>
+              <a href={`/teacher/programs/${p.id}/export`} download className="hidden items-center gap-1 text-[13px] font-medium text-sub md:mr-1 md:inline-flex"><Download size={14} /> 엑셀 내보내기</a>
+              {/* 명단 업로드 (Figma N36): 명단_양식.xlsx 로 대상 더하기·바꾸기 */}
+              <RosterUpload programId={p.id} />
+            </>
+          }
         >
           <nav className="-mx-1 -mt-1 mb-3 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">
             {TABS.map(([k, label]) => (

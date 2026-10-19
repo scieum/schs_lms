@@ -4,7 +4,7 @@
 
 import type { Student } from "./types";
 
-export interface RosterLine { studentNo: string | null; grade: number | null; classNo: number | null; number: number | null; name: string | null; raw: string }
+export interface RosterLine { studentNo: string | null; grade: number | null; classNo: number | null; number: number | null; name: string | null; raw: string; /** 엑셀 줄 번호 (1행 = 제목) */ line?: number }
 /** 명단 맞추기에 필요한 학생 정보만 (화면마다 가진 학생 모양이 달라서) */
 export type RosterStudent = Pick<Student, "id" | "studentNo" | "grade" | "classNo" | "number" | "name">;
 export interface RosterMatch<T extends RosterStudent = Student> { matched: T[]; unmatched: RosterLine[]; duplicates: number }
@@ -19,9 +19,9 @@ const num = (s: string) => {
 const cleanName = (s: string) => s.replace(/\(.*?\)|（.*?）|\[.*?\]/g, "").replace(/[^가-힣a-zA-Z]/g, "");
 
 /** 명단 양식 본문(readTemplate(rows, "list")) → 명단 줄. 학번·학년반번호·이름이 모두 없는 줄은 뺀다 */
-export function listLines(body: { cells: string[] }[]): RosterLine[] {
+export function listLines(body: { line?: number; cells: string[] }[]): RosterLine[] {
   const out: RosterLine[] = [];
-  for (const { cells } of body) {
+  for (const { line, cells } of body) {
     const [no = "", grade = "", classNo = "", number = "", name = ""] = cells;
     const digits = no.replace(/\D/g, "");
     const clean = cleanName(name);
@@ -31,6 +31,7 @@ export function listLines(body: { cells: string[] }[]): RosterLine[] {
       studentNo: /^\d{5}$/.test(digits) ? digits : null,
       grade: g, classNo: c, number: n,
       name: clean || null, raw: cells.filter(Boolean).join(" "),
+      ...(line ? { line } : {}),
     });
   }
   return out.slice(0, ROSTER_MAX_LINES);
