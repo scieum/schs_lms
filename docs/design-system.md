@@ -1636,32 +1636,34 @@ Figma 페이지 "N37 이동반 명단 직접 고르기"(448:98413): PC 1440 `448
 
 ### 코드 반영
 북마클릿 (apps/neis-bookmarklet)
-- [ ] `cpr-fill.js`: `window.__schsCprRead(p)` 추가 — `pickGrid` 재사용, 학생마다 `ds.getValue(i, textCol)`를 읽어 `{key, status: "same"|"diff"|"notFound", neisBytes, wantBytes, firstDiff}` 반환. 기대값은 **채울 때 만든 값**(덮어쓰기 = 확정본, 이어쓰기 = 이전 글 + " " + 확정본)과 비교(`\r\n→\n`, 끝 공백 무시)
-- [ ] `fill.js`: 화면 칸 방식도 같은 읽기(`textarea.value`), 못 찾으면 notFound
-- [ ] `bookmarklet/launcher.js`: VERSION **0.2.8**, 창 폭 340→380, 채우기 끝나면 `compare()` 자동 · 대조 블록(숫자 3칸 · 거르기 칩 · 목록 · 차이 상자) · "다른 것만 다시 채우기"(diff 학생만 다시 채우고 다시 대조) · "다시 읽기" · "흔적 지우기"(`data=null` → `navigator.clipboard.writeText("")` try/catch → `close()` → Shadow DOM 토스트 4초) · 다름 칸 2px 빨강 표시
-- [ ] 차이 계산은 순수 함수(앞에서부터 같은 글자 → 앞 12자 "…" + 다른 부분 + 바이트 차)로 두고, `test/fake-neis-exbuilder.html`에 일부러 잘린 칸 1개를 넣어 확인
-- [ ] README "쓰는 법"에 "채운 뒤 대조 → 다른 것만 다시 채우기 → 흔적 지우기", 안전장치에 "나이스 칸은 읽기만 한다"
-- [ ] `apps/web`에서 `npm run pack:neis` → `src/lib/neis-bookmarklet.ts` 다시 생성
-- [ ] `/teacher/neis` `steps.tsx`: 버전 v0.2.8 · ③ "나이스 화면에서 버튼 › Ctrl+V › 한 번에 채우기 › 대조" · 칩 "저장은 직접" 옆 "다 하면 흔적 지우기"(모바일 "흔적 지우기")
+- [x] `cpr-fill.js`: `window.__schsCprRead(p)` 추가 — `pickGrid` 재사용, 학생마다 `ds.getValue(i, textCol)`를 읽어 `{key, status: "same"|"diff"|"notFound", neisBytes, wantBytes, firstDiff}` 반환. 기대값은 **채울 때 만든 값**(덮어쓰기 = 확정본, 이어쓰기 = 이전 글 + " " + 확정본)과 비교(`\r\n→\n`, 끝 공백 무시) (코드 반영 2026-10-19)
+- [x] `fill.js`: 화면 칸 방식도 같은 읽기(`textarea.value`), 못 찾으면 notFound (코드 반영 2026-10-19)
+- [x] `bookmarklet/launcher.js`: VERSION **0.2.8**, 창 폭 340→380, 채우기 끝나면 `compare()` 자동 · 대조 블록(숫자 3칸 · 거르기 칩 · 목록 · 차이 상자) · "다른 것만 다시 채우기"(diff 학생만 다시 채우고 다시 대조) · "다시 읽기" · "흔적 지우기"(`data=null` → `navigator.clipboard.writeText("")` try/catch → `close()` → Shadow DOM 토스트 4초) · 다름 칸 2px 빨강 표시 (코드 반영 2026-10-19)
+- [x] 차이 계산은 순수 함수(앞에서부터 같은 글자 → 앞 12자 "…" + 다른 부분 + 바이트 차)로 두고, `test/fake-neis-exbuilder.html`에 일부러 잘린 칸 1개를 넣어 확인 (코드 반영 2026-10-19)
+- [x] README "쓰는 법"에 "채운 뒤 대조 → 다른 것만 다시 채우기 → 흔적 지우기", 안전장치에 "나이스 칸은 읽기만 한다" (코드 반영 2026-10-19)
+- [x] `apps/web`에서 `npm run pack:neis` → `src/lib/neis-bookmarklet.ts` 다시 생성 (코드 반영 2026-10-19)
+- [x] `/teacher/neis` `steps.tsx`: 버전 v0.2.8 · ③ "나이스 화면에서 버튼 › Ctrl+V › 한 번에 채우기 › 대조" · 칩 "저장은 직접" 옆 "다 하면 흔적 지우기"(모바일 "흔적 지우기") (코드 반영 2026-10-19)
 
 학생부 점검 보고서
-- [ ] `lib/domain/policy.ts`: Action `"report.view"` — 지금은 `isAdmin(v)`(학생부 담당 역할을 만들면 여기만 바꾼다)
-- [ ] `lib/domain/record-report.ts`(순수) + `record-report.test.ts`: 기록 상태·검사 결과 → 반 / 과목·분반 / 선생님별 건수. 한도는 `length.ts`·`writing.ts`, 금칙어·실명은 `forbidden.ts`·auto-check, 맞춤법·근거는 N38 결과 재사용
-- [ ] `app/(app)/admin/record-report/page.tsx`(서버 컴포넌트): 건수만 집계 — 글 열은 select 하지 않는다. 거르기는 searchParams(`?grade=2&area=all`). 숫자 링크는 기존 교사 목록 경로 + 거르기 쿼리, 권한은 그 페이지가 판정
-- [ ] 인쇄: `?print=1` 레이아웃 + `@media print`(A4 세로, 흑백, 결재란 토글) + `window.print()`
-- [ ] 엑셀: route handler `admin/record-report/export` — `excel-template.ts`로 4시트(숫자만) · 감사 로그 `record_report.export {grade, area, rows}`
-- [ ] 사이드바 "관리" 묶음에 "학생부 점검"(icon/chart) · "자료 보존"(icon/lock), 모바일 전체 메뉴(N15)에도
+- [x] `lib/domain/policy.ts`: Action `"report.view"` — 지금은 `isAdmin(v)`(학생부 담당 역할을 만들면 여기만 바꾼다) (코드 반영 2026-10-19)
+- [x] `lib/domain/record-report.ts`(순수) + `record-report.test.ts`: 기록 상태·검사 결과 → 반 / 과목·분반 / 선생님별 건수. 한도는 `length.ts`·`writing.ts`, 금칙어·실명은 `forbidden.ts`·auto-check, 맞춤법·근거는 N38 결과 재사용 (코드 반영 2026-10-19)
+- [x] `app/(app)/admin/record-report/page.tsx`(서버 컴포넌트): 건수만 집계 — 글 열은 select 하지 않는다. 거르기는 searchParams(`?grade=2&area=all`). 숫자 링크는 기존 교사 목록 경로 + 거르기 쿼리, 권한은 그 페이지가 판정 (코드 반영 2026-10-19)
+- [x] 인쇄: `?print=1` 레이아웃 + `@media print`(A4 세로, 흑백, 결재란 토글) + `window.print()` (코드 반영 2026-10-19)
+- [x] 엑셀: route handler `admin/record-report/export` — `excel-template.ts`로 4시트(숫자만) · 감사 로그 `record_report.export {grade, area, rows}` (코드 반영 2026-10-19)
+- [x] 사이드바 "관리" 묶음에 "학생부 점검"(icon/chart) · "자료 보존"(icon/lock), 모바일 전체 메뉴(N15)에도 (코드 반영 2026-10-19)
 
 보존 기간 · 자동 파기
-- [ ] 마이그레이션 `00NN_retention.sql` — 지금 마지막은 0020, N38이 0021을 쓸 수 있으니 **구현 때 번호를 확인해 다음 번호로**: `retention_settings`(key 'raw_files'|'extracted_text' pk, days int, base 'term_end'|'confirm'|'year_end', updated_by, updated_at, 기본 30 / 90) · `retention_holds`(program_id, until, by, at) · `retention_runs`(ran_at, programs, files, texts, trigger 'cron'|'visit'|'admin') · `program_materials.purged_at`, `text_purged_at` · RLS 관리자만
-- [ ] 학기 마감 날짜: `school_events` 또는 `app_state`의 `term_end_1`·`term_end_2`(없으면 7-31 · 1-31)
-- [ ] `lib/domain/retention.ts`(순수) + 시험: 프로그램 학기 · 확정 상태 · 설정 · 미루기 → 지울 날
-- [ ] `lib/server/retention-sweep.ts`: 지울 날 지난 프로그램 → Storage `remove()`(100개씩) → `file_path` 비우고 `purged_at` → 읽은 글 `text = null`, `text_purged_at` → `retention_runs` 1줄 + 감사 로그 건수만. **확정 초안·담임 전달 기록은 건드리지 않는다**
-- [ ] 스케줄: `vercel.json` crons에 `/api/cron/retention` `"0 18 * * *"`(UTC 18시 = KST 03시), notion-sync처럼 `CRON_SECRET` 확인. 크론이 빠져도 **관리자가 /admin/retention을 열 때 마지막 실행이 24시간 넘었으면 한 번 실행**(on-demand) + "지금 확인하기"(서버 액션)
-- [ ] `/admin/retention` 페이지 · 설정 저장 액션(감사 로그 `retention.update {key, from, to}`) · 미루기 액션(프로그램당 1번)
-- [ ] 교사 안내: 초안 자료 등록 · N24 학생 팝업 · 학생 제출 화면에 `retention.ts` 날짜, 14일 이내 노랑. 이미 지운 자료는 "원본은 YYYY-MM-DD에 지웠어요 · 읽은 글로 만든 초안은 그대로" 회색 행
-- [ ] 개인정보: 보고서 · 파기 목록 · 감사 로그 · 엑셀 어디에도 학생 이름 · 학번 · 파일 이름 · 글을 넣지 않는다. 북마클릿은 서버로 아무것도 보내지 않는다
-- [ ] `npm test` · 북마클릿 시험 화면으로 대조 확인 · 하네스 `python -m unittest` 영향 없음(rules/ 는 건드리지 않는다)
+- [x] 마이그레이션 `00NN_retention.sql` — 지금 마지막은 0020, N38이 0021을 쓸 수 있으니 **구현 때 번호를 확인해 다음 번호로**: `retention_settings`(key 'raw_files'|'extracted_text' pk, days int, base 'term_end'|'confirm'|'year_end', updated_by, updated_at, 기본 30 / 90) · `retention_holds`(program_id, until, by, at) · `retention_runs`(ran_at, programs, files, texts, trigger 'cron'|'visit'|'admin') · `program_materials.purged_at`, `text_purged_at` · RLS 관리자만 (코드 반영 2026-10-19)
+- [x] 학기 마감 날짜: `school_events` 또는 `app_state`의 `term_end_1`·`term_end_2`(없으면 7-31 · 1-31) (코드 반영 2026-10-19)
+- [x] `lib/domain/retention.ts`(순수) + 시험: 프로그램 학기 · 확정 상태 · 설정 · 미루기 → 지울 날 (코드 반영 2026-10-19)
+- [x] `lib/server/retention-sweep.ts`: 지울 날 지난 프로그램 → Storage `remove()`(100개씩) → `file_path` 비우고 `purged_at` → 읽은 글 `text = null`, `text_purged_at` → `retention_runs` 1줄 + 감사 로그 건수만. **확정 초안·담임 전달 기록은 건드리지 않는다** (코드 반영 2026-10-19)
+- [x] 스케줄: `vercel.json` crons에 `/api/cron/retention` `"0 18 * * *"`(UTC 18시 = KST 03시), notion-sync처럼 `CRON_SECRET` 확인. 크론이 빠져도 **관리자가 /admin/retention을 열 때 마지막 실행이 24시간 넘었으면 한 번 실행**(on-demand) + "지금 확인하기"(서버 액션) (코드 반영 2026-10-19)
+- [x] `/admin/retention` 페이지 · 설정 저장 액션(감사 로그 `retention.update {key, from, to}`) · 미루기 액션(프로그램당 1번) (코드 반영 2026-10-19)
+- [x] 교사 안내: 초안 자료 등록 · N24 학생 팝업 · 학생 제출 화면에 `retention.ts` 날짜, 14일 이내 노랑. 이미 지운 자료는 "원본은 YYYY-MM-DD에 지웠어요 · 읽은 글로 만든 초안은 그대로" 회색 행 (코드 반영 2026-10-19)
+- [x] 개인정보: 보고서 · 파기 목록 · 감사 로그 · 엑셀 어디에도 학생 이름 · 학번 · 파일 이름 · 글을 넣지 않는다. 북마클릿은 서버로 아무것도 보내지 않는다 (코드 반영 2026-10-19)
+- [x] `npm test` · 북마클릿 시험 화면으로 대조 확인 · 하네스 `python -m unittest` 영향 없음(rules/ 는 건드리지 않는다) (코드 반영 2026-10-19)
+
+코드 반영 메모 (2026-10-19): 북마클릿 v0.2.8 — `fill.js` `compareText`(순수, 앞 같은 글자 → "…"+끝 18자 · 다른 부분 · 바이트 차 · cut/edited)·`nextValue`·`__schsNeisRead`, `cpr-fill.js` `__schsCprRead`, `launcher.js` 창 380 · 자동 대조 · 다른 것만 다시 채우기 · 흔적 지우기(토스트 4초) · 다름 칸 2px 빨강. **× 로 닫아도 클립보드를 비운다**(열린 결정을 사용자 결정대로). 대조 화면에 "반·방식 다시 고르기" 링크를 하나 더했다(여러 반을 이어 채우기용, 시안에 없음). 시험: `test/fake-neis-exbuilder.html` 이하늘 칸 첫 채우기 6글자 잘림(`?cut=0` 끔) — CDP로 그리드·화면 칸·클릭형 그리드 29/29 통과, `src/lib/neis-compare.test.ts`. 보고서 `/admin/record-report`(`report.view` = 관리자) · `?print=1` 인쇄(A4·흑백·결재란/선생님별 토글) · `export` 4시트 · 감사 `record_report.export/print`. 맞춤법·근거 없는 문장은 N38 결과가 아직 없어 0으로 센다(N38 반영 때 `load.ts` 에서 채움). 세특은 올해 1·2학기 과목을 함께 센다. 모바일 "확인 필요" 칩은 줄을 꺾지 않고 옆으로 민다(모바일 점검 규칙). 보존: 마이그레이션 `0021_retention.sql`(retention_settings · retention_holds(target = 프로그램 id 또는 `service:2026-1`) · retention_runs(items jsonb 건수만) · program_materials.purged_at/text_purged_at · service_records.purged_at · file_path null 허용 · app_state term_end_1/2), `lib/domain/retention.ts`, `lib/server/retention-sweep.ts`, 크론 `/api/cron/retention` `0 18 * * *` + `CRON_SECRET`, 관리자 방문 때 24시간 넘었으면 한 번. 교사 안내는 원본 날짜 + "파일에서 읽은 글은 YYYY-MM-DD"를 따로 적었다(읽은 글은 90일이라 시안 문구 하나로는 틀림).
 
 ### 열린 결정
 - 행발 한도: 사용자 확인은 1500B 그대로, 공식 2026 고등 기재요령 208쪽은 300자(900B). 학교 나이스가 900B에서 막는지 한 번 확인 필요(막으면 북마클릿이 "바이트 초과"로 걸러야 함).

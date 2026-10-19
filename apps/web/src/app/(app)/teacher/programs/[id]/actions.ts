@@ -12,6 +12,8 @@ import { analyzeResponses, reminderMessage } from "@/lib/server/ai/program-ai";
 import { repo } from "@/lib/server/repo";
 import { programRows, requireProgram } from "../_lib/data";
 import { makeStudentNo } from "@/lib/domain/roster";
+import { kstToday, noticeLine } from "@/lib/domain/retention";
+import { programRetention } from "@/lib/server/retention-sweep";
 
 export type RemindDraft = { text?: string; label?: "AI" | "자동"; error?: string; sent?: string; n?: number };
 
@@ -179,6 +181,8 @@ export type StudentDetail = {
   review: ReviewStatus;
   answers: { title: string; text: string }[];
   materials: { id: string; fileName: string }[];
+  /** 서류가 지워지는 날 (N39): 이미 지웠으면 purgedOn */
+  retention: { line: string; soon: boolean; purgedOn: string | null } | null;
   draft: { content: string; length: number; max: number; unit: LengthUnit } | null;
   jobId: string | null;
   canRemind: boolean;
@@ -205,8 +209,21 @@ export async function studentDetail(programId: string, studentId: string): Promi
     review: r.review,
     answers,
     materials: r.materials.map((m) => ({ id: m.id, fileName: m.fileName })),
+    retention: await retentionOf(program, r.materials),
     draft: r.job && r.latest ? { content: r.latest.content, length: measure(r.latest.content, unit), max: r.job.max || program.max, unit } : null,
     jobId: r.job?.id ?? null,
     canRemind: effectiveStatus(program, today()) === "open" && !r.hasEvidence && !r.missingReason,
   };
+}
+
+/** 학생 팝업 서류 칩 아래 한 줄 (N39) */
+async function retentionOf(program: { id: string; endDate: string }, mats: { purgedAt?: string | null }[]): Promise<StudentDetail["retention"]> {
+  if (!mats.length) return null;
+  if (mats.every((m) => m.purgedAt)) {
+    const on = mats.reduce((d, m) => (m.purgedAt! > d ? m.purgedAt! : d), "").slice(0, 10);
+    return { line: `원본은 ${on}에 지웠어요 · 읽은 글로 만든 초안은 그대로`, soon: false, purgedOn: on };
+  }
+  const { rawDue } = await programRetention(program);
+  const n = noticeLine(rawDue, kstToday());
+  return { line: n.soon ? `서류 원본은 ${n.title.replace("이 자료는 ", "")}` : `서류 원본은 ${rawDue}에 지워져요`, soon: n.soon, purgedOn: null };
 }

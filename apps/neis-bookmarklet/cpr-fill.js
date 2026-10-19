@@ -51,27 +51,34 @@
     return best && best.hits ? best : null;
   }
 
+  /** 성명이 같은 줄 하나 (같은 이름이 여럿이면 번호·반이 같은 값이 있는 줄). 못 찾으면 -1 */
+  function rowOf(pick, s, used) {
+    const { g, nameCol, cols } = pick;
+    const ds = g.dataSet;
+    let rows = [];
+    for (let i = 0; i < ds.getRowCount(); i++) if (!used.has(i) && norm(ds.getValue(i, nameCol)) === norm(s.name)) rows.push(i);
+    if (rows.length > 1) {
+      const narrowed = rows.filter((i) => cols.some((c) => c !== nameCol && String(ds.getValue(i, c)).trim() === String(s.number)));
+      if (narrowed.length) rows = narrowed;
+    }
+    return rows.length === 1 ? rows[0] : -1;
+  }
+
   window.__schsCprFill = function (p) {
     const pick = pickGrid(p.students);
     if (!pick) return null; // eXbuilder 그리드가 아니면 화면 방식으로
-    const { g, nameCol, textCol, cols } = pick;
+    const { g, textCol, cols } = pick;
     const ds = g.dataSet;
     const n = ds.getRowCount();
-    const report = { filled: [], overLimit: [], nameMismatch: [], notFound: [], ordered: false, fieldsSeen: n, via: "grid", column: textCol };
+    const report = { filled: [], overLimit: [], nameMismatch: [], notFound: [], ordered: false, fieldsSeen: n, via: "grid", column: textCol, expected: {} };
     const used = new Set();
     for (const s of p.students) {
-      // 성명이 같은 줄 (같은 이름이 여럿이면 번호·반이 같은 값이 있는 줄)
-      let rows = [];
-      for (let i = 0; i < n; i++) if (!used.has(i) && norm(ds.getValue(i, nameCol)) === norm(s.name)) rows.push(i);
-      if (rows.length > 1) {
-        const narrowed = rows.filter((i) => cols.some((c) => c !== nameCol && String(ds.getValue(i, c)).trim() === String(s.number)));
-        if (narrowed.length) rows = narrowed;
-      }
-      if (rows.length !== 1) { report.notFound.push(keyOf(s)); continue; }
-      const i = rows[0];
+      const i = rowOf(pick, s, used);
+      if (i < 0) { report.notFound.push(keyOf(s)); continue; }
       used.add(i);
       const before = String(ds.getValue(i, textCol) ?? "");
-      const next = p.mode === "append" && before.trim() ? `${before.trimEnd()} ${s.content}` : s.content;
+      const next = window.__schsNeis ? window.__schsNeis.nextValue(before, s.content, p.mode) : (p.mode === "append" && before.trim() ? `${before.trimEnd()} ${s.content}` : s.content);
+      report.expected[keyOf(s)] = next;
       if (neisBytes(next) > p.maxBytes) { report.overLimit.push(keyOf(s)); continue; }
       try {
         g.setCellValue(i, textCol, next);
@@ -83,5 +90,27 @@
     }
     try { g.redraw && g.redraw(); } catch { /* 다시 그리기 실패는 무시 */ }
     return report;
+  };
+  /**
+   * 대조 (v0.2.8): 채운 뒤 그리드 값을 다시 읽어 기대값(p.expected[key] — 채울 때 만든 값)과 견준다.
+   * 읽기만 한다 (setValue·저장 없음). 읽은 값은 창 안에서만 쓰고 어디로도 보내지 않는다.
+   * 결과: { via: "grid", results: [{ key, status: "same"|"diff"|"notFound", neisBytes, wantBytes, firstDiff, … }], rows: { key: 줄 번호 } }
+   */
+  window.__schsCprRead = function (p) {
+    const pick = pickGrid(p.students);
+    if (!pick) return null;
+    const ds = pick.g.dataSet;
+    const used = new Set();
+    const results = [];
+    const rows = {};
+    for (const s of p.students) {
+      const k = keyOf(s);
+      const i = rowOf(pick, s, used);
+      if (i < 0) { results.push({ key: k, status: "notFound" }); continue; }
+      used.add(i);
+      rows[k] = i;
+      results.push({ key: k, ...window.__schsNeis.compareText(p.expected[k] ?? s.content, String(ds.getValue(i, pick.textCol) ?? "")) });
+    }
+    return { via: "grid", results, rows, grid: pick.g, column: pick.textCol };
   };
 })();

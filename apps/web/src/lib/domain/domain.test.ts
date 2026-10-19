@@ -28,6 +28,13 @@ describe("권한", () => {
     expect(can(teacher(["subject", "homeroom"]), "account.manage")).toBe(false);
     expect(can(teacher(["subject"]), "audit.view")).toBe(false);
   });
+  it("학생부 점검 보고서 · 자료 보존은 관리자만 (N39)", () => {
+    expect(can(teacher(["admin"]), "report.view")).toBe(true);
+    expect(can(teacher(["admin"]), "retention.manage")).toBe(true);
+    expect(can(teacher(["subject", "homeroom"], { grade: 2, classNo: 3 }), "report.view")).toBe(false);
+    expect(can(teacher(["subject"]), "retention.manage")).toBe(false);
+    expect(can(asStudent, "report.view")).toBe(false);
+  });
   it("비밀번호를 바꾸기 전에는 아무 권한도 없다 (C9)", () => {
     const v = { ...teacher(["admin"]), mustChangePassword: true } as Viewer;
     expect(can(v, "student.register")).toBe(false);

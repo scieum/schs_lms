@@ -82,7 +82,32 @@
 
   const keyOf = (s) => `${s.grade}-${s.classNo}-${s.number}`;
 
-  window.__schsNeis = { neisBytes, isEditable, typeInto, getValue, matchRow, keyOf, norm };
+  /** 채울 때 만든 값: 덮어쓰기 = 확정본, 이어쓰기 = 이전 글 + " " + 확정본 (대조의 기대값도 이 값) */
+  const nextValue = (before, content, mode) => (mode === "append" && String(before || "").trim() ? `${String(before).trimEnd()} ${content}` : content);
+
+  /**
+   * 대조 (v0.2.8, 순수 함수): 기대값(want)과 나이스 칸 값(got)을 견준다. 줄바꿈(\r\n→\n)과 끝 공백은 무시.
+   * 다르면 앞에서부터 같은 글자까지를 "…" + 끝 18자로 줄여 보이고, 그 뒤 다른 부분과 바이트 차를 돌려준다.
+   * kind: "cut" = 나이스 쪽이 앞부분만 있음(덜 들어감) · "edited" = 나이스 쪽이 더 길거나 가운데가 다름(나이스에서 고친 글)
+   */
+  function compareText(want, got) {
+    const clean = (t) => String(t ?? "").replace(/\r\n?/g, "\n").replace(/\s+$/, "");
+    const a = clean(want);
+    const b = clean(got);
+    const wantBytes = neisBytes(a);
+    const gotBytes = neisBytes(b);
+    if (a === b) return { status: "same", wantBytes, neisBytes: gotBytes };
+    let p = 0;
+    while (p < a.length && p < b.length && a[p] === b[p]) p++;
+    const head = a.slice(0, p);
+    const prefix = head.length > 18 ? `…${head.slice(-18)}` : head;
+    const wantPart = a.slice(p);
+    const gotPart = b.slice(p);
+    const kind = gotPart === "" ? "cut" : "edited";
+    return { status: "diff", kind, prefix, wantPart, gotPart, firstDiff: p, missingBytes: neisBytes(wantPart), byteDiff: wantBytes - gotBytes, wantBytes, neisBytes: gotBytes };
+  }
+
+  window.__schsNeis = { neisBytes, isEditable, typeInto, getValue, matchRow, keyOf, norm, nextValue, compareText, findText: (doc, t) => findText(doc, t) };
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const centerY = (r) => r.top + r.height / 2;
@@ -168,8 +193,9 @@
       }
       if (!el) continue;
       const before = getValue(el);
-      const next = p.mode === "append" && before.trim() ? `${before.trimEnd()} ${s.content}` : s.content;
+      const next = nextValue(before, s.content, p.mode);
       done.add(keyOf(s));
+      report.expected[keyOf(s)] = next;
       if (neisBytes(next) > p.maxBytes) { report.overLimit.push(keyOf(s)); continue; }
       typeInto(el, next);
       el.dispatchEvent(new Event("change", { bubbles: true }));
@@ -190,7 +216,7 @@
     const rowSel = p.rowSelector || "tr, [role=row]";
     // p.doc: 같은 출처의 프레임 안 화면도 채울 때 넘긴다
     const fields = [...(p.doc || document).querySelectorAll(fieldSel)].filter((el) => !el.disabled && !el.readOnly);
-    const report = { filled: [], overLimit: [], nameMismatch: [], notFound: [], rowsWithoutStudent: 0, fieldsSeen: fields.length, ordered: false };
+    const report = { filled: [], overLimit: [], nameMismatch: [], notFound: [], rowsWithoutStudent: 0, fieldsSeen: fields.length, ordered: false, expected: {} };
     const done = new Set();
 
     for (const el of fields) {
@@ -201,8 +227,9 @@
       if (mismatch) { report.nameMismatch.push(keyOf(mismatch)); done.add(keyOf(mismatch)); continue; }
       if (!s) { report.rowsWithoutStudent++; continue; }
       const before = getValue(el);
-      const next = p.mode === "append" && before.trim() ? `${before.trimEnd()} ${s.content}` : s.content;
+      const next = nextValue(before, s.content, p.mode);
       done.add(keyOf(s));
+      report.expected[keyOf(s)] = next;
       if (neisBytes(next) > p.maxBytes) { report.overLimit.push(keyOf(s)); continue; }
       setValue(el, next);
       el.style.outline = "2px solid #536DFE";
@@ -219,8 +246,9 @@
         const el = visible[i];
         if (!el) return;
         const before = getValue(el);
-        const next = p.mode === "append" && before.trim() ? `${before.trimEnd()} ${s.content}` : s.content;
+        const next = nextValue(before, s.content, p.mode);
         done.add(keyOf(s));
+        report.expected[keyOf(s)] = next;
         if (neisBytes(next) > p.maxBytes) { report.overLimit.push(keyOf(s)); return; }
         setValue(el, next);
         el.style.outline = "2px solid #536DFE";
@@ -230,5 +258,55 @@
     }
     report.notFound = p.students.filter((s) => !done.has(keyOf(s))).map(keyOf);
     return report;
+  };
+  /**
+   * 대조용 읽기 (v0.2.8): 화면 칸 방식. 학생 줄의 입력칸(textarea.value)이나 특기사항 칸 글자를 읽기만 한다.
+   * 누르지도 고치지도 않고, 읽은 값은 어디로도 보내지 않는다. 기대값(p.expected[key])과 compareText 로 견준다.
+   * 못 찾으면 notFound. 결과 키를 찾은 칸(els)은 다름 표시(빨강 테두리)에 쓴다.
+   */
+  window.__schsNeisRead = function (p) {
+    const doc = p.doc || document;
+    const fieldSel = p.fieldSelector || "textarea, [contenteditable=true]";
+    const rowSel = p.rowSelector || "tr, [role=row]";
+    const fields = [...doc.querySelectorAll(fieldSel)].filter((el) => el.getClientRects().length);
+    const found = {};
+    for (const el of fields) {
+      const row = el.closest(rowSel);
+      if (!row) continue;
+      const { s } = matchRow(row, p.students, true);
+      if (s && !found[keyOf(s)]) found[keyOf(s)] = { value: getValue(el), el };
+    }
+    for (const s of p.students) {
+      if (found[keyOf(s)]) continue;
+      let names = findText(doc, s.name);
+      if (names.length > 1) {
+        names = names.filter((el) => {
+          const band = el.getBoundingClientRect();
+          return [...doc.querySelectorAll("td, [role=gridcell], div, span")].some((c) => norm(c.innerText) === String(s.number) && overlapY(c.getBoundingClientRect(), band) > 0);
+        });
+      }
+      const nameEl = names[0];
+      if (!nameEl) continue;
+      const rowEl = nameEl.closest(rowSel) || nameEl;
+      const band = rowEl.getBoundingClientRect();
+      const ed = fields.filter((el) => isEditable(el) && overlapY(el.getBoundingClientRect(), band) > band.height * 0.4).sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width)[0];
+      if (ed) { found[keyOf(s)] = { value: getValue(ed), el: ed }; continue; }
+      // 누르면 열리는 그리드: 그 줄 높이의 특기사항 칸 글자를 읽는다 (칸을 누르지 않는다)
+      const x = editorColumnX(doc, fields);
+      if (x == null) continue;
+      const hit = doc.elementFromPoint(x, centerY(band));
+      const cell = hit && (hit.closest("td, [role=gridcell]") || hit);
+      if (cell && !cell.contains(nameEl) && overlapY(cell.getBoundingClientRect(), band) > 0) found[keyOf(s)] = { value: cell.innerText || "", el: cell };
+    }
+    const results = [];
+    const els = {};
+    for (const s of p.students) {
+      const k = keyOf(s);
+      const f = found[k];
+      if (!f) { results.push({ key: k, status: "notFound" }); continue; }
+      els[k] = f.el;
+      results.push({ key: k, ...compareText(p.expected[k] ?? s.content, f.value) });
+    }
+    return { via: "screen", results, els };
   };
 })();

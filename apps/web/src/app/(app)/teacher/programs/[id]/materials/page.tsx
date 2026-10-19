@@ -9,6 +9,9 @@ import { assignMaterial, setMissing, setSource } from "./actions";
 import { FileList, type FileItem } from "./file-list";
 import { ReadBox, UploadBox } from "./parts";
 import { makeStudentNo } from "@/lib/domain/roster";
+import { RetentionLine, RetentionNotice } from "@/components/materials/retention-notice";
+import { baseLine, kstToday } from "@/lib/domain/retention";
+import { programRetention } from "@/lib/server/retention-sweep";
 
 export const metadata = { title: "초안 자료 등록 · 속초고등학교 학생관리시스템" };
 
@@ -29,7 +32,9 @@ export default async function MaterialsPage({ params, searchParams }: Props) {
   const { program: p } = await requireProgram(id);
   const q = await searchParams;
   const mode = (MODES.find(([k]) => k === q.mode)?.[0] ?? "bulk") as "bulk" | "one" | "bundle";
-  const { rows, materials } = await programRows(p);
+  const [{ rows, materials }, ret] = await Promise.all([programRows(p), programRetention(p)]);
+  const today = kstToday();
+  const purgedOn = materials.length && materials.every((m) => m.purgedAt) ? materials.reduce((d, m) => (m.purgedAt! > d ? m.purgedAt! : d), "").slice(0, 10) : null;
   const nameOf = new Map(rows.map((r) => [r.student.id, r.student.name]));
   const opts = rows.map((r) => ({ id: r.student.id, label: `${makeStudentNo(r.student.grade, r.student.classNo, r.student.number)} ${r.student.name}` }));
   const docs = usesDocs(p.source);
@@ -54,10 +59,10 @@ export default async function MaterialsPage({ params, searchParams }: Props) {
       <>
         <span className={cx("flex size-10 shrink-0 items-center justify-center rounded-field", m.status === "needs_review" ? "bg-wait-soft text-wait" : "bg-soft text-sub")}><FileText size={18} /></span>
         <div className="min-w-0 flex-1">
-          <a href={`/teacher/programs/${p.id}/materials/file/${m.id}`} target="_blank" rel="noreferrer" className="block truncate text-[14px] font-bold hover:underline">{m.fileName}</a>
+          {m.purgedAt ? <span className="block truncate text-[14px] font-bold text-mute">{m.fileName}</span> : <a href={`/teacher/programs/${p.id}/materials/file/${m.id}`} target="_blank" rel="noreferrer" className="block truncate text-[14px] font-bold hover:underline">{m.fileName}</a>}
           <div className="flex items-center gap-1 truncate text-[12px] text-mute">
             {m.status === "matched" ? <Check size={13} className="shrink-0 text-ok" /> : m.status === "needs_review" ? <AlertCircle size={13} className="shrink-0 text-wait" /> : null}
-            {kb(m.size)}{m.pages ? ` · ${m.pages}쪽` : ""} · {metaOf(m)}
+            {kb(m.size)}{m.pages ? ` · ${m.pages}쪽` : ""} · {metaOf(m)}{m.purgedAt ? ` · 원본 지움 ${m.purgedAt.slice(0, 10)}` : ""}
           </div>
         </div>
       </>
@@ -95,6 +100,7 @@ export default async function MaterialsPage({ params, searchParams }: Props) {
       <PageBody>
         <div className="overflow-x-auto"><Steps items={["자료 선택", "업로드", "학생 매칭·확인", "초안 생성"]} active={step} /></div>
         {docs && <ReadBox programId={p.id} pending={toRead} aiOn={aiEnabled()} students={opts} />}
+        {docs && materials.length > 0 && <RetentionNotice rawDue={ret.rawDue} textDue={ret.textDue} base={baseLine(p.endDate, ret.settings.raw_files, ret.termEnds)} today={today} purgedOn={purgedOn} />}
 
         <Card title="어떤 자료로 초안을 만들까요?">
           <div className="grid gap-2.5 md:grid-cols-3">
@@ -128,7 +134,7 @@ export default async function MaterialsPage({ params, searchParams }: Props) {
             </nav>
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-6">
               <UploadBox programId={p.id} mode={mode} students={opts} />
-              <FileList programId={p.id} items={shownFiles.map(fileItem)} />
+              <FileList programId={p.id} items={shownFiles.map(fileItem)} footer={purgedOn ? null : <RetentionLine due={ret.rawDue} today={today} />} />
             </div>
           </Card>
         ) : (

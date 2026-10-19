@@ -12,7 +12,7 @@ const code = `(()=>{${parts.map(slim).join("\n;\n")}\n})()`;
 const href = `javascript:${encodeURIComponent(code)}`;
 const version = parts[3].match(/const VERSION = "([^"]+)"/)[1]; // 버전은 launcher.js 의 VERSION
 await writeFile(out, [
-  "// 자동 생성 파일 — 고치지 말고 apps/neis-extension 을 고친 뒤 npm run pack:neis",
+  "// 자동 생성 파일 — 고치지 말고 apps/neis-bookmarklet 을 고친 뒤 npm run pack:neis",
   `export const NEIS_BOOKMARKLET_VERSION = ${JSON.stringify(version)};`,
   `export const NEIS_BOOKMARKLET = ${JSON.stringify(href)};`,
   "",
