@@ -1,6 +1,6 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { Check, RotateCcw, Sparkles, X } from "lucide-react";
+import { BookOpen, Check, ChevronDown, ChevronUp, RotateCcw, Sparkles, X } from "lucide-react";
 import { cx } from "@/components/ui";
 import type { AutoCheck, CheckRow } from "@/lib/domain/auto-check";
 import { UNIT_LABEL, type LengthRange, type LengthUnit } from "@/lib/domain/length";
@@ -16,19 +16,35 @@ const STATUS = {
 const SHOWN = 4;
 const u = (unit: LengthUnit) => (unit === "bytes" ? "B" : UNIT_LABEL[unit]);
 
-export function AutoChecks({ check, range, onFind, length, children }: {
+export function AutoChecks({ check, range, onFind, length, children, open: openProp, onOpen, onReplace, fix }: {
   check: AutoCheck;
   range: LengthRange;
-  /** "찾기": 본문에서 그 말을 골라 보여 준다 */
+  /** 행을 펼칠 때: 본문에서 그 말로 (N34 — 예전 "찾기" 버튼 대신) */
   onFind?: (s: string) => void;
   /** 분량 줄 (LengthRow) */
   length: ReactNode;
   /** 맞춘 글 카드 같은 덧붙임 (분량 줄 위) */
   children?: ReactNode;
+  /** 펼친 행 key (밑줄 클릭과 연결할 때 바깥에서 쥔다) */
+  open?: string | null;
+  onOpen?: (key: string | null) => void;
+  /** "바꾸기": 본문에서 fix.from → fix.to */
+  onReplace?: (row: CheckRow) => void;
+  /** AI로 고치기 줄 · 고친 글 카드 (행들 아래) */
+  fix?: ReactNode;
 }) {
   const [all, setAll] = useState(false);
+  const [openState, setOpenState] = useState<string | null>(null);
+  const open = openProp !== undefined ? openProp : openState;
   const { status, rows, passed, value, over } = check;
-  const shown = all ? rows : rows.slice(0, SHOWN);
+  const openAt = rows.findIndex((r) => r.key === open);
+  const shown = all || openAt >= SHOWN ? rows : rows.slice(0, SHOWN);
+  const toggle = (r: CheckRow) => {
+    const next = open === r.key ? null : r.key;
+    setOpenState(next);
+    onOpen?.(next);
+    if (next && r.find) onFind?.(r.find);
+  };
   const scale = range.max * 1.15; // 막대 끝 = 최대 × 1.15
   const pos = (n: number) => `${Math.min(100, (n / scale) * 100)}%`;
 
@@ -64,14 +80,16 @@ export function AutoChecks({ check, range, onFind, length, children }: {
 
       {rows.length > 0 && (
         <ul className="flex flex-col">
-          {shown.map((r) => <Row key={r.key} r={r} onFind={onFind} />)}
-          {rows.length > SHOWN && (
+          {shown.map((r) => <CheckRowItem key={r.key} r={r} open={open === r.key} onToggle={() => toggle(r)} onReplace={onReplace} />)}
+          {rows.length > SHOWN && openAt < SHOWN && (
             <li className="border-t border-soft py-2.5 pl-[30px]">
               <button type="button" onClick={() => setAll(!all)} className="text-[12px] font-medium text-sub">{all ? "접기" : `${rows.length - SHOWN}개 더 보기`}</button>
             </li>
           )}
         </ul>
       )}
+
+      {fix}
 
       {passed.length > 0 && (
         <p className="flex flex-wrap items-center gap-x-1 text-[12px] text-mute">
@@ -87,20 +105,86 @@ export function AutoChecks({ check, range, onFind, length, children }: {
   );
 }
 
-function Row({ r, onFind }: { r: CheckRow; onFind?: (s: string) => void }) {
+/** 펼침 한 줄: 넓은 단은 이름표 48 + 값, 좁은 단은 이름표 위 · 값 아래 */
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <li className="flex items-start gap-2.5 border-t border-soft py-2.5">
-      <span className={cx("mt-px flex size-5 shrink-0 items-center justify-center rounded-full text-white", r.level === "block" ? "bg-bad" : "bg-wait")} aria-hidden>
-        {r.level === "block" ? <X size={12} strokeWidth={3} /> : <b className="text-[13px] leading-none">!</b>}
+    <div className="flex flex-col gap-1 @lg:flex-row @lg:gap-0">
+      <span className="shrink-0 text-[12px] leading-5 text-mute @lg:w-[60px] @lg:pt-px">{label}</span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+/** 기재요령 칩 (N34 417:485): 누르면 기재요령 원문 새 탭 */
+export function SourceChip({ source, url }: { source: string; url?: string }) {
+  const body = <><BookOpen size={12} className="shrink-0" />{source}</>;
+  const cls = "inline-flex h-6 items-center gap-1 whitespace-nowrap rounded-chip border border-line bg-[#fff] px-2 text-[12px] font-medium text-sub";
+  return url ? <a href={url} target="_blank" rel="noreferrer" className={cx(cls, "hover:bg-soft")}>{body}</a> : <span className={cls}>{body}</span>;
+}
+
+/** 검사 행 (N34 417:673): 머리(누르면 펼침) · 걸린 말 · 왜 · 근거 · 고칠 말 */
+function CheckRowItem({ r, open, onToggle, onReplace }: { r: CheckRow; open: boolean; onToggle: () => void; onReplace?: (row: CheckRow) => void }) {
+  const block = r.level === "block";
+  const expandable = r.key !== "len";
+  const head = (
+    <>
+      <span className={cx("mt-px flex size-5 shrink-0 items-center justify-center rounded-full text-white", block ? "bg-bad" : "bg-wait")} aria-hidden>
+        {block ? <X size={12} strokeWidth={3} /> : <b className="text-[13px] leading-none">!</b>}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[13px] font-bold">{r.label}</span>
+        <span className="flex flex-wrap items-center gap-x-1.5">
+          <span className="text-[13px] font-bold">{r.label}</span>
+          {block && <span className="whitespace-nowrap rounded-chip bg-bad-soft px-1.5 py-px text-[11px] font-bold text-bad">확정 불가</span>}
+        </span>
         <span className="block text-[12px] text-sub">
           {r.hit && <b className="text-ink">{r.hit}</b>}{r.detail}
         </span>
       </span>
-      {r.find && onFind && (
-        <button type="button" onClick={() => onFind(r.find!)} className="shrink-0 rounded-chip px-2 py-0.5 text-[12px] font-medium text-key-strong hover:bg-key-soft">찾기</button>
+    </>
+  );
+  if (!expandable) return <li className="flex items-start gap-2.5 border-t border-soft py-2.5">{head}</li>;
+  return (
+    <li className="border-t border-soft">
+      <button type="button" aria-expanded={open} onClick={onToggle} className="flex w-full items-start gap-2.5 py-2.5 text-left">
+        {head}
+        {open ? <ChevronUp size={16} className="mt-0.5 shrink-0 text-mute" /> : <ChevronDown size={16} className="mt-0.5 shrink-0 text-mute" />}
+      </button>
+      {open && (
+        <div className="flex flex-col gap-2.5 pb-3 pl-[30px] break-keep">
+          {(r.phrase ?? r.hit) && (
+            <Field label="걸린 말">
+              <span className={cx("inline rounded-chip px-2 py-0.5 text-[13px] font-medium [box-decoration-break:clone]", block ? "bg-bad-soft text-bad" : "bg-wait-soft text-[#9A6400]")}>{r.phrase ?? r.hit}</span>
+            </Field>
+          )}
+          <Field label="왜"><p className="text-[13px] leading-5 text-ink">{r.why}</p></Field>
+          {r.basis && (
+            <Field label="근거">
+              <div className="flex flex-col items-start gap-1.5 rounded-control bg-bg px-3 py-2.5">
+                <p className="text-[13px] leading-5 text-sub">“{r.basis.quote}”</p>
+                <SourceChip source={r.basis.source} url={r.basis.url} />
+              </div>
+            </Field>
+          )}
+          <Field label="고칠 말">
+            {r.fix ? (
+              <div className="flex flex-col gap-2 @lg:flex-row @lg:items-center @lg:gap-3">
+                <p className="min-w-0 flex-1 text-[13px] leading-5">
+                  <s className="text-mute">{r.fix.from.trim()}</s>
+                  <span className="mx-1.5 text-mute">→</span>
+                  <b className="text-key-strong">{r.fix.to ?? "빼기"}</b>
+                </p>
+                {onReplace && (
+                  <button type="button" onClick={() => onReplace(r)}
+                    className="h-10 shrink-0 whitespace-nowrap rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong hover:bg-[#e3e7ff] @lg:h-[30px] @lg:w-[72px]">
+                    {r.fix.to === null ? "빼기" : "바꾸기"}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-[13px] leading-5 text-mute">규칙으로 바꿀 말이 없어요 · AI로 고치기에서 같이 고쳐요</p>
+            )}
+          </Field>
+        </div>
       )}
     </li>
   );
@@ -141,7 +225,7 @@ export function LengthRow({ unit, max, limit, onChange, form, actions }: {
   );
   const field = (
     <label className="flex h-8 min-w-0 items-center rounded-field bg-soft px-2.5 focus-within:ring-2 focus-within:ring-key flex-1 @lg:w-24 @lg:flex-none">
-      <input form={form} name="lengthMax" inputMode="numeric" value={max ? max.toLocaleString() : ""} aria-label={`최대 분량 (${UNIT_LABEL[unit]})`}
+      <input inputMode="numeric" value={max ? max.toLocaleString() : ""} aria-label={`최대 분량 (${UNIT_LABEL[unit]})`}
         onChange={(e) => onChange({ unit, max: Number(e.target.value.replace(/[^\d]/g, "")) || 0 })}
         className="w-full min-w-0 bg-transparent text-[14px] font-medium tabular-nums outline-none" />
       <span className="shrink-0 text-[13px] text-mute">{u(unit)}</span>
@@ -150,6 +234,8 @@ export function LengthRow({ unit, max, limit, onChange, form, actions }: {
   return (
     <div className="@container">
       <input form={form} type="hidden" name="lengthUnit" value={unit} />
+      {/* 보이는 칸은 "1,500"처럼 쉼표를 넣으므로, 폼에는 숫자만 보낸다 */}
+      <input form={form} type="hidden" name="lengthMax" value={max || ""} />
       {/* 넓은 단: 한 줄 */}
       <div className="hidden items-center gap-2.5 @lg:flex">
         <span className="shrink-0 text-[13px] font-medium text-sub">분량</span>

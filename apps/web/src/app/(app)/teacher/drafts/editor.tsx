@@ -2,19 +2,25 @@
 import { startTransition, useActionState, useRef, useState } from "react";
 import { Check, Link2, MessageSquare, ShieldCheck } from "lucide-react";
 import { AutoChecks, LengthRow } from "@/components/writing/auto-checks";
-import { selectIn } from "@/components/writing/record-checks";
-import { autoCheck } from "@/lib/domain/auto-check";
+import { autoCheck, type CheckRow } from "@/lib/domain/auto-check";
+import { applyFix } from "@/lib/domain/forbidden";
+import { AiFixArea } from "@/components/writing/ai-fix";
+import { HighlightTextarea, type Mark } from "@/components/writing/highlight-textarea";
+import { useUndoSnack } from "@/components/writing/undo-snack";
+import { SimilarNotice, SimilarSheet, useSimilar, type SimilarPeer, type SimilarSelf } from "@/components/writing/similar-sheet";
 import { Button, cx } from "@/components/ui";
 import { neisMax, resolveLength, UNIT_LABEL, type DraftCategory, type LengthUnit } from "@/lib/domain/length";
 import { checkDraft, similarSentences, type EvidenceItem, type SimilarHit } from "@/lib/domain/program";
-import { regenerateDraft, rephraseAction, reviewDraftAction, saveDraft, type RegenState, type RephraseState, type ReviewState, type SaveState } from "./actions";
+import { aiFixDraft, regenerateDraft, rephraseAction, reviewDraftAction, saveDraft, type RegenState, type RephraseState, type ReviewState, type SaveState } from "./actions";
 import { OverApproval } from "@/components/writing/over-approval";
 import { RecordCompetency } from "@/components/writing/record-competency";
 
 // T4 초안 본문 편집 + 자동 검사 + 검토 도우미 + 반려·직접 수정·확정
 export function DraftEditor({
-  jobId, studentId, initial, unit, max, area, people, evidence, peers, aiOn, finalized, tags,
+  jobId, studentId, initial, unit, max, area, people, evidence, peers, aiOn, finalized, tags, similarPeers,
 }: {
+  /** 비슷한 문장 (N34 ④): 같은 프로그램 다른 학생 초안 중 길게 겹친 것 */
+  similarPeers?: { self: SimilarSelf; peers: SimilarPeer[] };
   jobId: string;
   studentId: string;
   initial: string;
@@ -48,6 +54,22 @@ export function DraftEditor({
   const [len, setLen] = useState<{ unit: LengthUnit; max: number }>({ unit, max });
   const regenId = `regen-${jobId}`;
   const formId = `save-${jobId}`;
+  // N34: 검사 행 펼침 · 본문 밑줄 · 바꾸기(되돌리기) · AI로 고치기 · 비슷한 문장
+  const [open, setOpen] = useState<string | null>(null);
+  const snack = useUndoSnack();
+  const replace = (next: string, msg: string) => { const prev = text; setText(next); snack.show(msg, () => setText(prev)); };
+  const onReplace = (r: CheckRow) => {
+    if (!r.fix) return;
+    const next = applyFix(text, r.fix);
+    if (next !== text) { setOpen(null); replace(next, r.fix.to === null ? "뺐어요" : "바꿨어요"); }
+  };
+  const recheck = (t: string) => autoCheck(t, range, checkDraft(t, { range, people, evidence: [] }).identity.found);
+  const sim = useSimilar(jobId, text, similarPeers?.peers ?? NO_PEERS);
+  const [compare, setCompare] = useState(false);
+  const marks: Mark[] = [
+    ...sim.flatMap((x) => x.mine.map((g) => ({ ...g, tone: "similar" as const }))),
+    ...auto.rows.flatMap((r) => r.ranges.map((g) => ({ ...g, tone: r.level === "block" ? ("block" as const) : ("warn" as const), key: r.key, strong: r.key === open }))),
+  ];
   const items = (review.items ?? []).filter((x) => !applied.includes(x.phrase) && text.includes(x.phrase));
 
   const runReview = () => {
@@ -165,12 +187,15 @@ export function DraftEditor({
         </div>
         {/* 역량 보기 (Figma N18): 켜면 본문을 3대 역량 색으로 — 편집칸은 숨겨 둘 뿐 폼에 그대로 남는다 */}
         <RecordCompetency studentId={studentId} text={text} title="본문">
-          <textarea
-            ref={area_} name="content" value={text} onChange={(e) => setText(e.target.value)} rows={10} maxLength={5000}
-            className="w-full resize-y rounded-inner border border-line bg-white p-4 text-[15px] leading-8 outline-none focus:ring-2 focus:ring-key md:p-5"
+          <HighlightTextarea
+            ref={area_} name="content" value={text} onChange={setText} maxLength={5000}
+            marks={marks} onPickMark={setOpen} focusKey={open}
+            boxClassName="rounded-inner border border-line bg-white focus-within:ring-2 focus-within:ring-key"
+            textClassName="min-h-[200px] p-4 text-[15px] leading-8 md:p-5"
             aria-label="초안 본문" placeholder="근거 자료를 보고 '~함.'으로 끝나는 문장으로 써 주세요"
           />
         </RecordCompetency>
+        <SimilarNotice state={sim} onOpen={() => setCompare(true)} />
         {c.evidence.hits.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
             <span className="text-mute">근거 연결 {c.evidence.hits.length}곳</span>
@@ -180,7 +205,8 @@ export function DraftEditor({
       </form>
 
       {/* 자동 검사 (Figma N23 · 초안 검토): 못 지난 항목은 걸린 말과 함께, 분량 줄에서 다시 만들기 */}
-      <AutoChecks check={auto} range={range} onFind={(s) => selectIn(area_.current, s)}
+      <AutoChecks check={auto} range={range} open={open} onOpen={setOpen} onReplace={onReplace}
+        fix={<AiFixArea text={text} check={auto} recheck={recheck} range={range} run={(t) => aiFixDraft({ jobId, text: t })} onApply={(t) => replace(t, "고친 글을 넣었어요")} />}
         length={<LengthRow unit={len.unit} max={len.max} limit={neisMax(area, len.unit)} onChange={setLen} form={regenId}
           actions={<Button type="submit" form={regenId} size="sm" kind="outline" disabled={regenerating}>{regenerating ? "다시 만드는 중…" : "이 분량으로 다시 만들기"}</Button>} />}>
         {regen.error && <p className="text-[13px] text-bad" role="alert">{regen.error}</p>}
@@ -203,6 +229,13 @@ export function DraftEditor({
         <Button form={formId} name="intent" value="finalized" disabled={saving || (!!c.hardFail && !(c.hardFail === "분량 초과" && allowOver))}><Check size={16} /> {finalized ? "다시 확정" : "확정"}</Button>
       </div>
       <p className="flex items-center justify-center gap-1.5 text-[12px] text-mute"><ShieldCheck size={14} /> 선생님이 확정한 초안만 담임 선생님께 전달돼요</p>
+      {snack.node}
+      {compare && similarPeers && sim.length > 0 && (
+        <SimilarSheet self={similarPeers.self} text={text} unit={range.unit} state={sim} onClose={() => setCompare(false)}
+          onRewriteSelf={() => { setCompare(false); area_.current?.focus(); }} />
+      )}
     </div>
   );
 }
+
+const NO_PEERS: SimilarPeer[] = [];

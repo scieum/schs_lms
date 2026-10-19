@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { Download } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { AiBanner, ButtonLink, Card, Segmented, StatTiles, Tag, cx } from "@/components/ui";
+import { AiBanner, ButtonLink, Card, Segmented, StatTiles, cx } from "@/components/ui";
 import { measure, neisMax, UNIT_LABEL } from "@/lib/domain/length";
 import { latestByStudent, statusLabel, studentsInCourse } from "@/lib/domain/setuk";
 import { latestMemoByStudent } from "@/lib/domain/writing";
@@ -16,6 +15,8 @@ import { setukScope } from "@/lib/domain/common-activity";
 import { seoulNow } from "@/lib/domain/night";
 import { commonActivityRows } from "@/lib/server/common-activity";
 import { CommonActivitiesCard } from "@/components/writing/common-activities-card";
+import { similarCount, similarPairs } from "@/lib/domain/similar";
+import { SetukStudentList } from "./student-list";
 
 export const metadata = { title: "교과 세특 · 속초고등학교 학생관리시스템" };
 
@@ -78,6 +79,14 @@ export default async function SetukPage({ searchParams }: Props) {
   const commonRows = students.length ? await commonActivityRows(commonScopeKey, students.map((s) => s.id)) : [];
   const sec = tab.section ? `&section=${encodeURIComponent(tab.section)}` : "";
   const href = (studentId?: string) => `/teacher/setuk?course=${course.id}${sec}${studentId ? `&student=${studentId}` : ""}`;
+  // 비슷한 문장 (Figma N34 ④): 분반 학생들의 최신 세특끼리 여섯 어절 넘게 겹친 곳 (규칙, AI 없음). 공통 활동 글은 빼고 센다
+  const commonList = students.length ? await repo.listCommonActivities(commonScopeKey) : [];
+  const commonPieces = commonList.length ? await repo.listCommonActivityPieces(commonList.map((a) => a.id)) : [];
+  const ignore = [...commonList.map((a) => a.description), ...commonPieces.map((p) => p.content)].filter((t) => t.trim());
+  const texts = students.map((s) => ({ id: s.id, text: latest.get(s.id)?.content ?? "" })).filter((x) => x.text.trim());
+  const pairs = similarPairs(texts, { ignore });
+  const byId = new Map(students.map((s) => [s.id, s]));
+  const peersOf = (id: string) => pairs.filter((p) => p.a === id || p.b === id).map((p) => (p.a === id ? p.b : p.a));
 
   return (
     <>
@@ -116,27 +125,10 @@ export default async function SetukPage({ searchParams }: Props) {
         ) : (
           <div className="grid gap-4 md:grid-cols-[300px_1fr] md:gap-6">
             <Card title={tab.section ? `${course.subject} ${tab.section} · 이동반` : `${course.subject} · ${assignment?.classes.join("·")}반`}>
-              <ul className="-mx-2 flex max-h-[560px] flex-col overflow-y-auto">
-                {students.map((s) => {
-                  const r = latest.get(s.id);
-                  const on = s.id === selected?.id;
-                  return (
-                    <li key={s.id}>
-                      <Link
-                        href={href(s.id)}
-                        aria-current={on ? "true" : undefined}
-                        className={cx("flex items-center gap-3 rounded-inner px-2 py-2.5", on ? "bg-white" : "hover:bg-white/60")}
-                      >
-                        <span className="w-12 shrink-0 tabular-nums text-[13px] text-mute">{makeStudentNo(s.grade, s.classNo, s.number)}</span>
-                        <span className={cx("min-w-0 flex-1 truncate", on && "font-bold")}>{s.name}</span>
-                        <Tag tone={statusLabel(r) === "확정" ? undefined : statusLabel(r) === "작성 중" ? "bg-wait-soft text-wait" : "bg-white text-mute"}>
-                          {statusLabel(r)}
-                        </Tag>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+              <SetukStudentList items={students.map((s) => ({
+                id: s.id, no: makeStudentNo(s.grade, s.classNo, s.number), name: s.name, status: statusLabel(latest.get(s.id)),
+                href: href(s.id), similar: similarCount(pairs, s.id), on: s.id === selected?.id,
+              }))} />
             </Card>
 
             {selected && (
@@ -155,6 +147,14 @@ export default async function SetukPage({ searchParams }: Props) {
                   confirmed={cur?.status === "confirmed"}
                   who={{ name: selected.name, studentNo: selected.studentNo, grade: selected.grade, classNo: selected.classNo, number: selected.number }}
                   memo={memo?.content ?? ""}
+                  subject={course.subject}
+                  similar={{
+                    self: { id: selected.id, name: selected.name, no: makeStudentNo(selected.grade, selected.classNo, selected.number), href: href(selected.id) },
+                    peers: peersOf(selected.id).map((id) => byId.get(id)!).filter(Boolean).map((p) => ({
+                      id: p.id, name: p.name, no: makeStudentNo(p.grade, p.classNo, p.number), text: latest.get(p.id)?.content ?? "", href: href(p.id),
+                    })),
+                    ignore,
+                  }}
                 />
                 {cur && (
                   <p className="mt-3 text-[12px] text-mute">

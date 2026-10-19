@@ -24,6 +24,9 @@ const LABEL: Record<string, string> = {
   // 기록 쓰기·상담
   "record.save": "기록 저장", "record.confirm": "기록 확정", "record.export": "기록 내보내기", "record.ai_draft": "AI 기록 초안", "setuk.ai_draft": "AI 세특 초안",
   "record.ai_flow": "AI 기록 흐름 요약", "record.competency": "AI 역량 보기", "record.piece": "조각 추가", "setuk.ai_piece_file": "AI 자료 요약 (조각)", "setuk.ai_piece_draft": "AI 조각 초안", "record.ai_keywords": "AI 기록 요약", "record.correction": "정정 요청",
+  "setuk.ai_fix": "AI로 고치기 (세특)", "record.ai_fix": "AI로 고치기 (기록)", "draft.ai_fix": "AI로 고치기 (초안)",
+  "setuk.ai_variants": "AI 다른 버전 (세특)", "record.ai_variants": "AI 다른 버전 (기록)",
+  "logs.ai.soften": "AI 순화 (누가기록)", "record.ai_soften": "AI 순화 (조각 메모)",
   "common.create": "공통 활동 등록", "common.ai_file": "AI 자료 요약 (공통 활동)", "common.piece": "공통 활동 조각",
   "counsel.add": "상담 기록", "counsel.revise": "상담 기록 수정", "counsel.ai_summary": "AI 상담 요약", "career.update": "희망 진로 변경", "recs.ai": "AI 추천",
   // 성적·최저·야자

@@ -6,10 +6,12 @@ import { checkLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import type { MergePiece } from "@/lib/domain/merge";
 import { recordMax, resolveRecordLength, type RecordArea } from "@/lib/domain/writing";
 import { BodyCard } from "./competency-view";
-import { addRecordPiece, aiRecordDraft, fitRecordAction, listRecordPieces, mergeRecordAction, saveRecord, summarizeRecordFile, tagRecord, type RecordState } from "@/app/(app)/teacher/write/actions";
+import { addRecordPiece, aiFixRecordAction, aiRecordDraft, fitRecordAction, listRecordPieces, mergeRecordAction, saveRecord, softenRecordMemo, summarizeRecordFile, tagRecord, variantsRecordAction, type RecordState } from "@/app/(app)/teacher/write/actions";
 import { AiDraftPanel } from "./ai-draft-panel";
 import { PiecesCard } from "./pieces-card";
-import { checkMeta, RecordChecks, selectIn, type Who } from "./record-checks";
+import { checkMeta, RecordChecks, useBodyChecks, type Who } from "./record-checks";
+import { HighlightTextarea } from "./highlight-textarea";
+import { VariantsPanel, VariantsToggle } from "./variants-panel";
 import { StepHead, STEP_GAP } from "./step-head";
 import { OverApproval } from "@/components/writing/over-approval";
 
@@ -40,7 +42,10 @@ export function RecordEditor({
   unit: initialUnit,
   max: initialMax,
   confirmed,
+  aiOn = false,
 }: {
+  /** AI 키가 있을 때만 순화하기 (N34 ③) */
+  aiOn?: boolean;
   area: RecordArea;
   studentId: string;
   clubId?: string;
@@ -65,6 +70,9 @@ export function RecordEditor({
   const [pieces, setPieces] = useState<MergePiece[] | null>(null);
   const editActivity = () => { activityRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }); activityRef.current?.focus({ preventScroll: true }); };
   const hasBody = !!text.trim();
+  // N34: 검사 근거·고칠 말 · 본문 밑줄 · 다른 버전
+  const bc = useBodyChecks({ text, setText, range, who, context: undefined });
+  const [variants, setVariants] = useState(false);
 
   return (
     <div className="flex flex-col gap-5">
@@ -73,6 +81,7 @@ export function RecordEditor({
         activity={activity} setActivity={setActivity} activityRef={activityRef} onPieces={setPieces} done={!!pieces?.length && hasBody}
         load={() => listRecordPieces({ area, studentId, clubId })}
         add={(t, a, kind) => addRecordPiece({ area, studentId, clubId, text: t, activity: a, kind })}
+        soften={aiOn ? (t) => softenRecordMemo({ area, studentId, clubId, text: t }) : undefined} bluntCheck
         summarize={(fd) => { fd.set("area", area); fd.set("studentId", studentId); if (clubId) fd.set("clubId", clubId); return summarizeRecordFile(fd); }} />
       <div className={STEP_GAP}>
         <AiDraftPanel
@@ -94,24 +103,34 @@ export function RecordEditor({
         />
       </div>
       <form action={action} className={`flex flex-col gap-3 ${STEP_GAP}`}>
-        <StepHead n={3} title="본문 · 검사 · 확정" meta={checkMeta(text, range, who)} done={confirmed && hasBody && text === initial} />
+        <StepHead n={3} title="본문 · 검사 · 확정" meta={checkMeta(bc.check)} done={confirmed && hasBody && text === initial} />
         <input type="hidden" name="area" value={area} />
         <input type="hidden" name="studentId" value={studentId} />
         {clubId && <input type="hidden" name="clubId" value={clubId} />}
-        <BodyCard bare toggle={hasBody} text={text} tag={(t) => tagRecord({ area, studentId, clubId, text: t })}>
-          <textarea
+        <BodyCard bare toggle={hasBody} text={text} tag={(t) => tagRecord({ area, studentId, clubId, text: t })}
+          extra={hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}>
+          <HighlightTextarea
             ref={body}
             name="content"
             value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={4}
+            onChange={setText}
+            marks={bc.marks}
+            onPickMark={bc.setOpen}
+            focusKey={bc.open}
             maxLength={5000}
             placeholder="② 결과를 넣거나 직접 써 주세요. 문장은 '~함.'으로 끝내요"
-            className="min-h-[120px] w-full resize-y rounded-field bg-soft [field-sizing:content] px-4 py-3.5 text-[15px] leading-[26px] outline-none focus:ring-2 focus:ring-key"
+            boxClassName="rounded-field bg-soft focus-within:ring-2 focus-within:ring-key"
+            textClassName="min-h-[120px] px-4 py-3.5 text-[15px] leading-[26px]"
             aria-label="기록 내용"
           />
         </BodyCard>
-        <RecordChecks text={text} range={range} who={who} onFind={(s) => selectIn(body.current, s)}
+        {variants && hasBody && (
+          <VariantsPanel unit={range.unit} max={range.max} onClose={() => setVariants(false)}
+            run={(mode) => variantsRecordAction({ area, studentId, clubId, text, mode, unit: range.unit, max: range.max })}
+            onPick={(t) => { setVariants(false); bc.replace(t, "본문을 바꿨어요"); }} />
+        )}
+        <RecordChecks text={text} range={range} check={bc.check} recheck={bc.recheck} open={bc.open} onOpen={bc.setOpen} onReplace={bc.onReplace}
+          aiFix={{ run: (t) => aiFixRecordAction({ area, studentId, clubId, text: t, unit: range.unit, max: range.max }), onApply: (t) => bc.replace(t, "고친 글을 넣었어요") }}
           length={{ unit: len.unit, max: len.max, limit: recordMax(area, len.unit), onChange: setLen }}
           fit={{ run: () => fitRecordAction({ area, studentId, clubId, text, unit: range.unit, max: range.max }), onApply: setText }} />
 
@@ -126,12 +145,13 @@ export function RecordEditor({
           <Button kind="outline" name="intent" value="draft" disabled={pending} className="flex-1">
             임시 저장
           </Button>
-          <Button name="intent" value="confirmed" disabled={pending || (over && !allowOver) || !hasBody} className="flex-1 disabled:bg-key disabled:opacity-40">
+          <Button name="intent" value="confirmed" disabled={pending || (over && !allowOver) || !hasBody || bc.check.status === "block"} className="flex-1 disabled:bg-key disabled:opacity-40">
             <Check size={16} strokeWidth={2.5} /> {confirmed ? "다시 확정" : "확정"}
           </Button>
         </div>
         <p className="text-[12px] text-mute">확정한 기록만 나이스로 내보내요</p>
       </form>
+      {bc.snack}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { canLog, homeroomStudents, isAreaOf } from "@/lib/domain/activity";
 import { maskIdentity } from "@/lib/domain/program";
 import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
-import { polishLog, polishStudentLog } from "@/lib/server/ai/teacher-ai";
+import { polishLog, polishStudentLog, softenMemo } from "@/lib/server/ai/teacher-ai";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { readEvidence } from "@/lib/server/ai/read-evidence";
@@ -130,6 +130,24 @@ export async function polishLogMemo(input: { area: string; clubId?: string; text
   if (r.label === "AI") await repo.audit(v.accountId, "logs.ai.polish", input.area);
   if (!r.data) return { ok: false, error: "다듬을 내용을 찾지 못했어요. 직접 써 주세요" };
   return { ok: true, text: r.data, label: r.label, notice: r.error ? `AI 대신 규칙으로 다듬었어요 (${r.error})` : masked !== text ? "이름·학번은 가린 뒤 다듬었어요" : undefined };
+}
+
+/**
+ * 순화하기 (Figma N34 ③): 퉁명스러운 메모 → 생기부 말투. 저장하지 않고 돌려주기만 한다 ("조각으로 넣기"는 addLogs).
+ * polishLogMemo 처럼 이 화면 학생들의 이름·학번을 가린 뒤 보낸다. AI가 꺼져 있으면 순화하지 않는다.
+ */
+export async function softenLogMemo(input: { area: string; clubId?: string; text: string }): Promise<PolishResult> {
+  const v = await requireCan("logs.write");
+  const text = String(input.text ?? "").trim();
+  if (text.length < 2) return { ok: false, error: "메모를 먼저 적어 주세요" };
+  if (text.length > 1000) return { ok: false, error: "1000자까지 순화할 수 있어요" };
+  if (!isAreaOf(input.area)) return { ok: false, error: "영역을 골라 주세요" };
+  const people = await boardPeople(v, input.area, input.clubId);
+  const r = await softenMemo(maskIdentity(text, people), input.area);
+  if (!r) return { ok: false, error: "AI가 꺼져 있어 순화할 수 없어요. 직접 고쳐 주세요" };
+  if (r.error || !r.data) return { ok: false, error: r.error ?? "순화하지 못했어요. 직접 고쳐 주세요" };
+  await repo.audit(v.accountId, "logs.ai.soften", input.area);
+  return { ok: true, text: r.data, label: "AI" };
 }
 
 /**

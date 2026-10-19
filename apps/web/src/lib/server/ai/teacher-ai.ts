@@ -58,6 +58,26 @@ export async function polishLog(masked: string, area: string): Promise<Assisted<
 }
 
 /**
+ * 순화하기 (Figma N34 ③): 이미 가린 메모 → 생기부에 쓸 수 있는 말투 1~2문장 (Haiku).
+ * AI가 꺼져 있으면 순화하지 않는다 (화면은 순화 버튼을 숨긴다).
+ */
+export async function softenMemo(masked: string, area: string): Promise<Assisted<string> | null> {
+  if (!aiEnabled()) return null;
+  const r = await aiJson(z.object({ text: z.string() }), {
+    model: "fast",
+    system: `너는 고등학교 교사의 ${area} 기록 도우미다. 교사의 퉁명스러운 관찰 메모를 학교생활기록부에 쓸 수 있는 말투로 바꾼다.
+- 적힌 사실은 그대로 둔다. 평가·비난하는 말(졸다, 안 냄, 떠듦, 산만 등)만 관찰한 사실을 담담히 적는 문장으로 바꾼다
+- 없는 노력·변화·원인·다짐을 지어내지 않는다. 칭찬을 보태지 않는다
+- 1~2문장, 200자 이내. 종결은 "~함." "~임." "~있음." 같은 명사형
+- 학생 이름이나 "○○" 같은 자리를 만들지 않는다`,
+    content: `메모:\n${masked}`,
+  });
+  if (!r.ok) return { data: "", label: "AI", error: r.error };
+  const t = r.data.text.replace(/\s+/g, " ").trim().slice(0, 300);
+  return { data: t, label: "AI" };
+}
+
+/**
  * 누가기록 한꺼번에 쓰기 (N28) 카드별 "다듬기": 학생 한 명의 글(이미 가림, [활동명] 뗌)을 자연스럽게 잇는다.
  * 사실을 빼거나 보태지 않고 문장만 다듬는다. 키가 없으면 공백·겹친 문장만 정리한다.
  */

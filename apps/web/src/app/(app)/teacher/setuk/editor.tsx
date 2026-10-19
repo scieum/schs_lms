@@ -1,15 +1,18 @@
 "use client";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui";
 import { AiDraftPanel } from "@/components/writing/ai-draft-panel";
-import { checkMeta, RecordChecks, selectIn, type Who } from "@/components/writing/record-checks";
+import { checkMeta, RecordChecks, useBodyChecks, type Who } from "@/components/writing/record-checks";
+import { HighlightTextarea, type Mark } from "@/components/writing/highlight-textarea";
+import { VariantsPanel, VariantsToggle } from "@/components/writing/variants-panel";
+import { SimilarNotice, SimilarSheet, useSimilar, type SimilarPeer, type SimilarSelf } from "@/components/writing/similar-sheet";
 import { checkLength, MIN_RATIO, NEIS_MAX_BYTES, neisMax, resolveLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import type { MergePiece } from "@/lib/domain/merge";
 import { BodyCard } from "@/components/writing/competency-view";
 import { PiecesCard } from "@/components/writing/pieces-card";
 import { StepHead, STEP_GAP } from "@/components/writing/step-head";
-import { addSetukPiece, aiSetukDraft, summarizeSetukFile, fitSetuk, listSetukPieces, mergeSetuk, saveSetuk, tagSetuk, type SetukState } from "./actions";
+import { addSetukPiece, aiFixSetuk, aiSetukDraft, summarizeSetukFile, fitSetuk, listSetukPieces, mergeSetuk, saveSetuk, tagSetuk, variantsSetuk, type SetukState } from "./actions";
 import { OverApproval } from "@/components/writing/over-approval";
 
 // 세특 쓰기 (Figma N32): ① 조각 모으기 → ② 본문 만들기 → ③ 본문 · 검사 · 확정.
@@ -24,7 +27,13 @@ export function SetukEditor({
   who,
   memo,
   shared,
+  subject,
+  similar,
 }: {
+  /** 과목명 (고칠 말 "○○ 탐구 활동") */
+  subject?: string;
+  /** 비슷한 문장 (N34 ④): 겹친 다른 학생 글 · 공통 활동 글(세지 않음) */
+  similar?: { self: SimilarSelf; peers: SimilarPeer[]; ignore: string[] };
   who: Who;
   memo: string;
   courseId: string;
@@ -54,6 +63,12 @@ export function SetukEditor({
   const [pieces, setPieces] = useState<MergePiece[] | null>(null);
   const editActivity = () => { activityRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }); activityRef.current?.focus({ preventScroll: true }); };
   const hasBody = !!text.trim();
+  // N34: 검사 근거·고칠 말 · 본문 밑줄 · 다른 버전 · 비슷한 문장
+  const sim = useSimilar(studentId, text, similar?.peers ?? NO_PEERS, similar?.ignore ?? NO_PEERS_TEXT);
+  const simMarks = useMemo<Mark[]>(() => sim.flatMap((s) => s.mine.map((g) => ({ ...g, tone: "similar" as const }))), [sim]);
+  const bc = useBodyChecks({ text, setText, range, who, context: subject, extraMarks: simMarks });
+  const [variants, setVariants] = useState(false);
+  const [compare, setCompare] = useState(false);
 
   return (
     <div className="flex flex-col gap-5">
@@ -82,28 +97,39 @@ export function SetukEditor({
         />
       </div>
       <form action={action} className={`flex flex-col gap-3 ${STEP_GAP}`}>
-        <StepHead n={3} title="본문 · 검사 · 확정" meta={checkMeta(text, range, who)} done={confirmed && hasBody && text === initial} />
+        <StepHead n={3} title="본문 · 검사 · 확정" meta={checkMeta(bc.check, sim.length)} done={confirmed && hasBody && text === initial} />
         <input type="hidden" name="courseId" value={courseId} />
         <input type="hidden" name="studentId" value={studentId} />
-        <BodyCard bare toggle={hasBody} text={text} tag={(t) => tagSetuk({ courseId, studentId, text: t })}>
-          <textarea
+        <BodyCard bare toggle={hasBody} text={text} tag={(t) => tagSetuk({ courseId, studentId, text: t })}
+          extra={hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}>
+          <HighlightTextarea
             ref={body}
             name="content"
             value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={4}
+            onChange={setText}
+            marks={bc.marks}
+            onPickMark={bc.setOpen}
+            focusKey={bc.open}
             maxLength={5000}
             placeholder="② 결과를 넣거나 직접 써 주세요. 문장은 '~함.'으로 끝내요"
-            className="min-h-[120px] w-full resize-y rounded-field bg-soft [field-sizing:content] px-4 py-3.5 text-[15px] leading-[26px] outline-none focus:ring-2 focus:ring-key"
+            boxClassName="rounded-field bg-soft focus-within:ring-2 focus-within:ring-key"
+            textClassName="min-h-[120px] px-4 py-3.5 text-[15px] leading-[26px]"
             aria-label="세특 내용"
           />
         </BodyCard>
+        <SimilarNotice state={sim} onOpen={() => setCompare(true)} />
+        {variants && hasBody && (
+          <VariantsPanel unit={range.unit} max={range.max} onClose={() => setVariants(false)}
+            run={(mode) => variantsSetuk({ courseId, studentId, text, mode, unit: range.unit, max: range.max })}
+            onPick={(t) => { setVariants(false); bc.replace(t, "본문을 바꿨어요"); }} />
+        )}
         {shared && (
           <p className="rounded-control bg-key-soft px-3.5 py-2.5 text-[13px] text-key-strong">
             공통과목은 1·2학기 합산 500자 · {shared.other}학기 {shared.bytes.toLocaleString()}바이트 → 이 학기 최대 {capMax.toLocaleString()}{UNIT_LABEL[range.unit]}
           </p>
         )}
-        <RecordChecks text={text} range={range} who={who} onFind={(s) => selectIn(body.current, s)}
+        <RecordChecks text={text} range={range} check={bc.check} recheck={bc.recheck} open={bc.open} onOpen={bc.setOpen} onReplace={bc.onReplace}
+          aiFix={{ run: (t) => aiFixSetuk({ courseId, studentId, text: t, unit: range.unit, max: range.max }), onApply: (t) => bc.replace(t, "고친 글을 넣었어요") }}
           length={{ unit: len.unit, max: len.max, limit: neisMax("세특", len.unit), onChange: setLen }}
           fit={{ run: () => fitSetuk({ courseId, studentId, text, unit: range.unit, max: range.max }), onApply: setText }} />
 
@@ -118,11 +144,19 @@ export function SetukEditor({
           <Button kind="outline" name="intent" value="draft" disabled={pending} className="flex-1">
             임시 저장
           </Button>
-          <Button name="intent" value="confirmed" disabled={pending || (over && !allowOver) || !hasBody} className="flex-1 disabled:bg-key disabled:opacity-40">
+          <Button name="intent" value="confirmed" disabled={pending || (over && !allowOver) || !hasBody || bc.check.status === "block"} className="flex-1 disabled:bg-key disabled:opacity-40">
             <Check size={16} strokeWidth={2.5} /> {confirmed ? "다시 확정" : "확정"}
           </Button>
         </div>
       </form>
+      {bc.snack}
+      {compare && similar && sim.length > 0 && (
+        <SimilarSheet self={similar.self} text={text} unit={range.unit} state={sim} onClose={() => setCompare(false)}
+          onRewriteSelf={() => { setCompare(false); body.current?.focus(); }} />
+      )}
     </div>
   );
 }
+
+const NO_PEERS: SimilarPeer[] = [];
+const NO_PEERS_TEXT: string[] = [];

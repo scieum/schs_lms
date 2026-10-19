@@ -2,7 +2,10 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
-import { resolveLength, UNIT_LABEL } from "@/lib/domain/length";
+import { measure, resolveLength, UNIT_LABEL, type DraftCategory } from "@/lib/domain/length";
+import { fixRecord } from "@/lib/server/ai/merge-record";
+import type { WriteKind } from "@/lib/server/ai/write-record";
+import type { AiFixResult } from "@/lib/domain/variants";
 import { buildEvidence, checkDraft, maskIdentity } from "@/lib/domain/program";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { resetDraftJob, runDraftJobs } from "@/lib/server/ai/draft";
@@ -117,7 +120,21 @@ export async function reviewDraftAction(prev: ReviewState, form: FormData): Prom
   return { items: r.items, label: r.label, error: r.error, n };
 }
 
-export type RephraseState = { sentence?: string; options?: string[]; label?: "AI" | "자동"; error?: string; n?: number };
+const KIND: Record<DraftCategory, WriteKind> = { 세특: "세특", "창체-자율": "자율·자치", "창체-동아리": "동아리", "창체-진로": "진로" };
+
+/** AI로 고치기 (Figma N34): 자동 검사에 걸린 곳만 고친 글. 저장하지 않는다 (교사가 "본문에 넣기" → 직접 수정·확정) */
+export async function aiFixDraft(input: { jobId: string; text: string }): Promise<AiFixResult> {
+  const ctx = await loadJob(String(input?.jobId ?? ""));
+  if (!ctx) return { ok: false, error: "내 프로그램 초안만 다룰 수 있어요" };
+  const text = String(input.text ?? "").slice(0, 6000);
+  if (!text.trim()) return { ok: false, error: "본문이 비어 있어요" };
+  const range = resolveLength(ctx.program.area, { unit: ctx.job.unit, max: ctx.job.max });
+  const r = await fixRecord({ kind: KIND[ctx.program.area], student: ctx.student, text, range });
+  await repo.audit(ctx.v.accountId, "draft.ai_fix", `${ctx.program.id} ${ctx.student.pseudonymId}`);
+  return { ok: true, text: r.text, changes: r.changes, label: r.label, bytes: measure(r.text, range.unit), notice: r.notice };
+}
+
+export type RephraseState ={ sentence?: string; options?: string[]; label?: "AI" | "자동"; error?: string; n?: number };
 
 /**
  * 선택 문장 다르게 쓰기: 문장 하나 → 문체 규칙(record-prompts)에 맞춘 2~3안. 저장하지 않는다.

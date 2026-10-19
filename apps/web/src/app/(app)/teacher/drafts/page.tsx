@@ -11,6 +11,9 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { DraftEditor } from "./editor";
 import { EvidenceDocs } from "./evidence-docs";
+import { similarCount, similarPairs, type SimilarPair } from "@/lib/domain/similar";
+import { SimilarBadge } from "@/components/writing/similar-sheet";
+import { makeStudentNo } from "@/lib/domain/roster";
 
 export const metadata = { title: "초안 검토·확정 · 속초고등학교 학생관리시스템" };
 
@@ -55,6 +58,13 @@ export default async function DraftsPage({ searchParams }: Props) {
     })
     .filter((x) => x.student && x.program)
     .sort((a, b) => a.program.title.localeCompare(b.program.title, "ko") || a.student!.classNo - b.student!.classNo || a.student!.number - b.student!.number);
+  // 비슷한 문장 (Figma N34 ④): 프로그램마다 최신 초안(반려 빼고)끼리 여섯 어절 넘게 겹친 곳 (규칙, AI 없음)
+  const pairsByProgram = new Map<string, SimilarPair[]>();
+  for (const pid of new Set(items.map((x) => x.program.id))) {
+    const texts = items.filter((x) => x.program.id === pid && x.latest && x.latest.status !== "rejected" && x.latest.content.trim()).map((x) => ({ id: x.job.id, text: x.latest!.content }));
+    pairsByProgram.set(pid, similarPairs(texts));
+  }
+  const simOf = (x: (typeof items)[number]) => similarCount(pairsByProgram.get(x.program.id) ?? [], x.job.id);
   const count = (k: string) => items.filter((x) => TABS.find((t) => t[0] === k)![2].includes(x.status)).length;
 
   const picked = items.find((x) => x.job.id === q.d);
@@ -113,6 +123,12 @@ export default async function DraftsPage({ searchParams }: Props) {
                 peers={items
                   .filter((x) => x.program.id === p.id && x.job.id !== sel.job.id && x.latest && x.latest.status !== "rejected")
                   .map((x) => ({ label: x.student!.name, text: x.latest!.content }))}
+                similarPeers={{
+                  self: { id: sel.job.id, name: s.name, no: makeStudentNo(s.grade, s.classNo, s.number), href: base(`tab=${tabKey}&d=${sel.job.id}`) },
+                  peers: (pairsByProgram.get(p.id) ?? []).filter((x) => x.a === sel.job.id || x.b === sel.job.id).map((x) => (x.a === sel.job.id ? x.b : x.a))
+                    .map((id) => items.find((x) => x.job.id === id)).filter((x): x is (typeof items)[number] => !!x && !!x.latest)
+                    .map((x) => ({ id: x.job.id, name: x.student!.name, no: makeStudentNo(x.student!.grade, x.student!.classNo, x.student!.number), text: x.latest!.content, href: base(`d=${x.job.id}`) })),
+                }}
                 aiOn={aiEnabled()}
                 finalized={sel.status === "확정"}
                 tags={[`근거: ${SOURCE_LABEL[p.source]}`, `버전 ${jobVersions.length}`, ...(sel.latest?.source === "sample" ? ["예시"] : sel.latest?.source === "ai" ? ["AI 초안"] : [])]}
@@ -224,6 +240,7 @@ export default async function DraftsPage({ searchParams }: Props) {
                           <span className="min-w-0 flex-1">
                             <span className={cx("block truncate text-[14px]", on && "font-bold")}>{x.student!.name}</span>
                             <span className="block truncate text-[12px] text-mute">{x.program.title}{len !== null ? ` · ${len.toLocaleString()}${x.job.unit === "bytes" ? "B" : "자"}` : ""}</span>
+                            {simOf(x) > 0 && <span className="mt-0.5 block"><SimilarBadge n={simOf(x)} /></span>}
                           </span>
                           {x.status !== "검토 대기" && x.status !== "확정" && x.status !== "반려" && <Tag>{x.status === "생성 실패" && x.job.manualRequestedAt ? "수동 작성 요청" : x.status}</Tag>}
                         </Link>

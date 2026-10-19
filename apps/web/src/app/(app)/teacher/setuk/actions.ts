@@ -9,7 +9,9 @@ import { writeRecord } from "@/lib/server/ai/write-record";
 import { findIdentity, latestMemoByStudent, type AiDraftResult } from "@/lib/domain/writing";
 import { forbiddenBlock } from "@/lib/domain/forbidden";
 import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence";
-import { fitRecord, mergeRecord, tagCompetency } from "@/lib/server/ai/merge-record";
+import { fitRecord, fixRecord, mergeRecord, tagCompetency, variantsRecord } from "@/lib/server/ai/merge-record";
+import { measure } from "@/lib/domain/length";
+import type { AiFixResult, VariantsActionResult } from "@/lib/domain/variants";
 import { listMemosWithPieces, memoPieces } from "@/lib/server/merge-pieces";
 import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
 import { fitRange, PIECE_MAX, PIECE_MIN, PIECE_SOURCES, pieceScopeOf, type MergePiece, type PieceKind } from "@/lib/domain/merge";
@@ -174,6 +176,36 @@ export async function fitSetuk(input: { courseId: string; studentId: string } & 
   const r = await fitRecord({ kind: "세특", context: t.course.subject, student: t.student, text: p.data.text, range });
   await repo.audit(t.v.accountId, "setuk.ai_fit", `${t.course.subject} ${t.student.pseudonymId}`);
   return toDraft(r);
+}
+
+// ---------- AI로 고치기 · 다른 버전 (Figma N34) ----------
+
+const LenSchema = z.object({ text: z.string().min(1, "본문이 비어 있어요").max(6000), unit: z.enum(["bytes", "chars"]), max: z.number().int().min(1) });
+const VarSchema = LenSchema.extend({ mode: z.enum(["keep", "fresh"]) });
+
+/** AI로 고치기: 자동 검사에 걸린 곳만 고친 글 (저장하지 않음 — 교사가 "본문에 넣기") */
+export async function aiFixSetuk(input: { courseId: string; studentId: string } & z.input<typeof LenSchema>): Promise<AiFixResult> {
+  const t = await setukTarget(input.courseId, input.studentId);
+  if (!t) return { ok: false, error: "내 담당 과목·반 학생만 쓸 수 있어요" };
+  const p = LenSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
+  const range = resolveLength("세특", { unit: p.data.unit, max: p.data.max });
+  const r = await fixRecord({ kind: "세특", context: t.course.subject, student: t.student, text: p.data.text, range });
+  await repo.audit(t.v.accountId, "setuk.ai_fix", `${t.course.subject} ${t.student.pseudonymId}`);
+  return { ok: true, text: r.text, changes: r.changes, label: r.label, bytes: measure(r.text, range.unit), notice: r.notice };
+}
+
+/** 다른 버전 3개 (저장하지 않음 — 교사가 "이걸로 바꾸기") */
+export async function variantsSetuk(input: { courseId: string; studentId: string } & z.input<typeof VarSchema>): Promise<VariantsActionResult> {
+  const t = await setukTarget(input.courseId, input.studentId);
+  if (!t) return { ok: false, error: "내 담당 과목·반 학생만 쓸 수 있어요" };
+  const p = VarSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
+  const range = fitRange(resolveLength("세특", { unit: p.data.unit, max: p.data.max }));
+  const r = await variantsRecord({ kind: "세특", context: t.course.subject, student: t.student, text: p.data.text, mode: p.data.mode, range });
+  await repo.audit(t.v.accountId, "setuk.ai_variants", `${t.course.subject} ${t.student.pseudonymId} ${p.data.mode}`);
+  if (!r.versions.length) return { ok: false, error: r.notice ?? "버전을 만들지 못했어요. 다시 만들어 주세요" };
+  return { ok: true, ...r };
 }
 
 export async function tagSetuk(input: { courseId: string; studentId: string; text: string }): Promise<{ tags: TaggedSentence[]; label: "AI" | "자동" } | { error: string }> {
