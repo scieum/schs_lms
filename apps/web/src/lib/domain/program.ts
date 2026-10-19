@@ -168,6 +168,10 @@ export interface Material {
   text: string | null;
   uploaderId: string;
   createdAt: string;
+  /** 보존 기간이 지나 원본 파일을 지운 때 (N39). 지운 뒤에는 filePath 가 "" */
+  purgedAt?: string | null;
+  /** 보존 기간이 지나 읽은 글(text)을 지운 때 (N39) */
+  textPurgedAt?: string | null;
 }
 
 /**

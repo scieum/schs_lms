@@ -259,11 +259,21 @@ export const demoRepo: Repo = {
     return store().service.find((r) => r.id === id) ?? null;
   },
   async getServiceFile(r) {
-    return store().files.get(r.filePath) ?? null;
+    return r.filePath ? store().files.get(r.filePath) ?? null : null;
   },
   async confirmService(id, by) {
     const r = store().service.find((x) => x.id === id);
     if (r && r.status === "sent") Object.assign(r, { status: "confirmed", confirmedBy: by, confirmedAt: new Date().toISOString() });
+  },
+  async purgeServiceFiles(ids) {
+    const set = new Set(ids);
+    let n = 0;
+    for (const r of store().service) {
+      if (!set.has(r.id) || r.purgedAt) continue;
+      if (r.filePath) { store().files.delete(r.filePath); n++; }
+      Object.assign(r, { filePath: "", purgedAt: new Date().toISOString() });
+    }
+    return n;
   },
   async audit(actorId, action, target) {
     store().audit.unshift({ id: crypto.randomUUID(), actorId, action, target, at: new Date().toISOString() });

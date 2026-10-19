@@ -72,6 +72,8 @@ export interface Repo {
   getServiceRecord(id: string): Promise<ServiceRecord | null>;
   getServiceFile(r: ServiceRecord): Promise<Uint8Array | null>;
   confirmService(id: string, by: string): Promise<void>;
+  /** 보존 기간이 지난 봉사 확인서 원본 파일만 지운다 (N39). 봉사 기록은 남긴다. 지운 개수 */
+  purgeServiceFiles(ids: string[]): Promise<number>;
 
   audit(actorId: string | null, action: string, target: string | null): Promise<void>;
   listAudit(limit: number): Promise<AuditEntry[]>;

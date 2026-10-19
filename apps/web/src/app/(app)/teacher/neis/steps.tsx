@@ -4,7 +4,7 @@ import { Bookmark } from "lucide-react";
 import { cx } from "@/components/ui";
 import { NEIS_BOOKMARKLET, NEIS_BOOKMARKLET_VERSION } from "@/lib/neis-bookmarklet";
 
-// 나이스 입력 세 단계 (Figma N31 392:420): ① 나이스 입력 버튼 달기(북마클릿) ② 기록 복사 ③ 나이스에서 채우기.
+// 나이스 입력 세 단계 (Figma N31 392:420 · N39 대조 안내): ① 나이스 입력 버튼 달기(북마클릿) ② 기록 복사 ③ 나이스에서 채우기 › 대조 · 흔적 지우기.
 // 크롬 확장은 없앴다 (2026-10-19 "헷갈리니깐 확장프로그램 자체는 아예 없애버리자"). 저장은 선생님이 직접.
 function Num({ n, soft }: { n: number; soft?: boolean }) {
   return <span className={cx("flex size-[22px] shrink-0 items-center justify-center rounded-full text-[12px] font-bold", soft ? "bg-key-soft text-key-strong" : "bg-key text-white")}>{n}</span>;
@@ -44,10 +44,16 @@ export function Steps() {
         <div className="flex flex-col gap-1.5 py-3 md:gap-2.5 md:rounded-inner md:bg-[#F5F6F8] md:p-4 max-md:pb-0">
           <p className="flex items-center gap-2 text-[15px] font-bold">
             <Num n={3} />나이스에서 채우기
-            <span className="ml-auto whitespace-nowrap rounded-chip bg-soft px-2 py-0.5 text-[12px] font-bold text-sub md:hidden">저장은 직접</span>
+            <span className="ml-auto flex gap-1 md:hidden">
+              <span className="whitespace-nowrap rounded-chip bg-soft px-2 py-0.5 text-[12px] font-bold text-sub">저장은 직접</span>
+              <span className="whitespace-nowrap rounded-chip bg-soft px-2 py-0.5 text-[12px] font-bold text-sub">흔적 지우기</span>
+            </span>
           </p>
-          <p className="text-[13px] text-sub max-md:pl-[30px]">나이스 화면에서 버튼 › Ctrl+V › 한 번에 채우기</p>
-          <span className="hidden self-start rounded-chip bg-[#fff] px-2 py-0.5 text-[12px] font-bold text-sub md:inline">저장은 직접</span>
+          <p className="text-[13px] text-sub max-md:pl-[30px]">나이스 화면에서 버튼 › Ctrl+V › 한 번에 채우기 › 대조</p>
+          <span className="hidden flex-col items-start gap-1.5 md:flex">
+            <span className="rounded-chip bg-[#fff] px-2 py-0.5 text-[12px] font-bold text-sub">저장은 직접</span>
+            <span className="rounded-chip bg-[#fff] px-2 py-0.5 text-[12px] font-bold text-sub">다 하면 흔적 지우기</span>
+          </span>
         </div>
       </div>
       {open && (

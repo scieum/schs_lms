@@ -213,3 +213,15 @@ body {
   .n30-arrow { transform: none; transition-property: opacity; }
   .n30-bar, .n30-uline, .n30-flow::after { transition: none; }
 }
+
+/* N39 학생부 점검 보고서 인쇄 (?print=1): 체크로 빼는 부분 + A4 세로 흑백 */
+.print-root[data-teachers="off"] .p-teachers, .print-root[data-sign="off"] .p-sign { display: none; }
+@media print {
+  @page { size: A4 portrait; margin: 0; }
+  body * { visibility: hidden; }
+  .print-root, .print-root * { visibility: visible; }
+  .print-root { position: absolute; inset: 0 auto auto 0; overflow: visible; background: #fff; }
+  .print-root .print-toolbar { display: none; }
+  .print-root > div { padding: 0; gap: 0; }
+  .print-paper { box-shadow: none !important; break-after: page; }
+}

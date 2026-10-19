@@ -24,7 +24,7 @@ const PAGES = [
     "/teacher/write?area=%EC%A7%84%EB%A1%9C", "/teacher/pieces"].map((p) => ["t-homeroom", p]),
   ["t-homeroom", { from: "/homeroom/students", match: /^\/homeroom\/students\/[^/?]+$/, extra: [""] }],
   ["t-homeroom", { from: "/teacher/write?area=%EC%9E%90%EC%9C%A8%C2%B7%EC%9E%90%EC%B9%98", match: /^\/teacher\/write\/activity\/[^/?]+$/, extra: [""] }],
-  ...["/admin", "/admin/accounts", "/admin/accounts/new", "/admin/audit", "/admin/curriculum", "/admin/errors", "/admin/offerings", "/admin/pipeline"].map((p) => ["t-admin", p]),
+  ...["/admin", "/admin/accounts", "/admin/accounts/new", "/admin/audit", "/admin/curriculum", "/admin/errors", "/admin/offerings", "/admin/pipeline", "/admin/record-report", "/admin/record-report?grade=2&area=setuk", "/admin/retention", "/admin/retention?tab=done"].map((p) => ["t-admin", p]),
   ["t-admin", { from: "/admin/accounts", match: /^\/admin\/accounts\/(?!new)[^/?]+$/, extra: [""] }],
   ...["/student", "/student/courses", "/student/night", "/student/record", "/student/recs", "/student/scores", "/student/submit", "/schedule", "/me"].map((p) => ["s-2", p]), ...["/menu"].map((p) => ["s-2", p]),
 ];

@@ -10,7 +10,7 @@ import { deleteMaterials } from "./actions";
 
 export type FileItem = { id: string; fileName: string; status: MaterialStatus; sub: string; body: ReactNode; actions: ReactNode };
 
-export function FileList({ programId, items }: { programId: string; items: FileItem[] }) {
+export function FileList({ programId, items, footer }: { programId: string; items: FileItem[]; /** 지워지는 날 한 줄 (N39) */ footer?: ReactNode }) {
   const [asking, setAsking] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
@@ -78,6 +78,7 @@ export function FileList({ programId, items }: { programId: string; items: FileI
           onCancel={stopPicking}
           onDelete={() => { del.remove(pickedShown); stopPicking(); }} />
       )}
+      {footer}
       {del.snackbar}
     </div>
   );

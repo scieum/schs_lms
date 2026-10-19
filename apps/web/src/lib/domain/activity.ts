@@ -76,6 +76,8 @@ export interface ServiceRecord {
   confirmedBy: string | null;
   confirmedAt: string | null;
   createdAt: string;
+  /** 보존 기간이 지나 확인서 원본 파일을 지운 때 (N39). 봉사 기록(기관·내용·시간)은 남는다 */
+  purgedAt?: string | null;
 }
 
 export const SERVICE_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;

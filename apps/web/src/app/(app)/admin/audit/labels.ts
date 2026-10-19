@@ -29,6 +29,7 @@ const LABEL: Record<string, string> = {
   "logs.ai.soften": "AI 순화 (누가기록)", "record.ai_soften": "AI 순화 (조각 메모)",
   "setuk.class_check": "반 전체 검사", "draft.class_check": "반 전체 검사 (초안)", "record.class_check": "반 전체 검사 (기록)",
   "library.add": "문장 보관", "library.remove": "보관 문장 지우기", "setuk.level": "성취수준 정함", "setting.achievement_scale": "성취수준 단계 설정",
+  "record_report.export": "학생부 점검 엑셀", "record_report.print": "학생부 점검 인쇄", "retention.update": "보존 기간 바꿈", "retention.hold": "파기 한 번 미룸", "retention.purge": "자료 파기", "retention.run": "파기 지금 확인",
   "behavior.menu": "키워드 메뉴판 고침", "record.ai_behavior": "AI 행발 키워드 초안",
   "common.create": "공통 활동 등록", "common.ai_file": "AI 자료 요약 (공통 활동)", "common.piece": "공통 활동 조각",
   "counsel.add": "상담 기록", "counsel.revise": "상담 기록 수정", "counsel.ai_summary": "AI 상담 요약", "career.update": "희망 진로 변경", "recs.ai": "AI 추천",

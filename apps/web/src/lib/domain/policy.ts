@@ -22,6 +22,8 @@ export type Action =
   | "night.manage" // 야간 자율학습 출석·승인 (담임·관리자)
   | "pipeline.view" // 초안 생성 현황·오류 처리 (관리자)
   | "offering.manage" // 과목 신청 개설·정원 (관리자)
+  | "report.view" // 학생부 점검 보고서 (N39) — 지금은 관리자. 학생부 담당 역할을 만들면 여기만 바꾼다
+  | "retention.manage" // 자료 보존 기간 · 파기 (N39, 관리자)
   | "student.self"; // 학생 본인 화면 (설문·제출·성적·생기부·추천·야자·과목 신청)
 
 function hasRole(v: Viewer, role: TeacherRole) {
@@ -60,6 +62,8 @@ export function can(v: Viewer, action: Action): boolean {
     case "curriculum.manage":
     case "pipeline.view":
     case "offering.manage":
+    case "report.view":
+    case "retention.manage":
       return isAdmin(v);
     case "student.self":
       return v.kind === "student";

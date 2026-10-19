@@ -189,6 +189,7 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
                           <DeleteConfirm layout="small" title={`‘${askedFile.fileName}’ 파일을 지울까요?`} onCancel={() => setAsking(null)}
                             onConfirm={() => { setAsking(null); del.remove([askedFile.id]); }} />
                         )}
+                        {data.retention && <p className={cx("text-[12px]", data.retention.soon ? "font-bold text-[#9A6400]" : "text-mute")}>{data.retention.line}</p>}
                       </div>
                     )}
                   </>

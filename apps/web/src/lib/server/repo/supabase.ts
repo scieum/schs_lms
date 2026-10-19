@@ -42,13 +42,15 @@ type ClubRow = { id: string; year: number; name: string; advisor_id: string };
 type LogRow = { id: string; area: ActivityLog["area"]; student_id: string; author_id: string; club_id: string | null; date: string; content: string; created_at: string; common_activity_id?: string | null };
 type ServiceRow = {
   id: string; student_id: string; uploader_id: string; date: string; end_date?: string | null; hours: number | string; organization: string; activity: string;
-  file_path: string; file_name: string; mime: string; status: ServiceRecord["status"]; confirmed_by: string | null; confirmed_at: string | null; created_at: string;
+  file_path: string | null; file_name: string; mime: string; status: ServiceRecord["status"]; confirmed_by: string | null; confirmed_at: string | null; created_at: string;
+  purged_at?: string | null;
 };
 const toClub = (r: ClubRow): Club => ({ id: r.id, year: r.year, name: r.name, advisorId: r.advisor_id });
 const toLog = (r: LogRow): ActivityLog => ({ id: r.id, area: r.area, studentId: r.student_id, authorId: r.author_id, clubId: r.club_id, date: r.date, content: r.content, createdAt: r.created_at, commonActivityId: r.common_activity_id ?? null });
 const toService = (r: ServiceRow): ServiceRecord => ({
   id: r.id, studentId: r.student_id, uploaderId: r.uploader_id, date: r.date, endDate: r.end_date ?? r.date, hours: Number(r.hours), organization: r.organization, activity: r.activity,
-  filePath: r.file_path, fileName: r.file_name, mime: r.mime, status: r.status, confirmedBy: r.confirmed_by, confirmedAt: r.confirmed_at, createdAt: r.created_at,
+  filePath: r.file_path ?? "", fileName: r.file_name, mime: r.mime, status: r.status, confirmedBy: r.confirmed_by, confirmedAt: r.confirmed_at, createdAt: r.created_at,
+  purgedAt: r.purged_at ?? null,
 });
 const BUCKET = "service-docs";
 
@@ -271,6 +273,7 @@ export const supabaseRepo: Repo = {
     return r ? toService(r as ServiceRow) : null;
   },
   async getServiceFile(r) {
+    if (!r.filePath || r.purgedAt) return null;
     const res = await db().storage.from(BUCKET).download(r.filePath);
     if (res.error || !res.data) return null;
     return new Uint8Array(await res.data.arrayBuffer());
@@ -278,6 +281,22 @@ export const supabaseRepo: Repo = {
   async confirmService(id, by) {
     if (!isUuid(id)) return;
     check(await db().from("service_records").update({ status: "confirmed", confirmed_by: by, confirmed_at: new Date().toISOString() }).eq("id", id).eq("status", "sent"));
+  },
+  async purgeServiceFiles(ids) {
+    const list = ids.filter(isUuid);
+    let n = 0;
+    for (let i = 0; i < list.length; i += 100) {
+      const part = list.slice(i, i + 100);
+      const rows = check(await db().from("service_records").select("id, file_path").in("id", part).is("purged_at", null)) as { id: string; file_path: string | null }[];
+      const paths = rows.map((r) => r.file_path).filter((x): x is string => !!x);
+      if (paths.length) {
+        const rm = await db().storage.from(BUCKET).remove(paths);
+        if (rm.error) throw new Error(`봉사 확인서 파일을 지우지 못했어요 (${rm.error.message})`);
+      }
+      if (rows.length) check(await db().from("service_records").update({ file_path: null, purged_at: new Date().toISOString() }).in("id", rows.map((r) => r.id)));
+      n += paths.length;
+    }
+    return n;
   },
   async audit(actorId, action, target) {
     check(await db().from("audit_logs").insert({ actor_id: actorId, action, target }));

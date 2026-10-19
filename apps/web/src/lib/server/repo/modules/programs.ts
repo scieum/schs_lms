@@ -58,6 +58,10 @@ interface BaseRepo {
   addMaterial(m: NewMaterial, bytes: Uint8Array): Promise<Material>;
   updateMaterial(id: string, patch: MaterialPatch): Promise<void>;
   getMaterialFile(m: Material): Promise<Uint8Array | null>;
+  /** 보존 기간이 지난 원본 파일만 지운다 (N39): Storage remove(100개씩) → file_path 비움 · purged_at. 지운 개수 */
+  purgeMaterialFiles(ids: string[]): Promise<number>;
+  /** 보존 기간이 지난 읽은 글만 지운다 (N39): text = null · text_purged_at. 지운 개수 */
+  purgeMaterialTexts(ids: string[]): Promise<number>;
   /** 자료 한 개를 지운다 (행 → 저장소 파일 순). 지운 행을 돌려준다. 이미 만든 초안은 건드리지 않는다 (N33) */
   deleteMaterial(id: string): Promise<Material | null>;
 
@@ -396,7 +400,27 @@ const demoBase: BaseRepo = {
     if (m) Object.assign(m, patch);
   },
   async getMaterialFile(m) {
-    return ps().files.get(m.filePath) ?? null;
+    return m.filePath ? ps().files.get(m.filePath) ?? null : null;
+  },
+  async purgeMaterialFiles(ids) {
+    const set = new Set(ids);
+    let n = 0;
+    for (const m of ps().materials) {
+      if (!set.has(m.id) || m.purgedAt) continue;
+      if (m.filePath) { ps().files.delete(m.filePath); n++; }
+      Object.assign(m, { filePath: "", purgedAt: new Date().toISOString() });
+    }
+    return n;
+  },
+  async purgeMaterialTexts(ids) {
+    const set = new Set(ids);
+    let n = 0;
+    for (const m of ps().materials) {
+      if (!set.has(m.id) || m.textPurgedAt) continue;
+      if (m.text != null) n++;
+      Object.assign(m, { text: null, textPurgedAt: new Date().toISOString() });
+    }
+    return n;
   },
   async deleteMaterial(id) {
     const s = ps();
@@ -472,7 +496,8 @@ type ProgramRow = {
 type ResponseRow = { id: string; program_id: string; student_id: string; answers: Record<string, string>; submitted_at: string | null; updated_at: string };
 type MaterialRow = {
   id: string; program_id: string; student_id: string | null; file_name: string; mime: string; size: number; pages: number | null;
-  file_path: string; status: Material["status"]; matched_by: Material["matchedBy"]; text: string | null; uploader_id: string; created_at: string;
+  file_path: string | null; status: Material["status"]; matched_by: Material["matchedBy"]; text: string | null; uploader_id: string; created_at: string;
+  purged_at?: string | null; text_purged_at?: string | null;
 };
 type JobRow = {
   id: string; program_id: string; student_id: string; state: DraftState; attempts: number; error: string | null; unit: LengthUnit; max_len: number;
@@ -492,7 +517,8 @@ const toProgram = (r: ProgramRow): Program => ({
 const toResponse = (r: ResponseRow): SurveyResponse => ({ id: r.id, programId: r.program_id, studentId: r.student_id, answers: r.answers ?? {}, submittedAt: r.submitted_at, updatedAt: r.updated_at });
 const toMaterial = (r: MaterialRow): Material => ({
   id: r.id, programId: r.program_id, studentId: r.student_id, fileName: r.file_name, mime: r.mime, size: Number(r.size), pages: r.pages,
-  filePath: r.file_path, status: r.status, matchedBy: r.matched_by, text: r.text, uploaderId: r.uploader_id, createdAt: r.created_at,
+  filePath: r.file_path ?? "", status: r.status, matchedBy: r.matched_by, text: r.text, uploaderId: r.uploader_id, createdAt: r.created_at,
+  purgedAt: r.purged_at ?? null, textPurgedAt: r.text_purged_at ?? null,
 });
 const toJob = (r: JobRow): DraftJob => ({
   id: r.id, programId: r.program_id, studentId: r.student_id, state: r.state, attempts: r.attempts, error: r.error, unit: r.unit, max: r.max_len,
@@ -564,7 +590,7 @@ const supabaseBase: BaseRepo = {
   },
   async deleteProgram(id) {
     if (!isUuid(id)) return;
-    const paths = (check(await db().from("program_materials").select("file_path").eq("program_id", id)) as { file_path: string }[]).map((r) => r.file_path);
+    const paths = (check(await db().from("program_materials").select("file_path").eq("program_id", id)) as { file_path: string | null }[]).map((r) => r.file_path).filter((x): x is string => !!x);
     // 자식 표부터 (외래 키에 cascade 가 없다)
     for (const t of ["draft_versions", "draft_jobs", "program_missing", "program_reminders", "survey_responses", "program_materials"]) {
       check(await db().from(t).delete().eq("program_id", id));
@@ -623,6 +649,7 @@ const supabaseBase: BaseRepo = {
     check(await db().from("program_materials").update(row).eq("id", id));
   },
   async getMaterialFile(m) {
+    if (!m.filePath) return null;
     const r = await db().storage.from(BUCKET).download(m.filePath);
     if (r.error || !r.data) return null;
     return new Uint8Array(await r.data.arrayBuffer());
@@ -633,9 +660,38 @@ const supabaseBase: BaseRepo = {
     if (!r) return null;
     const m = toMaterial(r as MaterialRow);
     // 행을 먼저 지운다 → 파일 보기는 바로 404. 저장소 실패는 로그만 (deleteProgram 과 같은 순서)
-    const rm = await db().storage.from(BUCKET).remove([m.filePath]);
-    if (rm.error) console.error("자료 파일을 저장소에서 지우지 못했어요", rm.error.message);
+    if (m.filePath) {
+      const rm = await db().storage.from(BUCKET).remove([m.filePath]);
+      if (rm.error) console.error("자료 파일을 저장소에서 지우지 못했어요", rm.error.message);
+    }
     return m;
+  },
+  async purgeMaterialFiles(ids) {
+    const list = ids.filter(isUuid);
+    let n = 0;
+    for (let i = 0; i < list.length; i += 100) {
+      const part = list.slice(i, i + 100);
+      const rows = check(await db().from("program_materials").select("id, file_path").in("id", part).is("purged_at", null)) as { id: string; file_path: string | null }[];
+      const paths = rows.map((r) => r.file_path).filter((x): x is string => !!x);
+      if (paths.length) {
+        const rm = await db().storage.from(BUCKET).remove(paths);
+        if (rm.error) throw new Error(`원본 파일을 지우지 못했어요 (${rm.error.message})`);
+      }
+      if (rows.length) check(await db().from("program_materials").update({ file_path: null, purged_at: new Date().toISOString() }).in("id", rows.map((r) => r.id)));
+      n += paths.length;
+    }
+    return n;
+  },
+  async purgeMaterialTexts(ids) {
+    const list = ids.filter(isUuid);
+    let n = 0;
+    for (let i = 0; i < list.length; i += 100) {
+      const part = list.slice(i, i + 100);
+      const rows = check(await db().from("program_materials").select("id, text").in("id", part).is("text_purged_at", null)) as { id: string; text: string | null }[];
+      if (rows.length) check(await db().from("program_materials").update({ text: null, text_purged_at: new Date().toISOString() }).in("id", rows.map((r) => r.id)));
+      n += rows.filter((r) => r.text != null).length;
+    }
+    return n;
   },
   async listMissingReasons(programId) {
     if (!isUuid(programId)) return {};

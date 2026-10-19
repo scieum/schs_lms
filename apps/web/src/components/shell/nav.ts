@@ -3,7 +3,7 @@ import type { Viewer } from "@/lib/domain/types";
 // 역할별 메뉴. 교사는 역할이 여러 개면 그룹이 합쳐진다 (관리자 = 모든 권한 교사).
 export type IconName =
   | "home" | "file" | "clipboard" | "users" | "chat" | "userPlus" | "chart" | "target" | "moon"
-  | "book" | "bookmark" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user" | "calendar" | "presentation" | "send" | "share" | "layers" | "grid";
+  | "book" | "bookmark" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user" | "calendar" | "presentation" | "send" | "share" | "layers" | "grid" | "lock";
 
 export interface NavItem { label: string; href: string; icon: IconName; ready?: boolean; badge?: number; /** 탭: 이 경로로 시작하면 켜짐 */ match?: string[] }
 /** 사이드바 숫자 배지 (Figma: 초안 검토 12, 오류 처리 2, 설문·서류 제출 2) — href 기준 */
@@ -88,6 +88,8 @@ function baseNav(v: Viewer): NavGroup[] {
       I("관리 현황", "/admin", "refresh"),
       I("오류 처리", "/admin/errors", "alert"),
       I("초안 생성 현황", "/admin/pipeline", "refresh"),
+      I("학생부 점검", "/admin/record-report", "chart"),
+      I("자료 보존", "/admin/retention", "lock"),
       I("계정 관리", "/admin/accounts", "users"),
       I("과목 개설", "/admin/offerings", "list"),
       I("편제표", "/admin/curriculum", "list"),
@@ -185,4 +187,6 @@ export const MENU_KEYWORDS: Record<string, string[]> = {
   "/admin/accounts": ["교사 계정", "비밀번호 초기화"],
   "/admin/curriculum": ["편제표"],
   "/admin/audit": ["로그"],
+  "/admin/record-report": ["점검 보고서", "학생부", "바이트 초과", "미작성"],
+  "/admin/retention": ["보존 기간", "파기", "삭제", "개인정보"],
 };

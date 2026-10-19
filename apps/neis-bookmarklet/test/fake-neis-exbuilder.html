@@ -15,7 +15,7 @@
 </head>
 <body>
   <h1>동아리활동 학생부 자료 (시험용 eXbuilder6 그리드)</h1>
-  <p>실제 나이스(eXbuilder6)처럼 <code>cpr.core.Platform.INSTANCE</code> → 그리드(grdMain) → 데이터셋(stuFlnm · speclActSpablMteCn · length)이 있어요. 칸은 그림일 뿐이고, 데이터셋에 들어가야 저장돼요.</p>
+  <p>실제 나이스(eXbuilder6)처럼 <code>cpr.core.Platform.INSTANCE</code> → 그리드(grdMain) → 데이터셋(stuFlnm · speclActSpablMteCn · length)이 있어요. 칸은 그림일 뿐이고, 데이터셋에 들어가야 저장돼요. 대조 시험: 이하늘 칸은 처음 한 번 끝 6글자가 잘려요(?cut=0 이면 끔).</p>
   <div class="cl-grid" id="grid"></div>
   <button id="save" type="button" style="margin-top:12px">저장</button>
   <div id="saved"></div>
@@ -24,18 +24,23 @@
     const data = [[1, "1", 7, "강예린", "", 0, 0], [1, "2", 14, "박서준", "", 0, 0], [1, "4", 1, "김민준", "", 0, 0], [1, "4", 9, "이하늘", "", 0, 0]]
       .map((r) => Object.fromEntries(COLS.map((c, i) => [c, r[i]])));
     const el = document.getElementById("grid");
+    const CUT = new URLSearchParams(location.search).get("cut") !== "0";
+    // 첫 채우기(그리드 넣기 + 데이터셋 다시 넣기) 두 번만 자른다 → '다른 것만 다시 채우기'로 고쳐진다
+    let cutLeft = 2;
+    const cut = (i, c, v) => (CUT && cutLeft > 0 && data[i].stuFlnm === "이하늘" && c === "speclActSpablMteCn" && v ? (cutLeft--, v.slice(0, -6)) : v);
     const rowEls = [];
     const dataSet = {
       getColumnNames: () => [...COLS],
       getRowCount: () => data.length,
       getValue: (i, c) => data[i][c],
-      setValue: (i, c, v) => { data[i][c] = v; paint(i); },
+      setValue: (i, c, v) => { data[i][c] = cut(i, c, v); paint(i); },
     };
     const grdMain = {
       id: "grdMain", type: "grid", dataSet,
       getRowCount: () => data.length,
       getCellValue: (i, c) => data[i][c],
-      setCellValue: (i, c, v) => { data[i][c] = v; rowEls[i].classList.add("cl-modified"); paint(i); },
+      // 대조 시험 (N39): 이하늘 칸은 처음 채울 때 끝 6글자가 덜 들어간다 (나이스가 잘라 먹은 것처럼). ?cut=0 이면 끔
+      setCellValue: (i, c, v) => { data[i][c] = cut(i, c, v); rowEls[i].classList.add("cl-modified"); paint(i); },
       getHtmlElement: () => el,
       redraw: () => data.forEach((_, i) => paint(i)),
     };

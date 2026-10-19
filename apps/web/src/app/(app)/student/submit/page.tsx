@@ -9,6 +9,8 @@ import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { SurveyForm } from "./survey-form";
+import { noticeLine } from "@/lib/domain/retention";
+import { programRetention } from "@/lib/server/retention-sweep";
 
 export const metadata = { title: "설문·서류 제출 · 속초고등학교 학생관리시스템" };
 
@@ -40,6 +42,10 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
   rows.sort((a, b) => Number(a.closed) - Number(b.closed) || Number(a.state === "제출 완료") - Number(b.state === "제출 완료") || a.p.endDate.localeCompare(b.p.endDate));
   const sel = rows.find((x) => x.p.id === q.p) ?? rows.find((x) => !x.closed && x.state !== "제출 완료") ?? rows[0];
   const lastReminder = sel ? reminders.find((r) => r.programId === sel.p.id) : undefined;
+  // N39: 올린 서류 원본이 지워지는 날 (이미 지웠으면 그 날)
+  const ret = sel && sel.docs && sel.myDocs.length ? await programRetention(sel.p) : null;
+  const purgedOn = sel && sel.myDocs.length && sel.myDocs.every((m) => m.purgedAt) ? sel.myDocs.reduce((d, m) => (m.purgedAt! > d ? m.purgedAt! : d), "").slice(0, 10) : null;
+  const retLine = purgedOn ? { text: `서류 원본은 ${purgedOn}에 지웠어요 · 선생님이 쓴 기록은 그대로예요`, soon: false } : ret?.rawDue ? (() => { const n = noticeLine(ret.rawDue, t); return { text: `올린 서류 원본은 ${n.soon ? n.title.replace("이 자료는 ", "") : `${ret.rawDue}에 지워져요`} · 선생님이 쓴 기록은 남아요`, soon: n.soon }; })() : null;
 
   return (
     <>
@@ -89,6 +95,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
                   closed={sel.closed}
                   aiOn={aiEnabled()}
                 />
+                {retLine && <p className={cx("text-[12px]", retLine.soon ? "font-bold text-[#9A6400]" : "text-mute")}>{retLine.text}</p>}
               </>
             )}
           </>
