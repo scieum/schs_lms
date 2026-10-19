@@ -3,7 +3,13 @@
 // 채우기는 확장과 같은 fill.js · panel.js 를 쓴다 (빌드 때 앞에 붙는다). 저장 버튼은 누르지 않는다.
 // 자료는 이 창이 열려 있는 동안 메모리에만 두고, 닫으면 지운다. 서버로 아무것도 보내지 않는다.
 (() => {
-  if (window.__schsBm) return window.__schsBm.open();
+  // 같은 화면에서 예전 버전 북마클릿을 누른 적이 있으면 그 창을 지우고 새 버전으로 다시 만든다 (v0.2.7)
+  const VERSION = "0.2.7";
+  if (window.__schsBm) {
+    if (window.__schsBm.v === VERSION) return window.__schsBm.open();
+    document.getElementById("schs-neis-bookmarklet")?.remove();
+    window.__schsBm = null;
+  }
   const N = () => window.__schsNeis;
 
   const CSS = `
@@ -213,6 +219,6 @@
     q(".paste").focus();
   }
 
-  window.__schsBm = { open: () => { if (!host || !document.contains(host)) build(); } };
+  window.__schsBm = { v: VERSION, open: () => { if (!host || !document.contains(host)) build(); } };
   window.__schsBm.open();
 })();
