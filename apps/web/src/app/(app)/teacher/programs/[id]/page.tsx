@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, ClipboardList, Download, Pencil, Search, Upload } from "lucide-react";
+import { ChevronRight, ClipboardList, ClipboardPaste, Download, Pencil, Search, Upload } from "lucide-react";
 import { Bar } from "@/components/programs/meters";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Avatar, Button, ButtonLink, Card, Tag, cx } from "@/components/ui";
@@ -16,6 +16,8 @@ import { NextActions, RemindSheet, StageStepper } from "./stage";
 import { StudentRowItem } from "./student-popup";
 import { RosterUpload } from "./roster-upload";
 import { programStage } from "@/lib/domain/program-stage";
+import { ExternalImport } from "./external-import";
+import { OriginTag } from "@/components/programs/origin-tag";
 
 export const metadata = { title: "프로그램 상세 · 속초고등학교 학생관리시스템" };
 
@@ -24,20 +26,22 @@ type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: st
 // 학생별 현황 거르기: 받는 중·마감에는 응답 기준, 초안부터는 초안 기준 (Figma N16)
 const TABS_EARLY = [["all", "전체"], ["missing", "미응답"], ["resp", "응답"], ["reason", "사유"]] as const;
 const TABS_LATE = [["all", "전체"], ["review", "검토 대기"], ["running", "만드는 중"], ["failed", "실패"]] as const;
+/** 외부 글 프로그램 (N46): 글 없음 · 검토 대기 */
+const TABS_EXT = [["all", "전체"], ["missing", "글 없음"], ["review", "검토 대기"]] as const;
 type TabKey = (typeof TABS_EARLY)[number][0] | (typeof TABS_LATE)[number][0];
 const PER_PAGE = 10;
 
 /** 초안 상태 이름 (태그·거르기 공통) */
-function statusName(r: StudentRow): string {
-  if (!r.hasEvidence) return r.missingReason ? "사유 있음" : "미제출";
-  if (r.review === "검토 대기") return "생성 완료";
+function statusName(r: StudentRow, external = false): string {
+  if (!r.hasEvidence) return r.missingReason ? "사유 있음" : external ? "글 없음" : "미제출";
+  if (r.review === "검토 대기") return external ? "검토 대기" : "생성 완료";
   if (r.review === "대기") return "초안 전";
   return r.review;
 }
 
-function statusTag(r: StudentRow) {
-  const n = statusName(r);
-  if (n === "사유 있음" || n === "초안 전") return <Tag tone="bg-white text-mute">{n}</Tag>;
+function statusTag(r: StudentRow, external = false) {
+  const n = statusName(r, external);
+  if (n === "사유 있음" || n === "초안 전" || n === "글 없음") return <Tag tone="bg-white text-mute">{n}</Tag>;
   if (n === "미제출") return <Tag tone="bg-bad-soft text-bad">{n}</Tag>;
   return <Tag>{n}</Tag>;
 }
@@ -55,21 +59,23 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
   const status = effectiveStatus(p, t);
   const survey = usesSurvey(p.source);
   const docs = usesDocs(p.source);
+  // N46 외부 글 프로그램: 설문·서류·AI 없이 교사가 넣은 글로 (근거 = 넣은 글)
+  const external = p.source === "external";
 
   const submitted = responses.filter((r) => r.submittedAt && p.targetIds.includes(r.studentId)).length;
   const withDocs = rows.filter((r) => r.materials.length > 0).length;
   const withEvidence = rows.filter((r) => r.hasEvidence).length;
   const missing = rows.filter((r) => !r.hasEvidence && !r.missingReason);
   const count = (s: string) => rows.filter((r) => r.review === s).length;
-  const ready = rows.filter((r) => r.hasEvidence && (!r.job || r.job.state === "PENDING")).length;
+  const ready = external ? 0 : rows.filter((r) => r.hasEvidence && (!r.job || r.job.state === "PENDING")).length;
   const failed = rows.filter((r) => r.review === "생성 실패");
 
   const classes = [...new Set(rows.map((r) => `${r.student.grade}-${r.student.classNo}`))].sort();
   const stage = programStage({
     status, targets: rows.length, evidence: withEvidence, ready,
-    running: count("생성 중"), failed: failed.length, review: count("검토 대기"), confirmed: count("확정"),
+    running: count("생성 중"), failed: failed.length, review: count("검토 대기"), confirmed: count("확정"), external,
   }, ddayLabel(p.endDate, t));
-  const TABS = stage.index >= 2 ? TABS_LATE : TABS_EARLY;
+  const TABS = external ? TABS_EXT : stage.index >= 2 ? TABS_LATE : TABS_EARLY;
   const tab: TabKey = (TABS as readonly (readonly [string, string])[]).some(([k]) => k === q.tab) ? (q.tab as TabKey) : "all";
   const stagePct = stage.index <= 1 ? responseRate(rows.length, withEvidence) : stage.index === 2 ? responseRate(withEvidence, count("검토 대기") + count("확정")) : responseRate(Math.max(1, withEvidence), count("확정"));
   const term = (q.q ?? "").trim();
@@ -82,7 +88,7 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
     if (tab === "failed" && r.review !== "생성 실패") return false;
     if (q.cls && `${r.student.grade}-${r.student.classNo}` !== q.cls) return false;
     if (q.src && r.evidenceLabel !== q.src) return false;
-    if (q.st && statusName(r) !== q.st) return false;
+    if (q.st && statusName(r, external) !== q.st) return false;
     if (term && !r.student.name.includes(term)) return false;
     return true;
   });
@@ -93,7 +99,7 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
     all: rows.length, resp: withEvidence, missing: missing.length, reason: rows.filter((r) => !r.hasEvidence && r.missingReason).length,
     review: count("검토 대기"), running: count("생성 중"), failed: failed.length,
   };
-  const ctx = { programId: p.id, missing: status === "open" ? missing.length : 0, aiOn: aiEnabled(), last: null as string | null };
+  const ctx = { programId: p.id, missing: status === "open" && !external ? missing.length : 0, aiOn: aiEnabled(), last: null as string | null };
   const qs = (over: Record<string, string | undefined>) => {
     const u = new URLSearchParams();
     const all: Record<string, string | undefined> = { tab, cls: q.cls, src: q.src, st: q.st, q: term || undefined, ...over };
@@ -127,7 +133,7 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
 
         {/* 단계 카드: 지금 어디인지 + (PC) 지금 할 일 */}
         <section className="surface flex flex-col gap-4 rounded-card p-4 md:p-6">
-          <StageStepper stage={stage} pct={stagePct} actions={<NextActions stage={stage} ctx={ctx} />} />
+          <StageStepper stage={stage} pct={stagePct} external={external} actions={<NextActions stage={stage} ctx={ctx} />} />
         </section>
         {/* 모바일: 탭바 바로 위 고정 버튼 */}
         <NextActions stage={stage} ctx={ctx} mobile />
@@ -158,7 +164,7 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
             <div className="hidden gap-2 md:flex">
               <AutoSelect name="cls" value={q.cls ?? ""} label="반" options={[["", "반: 전체"], ...classes.map((c): [string, string] => [c, `${c.replace("-", "학년 ")}반`])]} />
               <AutoSelect name="src" value={q.src ?? ""} label="자료" options={[["", "자료: 전체"], ...[...new Set(rows.map((r) => r.evidenceLabel))].map(pair)]} />
-              <AutoSelect name="st" value={q.st ?? ""} label="초안 상태" options={[["", "초안 상태: 전체"], ...[...new Set(rows.map(statusName))].map(pair)]} />
+              <AutoSelect name="st" value={q.st ?? ""} label="초안 상태" options={[["", "초안 상태: 전체"], ...[...new Set(rows.map((r) => statusName(r, external)))].map(pair)]} />
             </div>
             <label className="flex h-9 min-w-40 flex-1 items-center gap-2 rounded-field bg-white px-3 md:max-w-64 md:flex-none md:w-64">
               <Search size={15} className="text-mute" />
@@ -182,19 +188,19 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <Avatar name={s.name} size={36} />
                       <div className="min-w-0">
-                        <div className="truncate text-[15px] font-medium">{s.name}</div>
+                        <div className="flex min-w-0 items-center gap-1.5"><span className="truncate text-[15px] font-medium">{s.name}</span><OriginTag origin={r.origin?.origin} className="max-md:hidden" /></div>
                         <div className="truncate text-[12px] text-mute">{s.grade}학년 {s.classNo}반 {s.number}번<span className="md:hidden"> · {r.evidenceLabel}</span>{r.missingReason ? ` · ${r.missingReason}` : ""}</div>
                       </div>
                     </div>
                     <span className="hidden text-center text-[13px] text-sub md:block">{r.evidenceLabel}</span>
                     <span className="hidden text-center text-[13px] text-sub md:block">{r.response?.submittedAt ? md(r.response.submittedAt.slice(0, 10)) : "—"}</span>
-                    <span className="md:flex md:justify-center">{statusTag(r)}</span>
+                    <span className="flex shrink-0 flex-col items-end gap-1 md:flex-row md:justify-center">{statusTag(r, external)}{r.origin?.origin === "external" && <OriginTag origin="external" className="md:hidden" />}</span>
                     <div className="hidden justify-end md:flex">
                       {r.review === "생성 실패" && draftHref ? (
                         <ButtonLink href={draftHref} size="sm" kind="soft" className="w-[76px] whitespace-nowrap px-0">직접 작성</ButtonLink>
                       ) : draftHref && r.latest ? (
                         <ButtonLink href={draftHref} size="sm" kind="outline" className="w-[76px] px-0">보기</ButtonLink>
-                      ) : !r.hasEvidence && !r.missingReason && status === "open" ? (
+                      ) : !r.hasEvidence && !r.missingReason && status === "open" && !external ? (
                         <form action={remindOne}>
                           <input type="hidden" name="programId" value={p.id} />
                           <input type="hidden" name="studentId" value={s.id} />
@@ -235,6 +241,14 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
                 </div>
               )}
               {docs && <ButtonLink href={`/teacher/programs/${p.id}/materials`} kind="soft" size="sm" className="w-full"><Upload size={14} /> 서류 올리기</ButtonLink>}
+              {/* 외부 생기부 글 (Figma N46): 기관이 보낸 글을 엑셀로 한꺼번에 — 외부 글 프로그램은 이 블록이 근거 자료 */}
+              {external && (
+                <div className="flex flex-col gap-2 rounded-inner bg-bg p-3.5">
+                  <div className="flex items-center gap-2.5"><ClipboardPaste size={16} className="text-sub" /><span className="flex-1"><b className="block text-[15px]">외부 글</b><span className="text-[12px] text-mute">기관이 보낸 글 · AI 안 씀</span></span><b className="tabular-nums">{withEvidence}/{rows.length}</b></div>
+                  <Bar pct={responseRate(rows.length, withEvidence)} />
+                </div>
+              )}
+              <ExternalImport programId={p.id} targets={rows.length} trigger={external || p.status !== "draft" ? "soft" : "none"} />
             </div>
           </Card>
           {survey && submitted > 0 && <AnalyzeBox programId={p.id} submitted={submitted} aiOn={aiEnabled()} />}

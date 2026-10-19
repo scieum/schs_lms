@@ -1,12 +1,15 @@
 "use client";
 import { useEffect, useRef, useState, useTransition, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { Bell, ChevronRight, FileText, Paperclip, X } from "lucide-react";
+import { Bell, ChevronRight, ClipboardPaste, FileText, Info, Paperclip, X } from "lucide-react";
 import { cx } from "@/components/ui";
 import { ChipDeleteButton, DeleteConfirm, useDelayedDelete } from "@/components/materials/delete-file";
 import { remindOne, studentDetail, type StudentDetail } from "./actions";
 import { deleteMaterials } from "./materials/actions";
 import { ProgramMemoBox } from "./memo-box";
+import { DirectEntryForm } from "@/components/programs/direct-entry";
+import { OriginTag } from "@/components/programs/origin-tag";
+import { ORIGIN_LABEL } from "@/lib/domain/external-text";
 
 // 프로그램 상세 · 학생 활동 팝업 (Figma N24 339:331 · N41 교사 메모 492:29957): PC 가운데 560 창 · 모바일 바텀시트.
 // 행을 누르면 열리고, 그 학생 것만 서버 액션으로 불러온다. 행 오른쪽 버튼(보기·알림·직접 작성)은 그대로 동작한다.
@@ -58,6 +61,8 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
   const closeRef = useRef<HTMLButtonElement>(null);
 
   const [reload, setReload] = useState(0);
+  // N46 직접 넣기: 기록 칸을 넣기 칸으로 펼친다
+  const [entry, setEntry] = useState(false);
   useEffect(() => {
     let alive = true;
     studentDetail(programId, student.id).then((d) => alive && setData(d)).catch(() => alive && setFailed(true));
@@ -145,7 +150,13 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
                 {data.memo && <span className={cx(CHIP, "bg-key-soft text-key-strong")}>교사 메모</span>}
               </div>
 
-              {/* 한 활동 */}
+              {/* 한 활동 (외부 글 프로그램은 설문·서류가 없다 — N46) */}
+              {data.external ? (
+                <section className="flex flex-col gap-2.5">
+                  <h3 className="text-[14px] font-bold">한 활동</h3>
+                  <p className="flex items-center gap-2 rounded-inner bg-bg px-3.5 py-3 text-[13px] text-sub"><Info size={16} className="shrink-0 text-mute" aria-hidden /> 설문·서류를 받지 않는 프로그램이에요 · 기관이 보낸 글을 넣어요</p>
+                </section>
+              ) : (
               <section className="flex flex-col gap-2.5">
                 <h3 className="flex items-baseline gap-1.5 text-[14px] font-bold">
                   한 활동
@@ -197,13 +208,42 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
                   </>
                 )}
               </section>
+              )}
+
+              {/* 직접 넣기 (Figma N46 e 520:12310 · 522:8233): 기관이 보낸 글을 이 학생 초안으로 */}
+              {entry ? (
+                <section className="flex flex-col gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-[14px] font-bold">기록</h3>
+                    <OriginTag origin="external" />
+                    <button type="button" onClick={() => setEntry(false)} className="ml-auto text-[13px] font-medium text-sub">접기</button>
+                  </div>
+                  <DirectEntryForm programId={programId} studentId={student.id} area={data.entry.area} unit={data.entry.unit} max={data.entry.max}
+                    people={[{ name: student.name, studentNo: data.entry.studentNo }]} cancelLabel="닫기"
+                    initialNote={data.origin?.origin === "external" ? data.origin.note : null}
+                    keepLine={data.draft ? `지금 초안(${data.origin ? ORIGIN_LABEL[data.origin.origin] : "초안"} · 버전 ${data.entry.versions})은 이전 버전으로 남아요 · 확정은 넣은 뒤 따로 해요` : "확정은 넣은 뒤 초안 검토에서 해요"}
+                    onCancel={() => setEntry(false)} onDone={() => { setEntry(false); setReload((n) => n + 1); }} />
+                </section>
+              ) : !data.draft && (
+                <section className="flex flex-col gap-2.5">
+                  <h3 className="text-[14px] font-bold">기록</h3>
+                  <button type="button" onClick={() => setEntry(true)}
+                    className="flex items-center gap-3 rounded-inner border border-dashed border-hair px-3.5 py-3 text-left hover:bg-bg">
+                    <ClipboardPaste size={18} className="shrink-0 text-key" aria-hidden />
+                    <span className="min-w-0 flex-1"><b className="block text-[14px]">직접 넣기</b><span className="block text-[12px] text-mute">기관이 보낸 생기부 글을 그대로 넣어요 · AI 안 씀</span></span>
+                    <ChevronRight size={16} className="shrink-0 text-faint" aria-hidden />
+                  </button>
+                </section>
+              )}
 
               {/* 기록: 초안이 있을 때만 */}
-              {data.draft && (
+              {data.draft && !entry && (
                 <section className="flex flex-col gap-2.5">
                   <div className="flex items-center gap-2">
                     <h3 className="text-[14px] font-bold">기록</h3>
                     <span className={cx(CHIP, dTone)}>{dLabel.replace(/^초안 /, "")}</span>
+                    <OriginTag origin={data.origin?.origin} />
+                    {data.review !== "확정" && <button type="button" onClick={() => setEntry(true)} className="whitespace-nowrap text-[12px] font-medium text-key-strong">직접 넣기</button>}
                     <span className="ml-auto whitespace-nowrap text-[12px] text-mute tabular-nums">
                       <b className="text-ink">{data.draft.length.toLocaleString("ko-KR")}</b> / {data.draft.max.toLocaleString("ko-KR")}{unit}
                     </span>
@@ -218,14 +258,14 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
                 </section>
               )}
 
-              {/* 이 학생 관찰 메모 (N41) */}
-              <ProgramMemoBox programId={programId} studentId={student.id} initial={data.memo} canRewrite={data.canRewrite} others={data.others}
-                onRewritten={() => setReload((n) => n + 1)} />
+              {/* 이 학생 관찰 메모 (N41) — 외부 글 프로그램은 메모·AI 다시 쓰기 없음 */}
+              {!data.external && <ProgramMemoBox programId={programId} studentId={student.id} initial={data.memo} canRewrite={data.canRewrite} others={data.others}
+                onRewritten={() => setReload((n) => n + 1)} />}
             </>
           )}
 
-          {/* 바닥 */}
-          <div className="flex items-center gap-2 md:justify-end">
+          {/* 바닥 (직접 넣기를 펼치면 넣기 칸의 버튼만) */}
+          <div className={cx("flex items-center gap-2 md:justify-end", entry && "hidden")}>
             <button type="button" onClick={onClose} className={cx(footBtn, "w-[88px] shrink-0 rounded-control text-[14px] font-medium text-sub hover:bg-soft md:w-auto md:px-4")}>닫기</button>
             {data?.jobId ? (
               <Link href={`/teacher/drafts?d=${data.jobId}`} className={cx(footBtn, "inline-flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-control bg-key px-5 text-[15px] font-bold text-white hover:bg-key-strong md:flex-none")}>

@@ -21,11 +21,18 @@ import { applySpell } from "@/lib/domain/spelling";
 import { ratioLevel } from "@/lib/domain/provenance";
 import { useGuideMarks, useGuideTarget } from "@/components/writing/guide-store";
 import { GuideBookButton } from "@/components/writing/guide-panel";
+import { DirectEntryDialog, DirectEntryForm } from "@/components/programs/direct-entry";
+import { OriginTag } from "@/components/programs/origin-tag";
+import { ORIGIN_LABEL, type DraftOrigin } from "@/lib/domain/external-text";
 
 // T4 초안 본문 편집 + 자동 검사 + 검토 도우미 + 반려·직접 수정·확정
 export function DraftEditor({
-  jobId, studentId, initial, unit, max, area, people, evidence, peers, aiOn, finalized, tags, similarPeers, openCheck = false, prov,
+  jobId, studentId, initial, unit, max, area, people, evidence, peers, aiOn, finalized, tags, similarPeers, openCheck = false, prov, origin, entry,
 }: {
+  /** N46 초안 출처 (직접 입력 · AI 초안 · 직접 작성) */
+  origin?: { origin: DraftOrigin; note: string | null } | null;
+  /** N46 직접 넣기 창: 프로그램 · 외부 글 프로그램인지 · 창 머리 한 줄 */
+  entry?: { programId: string; external: boolean; sub: string; studentNo: string; versions: number };
   /** N38 문장 근거 · AI 원안 (원안이 없으면 근거 · 원안 비교 · 수정 칩이 숨는다) */
   prov?: ProvInit;
   /** 반 전체 검사(N35)에서 "열기": 첫 걸린 행 펼침 */
@@ -57,6 +64,7 @@ export function DraftEditor({
   const [similar, setSimilar] = useState<SimilarHit[] | null>(null);
   const [reDone, setReDone] = useState(-1);
   const [pickMsg, setPickMsg] = useState<string | null>(null);
+  const [entryOpen, setEntryOpen] = useState(false);
   const area_ = useRef<HTMLTextAreaElement>(null);
   const range = resolveLength(area, { unit, max });
   const c = checkDraft(text, { range, people, evidence });
@@ -218,11 +226,18 @@ export function DraftEditor({
           <GuideBookButton area="초안" className="order-last mt-0.5" />
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] md:flex-wrap">
             {tags.map((t) => <span key={t} className={cx("shrink-0 whitespace-nowrap rounded-chip px-2.5 py-1 text-xs font-medium", t === "예시" ? "bg-white text-mute" : "bg-soft text-sub")}>{t}</span>)}
+            <OriginTag origin={origin?.origin} className="py-[3px]" />
             {pv.original && <EditRatioChip ratio={pv.ratio} min={pv.min} className="py-1" />}
           </div>
           {pv.original && (
             <button type="button" onClick={() => pv.setView(pv.view === "compare" ? "write" : "compare")} className="hidden shrink-0 whitespace-nowrap pt-1 text-[12px] font-medium text-key-strong md:inline">
               {pv.view === "compare" ? "본문 쓰기" : "AI 원안 비교"}
+            </button>
+          )}
+          {/* N46 직접 넣기: 기관이 보낸 글을 새 "직접 입력" 버전으로 (확정한 초안은 다시 확정 전까지 그대로) */}
+          {entry && (
+            <button type="button" onClick={() => setEntryOpen(true)} className="shrink-0 whitespace-nowrap pt-1 text-[12px] font-medium text-key-strong">
+              {origin?.origin === "external" ? "다시 넣기" : "직접 넣기"}
             </button>
           )}
         </div>
@@ -258,7 +273,7 @@ export function DraftEditor({
       <AutoChecks check={auto} range={range} open={open} onOpen={setOpen} onReplace={onReplace} onReplaceAll={onReplaceAll} spellAi={pv.spellLine} renderOpen={pv.renderOpen}
         fix={<AiFixArea text={text} check={auto} recheck={recheck} range={range} run={(t) => aiFixDraft({ jobId, text: t })} onApply={(t) => replace(t, "고친 글을 넣었어요")} />}
         length={<LengthRow unit={len.unit} max={len.max} limit={neisMax(area, len.unit)} onChange={setLen} form={regenId}
-          actions={<Button type="submit" form={regenId} size="sm" kind="outline" disabled={regenerating}>{regenerating ? "다시 만드는 중…" : "이 분량으로 다시 만들기"}</Button>} />}>
+          actions={entry?.external ? undefined : <Button type="submit" form={regenId} size="sm" kind="outline" disabled={regenerating}>{regenerating ? "다시 만드는 중…" : "이 분량으로 다시 만들기"}</Button>} />}>
         {regen.error && <p className="text-[13px] text-bad" role="alert">{regen.error}</p>}
         {regen.done && <p className="text-[13px] text-ok" role="status">{regen.done}</p>}
       </AutoChecks>
@@ -281,6 +296,15 @@ export function DraftEditor({
       <p className="flex items-center justify-center gap-1.5 text-[12px] text-mute"><ShieldCheck size={14} /> 선생님이 확정한 초안만 담임 선생님께 전달돼요</p>
       {snack.node}
       {pv.dialog}
+      {entry && entryOpen && (
+        <DirectEntryDialog sub={entry.sub} onClose={() => setEntryOpen(false)}>
+          <DirectEntryForm programId={entry.programId} studentId={studentId} area={area} unit={unit} max={max}
+            people={people.length ? people : [{ name: "", studentNo: entry.studentNo }]}
+            initialNote={origin?.origin === "external" ? origin.note : null}
+            keepLine={initial.trim() ? `지금 초안(${origin ? ORIGIN_LABEL[origin.origin] : "초안"} · 버전 ${entry.versions})은 이전 버전으로 남아요 · 확정은 넣은 뒤 따로 해요` : "확정은 넣은 뒤 따로 해요"}
+            onCancel={() => setEntryOpen(false)} onDone={() => setEntryOpen(false)} />
+        </DirectEntryDialog>
+      )}
       {compare && similarPeers && sim.length > 0 && (
         <SimilarSheet self={similarPeers.self} text={text} unit={range.unit} state={sim} onClose={() => setCompare(false)}
           onRewriteSelf={() => { setCompare(false); area_.current?.focus(); }} />

@@ -8,7 +8,7 @@ import { TEMPLATE_HINT, TEMPLATES, type TemplateKind } from "@/lib/domain/excel-
 // 엑셀을 받는 모든 곳이 이 버튼 줄 하나를 쓴다: 초록 "양식 받기" + 검정 "명단 업로드", 아래 한 줄(안내 또는 오류).
 // 양식에 맞춘 .xlsx 만 읽는다 (서버 lib/server/excel.ts readTemplateFile).
 
-const TEMPLATE_HREF: Record<TemplateKind, string> = {
+const TEMPLATE_HREF: Partial<Record<TemplateKind, string>> = {
   register: "/students/template",
   list: "/students/list-template",
   teacher: "/admin/accounts/template",
@@ -18,7 +18,7 @@ const TEMPLATE_HREF: Record<TemplateKind, string> = {
 const BTN_SM = "inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-3 text-[14px] font-bold text-white transition-colors md:h-9 md:flex-none md:text-[13px]";
 const BTN = "inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-3.5 text-[14px] font-bold text-white transition-colors md:h-10 md:flex-none";
 
-export function ExcelButtons({ kind, onPick, busy, error, file, className, compact, uploadLabel }: {
+export function ExcelButtons({ kind, onPick, busy, error, file, className, compact, uploadLabel, templateHref }: {
   kind: TemplateKind;
   /** 고른 파일 (.xlsx) — 올리기·읽기는 부르는 쪽이 한다 */
   onPick: (file: File) => void;
@@ -32,6 +32,8 @@ export function ExcelButtons({ kind, onPick, busy, error, file, className, compa
   compact?: boolean;
   /** "명단 업로드" 대신 (예: 오류 뒤 "다시 올리기") */
   uploadLabel?: string;
+  /** 양식 받기 주소 (N46 외부글 양식처럼 프로그램마다 다른 양식) */
+  templateHref?: string;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const btn = compact ? BTN_SM : BTN;
@@ -44,14 +46,14 @@ export function ExcelButtons({ kind, onPick, busy, error, file, className, compa
         </div>
       )}
       <div className="flex gap-2">
-        <a href={TEMPLATE_HREF[kind]} download={TEMPLATES[kind].file} className={cx(btn, "bg-[#1D6F42] hover:bg-[#185C37]")}>
+        <a href={templateHref ?? TEMPLATE_HREF[kind]} download={TEMPLATES[kind].file} className={cx(btn, "bg-[#1D6F42] hover:bg-[#185C37]")}>
           <FileSpreadsheet size={16} aria-hidden /> 양식 받기
         </a>
         <button type="button" disabled={busy} onClick={() => input.current?.click()}
           className={cx(btn, "bg-[#191F28] hover:bg-[#333D4B] disabled:cursor-wait disabled:opacity-60")}>
           <Upload size={16} aria-hidden /> {busy ? "읽는 중…" : uploadLabel ?? "명단 업로드"}
         </button>
-        <input ref={input} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" aria-label="명단 엑셀 파일"
+        <input ref={input} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" aria-label={kind === "external" ? "외부 글 엑셀 파일" : "명단 엑셀 파일"}
           onChange={(e) => {
             const f = e.target.files?.[0];
             e.target.value = ""; // 같은 파일을 고쳐서 다시 올릴 수 있게

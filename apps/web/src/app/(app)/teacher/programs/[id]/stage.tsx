@@ -1,18 +1,21 @@
 "use client";
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { Check, FileText, RotateCw, Send, Sparkles, X } from "lucide-react";
+import { Check, ClipboardPaste, FileText, RotateCw, Send, Sparkles, X } from "lucide-react";
 import { Button, cx } from "@/components/ui";
 import { STAGES, type NextAction, type Stage } from "@/lib/domain/program-stage";
 import { generateDrafts, retryFailedDrafts, setProgramStatus, type GenState } from "./actions";
 import { RemindBox } from "./parts";
+import { EXTERNAL_OPEN_EVENT } from "./external-import";
 
 // 프로그램 상세 단계 (Figma N16 상세 285:4342 · 286:4325): 다섯 단계 표시 + 지금 할 일 버튼 하나
 // 모바일은 탭바 바로 위에 고정, PC는 단계 카드 오른쪽 아래.
 
 const SUB = ["설문·서류 모으기", "응답 끝", "AI가 초안 만들기", "초안 검토 화면", "담임 받은 초안으로"];
+/** 외부 글 프로그램 (N46): AI 없이 교사가 넣은 글로 */
+const SUB_EXTERNAL = ["외부 글 넣기", "넣기 끝", "AI 안 씀", "초안 검토 화면", "담임 받은 초안으로"];
 
-export function StageStepper({ stage, pct, actions }: { stage: Stage; pct: number; actions?: React.ReactNode }) {
+export function StageStepper({ stage, pct, actions, external }: { stage: Stage; pct: number; actions?: React.ReactNode; external?: boolean }) {
   return (
     <div className="flex flex-col gap-4">
       <ol className="flex items-start">
@@ -28,7 +31,7 @@ export function StageStepper({ stage, pct, actions }: { stage: Stage; pct: numbe
                 {done ? <Check size={13} strokeWidth={3} /> : i + 1}
               </span>
               <span className={cx("whitespace-nowrap text-[12px]", now ? "font-bold text-key-strong" : "text-mute")}>{label}</span>
-              <span className="hidden whitespace-nowrap text-[11px] text-faint md:block">{SUB[i]}</span>
+              <span className="hidden whitespace-nowrap text-[11px] text-faint md:block">{(external ? SUB_EXTERNAL : SUB)[i]}</span>
             </li>
           );
         })}
@@ -120,6 +123,13 @@ function ActionButton({ a, ctx, kind, cls, onRemind }: { a: NextAction; ctx: Ctx
           {hidden}{note}
           <Button kind={kind} className={base} disabled={retrying}><RotateCw size={16} /> {retrying ? "다시 만드는 중…" : retry.started ? "다시 만들고 있어요" : a.label}</Button>
         </form>
+      );
+    case "external":
+      // 외부 글 넣기 창 열기 (Figma N46 c) — 창은 근거 자료 카드의 ExternalImport 가 띄운다
+      return (
+        <Button type="button" kind={kind} className={cx("whitespace-nowrap px-3", cls)} onClick={() => window.dispatchEvent(new CustomEvent(EXTERNAL_OPEN_EVENT, { detail: ctx.programId }))}>
+          {!cls.includes("w-[") && <ClipboardPaste size={16} />} {a.label}
+        </Button>
       );
     case "review":
       return <Link href={`/teacher/drafts?program=${ctx.programId}`} className={cx("inline-flex items-center justify-center gap-1.5 rounded-control font-medium", kind === "primary" ? "bg-key text-white hover:bg-key-strong" : "border border-hair bg-[#fff]", base)}><FileText size={16} /> {a.label}</Link>;

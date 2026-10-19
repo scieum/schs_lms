@@ -19,18 +19,21 @@ export function isArea(v: string): v is DraftCategory {
 }
 
 /**
- * 초안 근거: 설문 응답 · 학생 제출 서류 · 둘 다 · 교사 메모만(N41 "memo").
+ * 초안 근거: 설문 응답 · 학생 제출 서류 · 둘 다 · 교사 메모만(N41 "memo") · 외부 글(N46 "external").
  * 교사 메모는 설문·서류와 함께 쓸 수도 있다 (Program.useMemos). 메모만이면 source = "memo".
+ * 외부 글은 혼자만: 기관이 보낸 생기부 글을 교사가 그대로 넣는다 (학생 화면 없음 · AI 없음).
  */
-export type EvidenceSource = "survey" | "docs" | "both" | "memo";
-export const EVIDENCE_SOURCES = ["survey", "docs", "both", "memo"] as const satisfies readonly EvidenceSource[];
-export const SOURCE_LABEL: Record<EvidenceSource, string> = { survey: "설문", docs: "서류", both: "설문 + 서류", memo: "교사 메모" };
+export type EvidenceSource = "survey" | "docs" | "both" | "memo" | "external";
+export const EVIDENCE_SOURCES = ["survey", "docs", "both", "memo", "external"] as const satisfies readonly EvidenceSource[];
+export const SOURCE_LABEL: Record<EvidenceSource, string> = { survey: "설문", docs: "서류", both: "설문 + 서류", memo: "교사 메모", external: "외부 글" };
+/** 외부 글 프로그램 (N46): 설문·서류·메모·AI 없이 교사가 넣은 글로만 */
+export const isExternal = (s: EvidenceSource) => s === "external";
 export const usesSurvey = (s: EvidenceSource) => s === "survey" || s === "both";
 export const usesDocs = (s: EvidenceSource) => s === "docs" || s === "both";
 /** 교사 메모를 근거로 쓰나 (메모만 · 설문/서류와 함께) */
-export const usesMemos = (p: Pick<Program, "source" | "useMemos">) => p.source === "memo" || !!p.useMemos;
+export const usesMemos = (p: Pick<Program, "source" | "useMemos">) => p.source === "memo" || (p.source !== "external" && !!p.useMemos);
 /** 화면 이름: "설문 + 교사 메모" 처럼 */
-export const sourceLabel = (p: Pick<Program, "source" | "useMemos">) => (p.source !== "memo" && p.useMemos ? `${SOURCE_LABEL[p.source]} + 교사 메모` : SOURCE_LABEL[p.source]);
+export const sourceLabel = (p: Pick<Program, "source" | "useMemos">) => (p.source !== "memo" && p.source !== "external" && p.useMemos ? `${SOURCE_LABEL[p.source]} + 교사 메모` : SOURCE_LABEL[p.source]);
 /** 체크 셋(설문 · 서류 · 교사 메모) → source · useMemos. 아무것도 없으면 null */
 export function sourceFromPicks(p: { survey: boolean; docs: boolean; memo: boolean }): { source: EvidenceSource; useMemos: boolean } | null {
   if (p.survey && p.docs) return { source: "both", useMemos: p.memo };
@@ -335,7 +338,8 @@ export interface DraftJob {
 
 /** 생기부 기록 상태: draft 초안 · finalized 확정(교사만) · rejected 반려(사유 필수) */
 export type DraftVersionStatus = "draft" | "finalized" | "rejected";
-export type DraftSource = "ai" | "sample" | "manual";
+/** ai · sample = AI(예시) 초안, manual = 교사가 고친 버전, external = 외부 글 직접 넣기 (N46, AI 원안 없음) */
+export type DraftSource = "ai" | "sample" | "manual" | "external";
 
 /** 초안 버전. 고칠 때마다 새로 추가하고 지우거나 덮어쓰지 않는다 (C4) */
 export interface DraftVersion extends RecordProv {
@@ -349,6 +353,8 @@ export interface DraftVersion extends RecordProv {
   source: DraftSource;
   authorId: string | null;
   createdAt: string;
+  /** 외부 글 출처 (N46, 선택 · 60자). 기록 글이 아니라 교사만 보는 메모 */
+  originNote?: string | null;
 }
 
 /** 한 번 시도한 결과로 다음 상태를 정한다. 실패는 3회까지 다시 시도하고, 그래도 안 되면 ERROR */

@@ -24,7 +24,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
   const q = await searchParams;
   const [programs, mats, reminders] = await Promise.all([
     // 교사 메모만 쓰는 프로그램(N41)은 학생이 낼 것이 없다
-    repo.listProgramsForStudent(me.id).then((ps) => ps.filter((p) => p.source !== "memo")),
+    repo.listProgramsForStudent(me.id).then((ps) => ps.filter((p) => p.source !== "memo" && p.source !== "external")),
     repo.listMaterialsByStudent(me.id),
     repo.listReminders({ studentId: me.id }),
   ]);

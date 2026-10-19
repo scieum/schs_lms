@@ -135,6 +135,8 @@ export async function runDraftJobs(jobIds: string[]): Promise<{ done: number; fa
       failed++;
       continue;
     }
+    // N46 외부 글 프로그램은 AI로 만들지 않는다 (교사가 넣은 글만)
+    if (program.source === "external") continue;
     // 가릴 이름: 대상 학생 전원 (모둠원 이름이 답에 들어갈 수 있다)
     const people = program.targetIds.flatMap((sid) => {
       const s = byId.get(sid);

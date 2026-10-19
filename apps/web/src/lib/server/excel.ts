@@ -20,8 +20,11 @@ export function styleHead(head: ExcelJS.Row, n: number) {
   }
 }
 
-/** 양식 파일: 1행 제목(파란 바탕·굵게·틀 고정) + "작성 방법" 시트. 본문은 비워 둔다(예시는 작성 방법 시트에) */
-export async function buildTemplate(kind: TemplateKind): Promise<ArrayBuffer> {
+/**
+ * 양식 파일: 1행 제목(파란 바탕·굵게·틀 고정) + "작성 방법" 시트. 본문은 비워 둔다(예시는 작성 방법 시트에).
+ * rows 를 주면 본문에 미리 채운다 (N46 외부글 양식: 대상 학생의 학번·학년·반·번호·이름 — 교사 본인이 받는 파일에만).
+ */
+export async function buildTemplate(kind: TemplateKind, rows: string[][] = []): Promise<ArrayBuffer> {
   const t = TEMPLATES[kind];
   const wb = new ExcelJS.Workbook();
   wb.creator = "속초고등학교 학생관리시스템";
@@ -30,6 +33,7 @@ export async function buildTemplate(kind: TemplateKind): Promise<ArrayBuffer> {
   styleHead(ws.getRow(1), t.columns.length);
   // 모든 칸을 글자로 (학번 앞 0·반 번호가 날짜로 바뀌지 않게)
   t.columns.forEach((_, i) => { ws.getColumn(i + 1).numFmt = "@"; });
+  for (const r of rows) ws.addRow(t.columns.map((_, i) => r[i] ?? "")).alignment = { vertical: "top", wrapText: true };
 
   const guide = wb.addWorksheet("작성 방법");
   guide.getColumn(1).width = 56;
@@ -42,13 +46,13 @@ export async function buildTemplate(kind: TemplateKind): Promise<ArrayBuffer> {
   return (await wb.xlsx.writeBuffer()) as ArrayBuffer;
 }
 
-/** 양식 내려받기 응답 */
-export async function templateResponse(kind: TemplateKind): Promise<Response> {
-  const buf = await buildTemplate(kind);
+/** 양식 내려받기 응답 (rows: 미리 채울 본문, file: 내려받는 이름) */
+export async function templateResponse(kind: TemplateKind, opts: { rows?: string[][]; file?: string } = {}): Promise<Response> {
+  const buf = await buildTemplate(kind, opts.rows);
   return new Response(buf, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${kind}_template.xlsx"; filename*=UTF-8''${encodeURIComponent(TEMPLATES[kind].file)}`,
+      "Content-Disposition": `attachment; filename="${kind}_template.xlsx"; filename*=UTF-8''${encodeURIComponent(opts.file ?? TEMPLATES[kind].file)}`,
       "Cache-Control": "no-store",
     },
   });

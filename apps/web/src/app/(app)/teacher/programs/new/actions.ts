@@ -26,7 +26,7 @@ const Schema = z.object({
   startDate: date,
   endDate: date,
   overview: z.string().trim().max(1000, "활동 개요는 1000자까지예요").optional().default(""),
-  source: z.enum(["survey", "docs", "both", "memo"], "근거 자료를 하나 이상 골라 주세요"),
+  source: z.enum(["survey", "docs", "both", "memo", "external"], "근거 자료를 하나 이상 골라 주세요"),
   useMemos: z.string().optional(),
   intent: z.enum(["draft", "open", "save"]),
 });
@@ -58,7 +58,7 @@ async function readProgramForm(form: FormData, ownerId: string): Promise<{ error
   return {
     f: {
       coOwnerIds, title: d.title, subject: d.subject || null, area: d.area, unit: range.unit, max: range.max,
-      startDate: d.startDate, endDate: d.endDate, source: d.source, useMemos: d.source === "memo" || d.useMemos === "on", requestDocs, docKinds, questions, targetIds, overview: d.overview, intent: d.intent,
+      startDate: d.startDate, endDate: d.endDate, source: d.source, useMemos: d.source === "memo" || (d.source !== "external" && d.useMemos === "on"), requestDocs, docKinds, questions, targetIds, overview: d.overview, intent: d.intent,
     },
   };
 }

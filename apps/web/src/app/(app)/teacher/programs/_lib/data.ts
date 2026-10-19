@@ -13,6 +13,7 @@ import { requireCan } from "@/lib/server/viewer";
 import type { StageCounts } from "@/lib/domain/program-stage";
 import type { RecordMemo } from "@/lib/domain/writing";
 import { programMemos } from "@/lib/server/program-memo";
+import { draftOrigin, type DraftOrigin } from "@/lib/domain/external-text";
 
 /** 내 프로그램만 (관리자는 전부). 없으면 404, 남의 것이면 403 */
 export async function requireProgram(id: string, action: Action = "program.manage"): Promise<{ v: Viewer; program: Program }> {
@@ -42,6 +43,8 @@ export interface StudentRow {
   evidenceLabel: string;
   missingReason: string | null;
   length: number | null;
+  /** 초안 출처 (N46): 직접 입력(외부 글) · AI 초안 · 직접 작성, 출처 메모 */
+  origin: { origin: DraftOrigin; note: string | null } | null;
 }
 
 /** T2·A4 가 같이 쓰는 학생별 현황 */
@@ -68,15 +71,19 @@ export async function programRows(program: Program): Promise<{ rows: StudentRow[
       const survey = usesSurvey(program.source) && !!response?.submittedAt;
       const docs = usesDocs(program.source) && mats.length > 0;
       const memo = memos.get(student.id) ?? null;
-      const label = [survey ? "설문" : "", docs ? "서류" : "", memo ? "메모" : ""].filter(Boolean).join("+");
+      const origin = job ? draftOrigin(versions.filter((x) => x.jobId === job.id)) : null;
+      // N46 외부 글 프로그램: 근거 = 넣은 글 (설문·서류·메모 없음)
+      const external = program.source === "external" && !!latest;
+      const label = external ? "외부 글" : [survey ? "설문" : "", docs ? "서류" : "", memo ? "메모" : ""].filter(Boolean).join("+");
       return {
         student, response, materials: mats, job, latest, memo,
         review: reviewStatus(job, latest),
         stage: studentStage({ job, latest, closed }),
-        hasEvidence: survey || docs || !!memo,
+        hasEvidence: survey || docs || !!memo || external,
         evidenceLabel: label || "—",
         missingReason: missing[student.id] ?? null,
         length: latest && latest.status !== "rejected" ? measure(latest.content, job?.unit ?? program.unit) : null,
+        origin,
       };
     });
   return { rows, materials, responses };
@@ -119,15 +126,17 @@ export async function programSummaries(programs: Program[]): Promise<ProgramSumm
     const n = (s: ReviewStatus) => st.filter((x) => x === s).length;
     let evidence = 0;
     let ready = 0;
+    const external = p.source === "external";
+    const withText = new Set(pj.filter((j) => latestVersion(versions, j.id)).map((j) => j.studentId));
     for (const id of targets) {
-      if (!surveyed.has(id) && !docs.has(id) && !memos[i].has(id)) continue;
+      if (external ? !withText.has(id) : !surveyed.has(id) && !docs.has(id) && !memos[i].has(id)) continue;
       evidence++;
       const j = jobOf.get(id);
       if (!j || j.state === "PENDING") ready++;
     }
     const status = effectiveStatus(p, t);
     const review = n("검토 대기") + n("반려");
-    const counts: StageCounts = { status, targets: targets.size, evidence, ready, running: n("생성 중"), failed: n("생성 실패"), review, confirmed: n("확정") };
+    const counts: StageCounts = { status, targets: targets.size, evidence, ready: external ? 0 : ready, running: n("생성 중"), failed: n("생성 실패"), review, confirmed: n("확정"), external };
     return {
       p, submitted: surveyed.size, rate: responseRate(targets.size, usesSurvey(p.source) ? surveyed.size : evidence), status, drafts: pj.length,
       review, done: counts.confirmed, failed: counts.failed, counts,
