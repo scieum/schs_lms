@@ -98,7 +98,7 @@ export default async function WritePage({ searchParams }: Props) {
       <PageHeader title="AI 기록 쓰기" actions={<ButtonLink href="/teacher/logs" kind="outline" size="sm">누가기록</ButtonLink>} />
       <PageBody>
         <StatTiles items={[["쓸 기록", `${spaces.length}곳`], ["확정", `${sum.확정}건`], ["작성 중", `${sum["작성 중"]}건`], ["미작성", `${sum.미작성}건`]]} />
-        <AiBanner title="AI 초안" label={aiEnabled() ? "AI" : "자동"} line="조각을 모으고 합치거나 메모로 초안을 만들고, 선생님이 고쳐서 확정해요" />
+        <AiBanner title="AI로 쓰기" label={aiEnabled() ? "AI" : "자동"} line="활동 메모를 남기고 AI로 글 쓰기를 누르면 글이 채워져요. 고치고 확정은 선생님이 해요" />
         {spaces.length === 0 ? (
           <Card>
             <div className="flex flex-col items-center gap-3 py-8 text-center">

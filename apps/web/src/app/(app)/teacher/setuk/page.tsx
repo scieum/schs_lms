@@ -125,7 +125,7 @@ export default async function SetukPage({ searchParams }: Props) {
         )}
         <StatTiles items={[["학생", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
         {students.length > 0 && <CommonActivitiesCard scope={commonScopeKey} rows={commonRows} detailBase="/teacher/setuk/activity" today={seoulNow().date} />}
-        <AiBanner title="AI 세특 초안" label={aiEnabled() ? "AI" : "자동"} line="조각을 모으고 합치거나 메모로 초안을 만들어 본문에 넣어요. 저장은 선생님이 해요" />
+        <AiBanner title="AI로 세특 쓰기" label={aiEnabled() ? "AI" : "자동"} line="활동 메모를 남기고 AI로 글 쓰기를 누르면 세특 글이 채워져요. 고치고 확정은 선생님이 해요" />
 
         {students.length === 0 ? (
           <Card>
