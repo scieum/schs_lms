@@ -25,7 +25,7 @@ export const GUIDE: GuideEntry[] = [
   { id: "6.7", title: "한글 파일(HWPX) 올리기", href: "/teacher/programs/new", who: ["teacher", "homeroom", "admin", "student"], body: "계획서·기안문과 제출 서류는 HWPX도 올릴 수 있어요. 글을 바로 읽어요. HWP는 한글에서 '다른 이름으로 저장 → HWPX'로 저장해 올려 주세요." },
   { id: "6.2", title: "누가기록과 특기사항", href: "/teacher/logs", who: ["teacher", "homeroom", "admin"], body: "누가기록에 동아리·자율·진로 활동을 날짜별로 쌓아요. 학기말에 AI 기록 쓰기에서 특기사항 초안으로 만들어요." },
   { id: "6.3", title: "행발 쓰기", href: "/homeroom/behavior", who: ["homeroom", "admin"], body: "담임은 행발에서 반 학생별 관찰 키워드와 누가기록으로 AI 초안을 만들고 확정해요." },
-  { id: "6.4", title: "나이스로 옮기기", href: "/teacher/setuk", who: ["teacher", "homeroom", "admin"], body: "확정된 기록을 '나이스로 내보내기'로 받은 뒤, 나이스 입력 도우미(크롬 확장)로 열린 나이스 화면에 채워요. 저장은 직접 눌러요." },
+  { id: "6.4", title: "나이스로 옮기기", href: "/teacher/setuk", who: ["teacher", "homeroom", "admin"], body: "나이스 입력 화면에서 '나이스 입력' 버튼을 북마크바에 한 번 달아 두고, 확정된 기록을 복사해 나이스 화면에서 그 버튼 › Ctrl+V › 한 번에 채우기를 눌러요. 저장은 직접 눌러요." },
   { id: "7.1", title: "상담 기록", href: "/teacher/counseling", who: ["teacher", "homeroom", "admin"], body: "상담 기록에서 학생을 골라 기록해요. 교과 선생님은 본인 기록만, 담임은 반 학생 기록 전체를 봐요. 고쳐도 이전 버전이 남아요." },
   { id: "7.2", title: "봉사 확인서", href: "/teacher/service", who: ["teacher", "homeroom", "admin"], body: "봉사 확인서 사진·PDF를 올리면 AI가 날짜·시간·기관을 읽어요. 확인 후 보내면 담임 선생님의 봉사 받은함에 도착해요." },
   { id: "8.1", title: "성적 업로드와 수능 최저", href: "/homeroom/scores", who: ["homeroom", "admin"], body: "담임은 성적 업로드에서 엑셀이나 성적표 사진을 올려요. 수능 최저에서 대학별 기준으로 충족 여부를 한 번에 봐요." },

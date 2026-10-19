@@ -4,7 +4,7 @@ import { Check, Copy } from "lucide-react";
 import { cx } from "@/components/ui";
 
 /**
- * 확정본을 복사한다 → 확장 프로그램 팝업의 '붙여넣기'로 바로 읽는다 (파일 저장 없이).
+ * 확정본을 복사한다 → 나이스 화면의 '나이스 입력' 버튼 창에 Ctrl+V 로 바로 읽는다 (파일 저장 없이).
  * 받아 오는 동안에도 누른 순간의 권한이 살도록 ClipboardItem 에 Promise 를 넘긴다.
  */
 export function CopyButton({ href, disabled }: { href: string; disabled?: boolean }) {

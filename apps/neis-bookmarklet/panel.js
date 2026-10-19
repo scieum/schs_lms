@@ -1,7 +1,7 @@
 // 한 명씩 넣기: 나이스 화면 오른쪽 아래에 작은 패널을 띄운다.
 // 선생님이 나이스에서 학생을 고르고 입력칸을 누른 뒤 '넣기' → 그 칸에 이 학생 내용을 넣는다.
 // 화면 구조를 몰라도 쓸 수 있는 방법. 저장 버튼은 누르지 않는다.
-// 팝업이 fill.js → panel.js 를 넣은 뒤 window.__schsNeisPanel(payload) 를 부른다.
+// 북마클릿 창의 "한 명씩 넣기"가 window.__schsNeisPanel(payload) 를 부른다.
 (() => {
   if (window.__schsNeisPanel) return;
   const N = () => window.__schsNeis;

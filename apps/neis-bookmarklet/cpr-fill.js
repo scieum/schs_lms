@@ -1,7 +1,7 @@
 // 나이스(eXbuilder6) 그리드에 바로 넣기 (v0.2.6): 화면의 칸을 누르지 않고 그리드 데이터에 학생별 값을 넣는다.
 // 2026-10-19 실제 나이스 동아리 화면에서 확인한 구조: cpr.core.Platform.INSTANCE → 실행 중인 앱 → 그리드(grdMain) →
 // dataSet 열 stuFlnm(성명) · speclActSpablMteCn(특기사항) · length(바이트). setCellValue 로 넣으면 나이스가 직접 고친 것처럼 '수정됨'이 된다.
-// 페이지 환경(MAIN world)에서만 돌아간다 (북마클릿은 그대로, 확장은 world: "MAIN" 으로 넣는다). 저장 버튼은 누르지 않는다.
+// 페이지 환경에서 돌아간다 (북마클릿). 저장 버튼은 누르지 않는다.
 (() => {
   const norm = (s) => String(s ?? "").replace(/\s+/g, "").trim();
   const neisBytes = (text) => {

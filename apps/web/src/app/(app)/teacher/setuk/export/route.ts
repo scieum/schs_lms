@@ -4,7 +4,7 @@ import { can } from "@/lib/domain/policy";
 import { repo } from "@/lib/server/repo";
 import { getViewer } from "@/lib/server/viewer";
 
-// 나이스 입력 도우미(크롬 확장)용 내보내기: 내 과목의 '확정'된 세특만.
+// 나이스 입력 버튼(북마클릿)용 내보내기: 내 과목의 '확정'된 세특만.
 // 이름은 나이스 화면에서 학생 줄을 맞추는 데만 쓰고, 확장은 이 파일을 브라우저 안에서만 쓴다.
 export async function GET(req: Request) {
   const v = await getViewer();

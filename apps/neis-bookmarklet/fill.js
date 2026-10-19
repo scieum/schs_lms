@@ -1,5 +1,5 @@
 // 나이스 입력 화면에 학생별 내용을 채운다. 저장 버튼은 절대 누르지 않는다 (교사가 직접 저장).
-// 팝업이 chrome.scripting 으로 이 파일을 넣은 뒤 window.__schsNeisFill(payload) 를 부른다.
+// 북마클릿(bookmarklet/launcher.js)이 이 파일을 앞에 붙여 쓰고 window.__schsNeisFillAll(payload) 를 부른다.
 // 한 명씩 넣기 패널(panel.js)도 여기의 함수(window.__schsNeis)를 같이 쓴다.
 (() => {
   // 나이스 바이트: 한글(·한자) 3, 영어·숫자·기호·공백 1, 엔터 1 (웹 lib/domain/length.ts 와 같다)
@@ -188,7 +188,7 @@
   window.__schsNeisFill = function (p) {
     const fieldSel = p.fieldSelector || "textarea, [contenteditable=true]";
     const rowSel = p.rowSelector || "tr, [role=row]";
-    // p.doc: 북마클릿이 같은 출처의 프레임 안 화면도 채울 때 넘긴다 (확장은 넘기지 않는다)
+    // p.doc: 같은 출처의 프레임 안 화면도 채울 때 넘긴다
     const fields = [...(p.doc || document).querySelectorAll(fieldSel)].filter((el) => !el.disabled && !el.readOnly);
     const report = { filled: [], overLimit: [], nameMismatch: [], notFound: [], rowsWithoutStudent: 0, fieldsSeen: fields.length, ordered: false };
     const done = new Set();

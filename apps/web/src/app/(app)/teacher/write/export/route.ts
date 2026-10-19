@@ -7,7 +7,7 @@ import { canWriteRecord, isRecordArea, latestRecordByStudent, RECORD_MAX_BYTES }
 import { repo } from "@/lib/server/repo";
 import { getViewer } from "@/lib/server/viewer";
 
-// 나이스 입력 도우미(크롬 확장)용 내보내기: 확정된 창체 특기사항·행발만. 형식은 세특 내보내기와 같은 schs-neis/1.
+// 나이스 입력 버튼(북마클릿)용 내보내기: 확정된 창체 특기사항·행발만. 형식은 세특 내보내기와 같은 schs-neis/1.
 // ?area=자율·자치|동아리|진로|행발 (&club=<동아리 id>)
 const KIND = { "자율·자치": "창체-자율·자치", 동아리: "창체-동아리", 진로: "창체-진로", 행발: "행동특성 및 종합의견" } as const;
 

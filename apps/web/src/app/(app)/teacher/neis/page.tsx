@@ -7,14 +7,13 @@ import { neisSets } from "@/lib/server/neis";
 import { requireCan } from "@/lib/server/viewer";
 import { CopyButton } from "./copy-button";
 import { Steps } from "./steps";
-import { BookmarkletCard } from "./bookmarklet";
 
 export const metadata = { title: "나이스 입력 · 속초고등학교 학생관리시스템" };
 
 const GROUPS: NeisGroup[] = ["교과 세특", "창체", "행발"];
 const CHIP = { wait: "bg-[#FFF5E0] text-[#9A6400]", bad: "bg-[#FEECEE] text-bad" } as const;
 
-/** 나이스 입력 (Figma N9 211:2132 · 모바일 212:2185): 도우미 설치 → 확정본 복사 → 나이스에서 붙여넣기·채우기 */
+/** 나이스 입력 (Figma N31 235:4817 · 모바일 235:4818): 나이스 입력 버튼 달기 → 확정본 복사 → 나이스에서 붙여넣기·채우기 */
 export default async function NeisPage() {
   const v = await requireCan("record.write");
   const sets = await neisSets(v);
@@ -24,7 +23,6 @@ export default async function NeisPage() {
       <PageHeader title="나이스 입력" />
       <PageBody>
         <Steps />
-        <BookmarkletCard />
         <Card title="보낼 기록" action={<span className="text-[13px] text-mute">{sets.length}건</span>}>
           {sets.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-8 text-center">

@@ -9,7 +9,7 @@
 - AI: docs/ai-features.md (Claude, 영랑이).
 
 ## 구조
-- `apps/neis-extension/` — 나이스 입력 도우미(크롬 확장, MV3). 앱 `/teacher/neis`에서 복사한 확정 세특·창체·행발을 열린 나이스 화면에 한 번에 채우거나 한 명씩 넣는다. 저장은 교사가 직접. 고친 뒤 `apps/web`에서 `npm run pack:neis`로 `public/neis-helper.zip`을 다시 만든다. README 참고.
+- `apps/neis-bookmarklet/` — 나이스 입력 버튼(북마클릿). 크롬 확장은 2026-10-19 없앴다. 앱 `/teacher/neis`에서 복사한 확정 세특·창체·행발을 열린 나이스 화면에 한 번에 채운다(나이스 eXbuilder6 그리드에 바로 넣기 → 화면 칸 순서). 저장은 교사가 직접. 고친 뒤 `apps/web`에서 `npm run pack:neis`로 `src/lib/neis-bookmarklet.ts`를 다시 만든다. README 참고.
 - `src/lib/domain/` — 순수 규칙(권한·비밀번호·잠금·명단 검사). 테스트는 여기에 둔다.
 - `src/lib/server/` — 서버 전용(세션, env, 엑셀, repo). `server-only`.
 - `src/lib/server/repo/` — Supabase 키가 없으면 데모(메모리) repo를 쓴다. 기능별 모듈은 `repo/modules/*.ts`(인터페이스 + 데모 + Supabase 구현), `index.ts`가 합친다.

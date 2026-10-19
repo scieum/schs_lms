@@ -1,6 +1,6 @@
-// 나이스 입력 북마클릿 (확장 프로그램 없이): 북마크바의 "나이스 입력"을 나이스 화면에서 누르면 이 창이 뜬다.
+// 나이스 입력 북마클릿 (유일한 나이스 입력 방법, 크롬 확장은 2026-10-19 없앰): 북마크바의 "나이스 입력"을 나이스 화면에서 누르면 이 창이 뜬다.
 // 앱 '나이스 입력'에서 복사한 자료를 붙여 넣고 → 반·방식 고르기 → 한 번에 채우기 / 한 명씩 넣기.
-// 채우기는 확장과 같은 fill.js · panel.js 를 쓴다 (빌드 때 앞에 붙는다). 저장 버튼은 누르지 않는다.
+// 채우기는 cpr-fill.js(나이스 eXbuilder6 그리드에 바로) → fill.js(화면 칸) 순서로 쓴다 (빌드 때 앞에 붙는다). 저장 버튼은 누르지 않는다.
 // 자료는 이 창이 열려 있는 동안 메모리에만 두고, 닫으면 지운다. 서버로 아무것도 보내지 않는다.
 (() => {
   // 같은 화면에서 예전 버전 북마클릿을 누른 적이 있으면 그 창을 지우고 새 버전으로 다시 만든다 (v0.2.7)
@@ -141,7 +141,7 @@
       for (const k of ["filled", "overLimit", "nameMismatch"]) for (const x of r[k]) if (!seen.has(k + x)) { seen.add(k + x); total[k].push(x); }
       total.fieldsSeen += r.fieldsSeen;
     }
-    // 이름으로 하나도 못 찾았으면 확장처럼 위 문서에서 순서대로 넣는다 (이름을 꼭 확인)
+    // 이름으로 하나도 못 찾았으면 위 문서에서 순서대로 넣는다 (이름을 꼭 확인)
     if (!total.filled.length && !total.nameMismatch.length && !total.overLimit.length) {
       const r = window.__schsNeisFill({ ...base, order: true });
       Object.assign(total, { filled: r.filled, overLimit: r.overLimit, ordered: r.ordered, fieldsSeen: r.fieldsSeen });
