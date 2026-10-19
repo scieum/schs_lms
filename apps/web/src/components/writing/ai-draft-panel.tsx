@@ -45,7 +45,7 @@ export function AiDraftPanel({
   generate: (memo: string, activity: string, max: number) => Promise<AiDraftResult>;
   /** 합치기: ①에서 불러온 조각(null = 불러오는 중) · 지금 본문 · NEIS 최대 · 합치기 */
   merge: { pieces: MergePiece[] | null; body: string; neisMax: number; run: (pieces: MergePiece[], max: number) => Promise<AiDraftResult> };
-  onApply: (text: string) => void;
+  onApply: (text: string, result?: AiDraftResult) => void;
   done?: boolean;
   /** 성취수준 칸 (N35 ③, 세특): 조각 요약과 목표 줄 사이 */
   levelBox?: ReactNode;
@@ -126,7 +126,7 @@ export function AiDraftPanel({
       }
       setResult(r);
       setResultMode(m);
-      if (bodyEmpty) onApply(r.text);
+      if (bodyEmpty) onApply(r.text, r);
     });
   }
 
@@ -266,7 +266,7 @@ export function AiDraftPanel({
               <Button type="button" kind="outline" size="sm" onClick={copy}><Copy size={13} /> {copied ? "복사했어요" : "복사"}</Button>
               <Button type="button" kind="ghost" size="sm" onClick={run}><RotateCcw size={13} /> 다시 쓰기</Button>
             </div>
-            <Button type="button" size="sm" className="h-11 max-md:w-full md:ml-auto md:h-9" onClick={() => onApply(result.text)}>본문에 넣기</Button>
+            <Button type="button" size="sm" className="h-11 max-md:w-full md:ml-auto md:h-9" onClick={() => onApply(result.text, result)}>본문에 넣기</Button>
           </div>
         </div>
       )}

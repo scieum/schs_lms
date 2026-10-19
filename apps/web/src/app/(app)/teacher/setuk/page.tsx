@@ -22,6 +22,8 @@ import { ClassCheckButton, ClassCheckPanel } from "@/components/writing/class-ch
 import { LibraryPanel } from "@/components/writing/library-panel";
 import { LibrarySaveProvider } from "@/components/writing/library-save";
 import { LevelsProvider } from "@/components/writing/level-picker";
+import { piecesPool, provView } from "@/lib/server/provenance";
+import { listMemosWithPieces, memoPieces } from "@/lib/server/merge-pieces";
 
 export const metadata = { title: "교과 세특 · 속초고등학교 학생관리시스템" };
 
@@ -94,6 +96,10 @@ export default async function SetukPage({ searchParams }: Props) {
   // 성취수준 (N35 ③): 학교 설정 단계 + 이 과목·학기 학생별 수준
   const [scale, levelMap] = await Promise.all([repo.getAchievementScale(), repo.listLevels({ courseId: course.id, year: schoolYear(), semester: course.semester }, students.map((s) => s.id))]);
   const levels = Object.fromEntries(students.map((s) => [s.id, levelMap[s.id] ?? null]));
+  // N38: AI 원안 · 교사가 정한 문장 · 근거 표 (원안이 없는 글은 근거 · 원안 비교 · 수정 칩이 숨는다)
+  const [pv, pool, provSettings] = selected
+    ? await Promise.all([provView(cur), listMemosWithPieces(`세특:${course.id}`, [selected.id]).then((m) => piecesPool(memoPieces(m), course.subject)), repo.getProvenanceSettings()])
+    : [{ original: null, pins: [] }, [], await repo.getProvenanceSettings()];
   const listTitle = tab.section ? `${course.subject} ${tab.section}` : `${course.subject} · ${assignment?.classes.join("·")}반`;
   const peersOf = (id: string) => pairs.filter((p) => p.a === id || p.b === id).map((p) => (p.a === id ? p.b : p.a));
 
@@ -166,6 +172,7 @@ export default async function SetukPage({ searchParams }: Props) {
                         memo={memo?.content ?? ""}
                         subject={course.subject}
                         openCheck={q.check === "1" && q.student === selected.id}
+                        prov={{ original: pv.original, pins: pv.pins, pool, editRatioMin: provSettings.editRatioMin, who: selected.name }}
                         similar={{
                           self: { id: selected.id, name: selected.name, no: makeStudentNo(selected.grade, selected.classNo, selected.number), href: href(selected.id) },
                           peers: peersOf(selected.id).map((id) => byId.get(id)!).filter(Boolean).map((p) => ({

@@ -9,19 +9,36 @@ import { cx } from "@/components/ui";
 /** 본문에서 고른 글 (N35 문장 보관하기) */
 export type TextSelection = { start: number; end: number; text: string };
 
-export type Mark = { start: number; end: number; tone: "block" | "warn" | "similar"; key?: string; strong?: boolean };
+/** style (N38): 근거 없음 = dotted(주황 점선), 맞춤법 = wavy(인디고 물결) — 금칙어 막음(빨강 실선) · 확인(주황 실선)과 모양이 다르다 */
+export type Mark = { start: number; end: number; tone: "block" | "warn" | "similar" | "spell"; key?: string; strong?: boolean; style?: "solid" | "dotted" | "wavy" };
 
-const TONE: Record<Mark["tone"], string> = { block: "decoration-bad", warn: "decoration-wait", similar: "decoration-wait" };
+const TONE: Record<Mark["tone"], string> = { block: "decoration-bad", warn: "decoration-wait", similar: "decoration-wait", spell: "decoration-[#7889FF]" };
+const STYLE = { solid: "", dotted: "decoration-dotted", wavy: "decoration-wavy" } as const;
 
-/** 겹치지 않게 앞에서부터 고른 조각 */
+/** 같은 자리에 둘 이상이면 하나만: 금칙어(막음) > 근거 없음 > 그 밖 확인 > 맞춤법 > 비슷한 문장 */
+const rank = (m: Mark) => (m.tone === "block" ? 0 : m.style === "dotted" ? 1 : m.tone === "warn" ? 2 : m.tone === "spell" ? 3 : 4);
+
+/** 겹치지 않게 고른 조각: 앞선 순위가 자리를 먼저 차지하고, 뒤 순위는 남은 자리만 */
 function pieces(text: string, marks: Mark[]): { text: string; mark?: Mark }[] {
+  const taken: { start: number; end: number; mark: Mark }[] = [];
+  const sorted = [...marks].filter((x) => x.end > x.start && x.end <= text.length).sort((a, b) => rank(a) - rank(b) || Number(b.strong ?? 0) - Number(a.strong ?? 0) || a.start - b.start);
+  for (const m of sorted) {
+    let segs = [{ start: m.start, end: m.end }];
+    for (const t of taken) {
+      segs = segs.flatMap((s) => (t.end <= s.start || t.start >= s.end ? [s] : [
+        ...(t.start > s.start ? [{ start: s.start, end: t.start }] : []),
+        ...(t.end < s.end ? [{ start: t.end, end: s.end }] : []),
+      ]));
+    }
+    for (const s of segs) if (s.end > s.start) taken.push({ ...s, mark: m });
+  }
+  taken.sort((a, b) => a.start - b.start);
   const out: { text: string; mark?: Mark }[] = [];
   let at = 0;
-  for (const m of [...marks].filter((x) => x.end > x.start && x.end <= text.length).sort((a, b) => a.start - b.start || Number(b.strong ?? 0) - Number(a.strong ?? 0))) {
-    if (m.start < at) continue;
-    if (m.start > at) out.push({ text: text.slice(at, m.start) });
-    out.push({ text: text.slice(m.start, m.end), mark: m });
-    at = m.end;
+  for (const t of taken) {
+    if (t.start > at) out.push({ text: text.slice(at, t.start) });
+    out.push({ text: text.slice(t.start, t.end), mark: t.mark });
+    at = t.end;
   }
   if (at < text.length) out.push({ text: text.slice(at) });
   return out;
@@ -130,7 +147,7 @@ export function HighlightTextarea({ value, onChange, marks, onPickMark, focusKey
         {pieces(value, marks).map((p, i) =>
           p.mark ? (
             <span key={i} data-mark={p.mark.key}
-              className={cx("underline decoration-2 underline-offset-[3px]", TONE[p.mark.tone], p.mark.strong && "text-bad [-webkit-text-stroke:0.3px_currentColor]")}>{p.text}</span>
+              className={cx("underline decoration-2 underline-offset-[3px]", TONE[p.mark.tone], STYLE[p.mark.style ?? "solid"], p.mark.strong && "text-bad [-webkit-text-stroke:0.3px_currentColor]")}>{p.text}</span>
           ) : (
             <span key={i}>{p.text}</span>
           ),

@@ -3,6 +3,7 @@
 import { checkLength, measure, MIN_RATIO, type LengthRange, type LengthSetting, type LengthUnit } from "./length";
 import { canLog, type ActivityArea } from "./activity";
 import type { Student, Viewer } from "./types";
+import type { OriginalView, RecordProv, SourceItem } from "./provenance";
 
 export const RECORD_AREAS = ["자율·자치", "동아리", "진로", "행발"] as const;
 export type RecordArea = (typeof RECORD_AREAS)[number];
@@ -45,7 +46,7 @@ export function resolveRecordLength(area: RecordArea, setting?: Partial<LengthSe
 
 export type RecordStatus = "draft" | "confirmed";
 
-export interface RecordDraft {
+export interface RecordDraft extends RecordProv {
   id: string;
   area: RecordArea;
   studentId: string;
@@ -295,7 +296,8 @@ export function semesterOf(now = new Date()): 1 | 2 {
 }
 
 /** "AI 초안" 버튼 결과 (세특·특기사항·행발 공통) */
-export type AiDraftResult = { ok: true; text: string; sample: boolean; notice?: string } | { ok: false; error: string };
+/** original: AI 원안 (N38 — 본문에 넣으면 문장 근거 · 수정 비율의 기준), sources: 원안이 쓰는 근거 카드 */
+export type AiDraftResult = { ok: true; text: string; sample: boolean; notice?: string; original?: OriginalView; sources?: SourceItem[] } | { ok: false; error: string };
 
 // ---------- 키워드로 쓰기: 속초고 세특 프롬프트 입력 형식 ----------
 

@@ -1,7 +1,8 @@
 "use client";
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition, type ReactNode } from "react";
 import { Button, Tag } from "@/components/ui";
-import { autoCheck, type AutoCheck, type CheckRow } from "@/lib/domain/auto-check";
+import { autoCheck, isSpellRow, type AutoCheck, type CheckMore, type CheckRow } from "@/lib/domain/auto-check";
+import { applySpell } from "@/lib/domain/spelling";
 import { applyFix } from "@/lib/domain/forbidden";
 import { measure, UNIT_LABEL, type LengthRange, type LengthUnit } from "@/lib/domain/length";
 import { findIdentity, type AiDraftResult } from "@/lib/domain/writing";
@@ -23,14 +24,16 @@ type Length = { unit: LengthUnit; max: number; limit: number; onChange: (s: { un
  * 본문 · 검사 상태를 한곳에서: 검사 결과 · 펼친 행 · 밑줄 · 바꾸기(되돌리기) · 본문 바꾸기 스낵바.
  * 본문 칸(HighlightTextarea)과 검사 카드(RecordChecks)가 같이 쓴다.
  */
-export function useBodyChecks({ text, setText, range, who, context, extraMarks = [], openFirst = false }: {
+export function useBodyChecks({ text, setText, range, who, context, extraMarks = [], openFirst = false, more }: {
   text: string; setText: (t: string) => void; range: LengthRange; who: Who; context?: string; extraMarks?: Mark[];
   /** 반 전체 검사(N35)에서 "열기"로 들어오면 첫 걸린 행을 펼친다 */
   openFirst?: boolean;
+  /** N38: 근거 없는 문장 · 맞춤법 AI 결과 */
+  more?: CheckMore;
 }) {
-  const check = useMemo(() => autoCheck(text, range, findIdentity(text, who), undefined, context), [text, range, who, context]);
+  const check = useMemo(() => autoCheck(text, range, findIdentity(text, who), undefined, context, more), [text, range, who, context, more]);
   const recheck = useCallback((t: string) => autoCheck(t, range, findIdentity(t, who), undefined, context), [range, who, context]);
-  const [open, setOpen] = useState<string | null>(() => (openFirst ? autoCheck(text, range, findIdentity(text, who), undefined, context).rows[0]?.key ?? null : null));
+  const [open, setOpen] = useState<string | null>(() => (openFirst ? autoCheck(text, range, findIdentity(text, who), undefined, context, more).rows[0]?.key ?? null : null));
   const snack = useUndoSnack();
   /** 본문을 통째로 바꾸고 "되돌리기" 스낵바 */
   const replace = (next: string, msg: string) => {
@@ -40,19 +43,35 @@ export function useBodyChecks({ text, setText, range, who, context, extraMarks =
   };
   const onReplace = (r: CheckRow) => {
     if (!r.fix) return;
-    const next = applyFix(text, r.fix);
+    // 맞춤법 행은 그 자리만 바꾼다 (같은 말이 앞에 또 있어도)
+    const next = r.spell ? applySpell(text, [r.spell]) : applyFix(text, r.fix);
     if (next === text) return;
     setOpen(null);
     replace(next, r.fix.to === null ? "뺐어요" : "바꿨어요");
   };
+  /** 맞춤법 모두 바꾸기: 규칙 사전 행만 (AI 검사 행은 하나씩 — AI가 틀릴 수 있어서). 뒤에서부터 → 한 번에 되돌림 */
+  const onReplaceAll = () => {
+    const rows = check.rows.filter((r) => isSpellRow(r) && r.origin === "rule" && r.spell);
+    if (!rows.length) return;
+    const next = applySpell(text, rows.map((r) => r.spell!));
+    if (next === text) return;
+    setOpen(null);
+    replace(next, `${rows.length}곳을 바꿨어요`);
+  };
   const marks: Mark[] = [
     ...extraMarks,
-    ...check.rows.flatMap((r) => r.ranges.map((g) => ({ ...g, tone: r.level === "block" ? ("block" as const) : ("warn" as const), key: r.key, strong: r.key === open }))),
+    ...check.rows.flatMap((r) => r.ranges.map((g) => ({
+      ...g, tone: r.level === "block" ? ("block" as const) : r.underline === "wavy" ? ("spell" as const) : ("warn" as const), style: r.underline, key: r.key, strong: r.key === open,
+    }))),
   ];
-  return { check, recheck, open, setOpen, marks, onReplace, replace, snack: snack.node };
+  return { check, recheck, open, setOpen, marks, onReplace, onReplaceAll, replace, snack: snack.node };
 }
 
-export function RecordChecks({ text, range, check, recheck, fit, length, open, onOpen, onReplace, aiFix }: {
+export function RecordChecks({ text, range, check, recheck, fit, length, open, onOpen, onReplace, aiFix, onReplaceAll, spellAi, renderOpen }: {
+  /** N38: 맞춤법 모두 바꾸기 · 맞춤법 AI 검사 줄 · 근거 없는 문장 펼침 */
+  onReplaceAll?: () => void;
+  spellAi?: ReactNode;
+  renderOpen?: (row: CheckRow) => ReactNode | undefined;
   text: string;
   range: LengthRange;
   check: AutoCheck;
@@ -73,7 +92,7 @@ export function RecordChecks({ text, range, check, recheck, fit, length, open, o
   const lengthFails = check.rows.some((r) => r.key === "len");
 
   return (
-    <AutoChecks check={check} range={range} open={open} onOpen={onOpen} onReplace={onReplace}
+    <AutoChecks check={check} range={range} open={open} onOpen={onOpen} onReplace={onReplace} onReplaceAll={onReplaceAll} spellAi={spellAi} renderOpen={renderOpen}
       fix={aiFix && <AiFixArea text={text} check={check} recheck={recheck} range={range} run={aiFix.run} onApply={aiFix.onApply} />}
       length={<LengthRow {...length} actions={fit && lengthFails ? <FitButton max={range.max} unit={range.unit} busy={fitting} onClick={runFit} /> : undefined} />}>
       {fitted && !fitting && (fitted.ok ? (
@@ -97,7 +116,7 @@ export function RecordChecks({ text, range, check, recheck, fit, length, open, o
 
 /** ③ 단계 머리 설명 (Figma N32 · N34): 빈 본문 · 확정 불가 · n곳 · 확인 n · 통과 (+ 비슷한 문장 n명) */
 export function checkMeta(check: AutoCheck, similar = 0): string {
-  const base = check.status === "empty" ? "본문을 쓰면 검사해요" : check.status === "block" ? `확정 불가 · ${check.rows.length}곳` : check.rows.length ? `확인 ${check.rows.length}` : "통과";
+  const base = check.status === "empty" ? "본문을 쓰면 검사해요" : check.status === "block" ? `확정 불가 · ${check.rows.length}곳` : check.rows.length ? `확인 ${check.rows.length}곳` : "통과";
   return similar ? `${base} · 비슷한 문장 ${similar}명` : base;
 }
 

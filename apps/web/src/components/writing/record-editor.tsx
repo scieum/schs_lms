@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui";
 import { checkLength, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
@@ -17,6 +17,8 @@ import { OverApproval } from "@/components/writing/over-approval";
 import { LibraryToggle, useBodyLibrary } from "./library-save";
 import { pieceFromLibrary } from "@/app/(app)/teacher/library/actions";
 import { libraryAreaOf } from "@/lib/domain/library";
+import type { AiDraftResult } from "@/lib/domain/writing";
+import { BodyViewSwitch, useProvenance, type ProvInit } from "./provenance";
 
 const MEMO_HINT: Record<RecordArea, string> = {
   "자율·자치": "관찰 메모 (예: 학급회의 사회, 체육대회 준비 위원, 규칙 제안)",
@@ -48,11 +50,14 @@ export function RecordEditor({
   aiOn = false,
   openCheck = false,
   keywordPane,
+  prov,
 }: {
+  /** N38 문장 근거 · AI 원안 (원안이 없으면 근거 · 원안 비교 · 수정 칩이 숨는다) */
+  prov?: ProvInit;
   /** 반 전체 검사(N35)의 "열기": ③ 자동 검사 첫 걸린 행을 펼친다 */
   openCheck?: boolean;
   /** 행발 키워드 메뉴판 (N35 ④): ② 키워드로 칸을 대신한다. 결과를 본문에 넣는 함수를 받는다 */
-  keywordPane?: (ctx: { onApply: (t: string) => void; bodyEmpty: boolean }) => React.ReactNode;
+  keywordPane?: (ctx: { onApply: (t: string, r?: AiDraftResult) => void; bodyEmpty: boolean }) => React.ReactNode;
   /** AI 키가 있을 때만 순화하기 (N34 ③) */
   aiOn?: boolean;
   area: RecordArea;
@@ -80,7 +85,14 @@ export function RecordEditor({
   const editActivity = () => { activityRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }); activityRef.current?.focus({ preventScroll: true }); };
   const hasBody = !!text.trim();
   // N34: 검사 근거·고칠 말 · 본문 밑줄 · 다른 버전
-  const bc = useBodyChecks({ text, setText, range, who, context: undefined, openFirst: openCheck });
+  // N38: 문장 근거 · AI 원안 · 맞춤법 (본문 바꾸기는 검사 묶음의 되돌리기 스낵바로)
+  const replaceRef = useRef<(next: string, msg: string) => void>(() => {});
+  const pv = useProvenance({ init: prov, text, replace: (n, m) => replaceRef.current(n, m), spell: { kind: "record", studentId }, focusBody: () => body.current?.focus() });
+  const bc = useBodyChecks({ text, setText, range, who, context: undefined, openFirst: openCheck, more: pv.more });
+  useEffect(() => { replaceRef.current = bc.replace; });
+  const { needFromServer } = pv;
+  useEffect(() => { needFromServer(state.needReason); }, [state.needReason, needFromServer]);
+  const apply = (t: string, r?: AiDraftResult) => { setText(t); pv.adopt(r); };
   const [piecesKey, setPiecesKey] = useState(0);
   const lib = useBodyLibrary({
     text, body, area: libraryAreaOf(area), onInsert: (next) => bc.replace(next, "넣었어요"),
@@ -112,9 +124,9 @@ export function RecordEditor({
             neisMax: recordMax(area, range.unit),
             run: (ps, max) => mergeRecordAction({ area, studentId, clubId, pieces: ps, unit: range.unit, max }),
           }}
-          onApply={setText}
+          onApply={apply}
           done={hasBody}
-          keywordPane={keywordPane?.({ onApply: setText, bodyEmpty: !hasBody })}
+          keywordPane={keywordPane?.({ onApply: apply, bodyEmpty: !hasBody })}
           defaultMode={keywordPane ? "keywords" : undefined}
         />
       </div>
@@ -123,9 +135,11 @@ export function RecordEditor({
         <input type="hidden" name="area" value={area} />
         <input type="hidden" name="studentId" value={studentId} />
         {clubId && <input type="hidden" name="clubId" value={clubId} />}
+        {pv.inputs()}
         <BodyCard bare toggle={hasBody} text={text} tag={(t) => tagRecord({ area, studentId, clubId, text: t })}
-          extra={<><LibraryToggle />{hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}</>}>
-          <HighlightTextarea
+          extra={<><BodyViewSwitch {...pv.switchProps} className="hidden @lg:inline-flex" /><LibraryToggle />{hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}</>}>
+          <BodyViewSwitch {...pv.switchProps} full className="mb-2 @lg:hidden" />
+          {pv.body(<HighlightTextarea
             ref={body}
             name="content"
             value={text}
@@ -140,7 +154,7 @@ export function RecordEditor({
             aria-label="기록 내용"
             selectionTool={lib.selectionTool}
             onSelectionChange={lib.onSelectionChange}
-          />
+          />)}
           {lib.mobileSave && <div className="mt-2">{lib.mobileSave}</div>}
         </BodyCard>
         {variants && hasBody && (
@@ -149,6 +163,7 @@ export function RecordEditor({
             onPick={(t) => { setVariants(false); bc.replace(t, "본문을 바꿨어요"); }} />
         )}
         <RecordChecks text={text} range={range} check={bc.check} recheck={bc.recheck} open={bc.open} onOpen={bc.setOpen} onReplace={bc.onReplace}
+          onReplaceAll={bc.onReplaceAll} spellAi={pv.spellLine} renderOpen={pv.renderOpen}
           aiFix={{ run: (t) => aiFixRecordAction({ area, studentId, clubId, text: t, unit: range.unit, max: range.max }), onApply: (t) => bc.replace(t, "고친 글을 넣었어요") }}
           length={{ unit: len.unit, max: len.max, limit: recordMax(area, len.unit), onChange: setLen }}
           fit={{ run: () => fitRecordAction({ area, studentId, clubId, text, unit: range.unit, max: range.max }), onApply: setText }} />
@@ -160,17 +175,19 @@ export function RecordEditor({
             {state.saved === "confirmed" ? "확정했어요" : "임시 저장했어요"} · 새 버전으로 남았어요
           </p>
         )}
+        {pv.ratioLine && <div className="@container">{pv.ratioLine}</div>}
         <div className="flex gap-2">
           <Button kind="outline" name="intent" value="draft" disabled={pending} className="flex-1">
             임시 저장
           </Button>
-          <Button name="intent" value="confirmed" disabled={pending || (over && !allowOver) || !hasBody || bc.check.status === "block"} className="flex-1 disabled:bg-key disabled:opacity-40">
+          <Button onClick={pv.guardConfirm} name="intent" value="confirmed" disabled={pending || (over && !allowOver) || !hasBody || bc.check.status === "block"} className="flex-1 disabled:bg-key disabled:opacity-40">
             <Check size={16} strokeWidth={2.5} /> {confirmed ? "다시 확정" : "확정"}
           </Button>
         </div>
         <p className="text-[12px] text-mute">확정한 기록만 나이스로 내보내요</p>
       </form>
       {bc.snack}
+      {pv.dialog}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import type { SetukRecord } from "@/lib/domain/setuk";
 import type { Account, Student, Teacher } from "@/lib/domain/types";
 import { env } from "../env";
 import type { NewServiceRecord, NewStudent, Repo } from "./types";
+import { insertWithProv, provFrom, type ProvRow } from "./modules/provenance";
 
 // Supabase 저장소. service role 키로 서버에서만 접근한다.
 // 모든 테이블은 RLS가 켜져 있고 정책이 없어서, 브라우저(anon) 접근은 전부 막힌다.
@@ -29,14 +30,14 @@ export const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 
 type CourseRow = { id: string; year: number; grade: number; semester: 1 | 2; subject: string; subject_group: SubjectGroup; course_type: Course["type"]; credits: number };
 type TeacherCourseRow = { teacher_id: string; course_id: string; classes: number[]; mode?: string | null; sections?: string[] | null };
-type SetukRow = { id: string; course_id: string; student_id: string; author_id: string; content: string; unit: SetukRecord["unit"]; max_len: number; status: SetukRecord["status"]; created_at: string };
+type SetukRow = { id: string; course_id: string; student_id: string; author_id: string; content: string; unit: SetukRecord["unit"]; max_len: number; status: SetukRecord["status"]; created_at: string } & ProvRow;
 
 const toCourse = (r: CourseRow): Course => ({ id: r.id, year: r.year, grade: r.grade, semester: r.semester, subject: r.subject, group: r.subject_group, type: r.course_type, credits: r.credits });
 const toTeacherCourse = (r: TeacherCourseRow): TeacherCourse => ({
   teacherId: r.teacher_id, courseId: r.course_id, classes: r.classes ?? [],
   mode: r.mode === "moving" ? "moving" : "fixed", sections: r.sections ?? [],
 });
-const toSetuk = (r: SetukRow): SetukRecord => ({ id: r.id, courseId: r.course_id, studentId: r.student_id, authorId: r.author_id, content: r.content, unit: r.unit, max: r.max_len, status: r.status, createdAt: r.created_at });
+const toSetuk = (r: SetukRow): SetukRecord => ({ id: r.id, courseId: r.course_id, studentId: r.student_id, authorId: r.author_id, content: r.content, unit: r.unit, max: r.max_len, status: r.status, createdAt: r.created_at, ...provFrom(r) });
 
 type ClubRow = { id: string; year: number; name: string; advisor_id: string };
 type LogRow = { id: string; area: ActivityLog["area"]; student_id: string; author_id: string; club_id: string | null; date: string; content: string; created_at: string; common_activity_id?: string | null };
@@ -189,10 +190,10 @@ export const supabaseRepo: Repo = {
     return (rows as SetukRow[]).map(toSetuk);
   },
   async addSetuk(x) {
-    const r = check(await db().from("setuk_records").insert({
+    const r = await insertWithProv<SetukRow>("setuk_records", {
       course_id: x.courseId, student_id: x.studentId, author_id: x.authorId, content: x.content, unit: x.unit, max_len: x.max, status: x.status,
-    }).select("*").single());
-    return toSetuk(r as SetukRow);
+    }, x);
+    return toSetuk(r);
   },
   async listClubs(year) {
     const r = check(await db().from("clubs").select("*").eq("year", year).eq("active", true).order("name"));

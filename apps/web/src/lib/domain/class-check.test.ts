@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { barParts, classCheck, fixTargets, sortForReview, topLabel, withJosa, type ClassCheckInput } from "./class-check";
+import { barParts, classCheck, fixTargets, provenanceCounts, sortForReview, topLabel, withJosa, type ClassCheckInput } from "./class-check";
 import { autoCheck } from "./auto-check";
 
 const range = { unit: "bytes" as const, max: 1500, min: 30, capped: false };
@@ -79,5 +79,20 @@ describe("반 전체 검사 (N35 ①)", () => {
     const c = autoCheck("가, 나, 다, 라, 마를 모두 정리함.", range, []);
     const row = c.rows.find((r) => r.key === "style-쉼표 과다");
     if (row) expect(topLabel(row, "bytes")).toBe("쉼표가 많은 문장 1개");
+  });
+});
+
+describe("반 전체 검사 N38 (근거 없음 · 맞춤법 · 수정 적음)", () => {
+  it("칩 수와 대기열: 근거 없음·맞춤법만 걸린 학생은 AI 고치기에서 뺀다", () => {
+    const r = classCheck([
+      item("a", `${OK} 끝까지 확인할수 있도록 정리함.`),
+      item("b", OK, { more: { provenance: { nosource: [{ i: 0, start: 0, end: 10 }] } }, editRatio: 4 }),
+      item("c", OK, { editRatio: 23 }),
+      item("d", "실험 결과를 정리하였다."),
+    ]);
+    expect(r.rows.map((x) => [x.spell, x.nosource, x.lowEdit])).toEqual([[1, 0, false], [0, 1, true], [0, 0, false], [0, 0, false]]);
+    expect(provenanceCounts(r.rows)).toEqual({ nosource: 1, spell: 1, low: 1 });
+    expect(fixTargets(r.rows).map((x) => x.id)).toEqual(["d"]);
+    expect(r.rows[0].top?.label).toBe("맞춤법 ‘확인할수’");
   });
 });

@@ -6,6 +6,7 @@ import { applyFix, findForbidden, type ForbiddenBasis, type ForbiddenFix } from 
 import { UNIT_LABEL, type LengthRange, checkLength } from "./length";
 import { styleIssues, type StyleIssue } from "./neis-style";
 import { badEndings, fixEnding } from "./writing";
+import { spellCheck, type SpellHit } from "./spelling";
 
 export type CheckLevel = "block" | "warn";
 export type TextRange = { start: number; end: number };
@@ -28,7 +29,24 @@ export type CheckRow = {
   fix?: ForbiddenFix;
   /** 본문 밑줄 자리 (원래 본문 기준) */
   ranges: TextRange[];
+  /** 밑줄 모양 (N38): 근거 없음 = dotted, 맞춤법 = wavy, 그 밖 solid */
+  underline?: "solid" | "dotted" | "wavy";
+  /** 근거 없는 문장 (N38): 몇 번째 문장 (0부터) */
+  sentenceIndex?: number;
+  /** 맞춤법 행 (N38): 고칠 자리 · 어디서 찾았는지 */
+  spell?: SpellHit;
+  origin?: "rule" | "ai";
 };
+
+/** N38: 근거 없는 문장 (AI 원안이 있을 때만) · 맞춤법 AI 검사 결과 */
+export type CheckMore = {
+  provenance?: { nosource: { i: number; start: number; end: number }[] };
+  spellAi?: SpellHit[];
+};
+
+export const NOSOURCE_WHY = "AI가 관찰하지 않은 활동을 보탰을 수 있어요. 학생이 실제로 한 일인지 확인하고, 근거를 잇거나 지워 주세요.";
+export const isSpellRow = (r: CheckRow) => r.key.startsWith("spell-");
+export const isNoSourceRow = (r: CheckRow) => r.key.startsWith("nosource-");
 export type AutoCheck = {
   status: "empty" | "pass" | "check" | "block";
   rows: CheckRow[];
@@ -65,7 +83,7 @@ export function rangesOf(text: string, s: string | undefined): TextRange[] {
  * identity: 본문에서 찾은 학번·실명 (편집기는 writing.findIdentity, 초안 검토는 checkDraft 의 found).
  * context: 과목명(세특) — 고칠 말 "○○ 탐구 활동"에 쓴다.
  */
-export function autoCheck(text: string, range: LengthRange, identity: string[], extra?: DraftExtra, context?: string): AutoCheck {
+export function autoCheck(text: string, range: LengthRange, identity: string[], extra?: DraftExtra, context?: string, more?: CheckMore): AutoCheck {
   const body = text.trim();
   const len = checkLength(body, range);
   const u = range.unit === "bytes" ? "B" : UNIT_LABEL[range.unit];
@@ -79,6 +97,16 @@ export function autoCheck(text: string, range: LengthRange, identity: string[], 
   for (const h of forbidden.filter((x) => x.level === "ban")) {
     rows.push({ key: `ban-${h.word}`, level: "block", label: `금칙어 '${h.word}'`, detail: h.short, why: h.reason, find: h.phrase, phrase: h.phrase, basis: h.basis, fix: h.fix, ranges: rangesOf(text, h.phrase) });
   }
+
+  // N38 근거 없는 문장 (확인 — 확정을 막지 않는다)
+  const nos = more?.provenance?.nosource ?? [];
+  nos.forEach((s, k) => {
+    rows.push({
+      key: `nosource-${s.i}`, level: "warn", label: `근거 없는 문장 ${nos.length > 1 ? `${k + 1}/${nos.length}` : "1"}`,
+      detail: `${s.i + 1}번 문장 · 설문·조각·누가기록 어디에도 이어진 곳이 없어요`, why: NOSOURCE_WHY,
+      ranges: s.end <= text.length ? [{ start: s.start, end: s.end }] : [], underline: "dotted", sentenceIndex: s.i,
+    });
+  });
 
   if (len.reason === "too_long") rows.push({ key: "len", level: "warn", label: `분량 초과 ${over.toLocaleString()}${u}`, detail: `${range.max.toLocaleString()}${u} 안으로 줄여 주세요`, why: `${range.max.toLocaleString()}${u} 안으로 줄여 주세요`, ranges: [] });
   else if (len.reason === "too_short") rows.push({ key: "len", level: "warn", label: `최소 ${range.min.toLocaleString()}${u}`, detail: `${(range.min - len.value).toLocaleString()}${u} 더 써 주세요`, why: `${(range.min - len.value).toLocaleString()}${u} 더 써 주세요`, ranges: [] });
@@ -126,6 +154,19 @@ export function autoCheck(text: string, range: LengthRange, identity: string[], 
   const warn = forbidden.filter((x) => x.level !== "ban");
   for (const h of warn) rows.push({ key: `warn-${h.word}`, level: "warn", label: `금칙어 확인 '${h.word}'`, detail: h.short, why: h.reason, find: h.phrase, phrase: h.phrase, basis: h.basis, fix: h.fix, ranges: rangesOf(text, h.phrase) });
   if (!forbidden.length) passed.push("금칙어");
+  if (more?.provenance && !nos.length) passed.push("근거");
+
+  // N38 맞춤법·띄어쓰기: 규칙 사전 + (누르면) AI 검사 — 확인만
+  const rule = spellCheck(text);
+  const spell = [...rule.map((h) => ({ h, origin: "rule" as const })), ...(more?.spellAi ?? []).filter((a) => !rule.some((h) => a.start < h.end && a.end > h.start) && text.slice(a.start, a.end) === a.from).map((h) => ({ h, origin: "ai" as const }))]
+    .sort((a, b) => a.h.start - b.h.start);
+  for (const { h, origin } of spell) {
+    rows.push({
+      key: `spell-${h.start}-${h.rule}`, level: "warn", label: h.kind, hit: h.from, detail: h.why, why: h.why, find: h.from, phrase: h.from,
+      fix: { from: h.from, to: h.to }, ranges: [{ start: h.start, end: h.end }], underline: "wavy", spell: h, origin,
+    });
+  }
+  if (!spell.length) passed.push("맞춤법");
 
   if (extra) {
     if (extra.evidence.ok) passed.push(`근거 반영 ${extra.evidence.hits}개`);
@@ -140,7 +181,7 @@ export function autoCheck(text: string, range: LengthRange, identity: string[], 
 }
 
 /** 본문에서 고칠 행 (분량·근거 행은 본문 말이 아니라 빼고 센다) */
-export const fixableRows = (c: AutoCheck) => c.rows.filter((r) => r.key !== "len" && r.key !== "evidence" && r.key !== "specific");
+export const fixableRows = (c: AutoCheck) => c.rows.filter((r) => r.key !== "len" && r.key !== "evidence" && r.key !== "specific" && !isSpellRow(r) && !isNoSourceRow(r));
 
 /** 규칙 고칠 말을 모두 적용 (AI가 꺼졌을 때 "AI로 고치기"의 자동 결과) */
 export function applyRuleFixes(text: string, rows: CheckRow[]): string {

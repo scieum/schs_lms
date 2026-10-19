@@ -1,5 +1,4 @@
 import "server-only";
-import { z } from "zod";
 import { resolveLength, UNIT_LABEL } from "@/lib/domain/length";
 import {
   afterAttempt, buildEvidence, checkDraft, fitToLength, maskIdentity, MAX_ATTEMPTS, sampleDraft, usesSurvey,
@@ -12,6 +11,8 @@ import { polishStyle } from "@/lib/domain/neis-style";
 import { aiEnabled, aiJson } from "./claude";
 import { readMaterial } from "./program-ai";
 import { kindOfArea, recordSystemPrompt } from "./record-prompts";
+import { joinSentences, SOURCED_RULES, SourcedOut, toKeys, type SourcedSentence } from "./sourced";
+import { draftPool, saveOriginal } from "../provenance";
 
 // 생기부 초안 파이프라인 (PRD F3): PENDING → RUNNING → DONE / ERROR.
 // - AI 입력: 가명ID + 설문 답 + 서류 글(이름·학번 가림) + 희망 진로 + 프로그램 개요. 이름·학번은 보내지 않는다.
@@ -19,7 +20,6 @@ import { kindOfArea, recordSystemPrompt } from "./record-prompts";
 // - AI 키가 없으면 결정적 예시 초안(source = "sample")으로 흐름만 보여 준다.
 // - 확정은 언제나 교사가 한다 (C10). 여기서는 draft 버전만 추가한다.
 
-const Draft = z.object({ draft: z.string() });
 
 // 문체·구성 규칙은 속초고 세특 프롬프트(노션)를 옮긴 record-prompts.ts 를 따른다. 여기서는 프로그램 초안에만 필요한 규칙을 붙인다
 const APP_RULES = (min: number, max: number, unit: string) => `
@@ -32,8 +32,7 @@ const APP_RULES = (min: number, max: number, unit: string) => `
 - 분량이 모자라면 근거 자료 속 과정·이유·의미를 더 풀어 쓴다. 일반론이나 꾸밈말로 채우지 않는다.
 - 근거 자료 하나하나를 (활동) 블록으로 보고, 프로그램 이름을 (주제)로 본다. 없는 활동, 수치, 수상은 만들지 않는다.
 - 가명ID를 본문에 쓰지 않는다.
-- 분량: ${min}~${max}${unit} (NEIS 기준, 한글 1글자 = 3바이트).
-- 결과는 draft 한 칸에 최종본만 넣는다.`;
+- 분량: ${min}~${max}${unit} (NEIS 기준, 한글 1글자 = 3바이트).`;
 
 /**
  * 연결됐지만 글을 아직 안 읽은 서류를 읽어 둔다. 내용 없이 초안을 만들면 프로그램 설명만 쓰게 되기 때문.
@@ -66,24 +65,29 @@ async function attemptOnce(job: DraftJob, people: { name: string; studentNo: str
   if (evidence.length === 0) return { ok: false, error: "근거 자료 없음" };
   const range = resolveLength(program.area, { unit: job.unit, max: job.max });
 
+  // 근거 표 (N38): 설문 문항 · 서류 → [S1] 표지 (표지 ↔ id 는 서버에만)
+  const pool = draftPool(program, response, materials, people);
+  const labels = new Map(pool.map((p, i) => [`S${i + 1}`, p.key]));
   let text: string;
   let source: DraftSource;
+  let aiSentences: SourcedSentence[] | null = null;
   if (aiEnabled()) {
     const content = [
       `학생: ${student.pseudonymId}`,
       `희망 진로: ${student.careerGoal ?? "없음"}`,
       "",
       "근거 자료 (이 학생이 직접 쓰거나 낸 것 — 기록은 여기서 나온다):",
-      ...evidence.map((e) => `[${e.label}] ${e.text || "(내용을 읽지 못한 서류)"}`),
+      ...(pool.length ? pool.map((e, i) => `[S${i + 1}] [${e.chip}${e.kind === "설문" ? ` ${e.where}` : ""}] ${e.text || "(내용을 읽지 못한 서류)"}`) : evidence.map((e) => `[${e.label}] ${e.text || "(내용을 읽지 못한 서류)"}`)),
       "",
       "프로그램 정보 (맥락 참고용 — 본문에 옮기지 않는다):",
       `이름: ${program.title}${program.subject ? ` (${program.subject})` : ""}`,
       `개요: ${maskIdentity(program.overview, people) || "없음"}`,
     ].join("\n");
-    const system = recordSystemPrompt(kindOfArea(program.area), program.subject) + APP_RULES(range.min, range.max, UNIT_LABEL[range.unit]);
-    const r = await aiJson(Draft, { system, content, model: "write", maxTokens: 3000 });
+    const system = recordSystemPrompt(kindOfArea(program.area), program.subject) + APP_RULES(range.min, range.max, UNIT_LABEL[range.unit]) + SOURCED_RULES;
+    const r = await aiJson(SourcedOut, { system, content, model: "write", maxTokens: 3500 });
     if (!r.ok) return { ok: false, error: r.error };
-    text = r.data.draft.trim();
+    text = joinSentences(r.data.sentences).trim();
+    aiSentences = toKeys(r.data.sentences, labels);
     source = "ai";
   } else {
     const answers = usesSurvey(program.source) && response?.submittedAt ? program.questions.map((q) => maskIdentity(response.answers[q.id] ?? "", people)) : [];
@@ -98,7 +102,12 @@ async function attemptOnce(job: DraftJob, people: { name: string; studentNo: str
   const banned = forbiddenBlock(text);
   if (source === "ai" && banned && job.attempts < MAX_ATTEMPTS - 1) return { ok: false, error: "기재 금지 표현 포함" };
   if (source === "ai" && c.weak && job.attempts < MAX_ATTEMPTS - 1) return { ok: false, error: "학생 근거와 연결 약함" };
-  await repo.addDraftVersion({ jobId: job.id, programId: program.id, studentId: student.id, content: text, status: "draft", reason: null, source, authorId: null });
+  // AI 원안 (N38): 고칠 수 없게 한 번 남기고, 이 버전에 잇는다 (예시 초안은 규칙으로 근거를 붙인다)
+  const saved = await saveOriginal({ kind: "program", studentId: student.id, scope: program.id, text, aiSentences, pool, model: source === "ai" ? "write" : "sample" });
+  await repo.addDraftVersion({
+    jobId: job.id, programId: program.id, studentId: student.id, content: text, status: "draft", reason: null, source, authorId: null,
+    aiOriginalId: saved?.original.id ?? null, sentenceSources: saved ? saved.original.sentences.map((s) => ({ i: s.i, start: s.start, end: s.end, sources: s.sources, ...(s.own ? { own: true } : {}) })) : null,
+  });
   return { ok: true };
 }
 

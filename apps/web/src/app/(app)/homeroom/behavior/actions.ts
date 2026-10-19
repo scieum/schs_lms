@@ -10,6 +10,9 @@ import { behaviorDraft } from "@/lib/server/ai/merge-record";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { evidenceLogs } from "@/app/(app)/teacher/write/data";
+import { pieceKey, piecesPool, saveOriginal } from "@/lib/server/provenance";
+import { logPieces } from "@/lib/server/merge-pieces";
+import { sourceKey } from "@/lib/domain/provenance";
 
 // 행발 키워드 메뉴판 (Figma N35 ④): 메뉴판은 교사 본인 것만, 고른 키워드·메모는 담임 반 학생만.
 // AI에는 가명ID와 이름·학번을 지운 메모·누가기록만 간다. 결과는 돌려주기만 — 교사가 본문에 넣고 저장·확정한다.
@@ -73,10 +76,15 @@ export async function draftBehavior(input: z.input<typeof DraftSchema>): Promise
   try {
     await repo.saveBehaviorPick({ studentId: t.student.id, year: schoolYear(), keywords, memo, useLogs: p.data.useLogs }, t.v.accountId);
   } catch { /* 저장이 안 돼도(0020 전) 초안은 만든다 */ }
-  const logs = p.data.useLogs ? (await evidenceLogs("행발", [t.student.id])).map((l) => ({ date: l.date, content: l.content })) : [];
+  const raw = p.data.useLogs ? await evidenceLogs("행발", [t.student.id]) : [];
+  const logs = raw.map((l) => ({ date: l.date, content: l.content, key: pieceKey({ id: `log-${l.id}`, source: l.commonActivityId ? "공통 활동" : "누가기록" }) }));
   const range = fitRange(resolveRecordLength("행발", { unit: p.data.unit, max: p.data.max }));
-  const r = await behaviorDraft({ student: t.student, keywords, memo, logs, range });
+  const memoKey = sourceKey({ type: "piece", ref: "pick" });
+  const r = await behaviorDraft({ student: t.student, keywords, memo, logs, range, memoKey });
   await repo.audit(t.v.accountId, "record.ai_behavior", `행발 ${t.student.pseudonymId} 키워드 ${keywords.length}`);
   if (!r.text) return { ok: false, error: r.notice ?? "초안을 만들지 못했어요. 메모를 더 적어 주세요" };
-  return { ok: true, text: r.text, sample: r.sample, notice: r.notice };
+  // AI 원안 (N38): 근거 = 에피소드 메모 + 행발 누가기록
+  const pool = [...(memo ? [{ type: "piece" as const, ref: "pick", key: memoKey, kind: "조각", where: "에피소드 메모", chip: "조각 · 에피소드 메모", text: memo }] : []), ...piecesPool(logPieces(raw))];
+  const o = await saveOriginal({ kind: "behavior_keyword", studentId: t.student.id, scope: "행발", text: r.text, aiSentences: r.sentences, pool, model: r.sample ? "sample" : "write" });
+  return { ok: true, text: r.text, sample: r.sample, notice: r.notice, ...(o ?? {}) };
 }

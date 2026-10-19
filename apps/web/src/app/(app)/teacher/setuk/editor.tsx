@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui";
 import { AiDraftPanel } from "@/components/writing/ai-draft-panel";
@@ -17,6 +17,7 @@ import { OverApproval } from "@/components/writing/over-approval";
 import { LevelPicker, useLevels } from "@/components/writing/level-picker";
 import { LibraryToggle, useBodyLibrary } from "@/components/writing/library-save";
 import { pieceFromLibrary } from "@/app/(app)/teacher/library/actions";
+import { BodyViewSwitch, useProvenance, type ProvInit } from "@/components/writing/provenance";
 
 // 세특 쓰기 (Figma N32): ① 조각 모으기 → ② 본문 만들기 → ③ 본문 · 검사 · 확정.
 // 활동명은 ①의 칸 하나를 ②가 같이 쓴다. AI 결과는 본문에 채우기만 하고 저장은 교사가 누른다.
@@ -33,7 +34,10 @@ export function SetukEditor({
   subject,
   similar,
   openCheck = false,
+  prov,
 }: {
+  /** N38 문장 근거 · AI 원안 (원안이 없으면 근거 · 원안 비교 · 수정 칩이 숨는다) */
+  prov?: ProvInit;
   /** 반 전체 검사(N35)의 "열기": ③ 자동 검사 첫 걸린 행을 펼친다 */
   openCheck?: boolean;
   /** 과목명 (고칠 말 "○○ 탐구 활동") */
@@ -72,7 +76,13 @@ export function SetukEditor({
   // N34: 검사 근거·고칠 말 · 본문 밑줄 · 다른 버전 · 비슷한 문장
   const sim = useSimilar(studentId, text, similar?.peers ?? NO_PEERS, similar?.ignore ?? NO_PEERS_TEXT);
   const simMarks = useMemo<Mark[]>(() => sim.flatMap((s) => s.mine.map((g) => ({ ...g, tone: "similar" as const }))), [sim]);
-  const bc = useBodyChecks({ text, setText, range, who, context: subject, extraMarks: simMarks, openFirst: openCheck });
+  // N38: 문장 근거 · AI 원안 · 맞춤법 (본문 바꾸기는 검사 묶음의 되돌리기 스낵바로)
+  const replaceRef = useRef<(next: string, msg: string) => void>(() => {});
+  const pv = useProvenance({ init: prov, text, replace: (n, m) => replaceRef.current(n, m), spell: { kind: "setuk", studentId }, focusBody: () => body.current?.focus() });
+  const bc = useBodyChecks({ text, setText, range, who, context: subject, extraMarks: simMarks, openFirst: openCheck, more: pv.more });
+  useEffect(() => { replaceRef.current = bc.replace; });
+  const { needFromServer } = pv;
+  useEffect(() => { needFromServer(state.needReason); }, [state.needReason, needFromServer]);
   // N35 ③ 성취수준 (말투만) · ② 문장 보관함
   const lv = useLevels();
   const level = lv?.levels[studentId] ?? null;
@@ -106,7 +116,7 @@ export function SetukEditor({
             neisMax: Math.min(neisMax("세특", range.unit), capMax),
             run: (ps, max) => mergeSetuk({ courseId, studentId, pieces: ps, unit: range.unit, max, level }),
           }}
-          onApply={setText}
+          onApply={(t, r) => { setText(t); pv.adopt(r); }}
           done={hasBody}
           levelBox={lv && <LevelPicker scale={lv.scale} value={level} onChange={(l) => { void lv.set([{ studentId, level: l }]); }} />}
         />
@@ -115,9 +125,11 @@ export function SetukEditor({
         <StepHead n={3} title="본문 · 검사 · 확정" meta={checkMeta(bc.check, sim.length)} done={confirmed && hasBody && text === initial} />
         <input type="hidden" name="courseId" value={courseId} />
         <input type="hidden" name="studentId" value={studentId} />
+        {pv.inputs()}
         <BodyCard bare toggle={hasBody} text={text} tag={(t) => tagSetuk({ courseId, studentId, text: t })}
-          extra={<><LibraryToggle />{hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}</>}>
-          <HighlightTextarea
+          extra={<><BodyViewSwitch {...pv.switchProps} className="hidden @lg:inline-flex" /><LibraryToggle />{hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}</>}>
+          <BodyViewSwitch {...pv.switchProps} full className="mb-2 @lg:hidden" />
+          {pv.body(<HighlightTextarea
             ref={body}
             name="content"
             value={text}
@@ -132,7 +144,7 @@ export function SetukEditor({
             aria-label="세특 내용"
             selectionTool={lib.selectionTool}
             onSelectionChange={lib.onSelectionChange}
-          />
+          />)}
           {lib.mobileSave && <div className="mt-2">{lib.mobileSave}</div>}
         </BodyCard>
         <SimilarNotice state={sim} onOpen={() => setCompare(true)} />
@@ -147,6 +159,7 @@ export function SetukEditor({
           </p>
         )}
         <RecordChecks text={text} range={range} check={bc.check} recheck={bc.recheck} open={bc.open} onOpen={bc.setOpen} onReplace={bc.onReplace}
+          onReplaceAll={bc.onReplaceAll} spellAi={pv.spellLine} renderOpen={pv.renderOpen}
           aiFix={{ run: (t) => aiFixSetuk({ courseId, studentId, text: t, unit: range.unit, max: range.max }), onApply: (t) => bc.replace(t, "고친 글을 넣었어요") }}
           length={{ unit: len.unit, max: len.max, limit: neisMax("세특", len.unit), onChange: setLen }}
           fit={{ run: () => fitSetuk({ courseId, studentId, text, unit: range.unit, max: range.max }), onApply: setText }} />
@@ -158,16 +171,18 @@ export function SetukEditor({
             {state.saved === "confirmed" ? "확정했어요" : "임시 저장했어요"} · 새 버전으로 남았어요
           </p>
         )}
+        {pv.ratioLine && <div className="@container">{pv.ratioLine}</div>}
         <div className="flex gap-2">
           <Button kind="outline" name="intent" value="draft" disabled={pending} className="flex-1">
             임시 저장
           </Button>
-          <Button name="intent" value="confirmed" disabled={pending || (over && !allowOver) || !hasBody || bc.check.status === "block"} className="flex-1 disabled:bg-key disabled:opacity-40">
+          <Button onClick={pv.guardConfirm} name="intent" value="confirmed" disabled={pending || (over && !allowOver) || !hasBody || bc.check.status === "block"} className="flex-1 disabled:bg-key disabled:opacity-40">
             <Check size={16} strokeWidth={2.5} /> {confirmed ? "다시 확정" : "확정"}
           </Button>
         </div>
       </form>
       {bc.snack}
+      {pv.dialog}
       {compare && similar && sim.length > 0 && (
         <SimilarSheet self={similar.self} text={text} unit={range.unit} state={sim} onClose={() => setCompare(false)}
           onRewriteSelf={() => { setCompare(false); body.current?.focus(); }} />

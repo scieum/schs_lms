@@ -5,11 +5,16 @@ import { makeStudentNo } from "@/lib/domain/roster";
 import { similarPairs } from "@/lib/domain/similar";
 import type { Student } from "@/lib/domain/types";
 import { findIdentity } from "@/lib/domain/writing";
+import type { CheckMore } from "@/lib/domain/auto-check";
 
 // 반 전체 검사 (Figma N35 ①): 세특 분반 · 초안 검토(프로그램) · 담임 반/동아리 기록이 같이 쓰는 묶음.
 // 규칙만(AI 없음). 비슷한 문장(N34)도 같이 센다. 학번·이름은 화면 표에만, 링크에는 내부 id만.
 
-export type ClassItem = { id: string; student: Student; text: string; range: LengthRange; locked: boolean; href: string; context?: string };
+export type ClassItem = {
+  id: string; student: Student; text: string; range: LengthRange; locked: boolean; href: string; context?: string;
+  /** N38: 근거 없는 문장 · 수정 비율 (AI 원안이 있을 때만) */
+  more?: CheckMore; editRatio?: number | null; editRatioMin?: number;
+};
 
 export function buildClassView(items: ClassItem[], ignore: string[] = []): ClassCheckView {
   const texts = items.filter((x) => x.text.trim()).map((x) => ({ id: x.id, text: x.text }));
@@ -20,7 +25,7 @@ export function buildClassView(items: ClassItem[], ignore: string[] = []): Class
     const best = mine[0];
     const other = best ? byId.get(best.a === x.id ? best.b : best.a) : undefined;
     return {
-      id: x.id, label: x.student.name, text: x.text, range: x.range, identity: findIdentity(x.text, x.student), locked: x.locked, context: x.context,
+      id: x.id, label: x.student.name, text: x.text, range: x.range, identity: findIdentity(x.text, x.student), locked: x.locked, context: x.context, more: x.more, editRatio: x.editRatio, editRatioMin: x.editRatioMin,
       similar: mine.length ? { count: mine.length, with: other?.student.name, spots: best.runs.length } : undefined,
     };
   }));

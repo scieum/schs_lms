@@ -2,7 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { BookOpen, Check, ChevronDown, ChevronUp, RotateCcw, Sparkles, X } from "lucide-react";
 import { cx } from "@/components/ui";
-import type { AutoCheck, CheckRow } from "@/lib/domain/auto-check";
+import { isSpellRow, type AutoCheck, type CheckRow } from "@/lib/domain/auto-check";
 import { UNIT_LABEL, type LengthRange, type LengthUnit } from "@/lib/domain/length";
 
 // 자동 검사 (Figma N23 330:628): 머리(상태 태그 · 값/최대 · 넘은 양) → 목표 범위 막대 → 못 지난 항목 행(최대 4) → 지난 항목 한 줄 → 분량 줄.
@@ -16,7 +16,12 @@ const STATUS = {
 const SHOWN = 4;
 const u = (unit: LengthUnit) => (unit === "bytes" ? "B" : UNIT_LABEL[unit]);
 
-export function AutoChecks({ check, range, onFind, length, children, open: openProp, onOpen, onReplace, fix }: {
+export function AutoChecks({ check, range, onFind, length, children, open: openProp, onOpen, onReplace, fix, onReplaceAll, spellAi, renderOpen }: {
+  /** N38 맞춤법 묶음: 모두 바꾸기(규칙 사전 행만) · 맞춤법 AI 검사 줄 */
+  onReplaceAll?: () => void;
+  spellAi?: ReactNode;
+  /** N38: 행 펼침 내용을 바꿔 그린다 (근거 없는 문장) — undefined 면 기본 펼침 */
+  renderOpen?: (row: CheckRow) => ReactNode | undefined;
   check: AutoCheck;
   range: LengthRange;
   /** 행을 펼칠 때: 본문에서 그 말로 (N34 — 예전 "찾기" 버튼 대신) */
@@ -36,7 +41,10 @@ export function AutoChecks({ check, range, onFind, length, children, open: openP
   const [all, setAll] = useState(false);
   const [openState, setOpenState] = useState<string | null>(null);
   const open = openProp !== undefined ? openProp : openState;
-  const { status, rows, passed, value, over } = check;
+  const { status, passed, value, over } = check;
+  // 맞춤법 행은 아래 묶음으로 따로 (N38)
+  const rows = check.rows.filter((r) => !isSpellRow(r));
+  const spell = check.rows.filter(isSpellRow);
   const openAt = rows.findIndex((r) => r.key === open);
   const shown = all || openAt >= SHOWN ? rows : rows.slice(0, SHOWN);
   const toggle = (r: CheckRow) => {
@@ -54,7 +62,7 @@ export function AutoChecks({ check, range, onFind, length, children, open: openP
         <span className="text-[14px] font-bold">자동 검사</span>
         {status !== "empty" && (
           <span className={cx("whitespace-nowrap rounded-chip px-2 py-0.5 text-[12px] font-bold", STATUS[status].tone)}>
-            {status === "check" ? `확인 ${rows.length}` : STATUS[status].text}
+            {status === "check" ? `확인 ${check.rows.length}` : STATUS[status].text}
           </span>
         )}
         <span className="ml-auto flex items-baseline gap-1.5 whitespace-nowrap">
@@ -80,13 +88,17 @@ export function AutoChecks({ check, range, onFind, length, children, open: openP
 
       {rows.length > 0 && (
         <ul className="flex flex-col">
-          {shown.map((r) => <CheckRowItem key={r.key} r={r} open={open === r.key} onToggle={() => toggle(r)} onReplace={onReplace} />)}
+          {shown.map((r) => <CheckRowItem key={r.key} r={r} open={open === r.key} onToggle={() => toggle(r)} onReplace={onReplace} body={open === r.key ? renderOpen?.(r) : undefined} />)}
           {rows.length > SHOWN && openAt < SHOWN && (
             <li className="border-t border-soft py-2.5 pl-[30px]">
               <button type="button" onClick={() => setAll(!all)} className="text-[12px] font-medium text-sub">{all ? "접기" : `${rows.length - SHOWN}개 더 보기`}</button>
             </li>
           )}
         </ul>
+      )}
+
+      {(spell.length > 0 || spellAi) && status !== "empty" && (
+        <SpellGroup rows={spell} open={open} onToggle={toggle} onReplace={onReplace} onReplaceAll={onReplaceAll} ai={spellAi} />
       )}
 
       {fix}
@@ -122,8 +134,77 @@ export function SourceChip({ source, url }: { source: string; url?: string }) {
   return url ? <a href={url} target="_blank" rel="noreferrer" className={cx(cls, "hover:bg-soft")}>{body}</a> : <span className={cls}>{body}</span>;
 }
 
-/** 검사 행 (N34 417:673): 머리(누르면 펼침) · 걸린 말 · 왜 · 근거 · 고칠 말 */
-function CheckRowItem({ r, open, onToggle, onReplace }: { r: CheckRow; open: boolean; onToggle: () => void; onReplace?: (row: CheckRow) => void }) {
+/** 맞춤법·띄어쓰기 묶음 (N38 (e)): 머리 "n곳 · 규칙 사전" ↔ [모두 바꾸기 n] → N38 맞춤법 행 → 맞춤법 AI 검사 줄. 한 번에 하나만 펼침 */
+function SpellGroup({ rows, open, onToggle, onReplace, onReplaceAll, ai }: {
+  rows: CheckRow[]; open: string | null; onToggle: (r: CheckRow) => void; onReplace?: (row: CheckRow) => void; onReplaceAll?: () => void; ai?: ReactNode;
+}) {
+  const rule = rows.filter((r) => r.origin !== "ai").length;
+  const hasAi = rows.some((r) => r.origin === "ai");
+  return (
+    <div className="flex flex-col">
+      {rows.length > 0 && (
+        <div className="flex items-center gap-2 pb-2.5">
+          <span className="whitespace-nowrap text-[13px] font-bold">맞춤법·띄어쓰기</span>
+          <span className="min-w-0 truncate text-[12px] text-mute">{rows.length}곳 · {hasAi ? (rule ? "규칙 사전 + AI 검사" : "AI 검사") : "규칙 사전"}</span>
+          {onReplaceAll && rule > 0 && (
+            <button type="button" onClick={onReplaceAll}
+              className="ml-auto h-[30px] shrink-0 whitespace-nowrap rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong hover:bg-[#e3e7ff]">
+              모두 바꾸기 {rule}
+            </button>
+          )}
+        </div>
+      )}
+      {rows.length > 0 && (
+        <ul className="flex flex-col">
+          {rows.map((r) => <SpellRowItem key={r.key} r={r} open={open === r.key} onToggle={() => onToggle(r)} onReplace={onReplace} />)}
+        </ul>
+      )}
+      {ai && <div className={cx(rows.length > 0 && "mt-1 border-t border-soft pt-3")}>{ai}</div>}
+    </div>
+  );
+}
+
+/** N38 맞춤법 행 (469:21476): "가" 원 · 종류 · 전(취소선) → 후 · 설명 ↔ [바꾸기](접힘에도) · chevron. 펼치면 풀이 + 어디서 찾았는지 */
+function SpellRowItem({ r, open, onToggle, onReplace }: { r: CheckRow; open: boolean; onToggle: () => void; onReplace?: (row: CheckRow) => void }) {
+  const h = r.spell!;
+  return (
+    <li className="border-t border-soft">
+      <div className="flex items-start gap-2.5 py-2.5">
+        <span aria-hidden className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-[#7889FF] text-[11px] font-bold text-white">가</span>
+        <button type="button" aria-expanded={open} onClick={onToggle} className="min-w-0 flex-1 text-left">
+          <span className="flex flex-wrap items-center gap-x-1.5 text-[13px]">
+            <b>{h.kind}</b>
+            <s className="text-mute">{h.from}</s>
+            <span aria-hidden className="text-mute">→</span>
+            <b className="text-key-strong">{h.to}</b>
+          </span>
+          <span className="block text-[12px] text-sub">{h.why}</span>
+        </button>
+        {onReplace && (
+          <button type="button" onClick={() => onReplace(r)}
+            className="h-[30px] shrink-0 whitespace-nowrap rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong hover:bg-[#e3e7ff]">바꾸기</button>
+        )}
+        <button type="button" onClick={onToggle} aria-label={open ? "접기" : "펼치기"} className="mt-1.5 shrink-0 text-mute">
+          {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+      </div>
+      {open && (
+        <div className="flex flex-col gap-2 pb-3 pl-[30px] break-keep">
+          {(h.more || h.basis) && (
+            <div className="flex flex-col items-start gap-1.5 rounded-control bg-bg px-3 py-2.5">
+              {h.more && <p className="text-[13px] leading-5 text-sub">{h.more}</p>}
+              {h.basis && <><p className="text-[13px] leading-5 text-sub">“{h.basis.quote}”</p><SourceChip source={h.basis.source} url={h.basis.url} /></>}
+            </div>
+          )}
+          <p className="text-[12px] text-mute">{r.origin === "ai" ? "AI 검사 · 틀릴 수 있어요 — 하나씩 확인해 바꿔 주세요" : "규칙 사전 · AI 검사 아님"}</p>
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** 검사 행 (N34 417:673): 머리(누르면 펼침) · 걸린 말 · 왜 · 근거 · 고칠 말. body 가 있으면 펼침을 그것으로 (N38 근거 없는 문장) */
+function CheckRowItem({ r, open, onToggle, onReplace, body }: { r: CheckRow; open: boolean; onToggle: () => void; onReplace?: (row: CheckRow) => void; body?: ReactNode }) {
   const block = r.level === "block";
   const expandable = r.key !== "len";
   const head = (
@@ -149,7 +230,8 @@ function CheckRowItem({ r, open, onToggle, onReplace }: { r: CheckRow; open: boo
         {head}
         {open ? <ChevronUp size={16} className="mt-0.5 shrink-0 text-mute" /> : <ChevronDown size={16} className="mt-0.5 shrink-0 text-mute" />}
       </button>
-      {open && (
+      {open && body}
+      {open && !body && (
         <div className="flex flex-col gap-2.5 pb-3 pl-[30px] break-keep">
           {(r.phrase ?? r.hit) && (
             <Field label="걸린 말">

@@ -23,8 +23,12 @@ import { schoolYear } from "@/lib/domain/curriculum";
 import { levelIn, levelPrompt, type Level } from "@/lib/domain/achievement";
 import type { ClassCheckView } from "@/lib/domain/class-check";
 import { buildClassView, classAudit } from "@/lib/server/class-check";
+import { classProv, confirmAudit, piecesPool, provForSave, saveOriginal } from "@/lib/server/provenance";
+import { sourceKey } from "@/lib/domain/provenance";
+import { parseKeywordMemo } from "@/lib/domain/writing";
 
-export type SetukState = { error?: string; saved?: "draft" | "confirmed"; at?: string };
+/** needReason (N38): 적게 고친 채 확정 — 까닭을 받아 다시 확정 (n: 몇 번째 응답인지) */
+export type SetukState = { error?: string; saved?: "draft" | "confirmed"; at?: string; needReason?: { ratio: number; nosource: number; n: number } };
 
 const Schema = z.object({
   courseId: z.string().min(1),
@@ -62,9 +66,15 @@ export async function saveSetuk(_: SetukState, form: FormData): Promise<SetukSta
     if (banned) return { error: banned };
   }
 
-  const r = await repo.addSetuk({ courseId, studentId, authorId: v.accountId, content, unit: range.unit, max: range.max, status: intent });
+  // N38: AI 원안이 있으면 서버가 문장 근거 · 수정 비율을 다시 계산 (화면 값을 믿지 않음). 적게 고쳤는데 까닭이 없으면 확인 창
+  const pv = await provForSave({ aiOriginalId: String(form.get("aiOriginalId") ?? "") || null, pins: form.get("pins"), content, studentId, confirm: intent === "confirmed", reason: String(form.get("lowEditReason") ?? "") });
+  if (pv.needReason) return { needReason: { ratio: pv.ratio ?? 0, nosource: pv.nosource, n: Date.now() } };
+
+  const r = await repo.addSetuk({ courseId, studentId, authorId: v.accountId, content, unit: range.unit, max: range.max, status: intent, ...pv.prov });
   // 감사 로그에는 이름 대신 가명ID
   await repo.audit(v.accountId, intent === "confirmed" ? "setuk.confirm" : "setuk.save", `${course.subject} ${student.pseudonymId}`);
+  // 수정 비율은 숫자만 (글 · 까닭 · 이름 · 학번 없음)
+  if (intent === "confirmed" && pv.ratio != null) await repo.audit(v.accountId, "record.confirm", confirmAudit("setuk", r.id, pv));
   revalidatePath("/teacher/setuk");
   return { saved: intent, at: r.createdAt };
 }
@@ -101,14 +111,17 @@ export async function aiSetukDraft(input: z.input<typeof AiSchema>): Promise<AiD
   const memos = await repo.listRecordMemos(scope, [studentId]);
   const memo = p.data.memo.trim();
   const prev = latestMemoByStudent(memos).get(studentId);
-  if (memo && memo !== prev?.content) await repo.addRecordMemo({ scope, studentId, authorId: v.accountId, content: memo });
-  const notes = memos.filter((m) => m.content !== memo).map((m) => ({ date: m.createdAt.slice(0, 10), content: m.content }));
+  const saved = memo && memo !== prev?.content ? await repo.addRecordMemo({ scope, studentId, authorId: v.accountId, content: memo }) : prev?.content === memo ? prev : undefined;
+  const notes = memos.filter((m) => m.content !== memo).map((m) => ({ date: m.createdAt.slice(0, 10), content: m.content, key: sourceKey({ type: "piece", ref: m.id }) }));
 
   const range = resolveLength("세특", { unit, max });
-  const r = await writeRecord({ kind: "세특", student, context: course.subject, memo, logs: notes, range, activity: p.data.activity, tone: await toneFor(p.data.level) });
+  const r = await writeRecord({ kind: "세특", student, context: course.subject, memo, memoKey: saved ? sourceKey({ type: "piece", ref: saved.id }) : undefined, logs: notes, range, activity: p.data.activity, tone: await toneFor(p.data.level) });
   await repo.audit(v.accountId, "setuk.ai_draft", `${course.subject} ${student.pseudonymId}`);
   if (!r.text) return { ok: false, error: r.notice ?? "초안을 만들지 못했어요. 직접 써 주세요" };
-  return { ok: true, text: r.text, sample: r.sample, notice: r.notice };
+  // AI 원안 (N38): 고칠 수 없게 남기고 문장 근거를 붙인다
+  const pool = piecesPool(memoPieces(await listMemosWithPieces(scope, [studentId])), course.subject);
+  const o = await saveOriginal({ kind: parseKeywordMemo(memo) ? "setuk_keyword" : "setuk_memo", studentId, scope: courseId, text: r.text, aiSentences: r.sentences, pool, model: r.sample ? "sample" : "write" });
+  return { ok: true, text: r.text, sample: r.sample, notice: r.notice, ...(o ?? {}) };
 }
 
 // ---------- 조각 모으기 · 자료 (Figma N22 → N32) ----------
@@ -175,7 +188,12 @@ export async function mergeSetuk(input: { courseId: string; studentId: string } 
   const range = fitRange(resolveLength("세특", { unit: p.data.unit, max: p.data.max }));
   const r = await mergeRecord({ kind: "세특", context: t.course.subject, student: t.student, pieces: p.data.pieces, range, tone: await toneFor(p.data.level) });
   await repo.audit(t.v.accountId, "setuk.ai_merge", `${t.course.subject} ${t.student.pseudonymId} ${p.data.pieces.length}조각`);
-  return toDraft(r);
+  if (!r.text) return toDraft(r);
+  // AI 원안 (N38): 근거 표는 서버가 다시 읽은 조각으로 (지금 본문 조각은 교사 글)
+  const pool = piecesPool(memoPieces(await listMemosWithPieces(`세특:${input.courseId}`, [t.student.id])), t.course.subject);
+  const o = await saveOriginal({ kind: "setuk_merge", studentId: t.student.id, scope: t.course.id, text: r.text, aiSentences: r.sentences, pool, model: r.sample ? "sample" : "write", ownKeys: ["body"] });
+  const d = toDraft(r);
+  return d.ok && o ? { ...d, ...o } : d;
 }
 
 export async function fitSetuk(input: { courseId: string; studentId: string } & z.input<typeof FitSchema>): Promise<AiDraftResult> {
@@ -237,6 +255,9 @@ export async function classCheckSetuk(input: { courseId: string; section?: strin
   if (!course || !assignment) return { ok: false, error: "내 담당 과목만 검사할 수 있어요" };
   const students = studentsInCourse(all, course, assignment, roster, section);
   const latest = latestByStudent(await repo.listSetuk(courseId));
+  // N38: 근거 없는 문장 · 수정 비율 (AI 원안이 있는 학생만)
+  const [originals, settings] = await Promise.all([repo.listAiOriginals([...latest.values()].map((r) => r.aiOriginalId ?? "").filter(Boolean)), repo.getProvenanceSettings()]);
+  const origOf = new Map(originals.map((o) => [o.id, o]));
   // 공통 활동(N26) 글은 모두에게 같은 문장이 들어가는 게 정상 — 비슷한 문장에서 뺀다
   const scope = setukScope(courseId, section);
   const common = await repo.listCommonActivities(scope);
@@ -245,8 +266,11 @@ export async function classCheckSetuk(input: { courseId: string; section?: strin
   const sec = section ? `&section=${encodeURIComponent(section)}` : "";
   const view = buildClassView(students.map((s) => {
     const r = latest.get(s.id);
+    const o = r?.aiOriginalId ? origOf.get(r.aiOriginalId) : undefined;
+    const text = r?.content ?? "";
     return {
-      id: s.id, student: s, text: r?.content ?? "", context: course.subject, locked: r?.status === "confirmed",
+      id: s.id, student: s, text, context: course.subject, locked: r?.status === "confirmed",
+      ...classProv(o, r, text, settings),
       range: resolveLength("세특", { unit: r?.unit ?? "bytes", max: r?.max }),
       href: `/teacher/setuk?course=${course.id}${sec}&student=${s.id}&check=1`,
     };

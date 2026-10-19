@@ -156,3 +156,24 @@ export async function parseStudentSearch(q: string): Promise<Assisted<StudentFil
   if (r.data.gender) f.gender = r.data.gender;
   return { data: { ...rule, ...f }, label: "AI" };
 }
+
+/**
+ * 맞춤법 AI 검사 (Figma N38 (e), Haiku): 이미 가린 글(이름·학번 → 가명ID) → 틀린 말과 고칠 말.
+ * 바깥 맞춤법 API 는 쓰지 않는다. 저장하지 않는다 — 화면이 본문에 그대로 있는 것만 행으로 보여 준다.
+ */
+export async function spellCheckAi(masked: string): Promise<{ ok: true; fixes: { from: string; to: string; why: string }[] } | { ok: false; error: string }> {
+  if (!aiEnabled()) return { ok: false, error: "AI가 꺼져 있어요. 규칙 사전 결과만 보여 줘요" };
+  const r = await aiJson(z.object({ fixes: z.array(z.object({ from: z.string(), to: z.string(), why: z.string() })).max(20) }), {
+    model: "fast",
+    maxTokens: 1200,
+    system: `너는 학교생활기록부 문장의 맞춤법·띄어쓰기 검사기다. 국립국어원 한글 맞춤법·표준어 규정에 어긋난 곳만 찾는다.
+- from: 본문에 있는 그대로의 틀린 말(어절 하나나 두 어절, 본문에서 그대로 찾을 수 있게), to: 고친 말, why: 30자 이내 까닭 ("~예요" 체)
+- 문체·어미('~함.')·내용·표현 다듬기는 고치지 않는다. 확실히 틀린 것만, 없으면 빈 배열
+- S로 시작하는 가명ID(예: S012)·○○·#####은 건드리지 않는다`,
+    content: `<본문>
+${masked.slice(0, 5000)}
+</본문>`,
+  });
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true, fixes: r.data.fixes };
+}

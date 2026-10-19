@@ -6,6 +6,7 @@ import {
 } from "@/lib/domain/program";
 import { store } from "../demo";
 import { check, db, isUuid, selectIn } from "../supabase";
+import { insertWithProv, provFrom, type ProvRow } from "./provenance";
 
 // 프로그램·설문·제출 서류·생기부 초안(AI)·초안 파이프라인.
 // 인터페이스 + 데모(메모리) 구현 + Supabase 구현을 이 파일 한 곳에 둔다. index.ts 가 합친다.
@@ -481,7 +482,7 @@ type JobRow = {
 type VersionRow = {
   id: string; job_id: string; program_id: string; student_id: string; content: string; status: DraftVersion["status"]; reason: string | null;
   source: DraftVersion["source"]; author_id: string | null; created_at: string;
-};
+} & ProvRow;
 type ReminderRow = { id: string; program_id: string; student_ids: string[]; message: string; sender_id: string; created_at: string };
 
 const toProgram = (r: ProgramRow): Program => ({
@@ -500,7 +501,7 @@ const toJob = (r: JobRow): DraftJob => ({
 });
 const toVersion = (r: VersionRow): DraftVersion => ({
   id: r.id, jobId: r.job_id, programId: r.program_id, studentId: r.student_id, content: r.content, status: r.status, reason: r.reason,
-  source: r.source, authorId: r.author_id, createdAt: r.created_at,
+  source: r.source, authorId: r.author_id, createdAt: r.created_at, ...provFrom(r),
 });
 const toReminder = (r: ReminderRow): Reminder => ({ id: r.id, programId: r.program_id, studentIds: r.student_ids ?? [], message: r.message, senderId: r.sender_id, createdAt: r.created_at });
 
@@ -702,10 +703,10 @@ const supabaseBase: BaseRepo = {
     return (check(await base()) as VersionRow[]).map(toVersion);
   },
   async addDraftVersion(v) {
-    const r = check(await db().from("draft_versions").insert({
+    const r = await insertWithProv<VersionRow>("draft_versions", {
       job_id: v.jobId, program_id: v.programId, student_id: v.studentId, content: v.content, status: v.status, reason: v.reason, source: v.source, author_id: v.authorId,
-    }).select("*").single());
-    return toVersion(r as VersionRow);
+    }, v);
+    return toVersion(r);
   },
   async addReminder(r) {
     const row = check(await db().from("program_reminders").insert({
