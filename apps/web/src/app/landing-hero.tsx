@@ -72,7 +72,7 @@ export function HeroVisual() {
   return (
     <div ref={root} data-paused="false" className="n29 relative mt-2 h-[300px] w-full max-w-[350px] md:mt-3 md:h-[440px] md:max-w-[1000px]">
       {/* 은은한 인디고 빛 번짐 (디자인 시스템이 허용한 유일한 예외) */}
-      <div className="n29-glow absolute left-1/2 top-[84px] size-[360px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(83,109,254,0.55)_0%,rgba(83,109,254,0)_70%)] md:top-[60px] md:size-[560px]" aria-hidden />
+      <div className="n29-glow absolute left-1/2 top-[104px] size-[320px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(83,109,254,0.55)_0%,rgba(83,109,254,0)_70%)] md:top-[60px] md:size-[560px]" aria-hidden />
 
       {/* 흐름 선 + 정류장 점 (영랑이 아래 층, 카드가 위에서 덮는다) */}
       <svg className="pointer-events-none absolute left-0 top-0 hidden md:block" width="1000" height="440" viewBox="0 0 1000 440" fill="none" aria-hidden>

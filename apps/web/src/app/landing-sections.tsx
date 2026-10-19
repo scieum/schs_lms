@@ -2,8 +2,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { ALL_FEATURES, type FeatureRow } from "./landing-data";
 
-// 상세페이지 클라이언트 조각: FAQ(분류 칩 + Q. 아코디언, 첫 질문 열림)와 모바일 메뉴.
+// 상세페이지 클라이언트 조각: FAQ(분류 칩 + Q. 아코디언, 첫 질문 열림), 기능 총정리(모바일 아코디언), 모바일 메뉴.
 // 유아이볼 참고: 플리더스·유광기·쿠팡·마플·원티드 FAQ
 
 // top: "전체"에 먼저 보이는 6개 (Figma v2 FAQ)
@@ -55,6 +56,107 @@ export function FaqList() {
         })}
       </ul>
     </div>
+  );
+}
+
+
+/* ---------- 기능 한눈에 보기 /features (N44, Figma 04 상세페이지 — 아래 docs/design-system.md N44 절의 노드 id) ----------
+   위: 영역 탭(칩, 누르면 그 영역으로 · 모바일은 그 영역을 연다). PC(md 이상): 영역별 표. lg 이상 두 칸 — 왼쪽 기록 쓰기·검사·프로그램, 오른쪽 나머지(길이가 비슷).
+   모바일: 영역마다 아코디언, 첫 영역만 열림. 유아이볼: SurveyMonkey 모든 기능 비교 · 에어비앤비 호스트 비교표 · 신한 SOL 아코디언 */
+export function New() {
+  return <span className="shrink-0 rounded-[4px] bg-key-soft px-1.5 py-px text-[11px] font-bold leading-[1.5] text-key-strong">새로</span>;
+}
+
+function Who({ children, white }: { children: string; white?: boolean }) {
+  return <span className={`shrink-0 whitespace-nowrap rounded-chip px-2 py-[3px] text-[12px] font-medium text-sub md:text-[13px] ${white ? "bg-white" : "bg-[#f2f4f6]"}`}>{children}</span>;
+}
+
+function AreaTable({ area, rows, i }: { area: string; rows: FeatureRow[]; i: number }) {
+  return (
+    <div id={`area-${i}`} className="scroll-mt-[150px]">
+      <h3 className="flex items-baseline gap-2.5 border-b-2 border-ink pb-3.5 text-left">
+        <span className="text-[22px] font-bold leading-[1.35]">{area}</span>
+        <span className="text-[16px] font-bold text-key">{rows.length}</span>
+      </h3>
+      <ul>
+        {rows.map(([name, line, who, isNew]) => (
+          <li key={name} className="flex items-center gap-3 border-b border-line py-3.5 text-left">
+            <span className="flex w-[210px] shrink-0 items-center gap-1.5">
+              <span className="text-[16px] font-bold leading-[1.4]">{name}</span>
+              {isNew && <New />}
+            </span>
+            <span className="min-w-0 flex-1 text-[15px] leading-[1.4] text-sub">{line}</span>
+            <Who>{who}</Who>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const LEFT = 3; // 왼쪽 칸 영역 수
+
+export function AllFeatures() {
+  const [open, setOpen] = useState(0);
+  const go = (i: number) => {
+    setOpen(i);
+    requestAnimationFrame(() => document.getElementById(innerWidth < 768 ? `area-m-${i}` : `area-${i}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+  return (
+    <>
+      {/* 영역 탭: 메뉴 아래 붙어 따라온다. 모바일은 가로로 밀어 본다 */}
+      <nav aria-label="영역" className="sticky top-14 z-20 -mx-5 mt-8 bg-white/95 px-5 py-3 backdrop-blur md:top-[79px] md:mx-0 md:mt-10 md:px-0">
+        <ul className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] md:flex-wrap md:justify-center md:gap-2">
+          {ALL_FEATURES.map((g, i) => (
+            <li key={g.area} className="shrink-0">
+              <button onClick={() => go(i)}
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-control bg-bg px-3 py-2 text-[14px] font-bold text-sub hover:text-ink md:px-4 md:text-[15px]">
+                {g.area}<span className="text-key">{g.rows.length}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      {/* PC */}
+      <div className="mt-8 hidden gap-x-10 gap-y-12 md:grid lg:grid-cols-2">
+        {[ALL_FEATURES.slice(0, LEFT), ALL_FEATURES.slice(LEFT)].map((col, c) => (
+          <div key={c} className="flex flex-col gap-12">
+            {col.map((g) => <AreaTable key={g.area} {...g} i={ALL_FEATURES.indexOf(g)} />)}
+          </div>
+        ))}
+      </div>
+      {/* 모바일: 아코디언 */}
+      <ul className="mt-3 flex flex-col gap-2.5 md:hidden">
+        {ALL_FEATURES.map((g, i) => {
+          const isOpen = i === open;
+          return (
+            <li key={g.area} id={`area-m-${i}`} className="scroll-mt-[120px] rounded-card bg-bg">
+              <button onClick={() => setOpen(isOpen ? -1 : i)} aria-expanded={isOpen}
+                className="flex w-full items-center gap-2 px-[18px] py-[17px] text-left">
+                <span className="text-[17px] font-bold">{g.area}</span>
+                <span className="text-[15px] font-bold text-key">{g.rows.length}</span>
+                <ChevronDown size={18} className={`ml-auto shrink-0 text-mute ${isOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isOpen && (
+                <ul className="px-[18px] pb-1.5">
+                  {g.rows.map(([name, line, who, isNew]) => (
+                    <li key={name} className="border-t border-line py-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[15px] font-bold leading-[1.4]">{name}</span>
+                        {isNew && <New />}
+                        <span className="ml-auto" />
+                        <Who white>{who}</Who>
+                      </div>
+                      <p className="mt-0.5 text-[13px] leading-[1.4] text-sub">{line}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 
