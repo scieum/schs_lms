@@ -154,17 +154,3 @@ export function ExcelExport({ scope, roster: given, open, onClose, defaultWho = 
     </div>
   );
 }
-
-/** /teacher/neis "보낼 기록" 행: "엑셀" 버튼 + 모달 (확정만이 기본) */
-export function ExcelExportButton({ scope, disabled }: { scope: ScopeArg; disabled?: boolean }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)} disabled={disabled}
-        className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-control border border-hair bg-[#fff] px-3 text-[13px] font-bold hover:bg-soft disabled:opacity-40">
-        <Download size={14} />엑셀
-      </button>
-      <ExcelExport scope={scope} open={open} onClose={() => setOpen(false)} defaultWho="confirmed" />
-    </>
-  );
-}

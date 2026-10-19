@@ -142,17 +142,3 @@ export function SheetCopy({ scope, roster: given, open, onClose, lockScroll = tr
     </>
   );
 }
-
-/** /teacher/neis "보낼 기록" 행: "시트" 버튼 + 팝오버 */
-export function SheetCopyButton({ scope, disabled }: { scope: ScopeArg; disabled?: boolean }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <span className="relative inline-flex">
-      <button type="button" onClick={() => setOpen((o) => !o)} disabled={disabled} aria-expanded={open}
-        className={cx("inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-control border bg-[#fff] px-3 text-[13px] font-bold hover:bg-soft disabled:opacity-40", open ? "border-key text-key-strong" : "border-hair")}>
-        <Copy size={14} />시트
-      </button>
-      <SheetCopy scope={scope} open={open} onClose={() => setOpen(false)} />
-    </span>
-  );
-}
