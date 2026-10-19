@@ -1,34 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import { HeroVisual } from "./landing-hero";
-import { FaqList, MobileMenu } from "./landing-sections";
+import { FaqList } from "./landing-sections";
+import { Head, SiteFooter, SiteHeader, wrap } from "./landing-shell";
 import { CORE, FLOW, MORE, ROLES, SAFETY } from "./landing-data";
 
-// 상세페이지 = Figma "상세페이지 시안" B안 v2 · 인디고 (PC 311:60304, Mobile 312:58619). 로그인 전 첫 화면.
-// 구성: Nav → Hero → Flow(5단계) → Core 01–06(제품 화면) → More 07–18 → For everyone → Safety(네이비) → FAQ → CTA → Footer
+// 상세페이지 = Figma 04 상세페이지 N44 (PC 501:660, Mobile 501:1089 · 옛 B안 v2는 99 이전 버전 502:10262). 로그인 전 첫 화면.
+// 구성: Nav → Hero → Flow(5단계) → Core 01–06(제품 화면) → More 07–18(+ 기능 전체 보기 → /features) → For everyone → Safety(네이비) → FAQ → CTA → Footer
+// 기능 전체 목록은 따로 /features "기능 한눈에 보기" (N44).
 // 성적·수능 최저 기능은 잠가 두었으므로(apps/CLAUDE.md) 상세페이지에서도 소개하지 않는다.
-const NAV: [string, string][] = [["흐름", "#flow"], ["핵심 기능", "#core"], ["전체 기능", "#more"], ["역할", "#roles"], ["안심 설계", "#safety"], ["FAQ", "#faq"]];
-
-function Logo() {
-  return (
-    <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="처음으로">
-      <Image src="/face.png" alt="" width={32} height={34} priority className="h-7 w-auto md:h-[34px]" />
-      <Image src="/schs-logo.png" alt="속초고등학교 학생관리시스템" width={107} height={30} priority className="h-6 w-auto md:h-[30px]" />
-    </Link>
-  );
-}
-
-/** 섹션 머리: 모바일은 왼쪽 정렬, PC는 가운데 (Figma Text Block) */
-function Head({ eyebrow, children, light }: { eyebrow: string; children: ReactNode; light?: boolean }) {
-  return (
-    <div className="text-left md:text-center">
-      <p className={`text-[14px] font-medium md:text-[16px] ${light ? "text-[#9eaaff]" : "text-key"}`}>{eyebrow}</p>
-      <h2 className={`mt-3 text-[28px] font-bold leading-[1.3] md:mt-4 md:text-[40px] ${light ? "text-white" : "text-ink"}`}>{children}</h2>
-    </div>
-  );
-}
-
 /** N30 카드 호버: 화살표(opacity·밀림)와 아래 진행선. 장식이라 읽지 않는다 (globals.css .n30-*) */
 function Arrow({ className }: { className: string }) {
   return <span aria-hidden className={`n30-arrow absolute text-[20px] font-bold leading-none ${className}`}>→</span>;
@@ -51,24 +32,10 @@ function Rise({ at, y, dur, children }: { at: number; y: number; dur: number; ch
   return <span className="n29-in inline-block" style={rise(at, y, dur)}>{children}</span>;
 }
 
-const wrap = "mx-auto w-full max-w-[1200px] px-5 md:px-6 xl:px-0";
-
 export function Landing() {
   return (
     <div className="min-h-dvh overflow-x-clip bg-white text-ink">
-      {/* Nav */}
-      <header className="sticky top-0 z-30 bg-[#0a0b12]/95 backdrop-blur">
-        <div className="relative">
-          <div className={`${wrap} flex h-14 items-center gap-8 md:h-[79px]`}>
-            <Logo />
-            <nav className="ml-auto hidden items-center gap-9 text-[16px] text-[#c4cad1] lg:flex">
-              {NAV.map(([l, h]) => <a key={h} href={h} className="whitespace-nowrap hover:text-white">{l}</a>)}
-            </nav>
-            <Link href="/login" className="hidden whitespace-nowrap rounded-control bg-key px-[18px] py-2.5 text-[15px] font-bold text-white hover:bg-key-strong lg:block">로그인</Link>
-            <MobileMenu links={NAV} />
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* Hero */}
       <section className="relative overflow-hidden bg-[linear-gradient(180deg,#0a0b12_0%,#1c2033_100%)] text-white">
@@ -166,6 +133,7 @@ export function Landing() {
               </li>
             ))}
           </ul>
+          <Link href="/features" className="mt-8 block w-fit text-[15px] font-bold text-key-strong hover:underline md:mx-auto md:mt-12 md:text-[16px]">기능 전체 보기 ›</Link>
         </div>
       </section>
 
@@ -194,7 +162,7 @@ export function Landing() {
       <section id="safety" className="scroll-mt-16 bg-navy">
         <div className={`${wrap} py-[72px] md:py-[120px]`}>
           <Head eyebrow="Safety" light>AI가 쓰고,<br />확정은 선생님이</Head>
-          <ul className="mt-9 grid gap-2.5 md:mt-16 md:grid-cols-5 md:gap-5">
+          <ul className="mt-9 grid gap-2.5 md:mt-16 md:grid-cols-3 md:gap-5">
             {SAFETY.map(([t, l]) => (
               <li key={t} className="rounded-card bg-navy-2 px-[18px] py-[18px] md:px-6 md:py-7">
                 <div className="text-[17px] font-bold leading-[1.35] text-white md:text-[18px]">{t}</div>
@@ -214,24 +182,7 @@ export function Landing() {
         </div>
       </section>
 
-      {/* CTA + Footer */}
-      <section className="bg-[linear-gradient(180deg,#1c2033_0%,#0a0b12_100%)] text-white">
-        <div className={`${wrap} flex flex-col items-center pb-16 pt-14 text-center md:pb-[120px] md:pt-[110px]`}>
-          <Image src="/clover.png" alt="" width={187} height={200} className="h-[150px] w-auto md:h-[200px]" />
-          <h2 className="mt-5 text-[26px] font-bold leading-[1.3] md:mt-6 md:text-[44px]">이번 학기부터,<br />학생 기록은 한 곳에</h2>
-          <Link href="/login" className="mt-5 w-full whitespace-nowrap rounded-control bg-key px-[30px] py-3.5 text-[16px] font-bold hover:bg-key-strong md:mt-6 md:w-auto md:py-[17px] md:text-[17px]">속초고 계정으로 시작하기</Link>
-        </div>
-      </section>
-      <footer className="bg-[#0a0b12]">
-        <div className={`${wrap} flex flex-col items-start gap-2 pb-12 pt-8 text-[13px] text-[#8b95a1] md:pb-14 md:pt-12`}>
-          {/* 노란 배지 로고(투명 배경, 검은 테두리) — 어두운 바탕에서도 노란 바탕·검은 글자라 그대로 읽힌다 */}
-          <Link href="/" aria-label="처음으로" className="w-fit">
-            <Image src="/schs-long.png" alt="SOKCHO HIGH SCHOOL" width={480} height={68} className="h-7 w-auto md:h-[34px]" />
-          </Link>
-          <p className="mt-1.5 text-[13px] md:text-[14px]">속초고등학교 교육과정부 · 학생·교직원 전용</p>
-          <p>© 2026 속초고등학교 교육과정부</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

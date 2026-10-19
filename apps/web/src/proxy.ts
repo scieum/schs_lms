@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // 빠른 1차 확인만 한다: 세션 쿠키가 없으면 무조건 첫 화면(상세페이지)으로.
 // 실제 판정(서명 확인·비밀번호 변경 강제·권한)은 서버의 requireViewer/requireCan 이 한다.
-const PUBLIC = ["/login", "/signup"];
+const PUBLIC = ["/login", "/signup", "/features"];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
