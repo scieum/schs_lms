@@ -2,7 +2,8 @@ import "server-only";
 import { z } from "zod";
 import { applyTags, SUB_ITEMS, tagByRules, type TaggedSentence } from "@/lib/domain/competency";
 import { measure, UNIT_LABEL, type LengthRange } from "@/lib/domain/length";
-import { mergeByRules, orderPieces, type MergePiece } from "@/lib/domain/merge";
+import { groupByActivity, mergeByRules, orderPieces, type MergePiece } from "@/lib/domain/merge";
+import { stripActivity } from "@/lib/domain/activity-name";
 import { polishStyle } from "@/lib/domain/neis-style";
 import type { Student } from "@/lib/domain/types";
 import { findIdentity, fitToMax, scrubIdentity, sentences } from "@/lib/domain/writing";
@@ -27,7 +28,9 @@ const MERGE_RULES = (range: LengthRange) => `
 합치기 규칙:
 - 교사가 학기 동안 따로 쓴 조각(누가기록·관찰 메모·지금 본문)을 하나의 기록 문단으로 합친다.
 - [특색 활동] 조각은 프로그램 선생님이 확정해 보낸 초안이다. 프로그램 이름은 그 활동 첫 문장에 한 번만 짧게 쓴다.
-- 조각 속 구체적인 사실(활동 이름, 과정, 수치, 개념, 결과, 변화)과 교사가 쓴 표현을 최대한 살린다. 조각에 없는 내용은 쓰지 않는다.
+- 조각 속 구체적인 사실(활동 이름, 과정, 수치, 개념, 결과, 변화)과 교사가 쓴 핵심 낱말은 빠짐없이 살린다. 조각에 없는 내용은 쓰지 않는다.
+- 다만 조각 문장을 그대로 옮겨 늘어놓지 않는다. 조각 하나가 문장 하나가 되면 글이 끊긴다. 같은 활동의 조각은 묶어 사실만 가져와 한두 문장으로 새로 짓고, 이어진 행동은 '~하고', '~하며', '~했으며', '특히'로 잇는다.
+- <조각>은 활동별로 묶어 보낸다. 활동 이름은 그 활동 첫 문장에만 '활동명에서'처럼 한 번 쓰고 이어지는 문장에는 다시 쓰지 않는다. 대괄호는 쓰지 않는다.
 - [핵심] 표시 조각은 교사가 꼭 넣으라고 고른 것이다. 반드시 살리고 앞쪽에 무게를 둔다. 분량이 넘치면 [참고] 조각부터 줄이거나 빼고, 그다음 표시 없는 조각을 줄인다.
 - 겹치는 내용은 한 번만 쓰고, 활동의 흐름(시간 순 또는 주제 순)이 자연스럽게 이어지도록 문장을 잇는다.
 - 분량: ${target(range)}. 넘치면 덜 중요한 꾸밈과 반복을 먼저 줄이고, 모자라면 조각 속 과정·이유·의미를 더 풀어 쓴다.
@@ -37,6 +40,7 @@ const FIT_RULES = (range: LengthRange) => `
 분량 맞추기 규칙:
 - 주어진 본문의 내용과 문장 순서를 그대로 두고 분량만 ${target(range)} 에 맞춘다.
 - 길면 반복·꾸밈말·덜 중요한 문장을 줄인다. 짧으면 본문에 이미 있는 활동의 과정·이유·의미를 더 풀어 쓴다. 새 활동·수치는 만들지 않는다.
+- 줄이거나 늘릴 때 문장을 쪼개 짧은 문장을 늘어놓지 않는다. 이어진 문장은 이어진 채로 둔다.
 - 한 문단, draft 에 최종본만 넣는다.`;
 
 async function rewrite(input: { kind: WriteKind; context?: string; student: Student; range: LengthRange; system: string; content: string; fallback: () => string; tone?: string }): Promise<WriteResult> {
@@ -68,7 +72,11 @@ export async function mergeRecord(input: { kind: WriteKind; context?: string; st
     `분량: ${target(input.range)}`,
     "",
     "<조각>",
-    ...pieces.map((p, i) => `${i + 1}. ${p.weight === 3 ? "[핵심] " : p.weight === 1 ? "[참고] " : ""}[${p.source}${p.date ? ` ${p.date}` : ""}] ${p.text}`),
+    // 같은 활동명([활동명])의 조각을 한데 묶어 보낸다 — 조각마다 활동명이 붙어 있으면 AI가 문장마다 활동명을 되풀이한다
+    ...groupByActivity(pieces).flatMap((g) => [
+      g.activity ? `활동: ${g.activity}` : "활동: (이름 없음)",
+      ...g.pieces.map(({ piece: p, n }) => `  ${n}. ${p.weight === 3 ? "[핵심] " : p.weight === 1 ? "[참고] " : ""}(${p.source}${p.date ? ` ${p.date}` : ""}) ${stripActivity(p.text)}`),
+    ]),
     "</조각>",
     // 세특: 그 과목 성취기준 가운데 조각과 이어지는 것 (lib/data, 교육부 고시)
     input.kind === "세특" ? subjectStandards(input.context, pieces.map((p) => p.text).join(" ")) || null : null,
@@ -119,6 +127,7 @@ export async function fixRecord(input: { kind: WriteKind; context?: string; stud
 
 고치기 규칙:
 - 아래 <걸린 곳>만 고치고 나머지 문장은 글자 그대로 둔다. 문장 순서를 바꾸지 않는다.
+- 문장을 둘로 나누지 않는다. 쉼표가 많은 문장은 나열을 '와/과'나 '~하고', '~하며' 같은 연결어미로 바꿔 한 문장으로 둔다.
 - 사실·활동·수치를 보태지 않는다. 기재 금지 표현은 일반 명사로 바꾸거나 그 구를 뺀다.
 - 학생 이름·가명ID·"이 학생은" 같은 주어는 쓰지 않는다.
 - 문장은 "~함." "~임." 같은 명사형 어미로 끝낸다.

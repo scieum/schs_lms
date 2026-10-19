@@ -358,7 +358,8 @@ function endsWithNominal(sentence: string): boolean {
   const s = sentence.replace(/[\s'"’”」』)]+$/, "");
   const ch = s.charCodeAt(s.length - 1);
   if (ch < 0xac00 || ch > 0xd7a3) return false;
-  return (ch - 0xac00) % 28 === 16;
+  const jong = (ch - 0xac00) % 28;
+  return jong === 16 || jong === 10; // ㅁ, ㄻ(만듦)
 }
 
 /** 문장 나누기: 마침표 기준 (따옴표 안 마침표는 드물어 무시) */

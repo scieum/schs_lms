@@ -1,5 +1,7 @@
 import { measure, type LengthRange } from "./length";
 import { fitToMax, sentences, toNeisSentence } from "./writing";
+import { activityTag, leadWithActivity, stripActivity } from "./activity-name";
+import { linkSentences } from "./sentence-flow";
 
 // 합치기 (Figma N11): 학기 동안 따로 쌓인 조각(누가기록·관찰 메모·본문)을 한 문단으로 합치고 분량(예: 1,500바이트)에 맞춘다.
 // 맞추기: 본문 하나만 분량에 맞춘다. 둘 다 AI가 하고, 꺼져 있으면 아래 규칙으로 이어 붙인다.
@@ -47,17 +49,34 @@ export function orderPieces(pieces: MergePiece[]): MergePiece[] {
   return pieces.map((p, i) => ({ p, i })).sort((a, b) => (a.p.date ?? "").localeCompare(b.p.date ?? "") || a.i - b.i).map((x) => x.p);
 }
 
-/** AI 없이: 조각 문장을 날짜 순으로 잇고, 같은 문장은 한 번만, NEIS 어미로, 넘치면 뒤 문장부터 뺀다 */
+/** 조각을 활동명([활동명])별로 묶는다. 묶음은 처음 나온 순서, 묶음 안은 들어온 순서. n 은 들어온 순서의 번호(1부터) */
+export function groupByActivity(pieces: MergePiece[]): { activity: string | null; pieces: { piece: MergePiece; n: number }[] }[] {
+  const groups = new Map<string, { activity: string | null; pieces: { piece: MergePiece; n: number }[] }>();
+  pieces.forEach((piece, i) => {
+    const activity = activityTag(piece.text);
+    const key = activity ? activity.replace(/\s/g, "") : "";
+    const g = groups.get(key) ?? { activity, pieces: [] };
+    g.pieces.push({ piece, n: i + 1 });
+    groups.set(key, g);
+  });
+  return [...groups.values()];
+}
+
+/**
+ * AI 없이: 조각 문장을 날짜 순으로 잇고, 같은 문장은 한 번만, NEIS 어미로, 넘치면 뒤 문장부터 뺀다.
+ * 같은 활동([활동명])이나 같은 조각의 짧은 문장은 "~하고"·"~하며"로 이어 한 문장으로 만들고, 활동명은 그 활동 첫 문장에만 쓴다.
+ */
 export function mergeByRules(pieces: MergePiece[], range: Pick<LengthRange, "unit" | "max">): string {
   const seen = new Set<string>();
-  const out: { text: string; weight: Importance }[] = [];
+  const out: { text: string; weight: Importance; group: string; act: string | null }[] = [];
   for (const p of orderPieces(pieces)) {
+    const act = activityTag(p.text);
     for (const s of sentences(p.text)) {
-      const n = toNeisSentence(s.replace(/^\[[^\]]*\]\s*/, ""));
+      const n = toNeisSentence(stripActivity(s));
       const key = n.replace(/\s/g, "");
       if (!n || seen.has(key)) continue;
       seen.add(key);
-      out.push({ text: n, weight: p.weight ?? 2 });
+      out.push({ text: n, weight: p.weight ?? 2, group: act ? `act:${act}` : `piece:${p.id}`, act });
     }
   }
   // 넘치면 참고 → 보통 조각 문장부터 뒤에서 뺀다 (핵심은 끝까지 남긴다)
@@ -66,7 +85,18 @@ export function mergeByRules(pieces: MergePiece[], range: Pick<LengthRange, "uni
       if (out[i].weight === level && out.length > 1) out.splice(i, 1);
     }
   }
-  return fitToMax(out.map((x) => x.text).join(" "), range);
+  // 이어진 같은 묶음끼리 잇는다
+  const parts: string[] = [];
+  for (let i = 0; i < out.length; ) {
+    let j = i;
+    while (j < out.length && out[j].group === out[i].group) j++;
+    const linked = linkSentences(out.slice(i, j).map((x) => x.text));
+    const act = out[i].act;
+    const named = act && !linked.some((s) => s.replace(/\s/g, "").includes(act.replace(/\s/g, "")));
+    parts.push(...(named ? [leadWithActivity(act, linked[0]), ...linked.slice(1)] : linked));
+    i = j;
+  }
+  return fitToMax(parts.join(" "), range);
 }
 
 /**

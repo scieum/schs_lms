@@ -78,8 +78,13 @@ describe("예시 초안 (AI 키 없을 때)", () => {
   const range = { unit: "bytes" as const, max: 1500 };
   it("메모 조각과 누가기록을 이어 붙여 ~함. 으로 만든다", () => {
     const t = sampleDraft({ memo: "실험 설계 주도, 오차 원인 분석", logs: ["진로 탐색 주간에 인터뷰 영상을 보고 관심 분야를 정리함."], careerGoal: null, range });
-    expect(t).toBe("실험 설계 주도함. 오차 원인 분석함. 진로 탐색 주간에 인터뷰 영상을 보고 관심 분야를 정리함.");
+    // 메모 한 칸의 짧은 조각은 이어 쓴다
+    expect(t).toBe("실험 설계 주도하고 오차 원인 분석함. 진로 탐색 주간에 인터뷰 영상을 보고 관심 분야를 정리함.");
     expect(badEndings(t)).toEqual([]);
+  });
+  it("'만듦'은 명사형 어미로 본다 ('만듦함' 막기)", () => {
+    expect(toNeisSentence("카드뉴스를 만듦")).toBe("카드뉴스를 만듦.");
+    expect(badEndings("카드뉴스를 만듦.")).toEqual([]);
   });
   it("같은 입력이면 같은 결과, 한도를 넘지 않는다", () => {
     const long = Array.from({ length: 80 }, (_, i) => `활동 ${i}에 참여함`).join("\n");

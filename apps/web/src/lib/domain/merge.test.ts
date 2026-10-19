@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { neisBytes } from "./length";
-import { budgetStatus, fitRange, mergeByRules, nextImportance, orderPieces, pickByBudget, type Importance, type MergePiece } from "./merge";
+import { budgetStatus, fitRange, groupByActivity, mergeByRules, nextImportance, orderPieces, pickByBudget, type Importance, type MergePiece } from "./merge";
 
 const P = (id: string, date: string | null, text: string, source: MergePiece["source"] = "누가기록"): MergePiece => ({ id, source, date, text });
 
@@ -11,7 +11,8 @@ describe("합치기", () => {
 
   it("규칙으로 이으면 같은 문장은 한 번, NEIS 어미, 분량 안", () => {
     const out = mergeByRules([P("a", "2026-04-01", "빗면 실험을 설계함. 오차를 분석함."), P("b", "2026-05-01", "오차를 분석함. 모둠 발표를 주도함")], { unit: "bytes", max: 1500 });
-    expect(out).toBe("빗면 실험을 설계함. 오차를 분석함. 모둠 발표를 주도함.");
+    // 같은 조각의 짧은 문장은 이어 쓰고, 다른 조각(활동명 없음)은 끊는다
+    expect(out).toBe("빗면 실험을 설계하고 오차를 분석함. 모둠 발표를 주도함.");
     const long = mergeByRules([P("a", "2026-04-01", "가나다라마바사 실험함. ".repeat(80))], { unit: "bytes", max: 300 });
     expect(neisBytes(long)).toBeLessThanOrEqual(300);
   });
@@ -38,6 +39,21 @@ describe("합치기", () => {
     expect(budgetStatus(1500, 1500)).toBe("맞음");
     expect(budgetStatus(2250, 1500)).toBe("맞음");
     expect(budgetStatus(2300, 1500)).toBe("많음");
+  });
+
+  it("규칙으로 이을 때 같은 활동 조각은 한 문장으로, 활동명은 첫 문장에만", () => {
+    const out = mergeByRules([
+      P("a", "2026-09-01", "[산성비 탐구] 모둠장 맡음."),
+      P("b", "2026-09-02", "[산성비 탐구] pH 측정함."),
+      P("c", "2026-09-03", "[산성비 탐구] 결과표 정리함."),
+      P("d", "2026-09-04", "[독서 토론] 토론 사회를 봄."),
+    ], { unit: "bytes", max: 1500 });
+    expect(out).toBe("산성비 탐구에서 모둠장 맡고 pH 측정하며 결과표 정리함. 독서 토론에서 토론 사회를 봄.");
+  });
+
+  it("조각을 활동명별로 묶는다 (번호는 들어온 순서)", () => {
+    const g = groupByActivity([P("a", null, "[실험] 가함."), P("b", null, "나함."), P("c", null, "[실험] 다함.")]);
+    expect(g.map((x) => [x.activity, x.pieces.map((p) => p.n)])).toEqual([["실험", [1, 3]], [null, [2]]]);
   });
 
   it("규칙으로 이을 때 넘치면 참고 조각 문장부터 뺀다", () => {

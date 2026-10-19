@@ -3,6 +3,7 @@
 import { checkLength, measure, MIN_RATIO, type LengthRange, type LengthSetting, type LengthUnit } from "./length";
 import { canLog, type ActivityArea } from "./activity";
 import type { Student, Viewer } from "./types";
+import { linkSentences } from "./sentence-flow";
 
 export const RECORD_AREAS = ["자율·자치", "동아리", "진로", "행발"] as const;
 export type RecordArea = (typeof RECORD_AREAS)[number];
@@ -180,7 +181,9 @@ export function sentences(text: string): string[] {
 function endsNeis(s: string): boolean {
   const m = s.match(/([가-힣])\.$/);
   if (!m) return false;
-  return (m[1].charCodeAt(0) - 0xac00) % 28 === 16;
+  // ㅁ(16) 또는 ㄻ(10, 만듦·삶) — ㄻ을 빼면 "만듦"이 "만듦함."이 됐다
+  const jong = (m[1].charCodeAt(0) - 0xac00) % 28;
+  return jong === 16 || jong === 10;
 }
 
 /** NEIS 어미("~함." 같은 명사형 종결)가 아닌 문장 */
@@ -267,6 +270,11 @@ export function sampleDraft(input: { memo: string; logs: string[]; careerGoal?: 
     }
   };
   for (const f of memoFragments(input.memo)) push(f);
+  // 메모 한 칸에서 나온 짧은 조각은 "~하고"·"~하며"로 이어 한 문장으로 (문장이 끊겨 읽히지 않게)
+  const memoCount = out.length;
+  const linked = [...linkSentences(out.slice(0, memoCount)), ...out.slice(memoCount)];
+  out.length = 0;
+  out.push(...linked);
   for (const l of input.logs) push(l);
   if (input.careerGoal?.trim() && out.length) push(`${input.careerGoal.trim()} 분야로 관심을 넓혀 가는 모습을 보임`);
   return fitToMax(out.join(" "), input.range);

@@ -38,6 +38,7 @@ const Out = z.object({ draft: z.string() });
 const APP_RULES = `
 앱 규칙:
 - 교사가 준 관찰 메모와 누가기록만 근거로 쓴다. 근거가 하나의 활동이면 (주제)와 (활동)으로, 여러 건이면 활동 블록 여러 개로 본다.
+- 메모의 짧은 구절이나 누가기록 한 줄을 문장 하나로 옮기지 않는다. 같은 활동의 구절은 사실만 모아 이어진 문장으로 새로 쓴다.
 - 관찰 메모가 (주제) (활동) (키워드) 형식이면 빈 줄로 나뉜 묶음 하나가 활동 하나다. (키워드)는 교사가 드러내고 싶은 역량이나 평가 강조점이므로 단어를 그대로 나열하지 말고 활동 장면 속 행동으로 풀어 쓴다.
 - 교외 수상, 공인 어학 성적, 기관·대학·회사 이름, 부모 직업은 쓰지 않는다.
 - 한 문단으로 쓰고 draft 에 최종본만 넣는다.`;
@@ -75,7 +76,7 @@ export async function writeRecord(input: WriteInput): Promise<WriteResult> {
     input.context ? `${input.kind === "세특" ? "과목" : "동아리"}: ${input.context}` : null,
     student.careerGoal ? `희망 진로: ${student.careerGoal}` : null,
     `분량: ${target(range)} 안에서 쓴다.`,
-    cleanActivity(input.activity) ? `활동명: ${cleanActivity(input.activity)} — 초안 첫 문장을 "${cleanActivity(input.activity)}에서"로 시작한다.` : null,
+    cleanActivity(input.activity) ? `활동명: ${cleanActivity(input.activity)} — 초안 첫 문장을 "${cleanActivity(input.activity)}에서"로 시작하고 이어지는 문장에는 활동명을 다시 쓰지 않는다.` : null,
     "",
     "<교사 관찰 메모>",
     memo || "(없음)",
