@@ -5,7 +5,7 @@ import { after } from "next/server";
 import { today } from "@/lib/domain/activity";
 import { isAdmin } from "@/lib/domain/policy";
 import { effectiveStatus, maskIdentity, PROGRAM_MEMO_MAX, programMemoScope, responseDigest, usesDocs, usesMemos, usesSurvey, type ReviewStatus } from "@/lib/domain/program";
-import { measure, type LengthUnit } from "@/lib/domain/length";
+import { measure, type DraftCategory, type LengthUnit } from "@/lib/domain/length";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { resetDraftJob, runDraftJobs } from "@/lib/server/ai/draft";
 import { analyzeResponses, reminderMessage } from "@/lib/server/ai/program-ai";
@@ -96,6 +96,7 @@ export type GenState = { error?: string; started?: string; n?: number };
 export async function generateDrafts(prev: GenState, form: FormData): Promise<GenState> {
   const { v, program } = await requireProgram(String(form.get("programId") ?? ""), "draft.review");
   if (program.status === "draft") return { error: "먼저 발행해 주세요", n: (prev.n ?? 0) + 1 };
+  if (program.source === "external") return { error: "외부 글 프로그램은 AI로 초안을 만들지 않아요 · 외부 글 넣기로 넣어 주세요", n: (prev.n ?? 0) + 1 };
   const { rows } = await programRows(program);
   const ready = rows.filter((r) => r.hasEvidence && (!r.job || r.job.state === "PENDING")).map((r) => r.student.id);
   if (ready.length === 0) return { error: "새로 만들 학생이 없어요 (근거가 있는 학생은 이미 초안이 있어요)", n: (prev.n ?? 0) + 1 };
@@ -162,6 +163,7 @@ export async function analyzeResponsesAction(prev: AnalyzeState, form: FormData)
 /** 실패한 초안 다시 만들기 (Figma N16 '실패 k건 다시 만들기'): 이 프로그램의 생성 실패만 */
 export async function retryFailedDrafts(prev: GenState, form: FormData): Promise<GenState> {
   const { v, program } = await requireProgram(String(form.get("programId") ?? ""), "draft.review");
+  if (program.source === "external") return { error: "외부 글 프로그램은 AI로 초안을 만들지 않아요", n: (prev.n ?? 0) + 1 };
   const { rows } = await programRows(program);
   const ids = rows.filter((r) => r.job?.state === "ERROR").map((r) => r.job!.id);
   if (!ids.length) return { error: "다시 만들 초안이 없어요", n: (prev.n ?? 0) + 1 };
@@ -192,6 +194,10 @@ export type StudentDetail = {
   canRewrite: boolean;
   others: { id: string; name: string }[];
   canRemind: boolean;
+  /** N46 외부 글 직접 넣기: 외부 글 프로그램인가 · 초안 출처 · 넣기 칸에 쓸 분량·검사 정보 · 학번(실명 검사용) */
+  external: boolean;
+  origin: { origin: "external" | "ai" | "manual"; note: string | null } | null;
+  entry: { area: DraftCategory; unit: LengthUnit; max: number; studentNo: string; versions: number };
 };
 
 /**
@@ -224,7 +230,10 @@ export async function studentDetail(programId: string, studentId: string): Promi
     usesMemo: usesMemos(program),
     canRewrite: program.status !== "draft",
     others: rows.filter((x) => x.student.id !== studentId).map((x) => ({ id: x.student.id, name: x.student.name })),
-    canRemind: effectiveStatus(program, today()) === "open" && !r.hasEvidence && !r.missingReason,
+    canRemind: program.source !== "external" && effectiveStatus(program, today()) === "open" && !r.hasEvidence && !r.missingReason,
+    external: program.source === "external",
+    origin: r.origin,
+    entry: { area: program.area, unit, max: r.job?.max || program.max, studentNo: r.student.studentNo, versions: r.job ? (await repo.listDraftVersions({ jobIds: [r.job.id] })).length : 0 },
   };
 }
 
@@ -272,6 +281,7 @@ export async function rewriteWithMemo(input: { programId: string; studentId: str
   const studentId = String(input?.studentId ?? "");
   if (!program.targetIds.includes(studentId)) return { ok: false, error: "이 프로그램 대상 학생이 아니에요" };
   if (program.status === "draft") return { ok: false, error: "먼저 발행해 주세요" };
+  if (program.source === "external") return { ok: false, error: "외부 글 프로그램은 AI로 다시 쓰지 않아요" };
   if (!usesMemos(program)) return { ok: false, error: "메모를 먼저 저장해 주세요" };
   const [job] = await repo.ensureDraftJobs(program.id, [studentId], { unit: program.unit, max: program.max });
   if (!job) return { ok: false, error: "초안 작업을 만들지 못했어요" };

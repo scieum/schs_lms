@@ -1,7 +1,7 @@
 "use client";
 import { startTransition, useActionState, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Check, ChevronLeft, ClipboardList, NotebookPen, Plus, Search, Upload, X } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, ClipboardList, ClipboardPaste, Info, NotebookPen, Plus, Search, Upload, X } from "lucide-react";
 import { LengthPicker } from "@/components/length-picker";
 import { StudentListImport } from "@/components/student-list-import";
 import { Button, cx } from "@/components/ui";
@@ -52,7 +52,9 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
   const [start, setStart] = useState(initial?.startDate ?? today);
   const [endDate, setEndDate] = useState(initial?.endDate ?? end);
   const [picks, setPicks] = useState<Record<Pick, boolean>>(() => (initial ? { survey: usesSurvey(initial.source), docs: usesDocs(initial.source), memo: usesMemos(initial) } : { survey: true, docs: false, memo: false }));
-  const picked = sourceFromPicks(picks);
+  // N46 외부 글 (직접 넣기): 혼자만 — 고르면 설문·서류·메모가 꺼지고, 그것들을 고르면 외부 글이 꺼진다
+  const [external, setExternal] = useState(initial?.source === "external");
+  const picked = external ? { source: "external" as const, useMemos: false } : sourceFromPicks(picks);
   const source = picked?.source ?? "survey";
   const srcText = picked ? sourceLabel(picked) : "고르지 않음";
   const [requestDocs, setRequestDocs] = useState(initial?.requestDocs ?? true);
@@ -75,8 +77,8 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
 
   const classes = useMemo(() => [...new Set(students.map((s) => s.classKey))].sort(), [students]);
   const byId = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
-  const survey = picks.survey;
-  const docs = picks.docs;
+  const survey = !external && picks.survey;
+  const docs = !external && picks.docs;
   const qCount = survey ? FIXED_QUESTIONS.length + extras.length : 0;
   const matches = query.trim() ? students.filter((s) => !targets.includes(s.id) && (s.name.includes(query.trim()) || s.label.includes(query.trim()))).slice(0, 6) : [];
 
@@ -148,7 +150,7 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
     targets: { dirty: targets.length > 0, text: `${targets.length}명` },
     extras: { dirty: extras.length > 0, text: extras.join(" / ") },
     docKinds: { dirty: kinds.join() !== "탐구 보고서", text: kinds.join(", ") },
-    source: { dirty: !(picks.survey && !picks.docs && !picks.memo), text: srcText },
+    source: { dirty: external || !(picks.survey && !picks.docs && !picks.memo), text: srcText },
   };
   const applyPlan = (keys: FillKey[], f: PlanFields) => {
     const has = (k: FillKey) => keys.includes(k);
@@ -160,6 +162,7 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
     if (has("targets") && f.targetClasses.length) setTargets(students.filter((s) => f.targetClasses.includes(s.classKey)).map((s) => s.id));
     if (has("extras") && f.extraQuestions.length) setExtras(f.extraQuestions.slice(0, MAX_EXTRA_QUESTIONS));
     if (has("docKinds") && f.docKinds.length) { setKindOptions([...new Set([...kindOptions, ...f.docKinds])]); setKinds(f.docKinds); }
+    if (has("source") && f.source) setExternal(false);
     if (has("source") && f.source) setPicks((p) => ({ survey: usesSurvey(f.source!), docs: usesDocs(f.source!), memo: p.memo || f.source === "memo" }));
   };
 
@@ -344,20 +347,37 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
           <Section id={2} n={num(2)} step={step} ask={STEP_ASK[2]} title="초안 근거 자료">
             <input type="hidden" name="source" value={picked ? source : ""} />
             <input type="hidden" name="useMemos" value={picked?.useMemos ? "on" : ""} />
-            <p className="-mt-1 text-[13px] text-mute">여러 개 골라도 돼요 · 교사 메모만 골라도 돼요{!picked && <span className="font-medium text-bad"> · 하나 이상 골라 주세요</span>}</p>
+            <p className="-mt-1 text-[13px] text-mute">여러 개 골라도 돼요 · 외부 글은 혼자만{!picked && <span className="font-medium text-bad"> · 하나 이상 골라 주세요</span>}</p>
             <div className="grid gap-2 md:grid-cols-3" role="group" aria-label="초안 근거 자료">
               {SOURCES.map(([v, t, d, I]) => (
-                <button key={v} type="button" aria-pressed={picks[v]} onClick={() => setPicks((p) => ({ ...p, [v]: !p[v] }))}
-                  className={cx("flex items-center gap-3 rounded-inner p-4 text-left md:flex-col md:items-start md:gap-2", picks[v] ? PICK_ON : PICK_OFF)}>
-                  <span className={cx("flex size-9 shrink-0 items-center justify-center rounded-field", picks[v] ? "bg-[#fff] text-key" : "bg-soft text-sub")}><I size={18} /></span>
+                <button key={v} type="button" aria-pressed={!external && picks[v]} onClick={() => { if (external) { setExternal(false); setPicks({ survey: false, docs: false, memo: false, [v]: true }); } else setPicks((p) => ({ ...p, [v]: !p[v] })); }}
+                  className={cx("flex items-center gap-3 rounded-inner p-4 text-left md:flex-col md:items-start md:gap-2", !external && picks[v] ? PICK_ON : PICK_OFF, external && "opacity-45")}>
+                  <span className={cx("flex size-9 shrink-0 items-center justify-center rounded-field", !external && picks[v] ? "bg-[#fff] text-key" : "bg-soft text-sub")}><I size={18} /></span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="text-[15px] font-bold">{t}</span>
                     <span className="text-[13px] font-normal text-mute">{d}</span>
                   </span>
-                  {picks[v] && <Check size={18} strokeWidth={2.5} className="shrink-0 md:hidden" />}
+                  {!external && picks[v] && <Check size={18} strokeWidth={2.5} className="shrink-0 md:hidden" />}
                 </button>
               ))}
             </div>
+            {/* 외부 글 (Figma N46 f): 기관이 보낸 생기부 글을 그대로 넣는 프로그램 — 혼자만 */}
+            <div className="flex items-center gap-2 text-[12px] font-medium text-mute" aria-hidden><span className="h-px flex-1 bg-line" />또는<span className="h-px flex-1 bg-line" /></div>
+            <button type="button" aria-pressed={external} onClick={() => setExternal(!external)}
+              className={cx("flex items-center gap-3 rounded-inner p-4 text-left", external ? PICK_ON : PICK_OFF)}>
+              <span className={cx("flex size-9 shrink-0 items-center justify-center rounded-field", external ? "bg-[#fff] text-key" : "bg-soft text-sub")}><ClipboardPaste size={18} /></span>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-[15px] font-bold">외부 글 (직접 넣기)</span>
+                <span className="text-[13px] font-normal text-mute">기관이 보낸 생기부 글을 그대로 넣어요</span>
+              </span>
+              {external && <Check size={18} strokeWidth={2.5} className="shrink-0" />}
+            </button>
+            {external && (
+              <p className="flex items-start gap-2 rounded-inner bg-bg px-3.5 py-3 text-[13px] leading-5 text-sub">
+                <Info size={16} className="mt-0.5 shrink-0" aria-hidden />
+                학생 화면에 설문·제출 칸이 열리지 않아요 · AI를 쓰지 않아요 · 등록한 뒤 상세에서 엑셀이나 학생마다 글을 넣어요
+              </p>
+            )}
             {docs && (
               <div className="flex flex-col gap-3">
                 <label className="flex items-center gap-3 rounded-inner bg-soft px-4 py-3">
@@ -518,7 +538,7 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
             </div>
             <p className="flex items-center gap-2 rounded-field bg-bg px-3.5 py-3 text-[13px] text-sub">
               <AlertCircle size={16} className="shrink-0 text-mute" />
-              {canDraft ? "등록하면 학생 앱에 설문·제출 칸이 열려요" : "저장하면 학생 앱에 바로 반영돼요"}
+              {external ? "학생 화면에는 열리지 않아요 · 등록한 뒤 상세에서 외부 글을 넣어요" : canDraft ? "등록하면 학생 앱에 설문·제출 칸이 열려요" : "저장하면 학생 앱에 바로 반영돼요"}
             </p>
             {state.error && <p className="text-sm text-bad max-md:hidden" role="alert">{state.error}</p>}
             {/* PC 제출 버튼 (모바일은 아래 고정 줄) */}

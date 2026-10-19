@@ -18,6 +18,8 @@ export type StageCounts = {
   /** 검토 대기 */
   review: number;
   confirmed: number;
+  /** 외부 글 프로그램 (N46): evidence = 글을 넣은 학생 */
+  external?: boolean;
 };
 
 export type NextAction =
@@ -28,6 +30,7 @@ export type NextAction =
   | { kind: "running"; label: string }
   | { kind: "retry"; label: string; n: number }
   | { kind: "review"; label: string; n: number }
+  | { kind: "external"; label: string }
   | { kind: "done"; label: string };
 
 export type Stage = { index: StageIndex; label: string; line: string; next: NextAction; secondary: NextAction | null };
@@ -37,7 +40,17 @@ export function programStage(c: StageCounts, dday: string): Stage {
   const made = c.review + c.confirmed;
   const S = (index: StageIndex, line: string, next: NextAction, secondary: NextAction | null = null): Stage => ({ index, label: STAGES[index], line, next, secondary });
 
-  if (c.status === "draft") return S(0, "발행 전 · 학생 화면에 아직 안 열렸어요", { kind: "publish", label: "발행하기" });
+  if (c.status === "draft") return S(0, c.external ? "발행 전 · 외부 글은 발행한 뒤 넣어요" : "발행 전 · 학생 화면에 아직 안 열렸어요", { kind: "publish", label: "발행하기" });
+  // 외부 글 프로그램 (N46): 설문·AI 없이 ① 외부 글 넣기 → ④ 검토·확정 → ⑤ 담임 전달
+  if (c.external) {
+    const left = Math.max(0, c.targets - c.evidence);
+    const put: NextAction = { kind: "external", label: "외부 글 넣기" };
+    if (c.evidence === 0) return S(0, `외부 글 0/${c.targets}명 · 엑셀이나 학생마다 넣어요`, put);
+    if (c.confirmed >= c.targets && c.targets > 0) return S(4, `확정 ${c.confirmed}/${c.targets}명 · 담임 받은 초안으로 갔어요`, { kind: "done", label: `담임에게 전달됨 ${c.confirmed}/${c.targets}` });
+    const line = `외부 글 ${c.evidence}/${c.targets}명 · 확정 ${c.confirmed}`;
+    if (c.review) return S(3, line, { kind: "review", label: `검토하러 가기 ${c.review}건`, n: c.review }, left ? put : null);
+    return S(left ? 0 : 3, line, left ? put : { kind: "done", label: `확정 ${c.confirmed}/${c.targets}` });
+  }
   // ① 받는 중 (마감 전): 미응답이 있으면 알리기 + 지금 마감, 다 냈으면 마감
   if (c.status === "open") {
     return S(0, `응답 ${c.evidence}/${c.targets}명 · 마감 ${dday}`,

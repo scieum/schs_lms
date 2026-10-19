@@ -29,3 +29,22 @@ describe("프로그램 흐름 단계", () => {
     expect(at({ status: "closed", ready: 0, confirmed: 10 })).toMatchObject({ index: 4, next: { kind: "done" } });
   });
 });
+
+describe("외부 글 프로그램 단계 (N46)", () => {
+  const ext: StageCounts = { ...base, external: true, evidence: 0, ready: 0 };
+  it("글이 없으면 ① 외부 글 넣기 (알림·마감·초안 만들기 없음)", () => {
+    const s = programStage(ext, "D-3");
+    expect(s.index).toBe(0);
+    expect(s.next).toEqual({ kind: "external", label: "외부 글 넣기" });
+  });
+  it("검토할 글이 있으면 검토가 먼저, 남은 학생은 둘째 버튼", () => {
+    const s = programStage({ ...ext, evidence: 12, review: 12 }, "D-3");
+    expect(s.index).toBe(3);
+    expect(s.next.kind).toBe("review");
+    expect(s.secondary).toEqual({ kind: "external", label: "외부 글 넣기" });
+    expect(s.line).toBe("외부 글 12/15명 · 확정 0");
+  });
+  it("모두 확정하면 담임 전달", () => {
+    expect(programStage({ ...ext, status: "closed", evidence: 15, confirmed: 15 }, "마감").index).toBe(4);
+  });
+});

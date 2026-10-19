@@ -201,6 +201,8 @@ export const DEMO_PROGRAM_IDS = {
   career: "5c1e0a9e-1a2b-4c3d-8e4f-000000000002",
   reading: "5c1e0a9e-1a2b-4c3d-8e4f-000000000003",
   eco: "5c1e0a9e-1a2b-4c3d-8e4f-000000000004",
+  /** N46 외부 글 프로그램 (대학 연계 캠프 — 기관이 보낸 글을 교사가 넣는다) */
+  camp: "5c1e0a9e-1a2b-4c3d-8e4f-000000000005",
 };
 
 function seed(): ProgramStore {
@@ -234,6 +236,12 @@ function seed(): ProgramStore {
       startDate: ymd(-40), endDate: ymd(-20), source: "survey", requestDocs: false, docKinds: [],
       questions: [...FIXED_QUESTIONS], targetIds: ["s-8", "s-9"], status: "closed", createdAt: ago(24 * 45),
       overview: "교내 분리배출 실태를 조사하고 개선 캠페인을 연다.",
+    },
+    {
+      id: P.camp, ownerId: "t-subject", coOwnerIds: [], title: "해양 생태 탐구 캠프", subject: null, area: "창체-진로", unit: "bytes", max: 1500,
+      startDate: ymd(-6), endDate: ymd(3), source: "external", requestDocs: false, docKinds: [],
+      questions: [], targetIds: ["s-1", "s-2", "s-3", "s-6", "s-7", "s-8"], status: "open", createdAt: ago(24 * 7),
+      overview: "지역 대학 연계 3일 캠프. 캠프를 연 기관이 학생마다 생기부 글을 보내 준다.",
     },
   );
 
@@ -313,6 +321,8 @@ function seed(): ProgramStore {
   ver(j7, sci(topics[5]), "rejected", 5, { source: "manual", authorId: "t-subject", reason: "발표 내용이 빠졌어요. 서류를 받은 뒤 다시 만들어 주세요" });
   const c6 = job(P.career, "s-6", "DONE", 1);
   ver(c6, "진로 탐색 주간에 산업디자이너 인터뷰 영상을 보고 제품 디자인 과정과 필요한 역량을 조사하여 진로 계획서를 작성함. 디자인을 사용자의 불편을 찾아 해결하는 일로 이해하며 직업에 대한 관점을 넓힘. 디자인 관련 학과의 교육과정을 찾아보고 생활 속 불편한 물건의 개선안을 그려 보겠다는 구체적인 계획을 세움.", "draft", 12);
+  // N46 외부 글: s-6 은 기관이 보낸 글을 직접 넣어 둔 상태 (검토 대기 · 직접 입력)
+  ver(job(P.camp, "s-6", "DONE", 0), "지역 대학 연계 해양 생태 탐구 캠프(3일)에 참여하여 동해안 갯바위 생물의 분포를 조사함. 조별로 방형구를 설치해 종 다양도를 계산하고, 수온 자료와 비교해 분포 차이의 원인을 추론함. 기후 변화가 연안 생태계에 미치는 영향을 정리해 발표함.", "draft", 8, { source: "external", authorId: "t-subject", originNote: "지역 대학 연계 캠프 운영 기관 제공" });
   for (const sid of ["s-8", "s-9"]) {
     const j = job(P.eco, sid, "DONE", 1);
     ver(j, "교내 분리배출 실태를 일주일 동안 조사하고 결과를 바탕으로 개선 캠페인을 기획하여 친구들의 참여를 이끌어 냄. 작은 습관이 모여 큰 차이를 만든다는 점을 깨닫고 학교 전체로 캠페인을 넓히려는 계획을 세움.", "finalized", 24 * 18, { authorId: "t-homeroom", source: "manual" });
@@ -506,7 +516,7 @@ type JobRow = {
 };
 type VersionRow = {
   id: string; job_id: string; program_id: string; student_id: string; content: string; status: DraftVersion["status"]; reason: string | null;
-  source: DraftVersion["source"]; author_id: string | null; created_at: string;
+  source: DraftVersion["source"]; author_id: string | null; created_at: string; origin_note?: string | null;
 } & ProvRow;
 type ReminderRow = { id: string; program_id: string; student_ids: string[]; message: string; sender_id: string; created_at: string };
 
@@ -527,7 +537,7 @@ const toJob = (r: JobRow): DraftJob => ({
 });
 const toVersion = (r: VersionRow): DraftVersion => ({
   id: r.id, jobId: r.job_id, programId: r.program_id, studentId: r.student_id, content: r.content, status: r.status, reason: r.reason,
-  source: r.source, authorId: r.author_id, createdAt: r.created_at, ...provFrom(r),
+  source: r.source, authorId: r.author_id, createdAt: r.created_at, originNote: r.origin_note ?? null, ...provFrom(r),
 });
 const toReminder = (r: ReminderRow): Reminder => ({ id: r.id, programId: r.program_id, studentIds: r.student_ids ?? [], message: r.message, senderId: r.sender_id, createdAt: r.created_at });
 
@@ -769,6 +779,8 @@ const supabaseBase: BaseRepo = {
   async addDraftVersion(v) {
     const r = await insertWithProv<VersionRow>("draft_versions", {
       job_id: v.jobId, program_id: v.programId, student_id: v.studentId, content: v.content, status: v.status, reason: v.reason, source: v.source, author_id: v.authorId,
+      // N46 출처 메모 (0026) — 있을 때만 보낸다
+      ...(v.originNote ? { origin_note: v.originNote } : {}),
     }, v);
     return toVersion(r);
   },

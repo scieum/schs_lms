@@ -20,6 +20,9 @@ import { ClassCheckButton, ClassCheckPanel } from "@/components/writing/class-ch
 import { EditRatioChip } from "@/components/writing/edit-ratio-chip";
 import { editRatio } from "@/lib/domain/provenance";
 import { draftPool, provView } from "@/lib/server/provenance";
+import { draftOrigin } from "@/lib/domain/external-text";
+import { OriginTag } from "@/components/programs/origin-tag";
+import { ExternalImport } from "../programs/[id]/external-import";
 
 export const metadata = { title: "초안 검토·확정 · 속초고등학교 학생관리시스템" };
 
@@ -83,6 +86,9 @@ export default async function DraftsPage({ searchParams }: Props) {
     return o && x.latest ? x.latest.editRatio ?? editRatio(o.content, x.latest.content) : undefined;
   };
   const ratios = new Map(items.map((x) => [x.job.id, ratioOf(x)]));
+  // N46 초안 출처: 직접 입력(외부 글) · AI 초안 · 직접 작성 — 교사 수정은 건너뛰고 처음 출처
+  const origins = new Map(items.map((x) => [x.job.id, draftOrigin(versions.filter((y) => y.jobId === x.job.id))]));
+  const isExt = (x: (typeof items)[number]) => origins.get(x.job.id)?.origin === "external";
 
   const picked = items.find((x) => x.job.id === q.d);
   const tabKey = TABS.some((t) => t[0] === q.tab) ? q.tab! : picked ? TABS.find((t) => t[2].includes(picked.status))?.[0] ?? "wait" : "wait";
@@ -160,7 +166,9 @@ export default async function DraftsPage({ searchParams }: Props) {
                 openCheck={q.check === "1"}
                 prov={{ original: pv.original, pins: pv.pins, pool, editRatioMin: settings.editRatioMin, who: s.name }}
                 finalized={sel.status === "확정"}
-                tags={[`근거: ${sourceLabel(p).split(" + ").join("+").replace("교사 메모", "메모")}`, `버전 ${jobVersions.length}`, ...(sel.latest?.source === "sample" ? ["예시"] : sel.latest?.source === "ai" ? ["AI 초안"] : [])]}
+                tags={[`근거: ${sourceLabel(p).split(" + ").join("+").replace("교사 메모", "메모")}`, `버전 ${jobVersions.length}`, ...(sel.latest?.source === "sample" ? ["예시"] : [])]}
+                origin={origins.get(sel.job.id) ?? null}
+                entry={{ programId: p.id, external: p.source === "external", sub: `${s.name} · ${s.studentNo} · ${p.title}`, studentNo: s.studentNo, versions: jobVersions.length }}
               />
             </>
           )}
@@ -168,11 +176,18 @@ export default async function DraftsPage({ searchParams }: Props) {
 
         <Card title="근거 자료" className="pane-ev h-full min-w-0 md:col-start-2 xl:col-start-auto">
           {/* 이 학생 관찰 메모 (N41): 저장 · 메모 반영해 다시 쓰기 */}
-          <div className="mb-3">
+          <div className={cx("mb-3", p.source === "external" && "hidden")}>
             <ProgramMemoBox key={`${p.id}-${s.id}`} programId={p.id} studentId={s.id} narrow
               initial={memo ? { content: memo.content, at: memo.createdAt } : null} canRewrite={p.status !== "draft"} />
           </div>
-          {evidence.length === 0 && <p className="text-[13px] text-mute">근거 자료가 없어요</p>}
+          {/* N46 넣은 외부 글: 출처는 선생님만 보는 메모 */}
+          {origins.get(sel.job.id)?.origin === "external" && (
+            <div className="mb-3 flex flex-col gap-1 rounded-inner bg-white p-3 text-[13px]">
+              <span className="flex items-center gap-1.5 font-bold"><OriginTag origin="external" /> 밖에서 받은 글이에요</span>
+              <span className="text-sub">{origins.get(sel.job.id)?.note ? `출처: ${origins.get(sel.job.id)!.note}` : "출처를 적지 않았어요"} · 선생님만 봐요</span>
+            </div>
+          )}
+          {evidence.length === 0 && origins.get(sel.job.id)?.origin !== "external" && <p className="text-[13px] text-mute">근거 자료가 없어요</p>}
           <EvidenceDocs key={`${p.id}-${s.id}`} programId={p.id} docs={mats.map((m) => ({ id: m.id, fileName: m.fileName, pages: m.pages, text: m.text }))} />
           {answered.length > 0 && (
             <div className="flex flex-col gap-2">
@@ -193,7 +208,7 @@ export default async function DraftsPage({ searchParams }: Props) {
                   <li key={x.id} className="rounded-inner bg-white p-3">
                     <div className="mb-1 flex items-center gap-1.5 text-[12px] text-mute">
                       {new Date(x.createdAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                      <Tag tone="bg-soft text-sub">{x.status === "finalized" ? "확정" : x.status === "rejected" ? "반려" : x.source === "manual" ? "수정" : "초안"}</Tag>
+                      <Tag tone="bg-soft text-sub">{x.status === "finalized" ? "확정" : x.status === "rejected" ? "반려" : x.source === "manual" ? "수정" : x.source === "external" ? "직접 입력" : "초안"}</Tag>
                     </div>
                     <p className="line-clamp-3 text-sub">{x.content}</p>
                   </li>
@@ -213,6 +228,8 @@ export default async function DraftsPage({ searchParams }: Props) {
         actions={
           <>
             {q.program && <ButtonLink href={`/teacher/programs/${q.program}`} kind="outline" size="sm">{pById.get(q.program)?.title ?? "프로그램"}</ButtonLink>}
+            {/* 외부 글 넣기 (Figma N46 c): 프로그램 하나를 볼 때 */}
+            {q.program && pById.get(q.program) && <ExternalImport programId={q.program} targets={pById.get(q.program)!.targetIds.length} trigger="outline" />}
             {next && <ButtonLink href={base(`tab=${tabKey}&d=${next.job.id}`)} kind="outline" size="sm"><ChevronRight size={14} /> 다음 초안</ButtonLink>}
           </>
         }
@@ -258,7 +275,7 @@ export default async function DraftsPage({ searchParams }: Props) {
                         <span className="block truncate text-[14px] font-bold">{x.student!.name}</span>
                         <span className="block truncate text-[12px] text-mute">{x.program.title}</span>
                       </span>
-                      {!x.latest ? <span className="text-[11px] text-faint">초안 없음</span> : <EditRatioChip ratio={ratios.get(x.job.id)} min={settings.editRatioMin} />}
+                      {!x.latest ? <span className="text-[11px] text-faint">초안 없음</span> : isExt(x) ? <OriginTag origin="external" /> : <EditRatioChip ratio={ratios.get(x.job.id)} min={settings.editRatioMin} />}
                     </Link>
                   ))}
                   <div className="flex items-center gap-2 pt-1 text-[12px]">
@@ -307,6 +324,7 @@ export default async function DraftsPage({ searchParams }: Props) {
                             {x.status !== "검토 대기" && x.status !== "확정" && x.status !== "반려"
                               ? <Tag>{x.status === "생성 실패" && x.job.manualRequestedAt ? "수동 작성 요청" : x.status}</Tag>
                               : !x.latest ? <span className="shrink-0 whitespace-nowrap text-[11px] text-faint">초안 없음</span>
+                              : isExt(x) ? <OriginTag origin="external" />
                               : <EditRatioChip ratio={ratio} min={settings.editRatioMin} />}
                           </CheckStatus>
                         </Link>

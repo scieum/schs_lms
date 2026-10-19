@@ -23,11 +23,13 @@ export function cardView(p: Program, c: StageCounts, today: string): CardView {
   }
   const made = c.review + c.confirmed;
   const review: CardAction = { kind: "link", label: `검토 ${c.review}`, href: `/teacher/drafts?program=${id}` };
-  const got = usesSurvey(p.source) ? "응답" : "제출";
+  const got = p.source === "external" ? "외부 글" : usesSurvey(p.source) ? "응답" : "제출";
   let action: CardAction | null = null;
   let progress: Progress;
   switch (stage.index) {
     case 0:
+      // N46 외부 글 프로그램: 상세에서 외부 글 넣기
+      if (stage.next.kind === "external") action = { kind: "link", label: "외부 글 넣기", href: `/teacher/programs/${id}#status` };
       if (stage.next.kind === "remind") action = { kind: "link", label: `알리기 ${stage.next.n}`, href: `/teacher/programs/${id}?remind=1` };
       progress = { label: got, a: c.evidence, b: c.targets, tone: "key" };
       break;

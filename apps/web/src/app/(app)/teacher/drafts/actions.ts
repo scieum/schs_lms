@@ -100,6 +100,7 @@ export async function regenerateDraft(prev: RegenState, form: FormData): Promise
   const n = (prev.n ?? 0) + 1;
   const ctx = await loadJob(String(form.get("jobId") ?? ""));
   if (!ctx) return { error: "내 프로그램 초안만 다룰 수 있어요", n };
+  if (ctx.program.source === "external") return { error: "외부 글 프로그램은 AI로 다시 만들지 않아요 · 직접 고치거나 다시 넣어 주세요", n };
   const unit = form.get("lengthUnit") === "chars" ? "chars" : "bytes";
   const range = resolveLength(ctx.program.area, { unit, max: Number(form.get("lengthMax")) || undefined });
   await resetDraftJob(ctx.job.id, { unit: range.unit, max: range.max });
