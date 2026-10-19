@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { listLines, matchRoster } from "@/lib/domain/class-roster";
 import { isAdmin } from "@/lib/domain/policy";
 import { makeStudentNo } from "@/lib/domain/roster";
+import { planPick } from "@/lib/domain/roster-pick";
 import { readTemplateFile } from "@/lib/server/excel";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
@@ -72,4 +73,32 @@ export async function saveRoster(prev: RosterSave, form: FormData): Promise<Rost
   revalidatePath("/teacher/subjects");
   revalidatePath("/teacher/setuk");
   return { done: ids.length ? `${section} 명단 ${ids.length}명을 저장했어요` : `${section} 명단을 비웠어요`, n };
+}
+
+/** 직접 고르기 저장 (Figma N37): 이 분반 명단 = 고른 학생. 같은 과목 다른 분반에 있던 학생은 그 분반에서 빼서 옮긴다 */
+export async function pickRoster(prev: RosterSave, form: FormData): Promise<RosterSave> {
+  const n = (prev.n ?? 0) + 1;
+  const teacherId = String(form.get("teacherId") ?? "");
+  const courseId = String(form.get("courseId") ?? "");
+  const section = String(form.get("section") ?? "");
+  const v = await who(teacherId);
+  if (!v) return { error: "내 과목만 바꿀 수 있어요", n };
+  const a = (await repo.listTeacherCourses(teacherId)).find((x) => x.courseId === courseId);
+  if (!a || a.mode !== "moving" || !a.sections?.includes(section)) return { error: "이동반 분반이 아니에요", n };
+  const known = new Set((await repo.listStudents()).map((s) => s.id));
+  const picked = form.getAll("studentId").map(String).filter((id) => known.has(id));
+  const members = Object.fromEntries((await repo.getCourseRosters(teacherId, courseId)).map((r) => [r.section, r.studentIds]));
+  const plan = planPick(members, section, picked);
+  try {
+    for (const o of plan.others) await repo.setCourseRoster(teacherId, courseId, o.section, o.ids);
+    await repo.setCourseRoster(teacherId, courseId, section, plan.ids);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "저장하지 못했어요", n };
+  }
+  // 감사 로그는 숫자만 (학번·이름 없이)
+  await repo.audit(v.accountId, "subjects.roster", `${courseId} ${section} ${plan.ids.length}명 직접 고름${plan.moved ? ` · 옮김 ${plan.moved}명` : ""}`);
+  revalidatePath("/teacher/subjects");
+  revalidatePath("/teacher/setuk");
+  const moved = plan.others.map((o) => `${o.section}에서 ${o.moved}명`).join(" · ");
+  return { done: plan.ids.length ? `${section} 명단 ${plan.ids.length}명을 저장했어요${moved ? ` · ${moved} 옮김` : ""}` : `${section} 명단을 비웠어요`, n };
 }

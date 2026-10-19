@@ -1434,3 +1434,27 @@ Display 32 · H1 28 · H2 20 · Title 17 Bold · Lead 17 Light · Body 15 · Cap
 - [x] 서버 액션 `app/(app)/teacher/programs/[id]/roster-actions.ts`: `previewProgramRoster(prev, form)`(파일 읽기 · 맞추기 · 두 방식 결과를 함께 돌려줌, 저장 안 함) · `applyProgramRoster(prev, form)`(방식 + 찾은 학생 id들 — 서버에서 다시 아는 학생인지·잠김을 계산, `repo.updateProgram(id, { targetIds })`). 권한은 `requireProgram`(담당·공동 담당·관리자). 감사 `program.roster` = `${프로그램 id} add|replace +4 -1 keep 2 → 19명`(숫자만, 학생 식별자 없음). `revalidatePath` 상세·목록·초안.
 - [x] 화면 `app/(app)/teacher/programs/[id]/roster-upload.tsx` — 카드 머리 `ExcelButtons` 작은 꼴(`compact`) + 결과 모달/바텀시트. `components/excel-buttons.tsx`에 `compact`(높이 36 · 13 · 아래 안내 줄 없음) 추가.
 - [x] `admin/audit/labels.ts`: `program.roster` "프로그램 명단 업로드".
+
+## 2026-10-19 이동반 명단 직접 고르기 (N37)
+Figma 페이지 "N37 이동반 명단 직접 고르기"(448:98413): PC 1440 `448:98727` · 모바일 412 카드 `449:356` · 모바일 전체 화면 시트 `449:618`. N25 "내 수업 · 이동반 명단 엑셀 양식"(342:8991 · 342:9317)을 복제해 펼친 분반 칸만 바꿨다.
+- 자리: `/teacher/subjects` "이동반 명단" 카드 → 분반 "명단 바꾸기/올리기"로 펼친 흰 칸 맨 위에 방법 세그먼트 **[엑셀로 | 직접 고르기]**(알약, 흰 바탕 + 1px #D9DDE3, 선택 칸 #EEF0FF + #3D56E0 Bold, 아이콘 file-spreadsheet · list-checks 14). 기본은 "직접 고르기". 옆 안내 12 #8B95A1 "등록된 학생 목록에서 바로 골라요"(엑셀로: "양식에 맞춘 엑셀만 읽어요"). 엑셀로는 N25 그대로(양식 받기 · 명단 업로드 · 찾음/못 찾음).
+- 카드 머리 안내는 "이동반 과목만 · 엑셀이나 직접 고르기".
+- **PC 두 칸**(왼쪽 꽉 참 | 오른쪽 320, 간격 16):
+  - 거르기 줄: 학년 고르기(흰 · #D9DDE3 · r8 · 높이 36, 기본 = 과목 학년) + 찾기 칸(#F2F4F6 r8 · icon/search · "이름이나 학번으로 찾기"). 찾는 말이 있으면 학년·반과 상관없이 이름·학번 앞자리로 찾는다.
+  - 반 칩: 알약 높이 32 · "전체 · 1반 · 2반 …"(등록된 학생 기준), 선택 #EEF0FF + 1px #536DFE + #3D56E0 Bold, 그 반에서 고른 수를 12 Bold #536DFE로 칩 안에.
+  - 목록(흰 · 1px #E5E8EB · r10, 최대 높이 400 스크롤): 머리(#F5F6F8) = 체크박스(전부/일부 "−"/없음) "3반 모두 고르기"(찾는 중이면 "찾은 학생 모두 고르기") ↔ "13명 · 고름 1". 행 = 체크박스 18 r4(켬 #536DFE) · 학번 13 Medium #4E5968 · 이름 14(고르면 Bold, 행 #F8F9FF) · 다른 분반 태그 · 오른쪽 "3반" 12 #8B95A1. 행 사이 1px #F2F4F6.
+  - **다른 분반 학생**: 같은 과목 다른 분반(같은 선생님 명단)에 있는 학생은 회색 태그 "2분반"(#F2F4F6/#4E5968). 고르면 노란 태그 "2분반 → 옮김"(#FFF5E0/#9A6400)과 고른 칩 테두리 #F5A524. 막지 않고 저장 때 옮긴다.
+  - 오른쪽 "고른 학생 n명"(#F5F6F8 r10 · 안쪽 16): 머리 ↔ "모두 빼기" 12. 칩(흰 · 1px #E5E8EB · r6 · "20301 학생C ×", 누르면 빠짐) 12개 + "외 n명"(누르면 모두 보기). 옮기는 학생이 있으면 노란 안내 "2분반에서 2명 옮겨 와요 · 저장하면 그 분반 명단에서 빠져요".
+  - 바닥: "저장하면 1분반 명단이 고른 n명으로 바뀌어요" 12 #8B95A1 ↔ 외곽선 "취소" · 인디고 "n명 저장"(0명이고 원래 명단이 있으면 "명단 비우기").
+- **모바일**: 펼친 칸 = 꽉 찬 세그먼트 → "지금 명단 23명" + 앞 3명 한 줄 "… 외 n명"(칩 대신 말줄임 한 줄) → 인디고 꽉 찬 "학생 고르기"(icon/users, 높이 48) → 안내 12. 누르면 **전체 화면 시트**: 위 줄 × · "1분반 명단 고르기"(17 Bold) + 과목·학기 12 ↔ "모두 빼기" / 찾기 칸(높이 44) / 가로 스크롤 줄 [학년 ▾][전체][1반 4]… / #F5F6F8 가로 스크롤 "고름 23" + 고른 칩 / 목록(행 높이 52, 15 글자) / **바닥 고정**(위 1px #E5E8EB): 노란 옮김 안내 한 줄 + 외곽선 "취소" · 인디고 꽉 찬 "23명 저장"(높이 48). 저장되면 시트가 닫히고 카드에 "1분반 명단 23명을 저장했어요 · 2분반에서 2명 옮김". 시트는 영랑이 버튼보다 위(z 90), Esc로 닫힘, 뒤 화면 스크롤 막음.
+- 권한·기록: 엑셀 저장과 같은 확인(내 과목 · 관리자는 다른 교사도, 이동반 분반만). 같은 `repo.setCourseRoster`로 지금 분반을 바꾸고, 옮긴 학생은 다른 분반 명단에서 뺀다. 감사 로그 `subjects.roster` "c-4 1분반 23명 직접 고름 · 옮김 2명" — 숫자만. URL에는 아무 것도 넣지 않는다(화면 상태).
+- 순수 함수 `lib/domain/roster-pick.ts`(filterStudents · classesOf · pickedByClass · togglePick · pickState · pickAll · otherSectionOf · planPick · movedNote) + 테스트.
+- 요청과 다른 점: 다른 선생님이 맡은 같은 과목 분반은 명단이 선생님마다 따로라 태그를 달지 않는다(내 분반끼리만 옮김).
+- 참고(유아이볼):
+  - [카나나 멤버 선택](https://uibowl.io/name/%EC%B9%B4%EB%82%98%EB%82%98?patterns=%EC%B4%88%EB%8C%80%ED%95%98%EA%B8%B0%C2%B7%EB%B0%9B%EA%B8%B0&patternName=%EB%A9%A4%EB%B2%84%EC%84%A0%ED%83%9D) — 전체 화면 · 위 찾기 칸 · 완료는 위/아래 고정 → 모바일 시트.
+  - [매니패스트 프로젝트 공유(PC)](https://uibowl.io/website/%EB%A7%A4%EB%8B%88%ED%8C%A8%EC%8A%A4%ED%8A%B8?patterns=%EC%B4%88%EB%8C%80%ED%95%98%EA%B8%B0%C2%B7%EB%B0%9B%EA%B8%B0&patternName=%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8%20%EA%B3%B5%EC%9C%A0) — 이미 들어 있는 사람 목록 + 역할 표시 → 다른 분반 태그.
+  - [채널톡 팀 멤버 초대(PC)](https://uibowl.io/website/%EC%B1%84%EB%84%90%ED%86%A1?patterns=%EC%B4%88%EB%8C%80%ED%95%98%EA%B8%B0%C2%B7%EB%B0%9B%EA%B8%B0&patternName=%ED%8C%80%20%EB%A9%A4%EB%B2%84) — 고른 사람을 칩으로 모으고 ×로 빼기 → 오른쪽 고른 학생 칩.
+  - [피처링 팀원 초대(PC)](https://uibowl.io/website/%ED%94%BC%EC%B2%98%EB%A7%81?patterns=%EC%B4%88%EB%8C%80%ED%95%98%EA%B8%B0%C2%B7%EB%B0%9B%EA%B8%B0&patternName=%ED%8C%80%EC%9B%90) — 표 형태 행 + 상태 → 학번·이름·반 행.
+  - [루빗 보여줄 루틴](https://uibowl.io/name/%EB%A3%A8%EB%B9%97?patterns=%EC%B4%88%EB%8C%80%ED%95%98%EA%B8%B0%C2%B7%EB%B0%9B%EA%B8%B0&imgId=cm0lpnk4h001mmi0cuk120z25) — 맨 위 "전체 선택" 체크 + 묶음 → "3반 모두 고르기".
+  - [포스티 필터 브랜드](https://uibowl.io/name/%ED%8F%AC%EC%8A%A4%ED%8B%B0?patterns=%ED%95%84%ED%84%B0&imgId=cmukh18vh000vii0454rfjw8t) — 시트 안 찾기 칸 + 체크 목록 + 바닥 고정 버튼(개수 포함) → "23명 저장".
+  - [도미노 기관 검색](https://uibowl.io/name/%EB%8F%84%EB%AF%B8%EB%85%B8?patterns=%EA%B2%80%EC%83%89&imgId=cmue0hwmk000rkw04pservlgi) — 찾는 말로 바로 거른 목록 → 찾기는 학년·반을 넘어 찾음.

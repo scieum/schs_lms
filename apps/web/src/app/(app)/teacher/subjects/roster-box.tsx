@@ -1,19 +1,22 @@
 "use client";
 import { startTransition, useActionState, useState } from "react";
-import { Users, X } from "lucide-react";
+import { FileSpreadsheet, ListChecks, Users, X } from "lucide-react";
 import { Button, Card, cx } from "@/components/ui";
 import { ExcelButtons } from "@/components/excel-buttons";
+import type { PickStudent } from "@/lib/domain/roster-pick";
 import { previewRoster, saveRoster, type RosterPreview, type RosterSave } from "./roster-actions";
+import { RosterPicker } from "./roster-picker";
 
-export type RosterSection = { name: string; count: number };
-export type RosterCourse = { id: string; label: string; meta: string; sections: RosterSection[] };
+export type RosterSection = { name: string; count: number; ids: string[] };
+export type RosterCourse = { id: string; label: string; grade: number; meta: string; sections: RosterSection[] };
 
 // 이동반 분반 명단 (Figma N25 342:8991, N2 대신): 이동반 과목 → 분반마다 명단 양식(.xlsx)을 올리면 학생을 찾는다 → 확인 후 저장
-export function RosterBox({ teacherId, courses, fixedNote }: { teacherId: string; courses: RosterCourse[]; fixedNote: string | null }) {
+// N37(448:98727): 엑셀 말고 "직접 고르기"로 등록된 학생 목록에서 바로 고를 수도 있다
+export function RosterBox({ teacherId, courses, fixedNote, students }: { teacherId: string; courses: RosterCourse[]; fixedNote: string | null; students: PickStudent[] }) {
   const [open, setOpen] = useState<string | null>(null);
   if (!courses.length) return null;
   return (
-    <Card title="이동반 명단" action={<span className="text-[13px] text-mute">이동반 과목만 · 분반마다 양식 명단</span>}>
+    <Card title="이동반 명단" action={<span className="text-[13px] text-mute">이동반 과목만 · 엑셀이나 직접 고르기</span>}>
       <div className="flex flex-col gap-4">
         {courses.map((c) => (
           <div key={c.id} className="flex flex-col gap-2">
@@ -34,7 +37,9 @@ export function RosterBox({ teacherId, courses, fixedNote }: { teacherId: string
                         <Users size={14} /> {s.count ? "명단 바꾸기" : "명단 올리기"}
                       </Button>
                     </div>
-                    {open === key && <RosterEditor key={key} teacherId={teacherId} courseId={c.id} section={s.name} count={s.count} onDone={() => setOpen(null)} />}
+                    {open === key && (
+                      <RosterEditor key={key} teacherId={teacherId} course={c} section={s.name} count={s.count} students={students} onDone={() => setOpen(null)} />
+                    )}
                   </li>
                 );
               })}
@@ -47,14 +52,40 @@ export function RosterBox({ teacherId, courses, fixedNote }: { teacherId: string
   );
 }
 
-function RosterEditor({ teacherId, courseId, section, count, onDone }: { teacherId: string; courseId: string; section: string; count: number; onDone: () => void }) {
+type Method = "excel" | "pick";
+
+/** 분반 명단 바꾸기: [엑셀로 | 직접 고르기] (N37) */
+function RosterEditor({ teacherId, course, section, count, students, onDone }: { teacherId: string; course: RosterCourse; section: string; count: number; students: PickStudent[]; onDone: () => void }) {
+  const [method, setMethod] = useState<Method>("pick");
+  const members = Object.fromEntries(course.sections.map((s) => [s.name, s.ids]));
+  return (
+    <div className="mt-3 flex flex-col gap-3.5 rounded-inner bg-[#fff] p-3.5 md:p-4">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <div role="tablist" aria-label="명단 넣는 방법" className="flex w-full rounded-full border border-hair bg-[#fff] p-[3px] md:w-auto">
+          {([["excel", "엑셀로", FileSpreadsheet], ["pick", "직접 고르기", ListChecks]] as const).map(([m, label, Icon]) => (
+            <button key={m} type="button" role="tab" aria-selected={method === m} onClick={() => setMethod(m)}
+              className={cx("inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] md:flex-none md:py-1.5", method === m ? "bg-key-soft font-bold text-key-strong" : "font-medium text-sub")}>
+              <Icon size={14} aria-hidden /> {label}
+            </button>
+          ))}
+        </div>
+        <span className="hidden text-[12px] text-mute md:inline">{method === "pick" ? "등록된 학생 목록에서 바로 골라요" : "양식에 맞춘 엑셀만 읽어요"}</span>
+      </div>
+      {method === "pick"
+        ? <RosterPicker teacherId={teacherId} courseId={course.id} courseLabel={`${course.label} · ${course.meta.split(" · ")[0]}`} section={section} grade={course.grade} students={students} members={members} onDone={onDone} />
+        : <ExcelEditor teacherId={teacherId} courseId={course.id} section={section} count={count} onDone={onDone} />}
+    </div>
+  );
+}
+
+function ExcelEditor({ teacherId, courseId, section, count, onDone }: { teacherId: string; courseId: string; section: string; count: number; onDone: () => void }) {
   const [preview, previewAction, reading] = useActionState<RosterPreview, FormData>(previewRoster, {});
   const [save, saveAction, saving] = useActionState<RosterSave, FormData>(saveRoster, {});
   const [drop, setDrop] = useState<Set<string>>(new Set());
   const matched = preview.matched ?? [];
 
   return (
-    <div className="mt-3 flex flex-col gap-3 rounded-inner bg-[#fff] p-3.5 md:p-4">
+    <div className="flex flex-col gap-3">
       <ExcelButtons kind="list" busy={reading} error={preview.error} onPick={(file) => {
         const fd = new FormData();
         fd.set("teacherId", teacherId);
