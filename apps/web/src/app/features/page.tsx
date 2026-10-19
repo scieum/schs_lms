@@ -1,11 +1,13 @@
 import { ALL_FEATURES, FEATURE_COUNT } from "../landing-data";
-import { AllFeatures, New } from "../landing-sections";
+import { New } from "../landing-sections";
 import { Head, SiteFooter, SiteHeader, wrap } from "../landing-shell";
+import { FeatureList } from "./feature-list";
 
 export const metadata = { title: "기능 한눈에 보기 · 속초고등학교 학생관리시스템" };
 
 // 기능 한눈에 보기 (N44): 상세페이지 위 메뉴 "기능 한눈에 보기"와 More 아래 "기능 전체 보기 ›"로 온다.
-// 로그인 없이 연다(proxy.ts PUBLIC). 목차처럼 영역 8개 × 이름 · 한 줄 · 누가 · 새로. 성적·수능 최저 기능은 넣지 않는다.
+// 로그인 없이 연다(proxy.ts PUBLIC). 영역 8개 × 이름 · 한 줄 · 누가 · 새로, 줄을 누르면 기능마다 설명(N45, feature-guide.ts).
+// 성적·수능 최저 기능은 넣지 않는다. /features#<기능 id> 로 그 기능을 열어 보낼 수 있다.
 export default function FeaturesPage() {
   return (
     <div className="min-h-dvh overflow-x-clip bg-white text-ink">
@@ -17,7 +19,7 @@ export default function FeaturesPage() {
           <span className="text-mute">·</span>
           <span className="inline-flex items-center gap-2"><New />이번 달 새로 더한 기능</span>
         </p>
-        <AllFeatures />
+        <FeatureList />
       </main>
       <SiteFooter />
     </div>
