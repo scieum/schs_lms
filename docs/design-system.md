@@ -2169,3 +2169,58 @@ Figma: 02 컴퓨터용 "교사 · 기록 쓰기" 구역 459:95634 맨 아래 두
 - [x] `scripts/mobile-audit.mjs` 에 /features
 - [x] N29 히어로 빛 번짐 모바일 360 → 320(top 84 → 104): 360폭 점검에서 숨쉬기 확대 때 1px 화면 밖으로 나가던 것 (PC 560 그대로)
 - [x] 확인: tsc · eslint 0 오류(경고 6) · npm test 500 통과 · build · 모바일 점검 412/360 문제 0 / 65 (/ · /features 포함)
+
+## 2026-10-19 기능 한눈에 보기 · 기능마다 설명 (N45)
+> "기능 한눈에 보기에서 그래도 각각 기능마다 무엇인지 설명을 해줘야하지 않을까? 유아이볼 조사 ㄱㄱ"
+> → `/features` 61개 줄은 그대로 훑어보게 두고, **줄을 누르면 그 자리에서 설명이 펼쳐진다**. 설명 = 무엇인가요 · 이럴 때 좋아요 · 이렇게 써요(2–4단계) · 어디서(메뉴 경로) · 누가 · 안심(필요할 때만) · 그림(핵심 기능 6개만). 위에 **찾기** 칸, 기능마다 **주소(#id)** 와 **링크 복사**.
+
+### 레퍼런스 (유아이볼)
+| 앱 | 화면 | 가져온 것 |
+|---|---|---|
+| [코빗](https://uibowl.io/website/%EC%BD%94%EB%B9%97?patterns=%ED%81%AC%EB%A1%9C%EC%8A%A4%EC%85%80%EB%A7%81%C2%B7%EC%97%85%EC%85%80%EB%A7%81&imgId=cms2t1na0000djr04h8skhcmy) | 자주 묻는 질문 (PC) | 접힌 줄 사이에서 한 줄만 펼쳐 본문이 바로 아래 · 꺾쇠 뒤집힘 → 줄 펼침 |
+| [사방넷](https://uibowl.io/website/%EC%82%AC%EB%B0%A9%EB%84%B7?patterns=%EB%A1%9C%EA%B7%B8%EC%9D%B8%C2%B7%ED%9A%8C%EC%9B%90%EA%B0%80%EC%9E%85&imgId=cmu4rq6os002xjq04y2bvoxmk) | 아코디언 펼침 (PC) | 펼친 줄은 회색 면 위에 여러 문단 → 설명 패널 #F5F6F8 |
+| [원티드 몽타주](https://uibowl.io/website/%EC%9B%90%ED%8B%B0%EB%93%9C%20%EB%94%94%EC%9E%90%EC%9D%B8%20%EC%8B%9C%EC%8A%A4%ED%85%9C%20%EB%AA%BD%ED%83%80%EC%A3%BC(Montage)?patterns=%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80&imgId=cmrk4cvt8000il1041b2kxhdy) | 랜딩 FAQ | 랜딩 안에서 얇은 선 줄 + 오른쪽 꺾쇠, 첫 줄만 열림 |
+| [쿠팡](https://uibowl.io/website/%EC%BF%A0%ED%8C%A1?patterns=%EA%B3%A0%EA%B0%9D%EC%84%BC%ED%84%B0%C2%B7FAQ&patternName=%EC%9E%90%EC%A3%BC%20%EB%AC%BB%EB%8A%94%20%EC%A7%88%EB%AC%B8) | 고객센터 자주 묻는 질문 | 목록 위 찾기 칸 + 분류 → 찾기 칸 + 영역 탭 |
+| [골프존](https://uibowl.io/name/%EA%B3%A8%ED%94%84%EC%A1%B4?patterns=%EA%B3%A0%EA%B0%9D%EC%84%BC%ED%84%B0%C2%B7FAQ&patternName=FAQ) | FAQ (모바일) | 찾기 + 가로 칩 + 줄 목록 → 모바일 위 찾기, 탭 가로 밀기 |
+| [마플](https://uibowl.io/website/%EB%A7%88%ED%94%8C?patterns=%EA%B3%A0%EA%B0%9D%EC%84%BC%ED%84%B0%C2%B7FAQ&patternName=%EA%B3%A0%EA%B0%9D%EC%84%BC%ED%84%B0) | 고객센터 | 분류별 얇은 줄 목록 → 영역 머리 + 줄 |
+| [국가유산디지털서비스](https://uibowl.io/website/%E1%84%80%E1%85%AE%E1%86%A8%E1%84%80%E1%85%A1%E1%84%8B%E1%85%B2%E1%84%89%E1%85%A1%E1%86%AB%E1%84%83%E1%85%B5%E1%84%8C%E1%85%B5%E1%84%90%E1%85%A5%E1%86%AF%E1%84%89%E1%85%A5%E1%84%87%E1%85%B5%E1%84%89%E1%85%B3?patterns=%EA%B3%A0%EA%B0%9D%EC%84%BC%ED%84%B0%C2%B7FAQ&patternName=%EC%9D%B4%EC%9A%A9%EA%B0%80%EC%9D%B4%EB%93%9C) | 이용 가이드 | 1. 2. 번호 단계 + 실제 화면 그림 → 이렇게 써요 번호 + 핵심 기능 그림 |
+| [Google 애드센스](https://uibowl.io/website/Google%20%EC%95%A0%EB%93%9C%EC%83%8C%EC%8A%A4?patterns=%EB%AC%B8%EC%9D%98%ED%95%98%EA%B8%B0&patternName=%EB%8F%84%EC%9B%80%EB%A7%90) | 도움말 옆 패널 | 오른쪽 패널(옆 서랍) 안 도움말 — 비교안(안 고름) |
+| [폴센트](https://uibowl.io/name/%ED%8F%B4%EC%84%BC%ED%8A%B8?patterns=%EA%B3%A0%EA%B0%9D%EC%84%BC%ED%84%B0%C2%B7FAQ&patternName=%EC%9E%90%EC%A3%BC%EB%AC%BB%EB%8A%94%EC%A7%88%EB%AC%B8) | FAQ 바텀시트 (모바일) | 시트 안 Q. 아코디언 — 비교안(안 고름) |
+
+### 고른 방식: 줄 펼침 (안 고른 것: 옆 서랍 · 상세 모달 · 아래 설명 구역으로 이동)
+- 61개는 **먼저 훑고 → 궁금한 것만 읽는** 목록이다. 줄 펼침은 목록 자리를 잃지 않고, 여러 개를 열어 비교할 수 있고, PC·모바일이 같은 동작이다.
+- 옆 서랍(애드센스)·모달은 한 번에 하나만 보이고 목록을 가린다. 모바일에서는 결국 전체 화면 시트가 되어 "뒤로"가 헷갈린다. 아래 설명 구역으로 건너뛰기(앵커)는 61개 설명이 두 번 나와 페이지가 두 배로 길어진다.
+- N44 모바일의 **영역 아코디언은 없앤다** — 영역 안 줄도 펼치면 아코디언이 두 겹이 된다. 대신 영역은 늘 펼쳐 두고, 위 영역 탭(붙어 따라옴)으로 건너뛴다. PC 두 칸(lg)도 한 칸 960으로 — 펼친 설명이 넓어야 단계·그림이 한눈에 들어오고, 왼쪽·오른쪽 칸 높이가 펼칠 때마다 어긋나지 않는다.
+- **찾기** 칸: 이름 · 한 줄 · 설명 · 단계 · 메뉴 경로까지 찾는다("나이스", "봉사", "엑셀"). 찾는 동안 영역 탭은 숨기고 "‘나이스’ 기능 N개"를 읽어 준다(aria-live). 없으면 "찾는 기능이 없어요 · 전체 보기".
+- **주소**: 기능마다 `/features#<id>`(예: `#memo-collect`, `#neis-compare`). 그 주소로 오면 그 줄을 열고 그 자리로 간다. 줄을 펼치면 주소도 바뀌고(뒤로 가기 기록은 안 쌓음), 설명 아래 **링크 복사** — 선생님끼리 "이거 보세요"로 보낼 수 있게.
+
+### 화면
+- PC 1440: 머리(All features / 기능 한눈에 보기 / 기능 61가지 · 영역 8개 · 새로) → 찾기 칸 480×48 + 안내 "줄을 누르면 무엇인지, 어떻게 쓰는지 펼쳐 보여요." → 영역 탭(붙어 따라옴) → 영역 8개 한 칸 960(머리 22 Bold + 개수, 아래 2px ink). 줄 = 이름 칸 230(16 Bold + 새로) · 한 줄 15 sub · 누가 칩 · 꺾쇠 20. 펼친 줄 = 줄 아래 #F5F6F8 둥근 10 패널, 안쪽 28: 왼쪽 글(무엇 16 ink / "이럴 때 좋아요" key-strong 굵게 + 15 sub / "이렇게 써요" 번호 22 원 key + 15 / 어디서 · 누가 / 안심(방패 key, 위 선) / 링크 복사), 그림이 있으면 오른쪽 320 칸.
+- Mobile 412: 같은 순서, 찾기 칸 꽉 차게, 영역 탭 가로 밀기. 줄 = 이름 15 Bold + 새로 · 누가 칩 · 꺾쇠 18 / 한 줄 13. 펼친 패널은 안쪽 16, 그림은 글 아래 꽉 차게.
+- 접근성: 줄은 `<h3><button aria-expanded aria-controls>`, 패널 `role="region" aria-labelledby`. 키보드 Tab·Enter/Space로 열고 닫는다. 찾기 결과 수는 `aria-live="polite"`.
+
+### 문구 규칙 (`apps/web/src/app/features/feature-guide.ts`)
+- 이름(키)은 `landing-data.ts` ALL_FEATURES 와 1:1 — `feature-guide.test.ts` 가 빠짐·남음·id 겹침·단계 수(2–4)·금지어를 확인한다.
+- 해요체, 짧은 문장. N 번호·내부 말(모델 이름 등) 쓰지 않는다. 성적·수능 최저 기능은 "성적 잠금" 말고 넣지 않는다. 백로그(docs/feature-backlog.md) 기능은 쓰지 않는다.
+- 어디서 = 실제 사이드바 이름(`components/shell/nav.ts`) 그대로, 묶음 › 메뉴 › (화면 안 버튼).
+- 안심은 필요할 때만: 확정은 선생님 · AI엔 가명ID · 새 버전으로 남음 · 보는 사람 제한 등.
+- 그림은 상세페이지 핵심 기능 그림(`public/landing/core-0N.png`)만 다시 쓴다: 학생별 초안 01 · 메모 모아 쓰기 02 · 반 전체 글 쓰기 03 · 검사 근거·고칠 말 04 · 채운 뒤 대조 05 · 받은 초안 06.
+- 분량(61개): 무엇+이럴 때+단계 평균 135자(94–182) · 무엇 평균 40자 · 단계 평균 2.9개 · 안심 있는 기능 34개 · 그림 6개.
+
+### Figma
+| 무엇 | 노드 |
+|---|---|
+| 04 기능 한눈에 보기 /features — PC 1440 (지금) | **507:283** (Main 507:297 · 찾기 507:809 · 목록 507:816 · 펼친 줄 메모 모아 쓰기 509:29623(패널 509:29633) · 나이스 입력 버튼 509:29685(패널 509:29695)) |
+| 04 기능 한눈에 보기 /features — Mobile 412 (지금) | **508:808** (Main 508:814 · 목록 508:1034 · 펼친 줄 메모 모아 쓰기 509:29744 · 채운 뒤 대조 509:29807) |
+| 04 찾기 상태 — PC 1440(‘나이스’ 7개 · 없음) · Mobile 412 | **510:1478** · **510:1590** (라벨 510:1692) |
+| 04 라벨 | 504:373 · 504:374 (N45 로 바꿈) |
+| 01 컴포넌트 · N45 | 섹션 506:552 — Feature row — PC 509:1965 (State=Collapsed 506:553 · Expanded 509:1955) · Feature row — Mobile 509:1977 (Collapsed 506:563 · Expanded 509:1966) · Step 506:574 · Menu path 506:578 · Safe note 506:580 · Search field 506:585 · Copy link 506:590 |
+| 99 이전 버전 "N44 · 이전 버전 → 지금 N45 (2026-10-19)" | 508:29932 — 옛 PC 504:283 · Mobile 504:332 (id 그대로) |
+| 00 목차 Row/N45 | 508:29934 |
+
+### 코드 반영
+- [x] `features/feature-guide.ts` 61개 설명 (FeatureGuide 타입)
+- [x] `features/feature-list.tsx` 찾기 · 영역 탭 · 줄 펼침 · 주소(#id) · 링크 복사 (옛 `landing-sections.tsx` AllFeatures 대신, `New` 는 그대로)
+- [x] `features/page.tsx` FeatureList
+- [x] `features/feature-guide.test.ts` (5개: 1:1 · id · 필드 · 금지어 · 그림)
+- [x] 확인: tsc · eslint 0 오류(경고 6) · npm test 536 통과 · build · 데모 1440/412/360 펼침·키보드 Enter·딥 링크 #neis-compare·찾기 ‘나이스’ 7개·61개 모두 펼쳐도 가로 넘침 없음 · 모바일 점검 412/360 문제 0 / 65
