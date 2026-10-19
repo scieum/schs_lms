@@ -9,6 +9,7 @@ export const PIECE_CHIP: Record<PieceSource, string> = {
   "특색 활동": "bg-navy-2 text-white",
   "공통 활동": "bg-[#DFE3FF] text-[#2F43B8]",
   "자료 요약": "bg-new-soft text-new",
+  보관함: "bg-wait-soft text-[#9A6400]",
 };
 
 export function PieceChip({ source, className }: { source: PieceSource; className?: string }) {

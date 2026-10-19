@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 import { Combine, Copy, Plus, RotateCcw, Sparkles, X } from "lucide-react";
 import { Button, Tag, cx } from "@/components/ui";
 import { measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
@@ -8,6 +8,7 @@ import type { Importance, MergePiece } from "@/lib/domain/merge";
 import { cleanActivity } from "@/lib/domain/activity-name";
 import { composeKeywordMemo, parseKeywordMemo, type AiDraftResult, type KeywordBlock } from "@/lib/domain/writing";
 import { StepHead } from "./step-head";
+import { SaveBookmark } from "./library-save";
 
 const EMPTY: KeywordBlock = { topic: "", activity: "", keywords: "" };
 const FIELD = "w-full rounded-field bg-soft px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-key";
@@ -29,6 +30,9 @@ export function AiDraftPanel({
   merge,
   onApply,
   done,
+  levelBox,
+  keywordPane,
+  defaultMode,
 }: {
   initialMemo?: string;
   placeholder: string;
@@ -43,13 +47,19 @@ export function AiDraftPanel({
   merge: { pieces: MergePiece[] | null; body: string; neisMax: number; run: (pieces: MergePiece[], max: number) => Promise<AiDraftResult> };
   onApply: (text: string) => void;
   done?: boolean;
+  /** 성취수준 칸 (N35 ③, 세특): 조각 요약과 목표 줄 사이 */
+  levelBox?: ReactNode;
+  /** 키워드로 탭을 대신하는 칸 (N35 ④ 행발 키워드 메뉴판 — 목표·초안 결과를 스스로 그린다) */
+  keywordPane?: ReactNode;
+  /** 처음 고를 방법 (행발은 키워드로) */
+  defaultMode?: Mode;
 }) {
   const [memo, setMemo] = useState(initialMemo);
   const [blocks, setBlocks] = useState<KeywordBlock[]>(() => parseKeywordMemo(initialMemo) ?? [{ ...EMPTY }]);
   const [picked, setPicked] = useState<Mode | null>(null);
   const pieceCount = merge.pieces?.length ?? 0;
   // 고르기 전에는: 조각이 있으면 합치기, 없으면 메모로(키워드 메모가 있으면 키워드로)
-  const mode: Mode = picked ?? (pieceCount > 0 ? "merge" : parseKeywordMemo(initialMemo) ? "keywords" : "memo");
+  const mode: Mode = picked ?? defaultMode ?? (pieceCount > 0 ? "merge" : parseKeywordMemo(initialMemo) ? "keywords" : "memo");
   const [target, setTarget] = useState(merge.neisMax);
   const max = Math.min(merge.neisMax, Math.max(1, target || merge.neisMax));
   const u = unit === "bytes" ? "B" : UNIT_LABEL[unit];
@@ -147,7 +157,8 @@ export function AiDraftPanel({
       )}
     </span>
   );
-  const needsActivity = mode !== "merge";
+  const custom = mode === "keywords" && !!keywordPane;
+  const needsActivity = mode !== "merge" && !custom;
   const canRun = mode === "merge" ? selected.size > 0 && merge.pieces !== null : !!name && !!input.trim();
 
   return (
@@ -168,7 +179,7 @@ export function AiDraftPanel({
         {needsActivity && activityChip}
       </div>
 
-      {mode === "merge" ? (
+      {custom ? keywordPane : mode === "merge" ? (
         merge.pieces === null ? (
           <p className="py-6 text-center text-[13px] text-mute" role="status">조각을 모으는 중이에요</p>
         ) : (
@@ -208,8 +219,9 @@ export function AiDraftPanel({
         </div>
       )}
 
+      {!custom && levelBox}
       {/* 바닥 줄: 목표 분량은 여기 한 번 (합치기·메모로·키워드로 모두) */}
-      <div className="flex flex-col gap-2.5 md:flex-row md:items-center">
+      <div className={cx("flex flex-col gap-2.5 md:flex-row md:items-center", custom && "hidden")}>
         <div className="flex min-w-0 items-center gap-2.5 md:flex-1">
           <span className="shrink-0 text-[13px] font-medium text-sub">목표</span>
           <label className="flex h-9 min-w-0 flex-1 items-center rounded-field bg-soft px-3 focus-within:ring-2 focus-within:ring-key md:w-24 md:flex-none">
@@ -234,9 +246,9 @@ export function AiDraftPanel({
           <Button type="button" kind="soft" size="sm" onClick={run} disabled={!canRun} className="h-11 disabled:opacity-40 max-md:w-full md:h-9"><Sparkles size={14} /> AI 초안</Button>
         )}
       </div>
-      {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
+      {error && !custom && <p className="text-[13px] text-bad" role="alert">{error}</p>}
 
-      {result && !pending && (
+      {result && !pending && !custom && (
         <div className="flex flex-col gap-2.5 rounded-inner bg-bg p-3.5">
           <div className="flex flex-wrap items-center gap-1.5">
             <Tag tone="bg-new-soft text-new">초안</Tag>
@@ -245,6 +257,7 @@ export function AiDraftPanel({
             <span className="ml-auto text-[12px] tabular-nums text-sub">
               <b className="text-ink">{measure(result.text, unit).toLocaleString()}</b> / {max.toLocaleString()}{u}
             </span>
+            <SaveBookmark text={result.text} source="draft" />
           </div>
           <p className="whitespace-pre-wrap text-[14px] leading-6">{result.text}</p>
           {result.notice && <p className="text-[12px] text-mute">{result.notice}</p>}

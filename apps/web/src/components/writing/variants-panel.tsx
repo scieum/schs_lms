@@ -4,6 +4,7 @@ import { Layers, RotateCw, Sparkles, X } from "lucide-react";
 import { cx } from "@/components/ui";
 import { measure, type LengthUnit } from "@/lib/domain/length";
 import type { VariantMode, VariantsActionResult } from "@/lib/domain/variants";
+import { SaveBookmark } from "./library-save";
 
 // 다른 버전 (Figma N34 ② 417:95038 · 417:95759): 본문 칸 바로 아래 패널. [뜻 그대로 | 새롭게] · 3개 · 교사가 정한 분량 안.
 // 결과는 저장하지 않는다 — "이걸로 바꾸기"를 눌러야 본문이 바뀐다(스낵바 되돌리기).
@@ -107,6 +108,7 @@ export function VariantsPanel({ run, unit, max, onPick, onClose }: {
                   <span className="text-[13px] font-bold">버전 {i + 1}</span>
                   {v.block && <span className="whitespace-nowrap rounded-chip bg-bad-soft px-1.5 py-px text-[11px] font-bold text-bad">확정 불가</span>}
                   <span className="ml-auto text-[12px] tabular-nums text-mute">{measure(v.text, unit).toLocaleString()}{unitMark(unit)}</span>
+                  <SaveBookmark text={v.text} source="variant" className="-my-1 -mr-1.5" />
                 </div>
                 <p className="flex-1 whitespace-pre-wrap break-keep text-[13px] leading-[21px]">{v.text}</p>
                 <button type="button" onClick={() => onPick(v.text)}

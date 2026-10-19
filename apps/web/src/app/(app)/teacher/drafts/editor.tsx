@@ -17,8 +17,10 @@ import { RecordCompetency } from "@/components/writing/record-competency";
 
 // T4 초안 본문 편집 + 자동 검사 + 검토 도우미 + 반려·직접 수정·확정
 export function DraftEditor({
-  jobId, studentId, initial, unit, max, area, people, evidence, peers, aiOn, finalized, tags, similarPeers,
+  jobId, studentId, initial, unit, max, area, people, evidence, peers, aiOn, finalized, tags, similarPeers, openCheck = false,
 }: {
+  /** 반 전체 검사(N35)에서 "열기": 첫 걸린 행 펼침 */
+  openCheck?: boolean;
   /** 비슷한 문장 (N34 ④): 같은 프로그램 다른 학생 초안 중 길게 겹친 것 */
   similarPeers?: { self: SimilarSelf; peers: SimilarPeer[] };
   jobId: string;
@@ -55,7 +57,7 @@ export function DraftEditor({
   const regenId = `regen-${jobId}`;
   const formId = `save-${jobId}`;
   // N34: 검사 행 펼침 · 본문 밑줄 · 바꾸기(되돌리기) · AI로 고치기 · 비슷한 문장
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(() => (openCheck ? auto.rows[0]?.key ?? null : null));
   const snack = useUndoSnack();
   const replace = (next: string, msg: string) => { const prev = text; setText(next); snack.show(msg, () => setText(prev)); };
   const onReplace = (r: CheckRow) => {

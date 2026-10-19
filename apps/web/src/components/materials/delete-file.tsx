@@ -82,12 +82,12 @@ export function Collapse({ hidden, children, as: Tag = "div", className }: { hid
 }
 
 /** 화면 아래 가운데 스낵바 (네이비 · PC 360 / 모바일 꽉 찬 폭 − 40, 탭바 위 12). 영랑이 버튼은 위로 올린다 */
-export function Snackbar({ text, onUndo }: { text: string; onUndo?: () => void }) {
+export function Snackbar({ text, onUndo, undoLabel = "되돌리기" }: { text: string; onUndo?: () => void; undoLabel?: string }) {
   return (
     <div data-sticky-cta role="status" aria-live="polite"
       className="fixed inset-x-5 bottom-[calc(env(safe-area-inset-bottom)+78px)] z-[80] flex h-12 items-center gap-3 rounded-inner bg-navy pl-4 pr-2 text-white md:inset-x-auto md:bottom-8 md:left-[calc(50%+120px)] md:w-[360px] md:-translate-x-1/2">
       <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{text}</span>
-      {onUndo && <button type="button" onClick={onUndo} className="h-9 shrink-0 whitespace-nowrap rounded-control px-2.5 text-[14px] font-bold text-[#9eaaff] hover:bg-white/10">되돌리기</button>}
+      {onUndo && <button type="button" onClick={onUndo} className="h-9 shrink-0 whitespace-nowrap rounded-control px-2.5 text-[14px] font-bold text-[#9eaaff] hover:bg-white/10">{undoLabel}</button>}
     </div>
   );
 }

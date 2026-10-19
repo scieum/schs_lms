@@ -2,25 +2,19 @@
 // 누가기록 한꺼번에 쓰기 (Figma N28): 공통 내용(활동명·날짜·활동 내용) 한 번 + 학생마다 참여도·특징 칩
 // → 규칙으로 문장을 붙인 학생별 글 미리보기 → 확인 후 학생마다 하나씩 추가. AI는 카드별 "다듬기" 버튼만(선택).
 import { useMemo, useState, useTransition } from "react";
-import { Calendar, Check, Pencil, Plus, X } from "lucide-react";
+import { Calendar, Pencil, Plus, X } from "lucide-react";
 import { Button, Tag, cx } from "@/components/ui";
 import { neisBytes } from "@/lib/domain/length";
 import { makeStudentNo } from "@/lib/domain/roster";
 import { applyTraits, composeTraitLog, FEATURE_TRAITS, LEVEL_TRAITS, makeCustomTrait, type StudentTraits, type Trait } from "@/lib/domain/trait-logs";
 import { cleanActivity } from "@/lib/domain/activity-name";
 import { addLogsEach, polishTraitLog, type PolishResult } from "./actions";
+import { PickBar, PickBox } from "@/components/writing/pick-bar";
 
 type S = { id: string; name: string; grade: number; classNo: number; number: number };
 type Preview = { base: string; text: string; included: boolean };
 
-function Checkbox({ on, onClick, label, dim }: { on: boolean; onClick: () => void; label: string; dim?: boolean }) {
-  return (
-    <button type="button" role="checkbox" aria-checked={on} aria-label={label} onClick={onClick}
-      className={cx("flex size-[18px] shrink-0 items-center justify-center rounded-[4px]", on ? "bg-key text-white" : "border-[1.5px] border-faint bg-[#fff]", dim && "opacity-60")}>
-      {on && <Check size={12} strokeWidth={3} />}
-    </button>
-  );
-}
+const Checkbox = PickBox;
 
 function TraitChip({ label, onRemove }: { label: string; onRemove?: () => void }) {
   return (
@@ -301,20 +295,16 @@ export function BatchWriter({ area, clubId, today, students, onAdded }: { area: 
 
         {sel.length > 0 && (
           <>
-            <div data-sticky-cta className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+78px)] z-20 mt-3 flex items-center gap-2.5 rounded-[12px] bg-navy py-2 pl-4 pr-2 md:static md:rounded-inner">
-              <span className="shrink-0 whitespace-nowrap text-[13px] font-bold text-white">고른 {sel.length}명에게</span>
+            <PickBar count={sel.length} onClear={clearBar}
+              action={<button type="button" onClick={applyBar} disabled={!bar.level && !bar.features.length}
+                className="h-8 shrink-0 whitespace-nowrap rounded-control bg-[#fff] px-3.5 text-[13px] font-bold text-key-strong disabled:opacity-50">넣기</button>}>
               <span className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
                 {[bar.level, ...bar.features].filter((x): x is string => !!x).map((id) => (
                   <span key={id} className="inline-flex h-[26px] shrink-0 items-center whitespace-nowrap rounded-chip bg-navy-2 px-2 text-xs font-medium text-white">{byId.get(id)?.label}</span>
                 ))}
                 {!bar.level && !bar.features.length && <span className="truncate text-xs text-[#9EAAFF]">칩을 눌러 담아요</span>}
               </span>
-              <button type="button" onClick={clearBar} className="shrink-0 whitespace-nowrap text-[13px] font-medium text-[#9EAAFF]">
-                <span className="md:hidden">해제</span><span className="hidden md:inline">선택 해제</span>
-              </button>
-              <button type="button" onClick={applyBar} disabled={!bar.level && !bar.features.length}
-                className="h-8 shrink-0 whitespace-nowrap rounded-control bg-[#fff] px-3.5 text-[13px] font-bold text-key-strong disabled:opacity-50">넣기</button>
-            </div>
+            </PickBar>
           </>
         )}
 

@@ -39,11 +39,12 @@ const FIT_RULES = (range: LengthRange) => `
 - 길면 반복·꾸밈말·덜 중요한 문장을 줄인다. 짧으면 본문에 이미 있는 활동의 과정·이유·의미를 더 풀어 쓴다. 새 활동·수치는 만들지 않는다.
 - 한 문단, draft 에 최종본만 넣는다.`;
 
-async function rewrite(input: { kind: WriteKind; context?: string; student: Student; range: LengthRange; system: string; content: string; fallback: () => string }): Promise<WriteResult> {
+async function rewrite(input: { kind: WriteKind; context?: string; student: Student; range: LengthRange; system: string; content: string; fallback: () => string; tone?: string }): Promise<WriteResult> {
   const { student, range } = input;
   const fallback = (notice: string): WriteResult => ({ text: polishStyle(input.fallback()), sample: true, notice });
   if (!aiEnabled()) return fallback("AI 키가 없어 조각을 순서대로 이어 붙였어요");
-  const r = await aiJson(Out, { system: recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null) + input.system, content: input.content, model: "write", maxTokens: 3000 });
+  // 성취수준 말투(N35 ③)는 시스템 프롬프트 끝에 한 줄만 — 학생 정보와 함께 보내지 않는다
+  const r = await aiJson(Out, { system: recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null) + input.system + (input.tone ?? ""), content: input.content, model: "write", maxTokens: 3000 });
   if (!r.ok) return fallback(`${r.error} — 조각을 이어 붙였어요`);
   const clean = polishStyle(scrubIdentity(r.data.draft, student).text.replaceAll(student.pseudonymId, ""));
   const fitted = fitToMax(clean, range);
@@ -55,7 +56,8 @@ async function rewrite(input: { kind: WriteKind; context?: string; student: Stud
   };
 }
 
-export async function mergeRecord(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange }): Promise<WriteResult> {
+/** tone: 성취수준 말투 한 줄 (achievement.levelPrompt) */
+export async function mergeRecord(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange; tone?: string }): Promise<WriteResult> {
   const { student } = input;
   const pid = student.pseudonymId;
   const pieces = orderPieces(input.pieces).map((p) => ({ ...p, text: scrubIdentity(p.text, student, pid).text.trim() })).filter((p) => p.text);
@@ -179,6 +181,41 @@ export async function variantsRecord(input: { kind: WriteKind; context?: string;
     if (t && measure(t, range.unit) <= range.max) out.push(judge(t));
   }
   return { versions: out, label: "AI", sample: false, notice: out.length < 3 ? `분량에 맞는 버전 ${out.length}개만 보여 줘요` : undefined };
+}
+
+// ---------- 행발 키워드 초안 (Figma N35 ④) ----------
+
+const BEHAVIOR_RULES = (range: LengthRange) => `
+키워드 초안 규칙:
+- 고른 키워드는 말의 방향일 뿐, 메모·누가기록에 있는 일로만 문장을 쓴다.
+- 키워드를 나열하지 않는다. 키워드에 맞는 일이 자료에 없으면 그 키워드는 쓰지 않는다.
+- 사실·활동·변화를 지어내지 않는다. 학생 이름·가명ID·주어는 쓰지 않는다.
+- 분량: ${target(range)}. 한 문단, draft 에 최종본만 넣는다.`;
+
+/**
+ * 행발 키워드 초안 (Sonnet): 고른 키워드 + 에피소드 메모 + (켜면) 누가기록. 메모·누가기록은 이름·학번을 가명ID로 바꿔 보낸다.
+ * 결과는 돌려주기만 한다 — 교사가 본문에 넣고 저장·확정한다.
+ */
+export async function behaviorDraft(input: { student: Student; keywords: string[]; memo: string; logs: { date: string; content: string }[]; range: LengthRange }): Promise<WriteResult> {
+  const { student } = input;
+  const pid = student.pseudonymId;
+  const memo = scrubIdentity(input.memo.trim(), student, pid).text;
+  const logs = input.logs.map((l) => ({ date: l.date, content: scrubIdentity(l.content, student, pid).text })).filter((l) => l.content.trim());
+  if (!memo && !logs.length) return { text: "", sample: false, notice: "에피소드 메모나 누가기록이 있어야 초안을 만들 수 있어요" };
+  const content = [
+    `학생: ${pid}`,
+    `분량: ${target(input.range)}`,
+    `고른 키워드(말의 방향): ${input.keywords.length ? input.keywords.join(", ") : "(없음)"}`,
+    "",
+    "<에피소드 메모>", memo || "(없음)", "</에피소드 메모>",
+    "",
+    "<누가기록>", logs.length ? logs.map((l, i) => `${i + 1}. [${l.date}] ${l.content}`).join("\n") : "(없음)", "</누가기록>",
+  ].join("\n");
+  const pieces: MergePiece[] = [
+    ...(memo ? [{ id: "memo", source: "메모" as const, date: null, text: scrubIdentity(input.memo, student).text }] : []),
+    ...input.logs.map((l, i) => ({ id: `log-${i}`, source: "누가기록" as const, date: l.date, text: scrubIdentity(l.content, student).text })),
+  ];
+  return rewrite({ kind: "행발", student, range: input.range, system: BEHAVIOR_RULES(input.range), content, fallback: () => mergeByRules(pieces, input.range) });
 }
 
 const TagOut = z.object({ tags: z.array(z.object({ index: z.number().int(), competency: z.string().nullable(), sub: z.string().nullable() })) });

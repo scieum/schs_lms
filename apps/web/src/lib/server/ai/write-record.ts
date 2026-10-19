@@ -26,6 +26,8 @@ export interface WriteInput {
   range: LengthRange;
   /** 활동명 (N27): 초안을 "활동명에서 …"로 시작한다 */
   activity?: string;
+  /** 성취수준 말투 한 줄 (N35 ③, achievement.levelPrompt) — 시스템 프롬프트 끝에 붙는다 */
+  tone?: string;
 }
 
 export type WriteResult = { text: string; sample: boolean; notice?: string };
@@ -88,7 +90,7 @@ export async function writeRecord(input: WriteInput): Promise<WriteResult> {
     .filter((x) => x !== null)
     .join("\n");
 
-  const system = recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null) + APP_RULES;
+  const system = recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null) + APP_RULES + (input.tone ?? "");
   const r = await aiJson(Out, { system, content, model: "write", maxTokens: 3000 });
   if (!r.ok) return fallback(`${r.error} — 예시 초안을 대신 채웠어요`);
 

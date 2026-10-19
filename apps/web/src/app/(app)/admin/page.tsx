@@ -13,6 +13,7 @@ import { requireCan } from "@/lib/server/viewer";
 import { actionLabel } from "./audit/labels";
 import { loadDailyCheck } from "./audit/load";
 import { loadPipeline } from "./pipeline/load";
+import { ScaleSetting } from "@/components/admin/scale-setting";
 
 export const metadata = { title: "관리 홈 · 속초고등학교 학생관리시스템" };
 
@@ -40,9 +41,9 @@ export default async function AdminHome() {
   const v = await requireCan("account.manage");
   const now = new Date();
   const year = schoolYear();
-  const [students, audit, accounts, jobs, programs, check, pipe, todayLog, rounds] = await Promise.all([
+  const [students, audit, accounts, jobs, programs, check, pipe, todayLog, rounds, scale] = await Promise.all([
     repo.listStudents(), repo.listAudit(3), repo.adminListAccounts(), repo.listDraftJobs({}), repo.listPrograms(), loadDailyCheck(), loadPipeline(),
-    repo.adminListAuditSince(kstMidnightIso(now), 2000), Promise.all([1, 2, 3].map((g) => repo.offeringRound(year, g))),
+    repo.adminListAuditSince(kstMidnightIso(now), 2000), Promise.all([1, 2, 3].map((g) => repo.offeringRound(year, g))), repo.getAchievementScale(),
   ]);
   const checkItems = dailyCheck(check);
   const errors = jobs.filter((j) => j.state === "ERROR");
@@ -114,6 +115,9 @@ export default async function AdminHome() {
             )}
           </Card>
         </div>
+        <Card title="학교 설정">
+          <ScaleSetting initial={scale} />
+        </Card>
       </PageBody>
     </>
   );

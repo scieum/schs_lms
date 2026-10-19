@@ -22,6 +22,10 @@ import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
 import { fitRange, PIECE_MAX, PIECE_MIN, PIECE_SOURCES, pieceScopeOf, type MergePiece, type PieceKind } from "@/lib/domain/merge";
 import type { TaggedSentence } from "@/lib/domain/competency";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
+import { homeroomStudents } from "@/lib/domain/activity";
+import type { ClassCheckView } from "@/lib/domain/class-check";
+import { buildClassView, classAudit } from "@/lib/server/class-check";
+import { latestRecordByStudent } from "@/lib/domain/writing";
 
 // 창체 특기사항(자율·자치/동아리/진로)·행발: AI 초안 → 교사 수정 → 저장(새 버전) → 확정
 
@@ -172,11 +176,13 @@ export async function listRecordPieces(input: { area: string; studentId: string;
 export async function addRecordPiece(input: { area: string; studentId: string; clubId?: string | null; text: string; activity: string; kind?: PieceKind }): Promise<{ error?: string }> {
   const t = await recordTarget(input.area, input.studentId, input.clubId);
   if ("error" in t) return { error: t.error };
-  if (!cleanActivity(input.activity)) return { error: "활동명을 적어 주세요" };
-  const text = withActivity(input.activity, String(input.text ?? ""));
+  // 보관함에서 넣은 조각(N35)은 활동명 없이 문장 그대로, 누가기록은 만들지 않고 조각으로만 남긴다
+  const lib = input.kind === "library";
+  if (!lib && !cleanActivity(input.activity)) return { error: "활동명을 적어 주세요" };
+  const text = lib ? scrubIdentity(String(input.text ?? ""), t.student).text : withActivity(input.activity, String(input.text ?? ""));
   if (text.length < PIECE_MIN || text.length > PIECE_MAX) return { error: `조각은 ${PIECE_MIN}~${PIECE_MAX.toLocaleString()}자로 써 주세요` };
-  if (t.area === "행발") {
-    await repo.addRecordMemo({ scope: pieceScopeOf("행발", input.kind === "file" ? "file" : "memo"), studentId: t.student.id, authorId: t.v.accountId, content: text });
+  if (t.area === "행발" || lib) {
+    await repo.addRecordMemo({ scope: pieceScopeOf(t.area, input.kind === "file" ? "file" : lib ? "library" : "memo"), studentId: t.student.id, authorId: t.v.accountId, content: text });
   } else {
     if (t.area === "동아리" && !input.clubId) return { error: "동아리를 골라 주세요" };
     await repo.addActivityLogs([{ area: t.area, studentId: t.student.id, authorId: t.v.accountId, clubId: t.area === "동아리" ? input.clubId! : null, date: seoulNow().date, content: text }]);
@@ -214,14 +220,14 @@ export async function fitRecordAction(input: { area: string; studentId: string; 
 const VarSchema = FitSchema.extend({ mode: z.enum(["keep", "fresh"]) });
 
 /** AI로 고치기: 자동 검사에 걸린 곳만 고친 글 (저장하지 않음) */
-export async function aiFixRecordAction(input: { area: string; studentId: string; clubId?: string | null } & z.input<typeof FitSchema>): Promise<AiFixResult> {
+export async function aiFixRecordAction(input: { area: string; studentId: string; clubId?: string | null; batch?: boolean } & z.input<typeof FitSchema>): Promise<AiFixResult> {
   const t = await recordTarget(input.area, input.studentId, input.clubId);
   if ("error" in t) return { ok: false, error: t.error };
   const p = FitSchema.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
   const range = resolveRecordLength(t.area, { unit: p.data.unit, max: p.data.max });
   const r = await fixRecord({ kind: t.area, context: t.clubName, student: t.student, text: p.data.text, range });
-  await repo.audit(t.v.accountId, "record.ai_fix", `${t.area} ${t.student.pseudonymId}`);
+  await repo.audit(t.v.accountId, "record.ai_fix", `${t.area} ${t.student.pseudonymId}${input.batch ? " class" : ""}`);
   return { ok: true, text: r.text, changes: r.changes, label: r.label, bytes: measure(r.text, range.unit), notice: r.notice };
 }
 
@@ -256,4 +262,39 @@ export async function tagRecord(input: { area: string; studentId: string; clubId
   const t = await recordTarget(input.area, input.studentId, input.clubId);
   if ("error" in t) return { error: t.error };
   return tagCompetency(String(input.text ?? "").slice(0, 6000), t.student);
+}
+
+// ---------- 반 전체 검사 (Figma N35 ①) ----------
+
+/** 반 전체 검사: 담임 반(자율·자치·진로·행발) 또는 내 동아리 부원들의 최신 기록을 규칙으로만 (AI 없음). 확정 기록은 locked */
+export async function classCheckRecords(input: { area: string; clubId?: string | null }): Promise<ClassCheckView> {
+  const v = await requireCan("record.write");
+  const area = String(input?.area ?? "");
+  if (!isRecordArea(area)) return { ok: false, error: "영역을 골라 주세요" };
+  const all = await repo.listStudents();
+  let students: Student[] = [];
+  let base = "";
+  if (area === "동아리") {
+    const club = input.clubId ? await repo.getClub(input.clubId) : null;
+    if (!club || club.advisorId !== v.accountId) return { ok: false, error: "내 동아리만 검사할 수 있어요" };
+    const ids = new Set(await repo.listClubMembers(club.id));
+    students = all.filter((s) => ids.has(s.id)).sort((a, b) => a.grade - b.grade || a.classNo - b.classNo || a.number - b.number);
+    base = `/teacher/write?area=${encodeURIComponent(area)}&club=${club.id}&`;
+  } else {
+    students = homeroomStudents(v, all);
+    base = area === "행발" ? "/homeroom/behavior?" : `/teacher/write?area=${encodeURIComponent(area)}&`;
+  }
+  if (!students.length) return { ok: false, error: area === "동아리" ? "부원이 없어요" : "우리 반 학생만 검사할 수 있어요" };
+  // 학생마다 쓸 수 있는지 한 번 더 (canWriteRecord)
+  const latest = latestRecordByStudent(await repo.listRecordDrafts({ area, year: schoolYear(), studentIds: students.map((s) => s.id) }));
+  const view = buildClassView(students.map((s) => {
+    const r = latest.get(s.id);
+    return {
+      id: s.id, student: s, text: r?.content ?? "", locked: r?.status === "confirmed",
+      range: resolveRecordLength(area, { unit: r?.unit ?? "bytes", max: r?.max }),
+      href: `${base}student=${s.id}&check=1`,
+    };
+  }));
+  await repo.audit(v.accountId, "record.class_check", classAudit(area, view));
+  return view;
 }

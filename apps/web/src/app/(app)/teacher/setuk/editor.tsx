@@ -14,6 +14,9 @@ import { PiecesCard } from "@/components/writing/pieces-card";
 import { StepHead, STEP_GAP } from "@/components/writing/step-head";
 import { addSetukPiece, aiFixSetuk, aiSetukDraft, summarizeSetukFile, fitSetuk, listSetukPieces, mergeSetuk, saveSetuk, tagSetuk, variantsSetuk, type SetukState } from "./actions";
 import { OverApproval } from "@/components/writing/over-approval";
+import { LevelPicker, useLevels } from "@/components/writing/level-picker";
+import { LibraryToggle, useBodyLibrary } from "@/components/writing/library-save";
+import { pieceFromLibrary } from "@/app/(app)/teacher/library/actions";
 
 // 세특 쓰기 (Figma N32): ① 조각 모으기 → ② 본문 만들기 → ③ 본문 · 검사 · 확정.
 // 활동명은 ①의 칸 하나를 ②가 같이 쓴다. AI 결과는 본문에 채우기만 하고 저장은 교사가 누른다.
@@ -29,7 +32,10 @@ export function SetukEditor({
   shared,
   subject,
   similar,
+  openCheck = false,
 }: {
+  /** 반 전체 검사(N35)의 "열기": ③ 자동 검사 첫 걸린 행을 펼친다 */
+  openCheck?: boolean;
   /** 과목명 (고칠 말 "○○ 탐구 활동") */
   subject?: string;
   /** 비슷한 문장 (N34 ④): 겹친 다른 학생 글 · 공통 활동 글(세지 않음) */
@@ -66,13 +72,21 @@ export function SetukEditor({
   // N34: 검사 근거·고칠 말 · 본문 밑줄 · 다른 버전 · 비슷한 문장
   const sim = useSimilar(studentId, text, similar?.peers ?? NO_PEERS, similar?.ignore ?? NO_PEERS_TEXT);
   const simMarks = useMemo<Mark[]>(() => sim.flatMap((s) => s.mine.map((g) => ({ ...g, tone: "similar" as const }))), [sim]);
-  const bc = useBodyChecks({ text, setText, range, who, context: subject, extraMarks: simMarks });
+  const bc = useBodyChecks({ text, setText, range, who, context: subject, extraMarks: simMarks, openFirst: openCheck });
+  // N35 ③ 성취수준 (말투만) · ② 문장 보관함
+  const lv = useLevels();
+  const level = lv?.levels[studentId] ?? null;
+  const [piecesKey, setPiecesKey] = useState(0);
+  const lib = useBodyLibrary({
+    text, body, area: "세특", subject, onInsert: (next) => bc.replace(next, "넣었어요"),
+    addPiece: async (id) => { const r = await pieceFromLibrary({ id, target: { kind: "setuk", courseId, studentId } }); if (!r.error) setPiecesKey((k) => k + 1); return r; },
+  });
   const [variants, setVariants] = useState(false);
   const [compare, setCompare] = useState(false);
 
   return (
     <div className="flex flex-col gap-5">
-      <PiecesCard key={`${courseId}-${studentId}`} studentId={studentId} placeholder="지금 본 것을 짧게 (예: 오차 원인을 찾아 다시 측정)"
+      <PiecesCard key={`${courseId}-${studentId}-${piecesKey}`} studentId={studentId} placeholder="지금 본 것을 짧게 (예: 오차 원인을 찾아 다시 측정)"
         activity={activity} setActivity={setActivity} activityRef={activityRef} onPieces={setPieces} done={!!pieces?.length && hasBody}
         load={() => listSetukPieces({ courseId, studentId })}
         add={(t, a, kind) => addSetukPiece({ courseId, studentId, text: t, activity: a, kind })}
@@ -85,15 +99,16 @@ export function SetukEditor({
           bodyEmpty={!hasBody}
           activity={activity}
           onEditActivity={editActivity}
-          generate={(m, a, max) => aiSetukDraft({ courseId, studentId, memo: m, activity: a, unit: range.unit, max })}
+          generate={(m, a, max) => aiSetukDraft({ courseId, studentId, memo: m, activity: a, unit: range.unit, max, level })}
           merge={{
             pieces,
             body: text,
             neisMax: Math.min(neisMax("세특", range.unit), capMax),
-            run: (ps, max) => mergeSetuk({ courseId, studentId, pieces: ps, unit: range.unit, max }),
+            run: (ps, max) => mergeSetuk({ courseId, studentId, pieces: ps, unit: range.unit, max, level }),
           }}
           onApply={setText}
           done={hasBody}
+          levelBox={lv && <LevelPicker scale={lv.scale} value={level} onChange={(l) => { void lv.set([{ studentId, level: l }]); }} />}
         />
       </div>
       <form action={action} className={`flex flex-col gap-3 ${STEP_GAP}`}>
@@ -101,7 +116,7 @@ export function SetukEditor({
         <input type="hidden" name="courseId" value={courseId} />
         <input type="hidden" name="studentId" value={studentId} />
         <BodyCard bare toggle={hasBody} text={text} tag={(t) => tagSetuk({ courseId, studentId, text: t })}
-          extra={hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}>
+          extra={<><LibraryToggle />{hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}</>}>
           <HighlightTextarea
             ref={body}
             name="content"
@@ -115,7 +130,10 @@ export function SetukEditor({
             boxClassName="rounded-field bg-soft focus-within:ring-2 focus-within:ring-key"
             textClassName="min-h-[120px] px-4 py-3.5 text-[15px] leading-[26px]"
             aria-label="세특 내용"
+            selectionTool={lib.selectionTool}
+            onSelectionChange={lib.onSelectionChange}
           />
+          {lib.mobileSave && <div className="mt-2">{lib.mobileSave}</div>}
         </BodyCard>
         <SimilarNotice state={sim} onOpen={() => setCompare(true)} />
         {variants && hasBody && (

@@ -14,6 +14,9 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { canOwn } from "../programs/_lib/data";
 import { forbiddenBlock } from "@/lib/domain/forbidden";
+import { latestVersion } from "@/lib/domain/program";
+import type { ClassCheckView } from "@/lib/domain/class-check";
+import { buildClassView, classAudit } from "@/lib/server/class-check";
 
 /** 이 초안 작업을 다룰 수 있는 교사인지 (자기 프로그램 · 관리자) */
 async function loadJob(jobId: string) {
@@ -123,14 +126,14 @@ export async function reviewDraftAction(prev: ReviewState, form: FormData): Prom
 const KIND: Record<DraftCategory, WriteKind> = { 세특: "세특", "창체-자율": "자율·자치", "창체-동아리": "동아리", "창체-진로": "진로" };
 
 /** AI로 고치기 (Figma N34): 자동 검사에 걸린 곳만 고친 글. 저장하지 않는다 (교사가 "본문에 넣기" → 직접 수정·확정) */
-export async function aiFixDraft(input: { jobId: string; text: string }): Promise<AiFixResult> {
+export async function aiFixDraft(input: { jobId: string; text: string; batch?: boolean }): Promise<AiFixResult> {
   const ctx = await loadJob(String(input?.jobId ?? ""));
   if (!ctx) return { ok: false, error: "내 프로그램 초안만 다룰 수 있어요" };
   const text = String(input.text ?? "").slice(0, 6000);
   if (!text.trim()) return { ok: false, error: "본문이 비어 있어요" };
   const range = resolveLength(ctx.program.area, { unit: ctx.job.unit, max: ctx.job.max });
   const r = await fixRecord({ kind: KIND[ctx.program.area], student: ctx.student, text, range });
-  await repo.audit(ctx.v.accountId, "draft.ai_fix", `${ctx.program.id} ${ctx.student.pseudonymId}`);
+  await repo.audit(ctx.v.accountId, "draft.ai_fix", `${ctx.program.id} ${ctx.student.pseudonymId}${input.batch ? " class" : ""}`);
   return { ok: true, text: r.text, changes: r.changes, label: r.label, bytes: measure(r.text, range.unit), notice: r.notice };
 }
 
@@ -161,4 +164,25 @@ export async function rephraseAction(prev: RephraseState, form: FormData): Promi
   await repo.audit(ctx.v.accountId, "draft.ai.rephrase", `${program.id} ${student.pseudonymId} ${r.label}${avoid ? " 유사" : ""}`);
   if (r.options.length === 0) return { sentence, options: [], label: r.label, error: r.error ?? "AI가 꺼져 있어 바꿀 안이 없어요. 직접 고쳐 주세요", n };
   return { sentence, options: r.options, label: r.label, error: r.error, n };
+}
+
+/** 반 전체 검사 (Figma N35 ①): 이 프로그램 학생들의 최신 초안을 규칙으로만 (AI 없음). 확정한 초안은 locked */
+export async function classCheckDrafts(input: { programId: string }): Promise<ClassCheckView> {
+  const v = await requireCan("draft.review");
+  const program = await repo.getProgram(String(input?.programId ?? ""));
+  if (!program || !canOwn(v, program)) return { ok: false, error: "내 프로그램 초안만 검사할 수 있어요" };
+  const [jobs, versions, students] = await Promise.all([repo.listDraftJobs({ programIds: [program.id] }), repo.listDraftVersions({ programIds: [program.id] }), repo.listStudents()]);
+  const byId = new Map(students.map((s) => [s.id, s]));
+  const view = buildClassView(jobs.flatMap((j) => {
+    const s = byId.get(j.studentId);
+    if (!s) return [];
+    const last = latestVersion(versions, j.id);
+    return [{
+      id: j.id, student: s, text: last && last.status !== "rejected" ? last.content : "", locked: last?.status === "finalized",
+      range: resolveLength(program.area, { unit: j.unit, max: j.max }),
+      href: `/teacher/drafts?program=${program.id}&d=${j.id}&check=1`,
+    }];
+  }).sort((a, b) => a.student.classNo - b.student.classNo || a.student.number - b.student.number));
+  await repo.audit(v.accountId, "draft.class_check", classAudit(program.id, view));
+  return view;
 }

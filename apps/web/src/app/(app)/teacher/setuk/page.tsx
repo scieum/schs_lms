@@ -17,10 +17,15 @@ import { commonActivityRows } from "@/lib/server/common-activity";
 import { CommonActivitiesCard } from "@/components/writing/common-activities-card";
 import { similarCount, similarPairs } from "@/lib/domain/similar";
 import { SetukStudentList } from "./student-list";
+import { WorkspaceGrid, WorkspaceProvider } from "@/components/writing/workspace";
+import { ClassCheckButton, ClassCheckPanel } from "@/components/writing/class-check-panel";
+import { LibraryPanel } from "@/components/writing/library-panel";
+import { LibrarySaveProvider } from "@/components/writing/library-save";
+import { LevelsProvider } from "@/components/writing/level-picker";
 
 export const metadata = { title: "교과 세특 · 속초고등학교 학생관리시스템" };
 
-type Props = { searchParams: Promise<{ course?: string; section?: string; student?: string }> };
+type Props = { searchParams: Promise<{ course?: string; section?: string; student?: string; check?: string }> };
 
 const short = (c: Course) => `${c.subject} ${c.grade}-${c.semester}`;
 
@@ -86,6 +91,10 @@ export default async function SetukPage({ searchParams }: Props) {
   const texts = students.map((s) => ({ id: s.id, text: latest.get(s.id)?.content ?? "" })).filter((x) => x.text.trim());
   const pairs = similarPairs(texts, { ignore });
   const byId = new Map(students.map((s) => [s.id, s]));
+  // 성취수준 (N35 ③): 학교 설정 단계 + 이 과목·학기 학생별 수준
+  const [scale, levelMap] = await Promise.all([repo.getAchievementScale(), repo.listLevels({ courseId: course.id, year: schoolYear(), semester: course.semester }, students.map((s) => s.id))]);
+  const levels = Object.fromEntries(students.map((s) => [s.id, levelMap[s.id] ?? null]));
+  const listTitle = tab.section ? `${course.subject} ${tab.section}` : `${course.subject} · ${assignment?.classes.join("·")}반`;
   const peersOf = (id: string) => pairs.filter((p) => p.a === id || p.b === id).map((p) => (p.a === id ? p.b : p.a));
 
   return (
@@ -123,47 +132,59 @@ export default async function SetukPage({ searchParams }: Props) {
             <p className="py-6 text-center text-sm text-mute">이 과목에 맡은 반 학생이 없어요. 내 과목에서 반을 확인해 주세요</p>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-[300px_1fr] md:gap-6">
-            <Card title={tab.section ? `${course.subject} ${tab.section} · 이동반` : `${course.subject} · ${assignment?.classes.join("·")}반`}>
-              <SetukStudentList items={students.map((s) => ({
-                id: s.id, no: makeStudentNo(s.grade, s.classNo, s.number), name: s.name, status: statusLabel(latest.get(s.id)),
-                href: href(s.id), similar: similarCount(pairs, s.id), on: s.id === selected?.id,
-              }))} />
-            </Card>
-
-            {selected && (
-              <Card
-                title={`${selected.name} · ${selected.classNo}반 ${selected.number}번`}
-                action={cur ? <span className="text-[13px] text-mute">{new Date(cur.createdAt).toLocaleDateString("ko-KR")} 저장</span> : undefined}
-              >
-                <SetukEditor
-                  shared={shared}
-                  key={`${course.id}-${selected.id}`}
-                  courseId={course.id}
-                  studentId={selected.id}
-                  initial={cur?.content ?? ""}
-                  unit={cur?.unit ?? "bytes"}
-                  max={cur?.max ?? neisMax("세특", "bytes")}
-                  confirmed={cur?.status === "confirmed"}
-                  who={{ name: selected.name, studentNo: selected.studentNo, grade: selected.grade, classNo: selected.classNo, number: selected.number }}
-                  memo={memo?.content ?? ""}
-                  subject={course.subject}
-                  similar={{
-                    self: { id: selected.id, name: selected.name, no: makeStudentNo(selected.grade, selected.classNo, selected.number), href: href(selected.id) },
-                    peers: peersOf(selected.id).map((id) => byId.get(id)!).filter(Boolean).map((p) => ({
-                      id: p.id, name: p.name, no: makeStudentNo(p.grade, p.classNo, p.number), text: latest.get(p.id)?.content ?? "", href: href(p.id),
-                    })),
-                    ignore,
-                  }}
-                />
-                {cur && (
-                  <p className="mt-3 text-[12px] text-mute">
-                    지난 저장 {measure(cur.content, cur.unit).toLocaleString()}{UNIT_LABEL[cur.unit]} · 버전 {records.filter((r) => r.studentId === selected.id).length}
-                  </p>
+          <WorkspaceProvider key={`${course.id}-${tab.section ?? ""}`} scope={{ kind: "setuk", courseId: course.id, section: tab.section }}>
+            <LevelsProvider courseId={course.id} scale={scale} initial={levels}>
+              <div className="md:hidden"><ClassCheckButton mobile /></div>
+              <WorkspaceGrid
+                kind="setuk"
+                checkPanel={<ClassCheckPanel />}
+                libraryPanel={<LibraryPanel />}
+                list={
+                  <Card title={listTitle} action={<span className="text-[12px] text-mute">{tab.section ? "이동반 · " : ""}{students.length}명</span>}>
+                    <SetukStudentList title={listTitle} items={students.map((s) => ({
+                      id: s.id, no: makeStudentNo(s.grade, s.classNo, s.number), name: s.name, status: statusLabel(latest.get(s.id)),
+                      href: href(s.id), similar: similarCount(pairs, s.id), on: s.id === selected?.id,
+                    }))} />
+                  </Card>
+                }
+                main={selected && (
+                  <Card
+                    title={`${selected.name} · ${selected.classNo}반 ${selected.number}번`}
+                    action={cur ? <span className="text-[13px] text-mute">{new Date(cur.createdAt).toLocaleDateString("ko-KR")} 저장</span> : undefined}
+                  >
+                    <LibrarySaveProvider area="세특" subject={course.subject} studentId={selected.id} who={{ name: selected.name, studentNo: selected.studentNo }}>
+                      <SetukEditor
+                        shared={shared}
+                        key={`${course.id}-${selected.id}`}
+                        courseId={course.id}
+                        studentId={selected.id}
+                        initial={cur?.content ?? ""}
+                        unit={cur?.unit ?? "bytes"}
+                        max={cur?.max ?? neisMax("세특", "bytes")}
+                        confirmed={cur?.status === "confirmed"}
+                        who={{ name: selected.name, studentNo: selected.studentNo, grade: selected.grade, classNo: selected.classNo, number: selected.number }}
+                        memo={memo?.content ?? ""}
+                        subject={course.subject}
+                        openCheck={q.check === "1" && q.student === selected.id}
+                        similar={{
+                          self: { id: selected.id, name: selected.name, no: makeStudentNo(selected.grade, selected.classNo, selected.number), href: href(selected.id) },
+                          peers: peersOf(selected.id).map((id) => byId.get(id)!).filter(Boolean).map((p) => ({
+                            id: p.id, name: p.name, no: makeStudentNo(p.grade, p.classNo, p.number), text: latest.get(p.id)?.content ?? "", href: href(p.id),
+                          })),
+                          ignore,
+                        }}
+                      />
+                    </LibrarySaveProvider>
+                    {cur && (
+                      <p className="mt-3 text-[12px] text-mute">
+                        지난 저장 {measure(cur.content, cur.unit).toLocaleString()}{UNIT_LABEL[cur.unit]} · 버전 {records.filter((r) => r.studentId === selected.id).length}
+                      </p>
+                    )}
+                  </Card>
                 )}
-              </Card>
-            )}
-          </div>
+              />
+            </LevelsProvider>
+          </WorkspaceProvider>
         )}
       </PageBody>
     </>

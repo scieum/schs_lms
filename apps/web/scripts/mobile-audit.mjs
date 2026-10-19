@@ -17,7 +17,7 @@ mkdirSync(out, { recursive: true });
 const PAGES = [
   ["none", "/"], ["none", "/login"], ["none", "/signup"],
   ...["/teacher", "/teacher/drafts", "/teacher/programs", "/teacher/programs/new", "/teacher/service", "/teacher/subjects", "/teacher/setuk", "/teacher/write",
-    "/teacher/club", "/teacher/joint", "/teacher/counseling", "/teacher/logs", "/teacher/pieces", "/teacher/neis", "/students", "/students/new", "/schedule", "/me", "/menu"].map((p) => ["t-subject", p]),
+    "/teacher/club", "/teacher/joint", "/teacher/counseling", "/teacher/logs", "/teacher/pieces", "/teacher/neis", "/teacher/library", "/students", "/students/new", "/schedule", "/me", "/menu"].map((p) => ["t-subject", p]),
   ["t-subject", { from: "/teacher/programs", match: /^\/teacher\/programs\/(?!new)[^/?]+$/, extra: ["", "/edit", "/materials", "/split"] }],
   ["t-subject", { from: "/teacher/setuk", match: /^\/teacher\/setuk\/activity\/[^/?]+$/, extra: [""] }],
   ...["/homeroom", "/homeroom/menu", "/homeroom/behavior", "/homeroom/drafts", "/homeroom/minimum", "/homeroom/night", "/homeroom/scores", "/homeroom/service", "/homeroom/students",

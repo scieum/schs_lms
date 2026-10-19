@@ -4,6 +4,7 @@ import { Button, cx } from "@/components/ui";
 import { neisBytes } from "@/lib/domain/length";
 import { bluntLine, type BluntHit } from "@/lib/domain/soften";
 import { BeforeAfter } from "./before-after";
+import { SaveBookmark } from "./library-save";
 
 // 순화하기 (Figma N34 ③ 417:96281 · 417:99896): 메모 칸 바로 아래 알림 줄 → 순화 결과(메모 / 순화한 글) → "조각으로 넣기".
 // 걸린 말은 규칙(lib/domain/soften.ts)으로 찾고, 바꾸는 일만 AI(Haiku)가 한다. AI가 꺼져 있으면 버튼을 숨긴다.
@@ -41,6 +42,7 @@ export function SoftenResult({ memo, soft, hits, label = "AI", busy, onRedo, onK
         <span className={cx("rounded-chip px-1.5 py-px text-[11px] font-bold", label === "AI" ? "bg-new-soft text-new" : "bg-key-soft text-key-strong")}>{label}</span>
         <span className="min-w-0 flex-1 text-[14px] font-bold">순화한 글</span>
         <span className="whitespace-nowrap text-[12px] tabular-nums text-mute">{[...soft].length}자 · {neisBytes(soft).toLocaleString()}B</span>
+        <SaveBookmark text={soft} source="soften" />
       </div>
       <BeforeAfter before={memo} after={soft} beforeLabel="메모" afterLabel="순화한 글" beforeMarks={hits.map((h) => ({ start: h.start, end: h.end }))} />
       <div className="flex flex-col gap-2 md:flex-row md:items-center">

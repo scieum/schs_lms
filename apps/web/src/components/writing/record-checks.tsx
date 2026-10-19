@@ -23,12 +23,14 @@ type Length = { unit: LengthUnit; max: number; limit: number; onChange: (s: { un
  * 본문 · 검사 상태를 한곳에서: 검사 결과 · 펼친 행 · 밑줄 · 바꾸기(되돌리기) · 본문 바꾸기 스낵바.
  * 본문 칸(HighlightTextarea)과 검사 카드(RecordChecks)가 같이 쓴다.
  */
-export function useBodyChecks({ text, setText, range, who, context, extraMarks = [] }: {
+export function useBodyChecks({ text, setText, range, who, context, extraMarks = [], openFirst = false }: {
   text: string; setText: (t: string) => void; range: LengthRange; who: Who; context?: string; extraMarks?: Mark[];
+  /** 반 전체 검사(N35)에서 "열기"로 들어오면 첫 걸린 행을 펼친다 */
+  openFirst?: boolean;
 }) {
   const check = useMemo(() => autoCheck(text, range, findIdentity(text, who), undefined, context), [text, range, who, context]);
   const recheck = useCallback((t: string) => autoCheck(t, range, findIdentity(t, who), undefined, context), [range, who, context]);
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(() => (openFirst ? autoCheck(text, range, findIdentity(text, who), undefined, context).rows[0]?.key ?? null : null));
   const snack = useUndoSnack();
   /** 본문을 통째로 바꾸고 "되돌리기" 스낵바 */
   const replace = (next: string, msg: string) => {

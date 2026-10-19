@@ -6,6 +6,7 @@ import { fixableRows, type AutoCheck } from "@/lib/domain/auto-check";
 import { measure, type LengthRange } from "@/lib/domain/length";
 import type { AiFixResult } from "@/lib/domain/variants";
 import { BeforeAfter, changeCount } from "./before-after";
+import { SaveBookmark } from "./library-save";
 
 // AI로 고치기 줄 · 고친 글 카드 (Figma N34 ① 417:93596 · 417:94317): 자동 검사 행들 아래.
 // 못 지난 행(분량 빼고)이 있으면 줄을 보이고, 누르면 걸린 곳만 고친 글을 전·후로 비교한다. "본문에 넣기"를 눌러야 본문이 바뀐다.
@@ -46,6 +47,7 @@ export function AiFixArea({ text, check, recheck, range, run, onApply }: {
           <span className={cx("rounded-chip px-1.5 py-px text-[11px] font-bold", shown.label === "AI" ? "bg-new-soft text-new" : "bg-key-soft text-key-strong")}>{shown.label}</span>
           <span className="min-w-0 flex-1 text-[14px] font-bold">고친 글</span>
           <span className="whitespace-nowrap text-[12px] text-mute"><b className="text-[14px] tabular-nums text-ink">{bytes.toLocaleString()}</b> / {range.max.toLocaleString()}{unitMark(range.unit)}</span>
+          <SaveBookmark text={shown.text} source="fix" />
         </div>
         <BeforeAfter before={res!.before} after={shown.text}
           afterTag={left === 0

@@ -14,7 +14,7 @@ function Marked({ text, ranges, on }: { text: string; ranges: Range[]; on: strin
   );
 }
 
-export function BeforeAfter({ before, after, beforeLabel = "지금", afterLabel = "고친 뒤", afterTag, beforeMarks }: {
+export function BeforeAfter({ before, after, beforeLabel = "지금", afterLabel = "고친 뒤", afterTag, beforeMarks, block = "bg-[#fff]" }: {
   before: string;
   after: string;
   beforeLabel?: string;
@@ -23,12 +23,14 @@ export function BeforeAfter({ before, after, beforeLabel = "지금", afterLabel 
   afterTag?: ReactNode;
   /** 지우는 말 대신 밑줄로 보여 줄 자리 (순화 결과의 메모) */
   beforeMarks?: Range[];
+  /** 블록 바탕 (흰 카드 위에서는 회색 #F5F6F8 — N35 대기열) */
+  block?: string;
 }) {
   const d = wordDiff(before, after);
   return (
     <div className="@container">
       <div className="grid gap-2.5 @lg:grid-cols-2">
-        <div className="flex flex-col gap-1.5 rounded-control bg-[#fff] p-3">
+        <div className={cx("flex flex-col gap-1.5 rounded-control p-3", block)}>
           <span className="text-[12px] font-medium text-mute">{beforeLabel}</span>
           <p className="whitespace-pre-wrap break-keep text-[14px] leading-6">
             {beforeMarks
@@ -36,7 +38,7 @@ export function BeforeAfter({ before, after, beforeLabel = "지금", afterLabel 
               : <Marked text={before} ranges={d.removed} on="text-bad line-through" />}
           </p>
         </div>
-        <div className="flex flex-col gap-1.5 rounded-control bg-[#fff] p-3">
+        <div className={cx("flex flex-col gap-1.5 rounded-control p-3", block)}>
           <span className="flex items-center gap-2">
             <span className="min-w-0 flex-1 text-[12px] font-medium text-key-strong">{afterLabel}</span>
             {afterTag}

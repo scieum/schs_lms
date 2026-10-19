@@ -14,6 +14,9 @@ import { HighlightTextarea } from "./highlight-textarea";
 import { VariantsPanel, VariantsToggle } from "./variants-panel";
 import { StepHead, STEP_GAP } from "./step-head";
 import { OverApproval } from "@/components/writing/over-approval";
+import { LibraryToggle, useBodyLibrary } from "./library-save";
+import { pieceFromLibrary } from "@/app/(app)/teacher/library/actions";
+import { libraryAreaOf } from "@/lib/domain/library";
 
 const MEMO_HINT: Record<RecordArea, string> = {
   "자율·자치": "관찰 메모 (예: 학급회의 사회, 체육대회 준비 위원, 규칙 제안)",
@@ -43,7 +46,13 @@ export function RecordEditor({
   max: initialMax,
   confirmed,
   aiOn = false,
+  openCheck = false,
+  keywordPane,
 }: {
+  /** 반 전체 검사(N35)의 "열기": ③ 자동 검사 첫 걸린 행을 펼친다 */
+  openCheck?: boolean;
+  /** 행발 키워드 메뉴판 (N35 ④): ② 키워드로 칸을 대신한다. 결과를 본문에 넣는 함수를 받는다 */
+  keywordPane?: (ctx: { onApply: (t: string) => void; bodyEmpty: boolean }) => React.ReactNode;
   /** AI 키가 있을 때만 순화하기 (N34 ③) */
   aiOn?: boolean;
   area: RecordArea;
@@ -71,12 +80,17 @@ export function RecordEditor({
   const editActivity = () => { activityRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }); activityRef.current?.focus({ preventScroll: true }); };
   const hasBody = !!text.trim();
   // N34: 검사 근거·고칠 말 · 본문 밑줄 · 다른 버전
-  const bc = useBodyChecks({ text, setText, range, who, context: undefined });
+  const bc = useBodyChecks({ text, setText, range, who, context: undefined, openFirst: openCheck });
+  const [piecesKey, setPiecesKey] = useState(0);
+  const lib = useBodyLibrary({
+    text, body, area: libraryAreaOf(area), onInsert: (next) => bc.replace(next, "넣었어요"),
+    addPiece: async (id) => { const r = await pieceFromLibrary({ id, target: { kind: "record", area, studentId, clubId } }); if (!r.error) setPiecesKey((k) => k + 1); return r; },
+  });
   const [variants, setVariants] = useState(false);
 
   return (
     <div className="flex flex-col gap-5">
-      <PiecesCard key={`${area}-${clubId ?? ""}-${studentId}`} studentId={studentId} placeholder={PIECE_HINT[area]}
+      <PiecesCard key={`${area}-${clubId ?? ""}-${studentId}-${piecesKey}`} studentId={studentId} placeholder={PIECE_HINT[area]}
         note={area === "행발" ? undefined : "누가기록에도 남아요"}
         activity={activity} setActivity={setActivity} activityRef={activityRef} onPieces={setPieces} done={!!pieces?.length && hasBody}
         load={() => listRecordPieces({ area, studentId, clubId })}
@@ -100,6 +114,8 @@ export function RecordEditor({
           }}
           onApply={setText}
           done={hasBody}
+          keywordPane={keywordPane?.({ onApply: setText, bodyEmpty: !hasBody })}
+          defaultMode={keywordPane ? "keywords" : undefined}
         />
       </div>
       <form action={action} className={`flex flex-col gap-3 ${STEP_GAP}`}>
@@ -108,7 +124,7 @@ export function RecordEditor({
         <input type="hidden" name="studentId" value={studentId} />
         {clubId && <input type="hidden" name="clubId" value={clubId} />}
         <BodyCard bare toggle={hasBody} text={text} tag={(t) => tagRecord({ area, studentId, clubId, text: t })}
-          extra={hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}>
+          extra={<><LibraryToggle />{hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}</>}>
           <HighlightTextarea
             ref={body}
             name="content"
@@ -122,7 +138,10 @@ export function RecordEditor({
             boxClassName="rounded-field bg-soft focus-within:ring-2 focus-within:ring-key"
             textClassName="min-h-[120px] px-4 py-3.5 text-[15px] leading-[26px]"
             aria-label="기록 내용"
+            selectionTool={lib.selectionTool}
+            onSelectionChange={lib.onSelectionChange}
           />
+          {lib.mobileSave && <div className="mt-2">{lib.mobileSave}</div>}
         </BodyCard>
         {variants && hasBody && (
           <VariantsPanel unit={range.unit} max={range.max} onClose={() => setVariants(false)}

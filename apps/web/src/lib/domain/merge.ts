@@ -7,8 +7,9 @@ import { fitToMax, sentences, toNeisSentence } from "./writing";
 /** 특색 활동 = 프로그램 선생님이 확정해 담임에게 보낸 초안 (담임의 자율·자치·진로에만) */
 /** 공통 활동 = 과목·반 전체 활동(Figma N26)에서 학생 자료로 만든 조각 */
 /** 자료 요약 = 조각 모으기(Figma N32)에서 활동 자료를 AI가 읽어 요약한 조각 */
-export type PieceSource = "누가기록" | "메모" | "본문" | "특색 활동" | "공통 활동" | "자료 요약";
-export const PIECE_SOURCES = ["누가기록", "메모", "본문", "특색 활동", "공통 활동", "자료 요약"] as const satisfies readonly PieceSource[];
+/** 보관함 = 문장 보관함(Figma N35 ②)에서 "조각으로 넣기"한 문장 */
+export type PieceSource = "누가기록" | "메모" | "본문" | "특색 활동" | "공통 활동" | "자료 요약" | "보관함";
+export const PIECE_SOURCES = ["누가기록", "메모", "본문", "특색 활동", "공통 활동", "자료 요약", "보관함"] as const satisfies readonly PieceSource[];
 export type MergePiece = { id: string; source: PieceSource; date: string | null; text: string; weight?: Importance };
 
 // 조각 고르기 (Figma N20): 교사가 조각마다 중요도를 매기고, 목표 분량에 맞춰 고른다.
@@ -25,10 +26,13 @@ export const pieceScope = (scope: string) => `${scope}#조각`;
 /** 자료로 남긴 조각(활동 요약)의 범위 (Figma N32) — 목록에서 "자료 요약" 칩으로 보인다 */
 export const fileScope = (scope: string) => `${scope}#자료`;
 export const isFileScope = (scope: string) => scope.endsWith("#자료");
-/** 조각 남기기의 출처: 메모 칸 · 자료 요약 */
-export type PieceKind = "memo" | "file";
-/** 조각 칸에서 남길 메모 범위: 메모는 #조각, 자료 요약은 #자료 */
-export const pieceScopeOf = (scope: string, kind: PieceKind = "memo") => (kind === "file" ? fileScope(scope) : pieceScope(scope));
+/** 문장 보관함에서 넣은 조각의 범위 (Figma N35 ②) — 목록에서 "보관함" 칩 */
+export const libraryScope = (scope: string) => `${scope}#보관함`;
+export const isLibraryScope = (scope: string) => scope.endsWith("#보관함");
+/** 조각 남기기의 출처: 메모 칸 · 자료 요약 · 문장 보관함 */
+export type PieceKind = "memo" | "file" | "library";
+/** 조각 칸에서 남길 메모 범위: 메모는 #조각, 자료 요약은 #자료, 보관함은 #보관함 */
+export const pieceScopeOf = (scope: string, kind: PieceKind = "memo") => (kind === "file" ? fileScope(scope) : kind === "library" ? libraryScope(scope) : pieceScope(scope));
 export const PIECE_MIN = 2;
 export const PIECE_MAX = 1000;
 

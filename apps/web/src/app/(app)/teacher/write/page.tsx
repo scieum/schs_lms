@@ -21,7 +21,7 @@ import { CommonActivitiesCard } from "@/components/writing/common-activities-car
 
 export const metadata = { title: "AI 기록 쓰기 · 속초고등학교 학생관리시스템" };
 
-type Props = { searchParams: Promise<{ area?: string; club?: string; student?: string }> };
+type Props = { searchParams: Promise<{ area?: string; club?: string; student?: string; check?: string }> };
 
 type Counts = { total: number; 확정: number; "작성 중": number; 미작성: number };
 type Space = { key: string; title: string; sub: string; href: string; limit: string; counts: Counts };
@@ -88,7 +88,7 @@ export default async function WritePage({ searchParams }: Props) {
   const v = await requireCan("record.write");
   const q = await searchParams;
   if (q.area === "행발") redirect("/homeroom/behavior");
-  if (isRecordArea(q.area) && q.area !== "행발") return <AreaWorkspace v={v} area={q.area} clubId={q.club} studentId={q.student} />;
+  if (isRecordArea(q.area) && q.area !== "행발") return <AreaWorkspace v={v} area={q.area} clubId={q.club} studentId={q.student} openCheck={q.check === "1"} />;
 
   const spaces = await spacesFor(v);
   const sum = spaces.reduce((a, s) => ({ 확정: a.확정 + s.counts.확정, "작성 중": a["작성 중"] + s.counts["작성 중"], 미작성: a.미작성 + s.counts.미작성 }), { 확정: 0, "작성 중": 0, 미작성: 0 });
@@ -146,7 +146,7 @@ export default async function WritePage({ searchParams }: Props) {
 }
 
 /** 창체 특기사항 작업 화면: 동아리(내 동아리 부원) · 자율·자치/진로(우리 반) */
-async function AreaWorkspace({ v, area, clubId, studentId }: { v: Viewer; area: Exclude<RecordArea, "행발">; clubId?: string; studentId?: string }) {
+async function AreaWorkspace({ v, area, clubId, studentId, openCheck }: { v: Viewer; area: Exclude<RecordArea, "행발">; clubId?: string; studentId?: string; openCheck?: boolean }) {
   const areas = areasFor(v);
   if (!areas.includes(area)) redirect("/teacher/write");
   const myClubs = (await repo.listClubs(schoolYear())).filter((c) => c.advisorId === v.accountId);
@@ -223,6 +223,7 @@ async function AreaWorkspace({ v, area, clubId, studentId }: { v: Viewer; area: 
             logs={logs}
             clubId={club?.id}
             href={(id) => `${base}&student=${id}`}
+            openCheck={openCheck}
           />
         )}
       </PageBody>

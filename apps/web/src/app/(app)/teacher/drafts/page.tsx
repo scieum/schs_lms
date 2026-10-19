@@ -14,10 +14,12 @@ import { EvidenceDocs } from "./evidence-docs";
 import { similarCount, similarPairs, type SimilarPair } from "@/lib/domain/similar";
 import { SimilarBadge } from "@/components/writing/similar-sheet";
 import { makeStudentNo } from "@/lib/domain/roster";
+import { CheckSwap, CheckStatus, WorkspaceProvider } from "@/components/writing/workspace";
+import { ClassCheckButton, ClassCheckPanel } from "@/components/writing/class-check-panel";
 
 export const metadata = { title: "초안 검토·확정 · 속초고등학교 학생관리시스템" };
 
-type Props = { searchParams: Promise<{ program?: string; d?: string; tab?: string }> };
+type Props = { searchParams: Promise<{ program?: string; d?: string; tab?: string; check?: string }> };
 
 const TABS: [string, string, ReviewStatus[]][] = [
   ["wait", "대기", ["검토 대기", "생성 실패", "생성 중"]],
@@ -65,6 +67,8 @@ export default async function DraftsPage({ searchParams }: Props) {
     pairsByProgram.set(pid, similarPairs(texts));
   }
   const simOf = (x: (typeof items)[number]) => similarCount(pairsByProgram.get(x.program.id) ?? [], x.job.id);
+  // 반 전체 검사 (N35 ①): 프로그램 하나를 볼 때만 (프로그램 머리 = 검토 목록 카드 머리)
+  const checkProgram = q.program && programs.some((p) => p.id === q.program) ? q.program : programs.length === 1 ? programs[0].id : null;
   const count = (k: string) => items.filter((x) => TABS.find((t) => t[0] === k)![2].includes(x.status)).length;
 
   const picked = items.find((x) => x.job.id === q.d);
@@ -130,6 +134,7 @@ export default async function DraftsPage({ searchParams }: Props) {
                     .map((x) => ({ id: x.job.id, name: x.student!.name, no: makeStudentNo(x.student!.grade, x.student!.classNo, x.student!.number), text: x.latest!.content, href: base(`d=${x.job.id}`) })),
                 }}
                 aiOn={aiEnabled()}
+                openCheck={q.check === "1"}
                 finalized={sel.status === "확정"}
                 tags={[`근거: ${SOURCE_LABEL[p.source]}`, `버전 ${jobVersions.length}`, ...(sel.latest?.source === "sample" ? ["예시"] : sel.latest?.source === "ai" ? ["AI 초안"] : [])]}
               />
@@ -202,6 +207,7 @@ export default async function DraftsPage({ searchParams }: Props) {
             </div>
           </Card>
         ) : (
+          <WorkspaceProvider key={checkProgram ?? "none"} scope={{ kind: "drafts", programId: checkProgram ?? "" }}>
           <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)] md:gap-6 xl:grid-cols-[260px_minmax(0,1fr)_300px] max-md:[&:has(#pane-ev:checked)_.pane-draft]:hidden max-md:[&:has(#pane-draft:checked)_.pane-ev]:hidden">
             {/* 모바일: 대기 줄 + 초안/근거 자료 전환 (Figma 45:3106) */}
             {sel && (
@@ -221,6 +227,7 @@ export default async function DraftsPage({ searchParams }: Props) {
               </div>
             )}
             <div id="queue" className="order-2 h-full scroll-mt-4 md:order-none"><Card title={`검토 ${TABS.find((t) => t[0] === tabKey)![1]} ${list.length}`} className="h-full">
+              {checkProgram && <div className="-mt-1 mb-3"><ClassCheckButton /></div>}
               <nav className="mb-3 flex gap-1.5">
                 {TABS.map(([k, label]) => (
                   <Link key={k} href={base(`tab=${k}`)} className={cx("rounded-chip px-2.5 py-1.5 text-[13px]", tabKey === k ? "bg-key font-bold text-white" : "bg-white text-sub")}>{label} {count(k)}</Link>
@@ -242,7 +249,7 @@ export default async function DraftsPage({ searchParams }: Props) {
                             <span className="block truncate text-[12px] text-mute">{x.program.title}{len !== null ? ` · ${len.toLocaleString()}${x.job.unit === "bytes" ? "B" : "자"}` : ""}</span>
                             {simOf(x) > 0 && <span className="mt-0.5 block"><SimilarBadge n={simOf(x)} /></span>}
                           </span>
-                          {x.status !== "검토 대기" && x.status !== "확정" && x.status !== "반려" && <Tag>{x.status === "생성 실패" && x.job.manualRequestedAt ? "수동 작성 요청" : x.status}</Tag>}
+                          <CheckStatus id={x.job.id}>{x.status !== "검토 대기" && x.status !== "확정" && x.status !== "반려" && <Tag>{x.status === "생성 실패" && x.job.manualRequestedAt ? "수동 작성 요청" : x.status}</Tag>}</CheckStatus>
                         </Link>
                       </li>
                     );
@@ -250,8 +257,11 @@ export default async function DraftsPage({ searchParams }: Props) {
                 </ul>
               )}
             </Card></div>
-            {detail ?? <Card><p className="py-10 text-center text-sm text-mute">왼쪽에서 학생을 골라 주세요</p></Card>}
+            <CheckSwap panel={<ClassCheckPanel />} className="order-1 md:order-none xl:col-span-2">
+              {detail ?? <Card><p className="py-10 text-center text-sm text-mute">왼쪽에서 학생을 골라 주세요</p></Card>}
+            </CheckSwap>
           </div>
+          </WorkspaceProvider>
         )}
       </PageBody>
     </>
