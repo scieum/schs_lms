@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>가짜 나이스 · eXbuilder6 그리드 (시험용)</title>
+  <style>
+    body { font: 13px/1.5 "Malgun Gothic", sans-serif; margin: 24px; color: #222; }
+    .cl-grid { width: 1100px; border: 1px solid #c8ccd2; }
+    .cl-grid-row { display: grid; grid-template-columns: 50px 50px 50px 80px 1fr 110px; border-bottom: 1px solid #e1e4e8; min-height: 72px; }
+    .cl-grid-cell { padding: 6px; display: flex; align-items: center; }
+    .box { width: 100%; height: 56px; border: 1px solid #b9bec6; border-radius: 3px; padding: 4px 6px; white-space: pre-wrap; overflow: hidden; }
+    .cl-modified { background: #eef4ff; }
+    #saved { white-space: pre-wrap; background: #f6f7f9; padding: 10px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>동아리활동 학생부 자료 (시험용 eXbuilder6 그리드)</h1>
+  <p>실제 나이스(eXbuilder6)처럼 <code>cpr.core.Platform.INSTANCE</code> → 그리드(grdMain) → 데이터셋(stuFlnm · speclActSpablMteCn · length)이 있어요. 칸은 그림일 뿐이고, 데이터셋에 들어가야 저장돼요.</p>
+  <div class="cl-grid" id="grid"></div>
+  <button id="save" type="button" style="margin-top:12px">저장</button>
+  <div id="saved"></div>
+  <script>
+    const COLS = ["grd", "clsNm", "clsNo", "stuFlnm", "speclActSpablMteCn", "length", "comptHr"];
+    const data = [[1, "1", 7, "강예린", "", 0, 0], [1, "2", 14, "박서준", "", 0, 0], [1, "4", 1, "김민준", "", 0, 0], [1, "4", 9, "이하늘", "", 0, 0]]
+      .map((r) => Object.fromEntries(COLS.map((c, i) => [c, r[i]])));
+    const el = document.getElementById("grid");
+    const rowEls = [];
+    const dataSet = {
+      getColumnNames: () => [...COLS],
+      getRowCount: () => data.length,
+      getValue: (i, c) => data[i][c],
+      setValue: (i, c, v) => { data[i][c] = v; paint(i); },
+    };
+    const grdMain = {
+      id: "grdMain", type: "grid", dataSet,
+      getRowCount: () => data.length,
+      getCellValue: (i, c) => data[i][c],
+      setCellValue: (i, c, v) => { data[i][c] = v; rowEls[i].classList.add("cl-modified"); paint(i); },
+      getHtmlElement: () => el,
+      redraw: () => data.forEach((_, i) => paint(i)),
+    };
+    const other = { id: "grdOrder", type: "grid", dataSet: { getColumnNames: () => ["mvmnSc", "mvmnMsg"], getRowCount: () => 1, getValue: () => "" }, getHtmlElement: () => el };
+    window.cpr = { core: { Platform: { INSTANCE: { getAllRunningAppInstances: () => [{ app: { id: "main" }, getContainer: () => ({ getAllRecursiveChildren: () => [other, grdMain] }) }] } } } };
+    function paint(i) {
+      const r = data[i];
+      rowEls[i].innerHTML = `<div class="cl-grid-cell" role="gridcell">${r.grd}</div><div class="cl-grid-cell" role="gridcell">${r.clsNm}</div><div class="cl-grid-cell" role="gridcell">${r.clsNo}</div><div class="cl-grid-cell" role="gridcell"><a href="#">${r.stuFlnm}</a></div><div class="cl-grid-cell" role="gridcell"><div class="box"></div></div><div class="cl-grid-cell" role="gridcell">${r.length} / 1500 Byte</div>`;
+      rowEls[i].querySelector(".box").textContent = r.speclActSpablMteCn;
+    }
+    data.forEach((_, i) => { const r = document.createElement("div"); r.className = "cl-grid-row"; r.setAttribute("role", "row"); el.appendChild(r); rowEls.push(r); paint(i); });
+    document.getElementById("save").addEventListener("click", () => {
+      document.getElementById("saved").textContent = "저장된 값\n" + data.map((r) => `${r.clsNo} ${r.stuFlnm}: ${r.speclActSpablMteCn || "(없음)"} [${r.length}B]`).join("\n");
+    });
+  </script>
+</body>
+</html>

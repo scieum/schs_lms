@@ -7,7 +7,7 @@ const src = path.resolve(import.meta.dirname, "../../neis-extension");
 const out = path.resolve(import.meta.dirname, "../src/lib/neis-bookmarklet.ts");
 // 줄 전체가 주석인 줄만 빼고 들여쓰기를 지운다 (글자 안의 내용은 그대로)
 const slim = (code) => code.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("//")).join("\n");
-const parts = await Promise.all(["fill.js", "panel.js", "bookmarklet/launcher.js"].map((f) => readFile(path.join(src, f), "utf8")));
+const parts = await Promise.all(["fill.js", "cpr-fill.js", "panel.js", "bookmarklet/launcher.js"].map((f) => readFile(path.join(src, f), "utf8")));
 const code = `(()=>{${parts.map(slim).join("\n;\n")}\n})()`;
 const href = `javascript:${encodeURIComponent(code)}`;
 const { version } = JSON.parse(await readFile(path.join(src, "manifest.json"), "utf8"));

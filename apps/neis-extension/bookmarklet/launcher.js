@@ -123,6 +123,9 @@
   }
 
   async function fillAll() {
+    // 나이스(eXbuilder6) 그리드면 그리드 데이터에 바로 넣는다 (칸을 누르지 않아 한 번에 끝난다)
+    const viaGrid = window.__schsCprFill && window.__schsCprFill({ students: current(), mode: mode(), maxBytes: maxBytes() });
+    if (viaGrid && viaGrid.filled.length) return report(viaGrid);
     const students = current();
     const base = { students, mode: mode(), maxBytes: maxBytes(), checkName: true, order: false };
     const total = { filled: [], overLimit: [], nameMismatch: [], notFound: [], ordered: false, fieldsSeen: 0 };
@@ -139,7 +142,11 @@
     }
     const done = new Set([...total.filled, ...total.overLimit, ...total.nameMismatch]);
     total.notFound = students.map((s) => N().keyOf(s)).filter((k) => !done.has(k));
-    const parts = [[`${total.ordered ? "순서대로 " : ""}${total.filled.length}명 채움`, "ok"]];
+    report(total);
+  }
+
+  function report(total) {
+    const parts = [[`${total.via === "grid" ? "그리드에 " : total.ordered ? "순서대로 " : ""}${total.filled.length}명 채움`, "ok"]];
     if (total.ordered) parts.push(["이름을 확인해 주세요", "warn"]);
     if (total.overLimit.length) parts.push([`바이트 초과 ${label(total.overLimit)}`, "bad"]);
     if (total.nameMismatch.length) parts.push([`이름 불일치 ${label(total.nameMismatch)}`, "warn"]);

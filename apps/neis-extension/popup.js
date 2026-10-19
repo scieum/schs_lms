@@ -160,15 +160,21 @@ $("fill").addEventListener("click", async () => {
       checkName: $("checkName").checked,
       order: $("order").checked,
     };
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["fill.js"], world });
-    const [{ result: r }] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      world,
-      func: (p) => window.__schsNeisFillAll(p),
-      args: [payload],
-    });
+    // 나이스(eXbuilder6) 그리드면 페이지 환경에서 그리드 데이터에 바로 넣는다 (v0.2.6)
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["cpr-fill.js"], world: "MAIN" });
+    const [{ result: g }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: "MAIN", func: (p) => window.__schsCprFill(p), args: [payload] });
+    let r = g && g.filled.length ? g : null;
+    if (!r) {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["fill.js"], world });
+      [{ result: r }] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        world,
+        func: (p) => window.__schsNeisFillAll(p),
+        args: [payload],
+      });
+    }
     const n = payload.students.length;
-    const parts = [`<span class="ok">${r.ordered ? "순서대로 " : ""}${r.filled.length}명 채움</span>`];
+    const parts = [`<span class="ok">${r.via === "grid" ? "그리드에 " : r.ordered ? "순서대로 " : ""}${r.filled.length}명 채움</span>`];
     if (r.ordered) parts.push(`<span class="warn">${r.fieldsSeen === n ? "이름을 확인해 주세요" : `칸 ${r.fieldsSeen}개 · 학생 ${n}명, 이름을 확인해 주세요`}</span>`);
     if (r.overLimit.length) parts.push(`<span class="bad">바이트 초과 ${label(r.overLimit)}번</span>`);
     if (r.nameMismatch.length) parts.push(`<span class="warn">이름 불일치 ${label(r.nameMismatch)}번</span>`);
