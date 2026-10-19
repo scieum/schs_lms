@@ -12,6 +12,7 @@ import { hideMenus, hideTabs, navFor, tabsFor, type NavBadges } from "./nav";
 import { SidebarLinks, TabBar } from "./nav-links";
 import { SIDEBAR_COOKIE, SidebarFrame } from "./sidebar-frame";
 import { GuideButton, Yeongrang } from "./yeongrang";
+import { GuidePanel } from "@/components/writing/guide-panel";
 
 // D2 벤토 그리드: 흰 사이드바 + 흰 본문. 모바일은 하단 탭바.
 export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
@@ -52,7 +53,7 @@ export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
           </form>
         </div>
       </SidebarFrame>
-      <div className="min-h-dvh min-w-0 flex-1 bg-bg pb-28 md:pb-0">
+      <div data-shell-main className="min-h-dvh min-w-0 flex-1 bg-bg pb-28 md:pb-0">
         {demo && (
           <div className="bg-wait-soft px-4 py-2 text-center text-xs text-[#9a6400]">
             데모 모드 · 가짜 데이터예요. 서버를 다시 켜면 처음 상태로 돌아가요
@@ -62,6 +63,8 @@ export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
       </div>
       <TabBar tabs={hideTabs(tabsWithoutLocked(tabsFor(viewer)), prefs.hiddenMenus)} />
       <Yeongrang student={viewer.kind === "student"} />
+      {/* 기재요령 찾아보기 (Figma N43): 편집기 머리 버튼 · N34 칩이 연다 */}
+      {viewer.kind === "teacher" && <GuidePanel />}
     </div>
   );
 }

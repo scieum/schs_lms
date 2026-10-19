@@ -10,6 +10,8 @@ export const PIECE_CHIP: Record<PieceSource, string> = {
   "공통 활동": "bg-[#DFE3FF] text-[#2F43B8]",
   "자료 요약": "bg-new-soft text-new",
   보관함: "bg-wait-soft text-[#9A6400]",
+  // 차시 메뉴로 남긴 메모 (Figma N43): 공통 활동과 같은 색 · 다른 글
+  차시: "bg-[#DFE3FF] text-[#2F43B8]",
 };
 
 /** 화면에 보이는 이름 (N40: 본문 → 지금 글) */

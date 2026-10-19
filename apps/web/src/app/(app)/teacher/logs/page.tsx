@@ -6,6 +6,7 @@ import type { Student } from "@/lib/domain/types";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { LogBoard } from "./log-board";
+import { GuideBookButton } from "@/components/writing/guide-panel";
 import { aiEnabled } from "@/lib/server/ai/claude";
 
 export const metadata = { title: "누가기록 · 속초고등학교 학생관리시스템" };
@@ -35,7 +36,7 @@ export default async function LogsPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="누가기록" actions={<ButtonLink href="/teacher/club" kind="outline" size="sm">내 동아리</ButtonLink>} />
+      <PageHeader title="누가기록" actions={<><GuideBookButton area="누가기록" className="h-9 md:h-9" /><ButtonLink href="/teacher/club" kind="outline" size="sm">내 동아리</ButtonLink></>} />
       <PageBody>
         {areas.length > 1 && (
           <Segmented active={areas.indexOf(area)} items={areas.map((a) => ({ label: a, href: `/teacher/logs?area=${encodeURIComponent(a)}` }))} />

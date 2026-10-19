@@ -12,6 +12,7 @@ const TEMPLATE_HREF: Record<TemplateKind, string> = {
   register: "/students/template",
   list: "/students/list-template",
   teacher: "/admin/accounts/template",
+  lesson: "/teacher/lesson-template",
 };
 
 const BTN_SM = "inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-3 text-[14px] font-bold text-white transition-colors md:h-9 md:flex-none md:text-[13px]";

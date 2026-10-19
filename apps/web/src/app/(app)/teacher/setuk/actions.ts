@@ -13,6 +13,8 @@ import { fitRecord, fixRecord, mergeRecord, tagCompetency, variantsRecord } from
 import { measure } from "@/lib/domain/length";
 import type { AiFixResult, VariantsActionResult } from "@/lib/domain/variants";
 import { listMemosWithPieces, memoPieces } from "@/lib/server/merge-pieces";
+import { lessonBackgroundFor } from "@/lib/server/lessons";
+import { lessonScope } from "@/lib/domain/lesson-plan";
 import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
 import { fitRange, PIECE_MAX, PIECE_MIN, PIECE_SOURCES, pieceScopeOf, type MergePiece, type PieceKind } from "@/lib/domain/merge";
 import type { TaggedSentence } from "@/lib/domain/competency";
@@ -191,7 +193,10 @@ export async function mergeSetuk(input: { courseId: string; studentId: string } 
   const p = MergeSchema.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
   const range = fitRange(resolveLength("세특", { unit: p.data.unit, max: p.data.max }));
-  const r = await mergeRecord({ kind: "세특", context: t.course.subject, student: t.student, pieces: p.data.pieces, range, tone: await toneFor(p.data.level), level: await levelFor(p.data.level), keepOrder: p.data.keepOrder });
+  // 차시 메모(N43)가 있으면 그 차시 활동 내용을 배경으로 (학생 행동 아님)
+  const lessonMemos = p.data.pieces.some((x) => x.source === "차시") ? await repo.listRecordMemos(lessonScope(`세특:${input.courseId}`), [t.student.id]) : [];
+  const background = await lessonBackgroundFor(lessonMemos.map((m) => m.lessonItemId), p.data.pieces.filter((x) => x.source === "차시").map((x) => x.text), t.student);
+  const r = await mergeRecord({ kind: "세특", context: t.course.subject, student: t.student, pieces: p.data.pieces, range, tone: await toneFor(p.data.level), level: await levelFor(p.data.level), keepOrder: p.data.keepOrder, background });
   await repo.audit(t.v.accountId, "setuk.ai_merge", `${t.course.subject} ${t.student.pseudonymId} ${p.data.pieces.length}조각`);
   if (!r.text) return toDraft(r);
   // AI 원안 (N38): 근거 표는 서버가 다시 읽은 조각으로 (지금 본문 조각은 교사 글)

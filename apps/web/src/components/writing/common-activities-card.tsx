@@ -6,6 +6,7 @@ import { Calendar, ChevronRight, Layers, Plus } from "lucide-react";
 import { Button, cx } from "@/components/ui";
 import { ACTIVITY_MAX } from "@/lib/domain/activity-name";
 import { createCommonActivity } from "@/app/(app)/teacher/common-actions";
+import { byNo, lessonMd, type LessonChipItem } from "@/lib/domain/lesson-plan";
 
 // 공통 활동 카드 (Figma N26 344:412): 학생 목록 위. 목록(이름 · 날짜 · 학생·자료 · 조각 진행) + "+ 공통 활동" 새 활동 칸.
 
@@ -17,7 +18,12 @@ export type CommonRow = {
 const CHIP = { key: "bg-key-soft text-key-strong", ok: "bg-ok-soft text-ok", none: "bg-soft text-mute" } as const;
 const md = (d: string | null) => (d ? `${+d.slice(5, 7)}.${+d.slice(8, 10)}` : "");
 
-export function CommonActivitiesCard({ scope, rows, detailBase, today }: { scope: string; rows: CommonRow[]; detailBase: string; today: string }) {
+export function CommonActivitiesCard({ scope, rows, detailBase, today, lessons }: {
+  scope: string; rows: CommonRow[]; detailBase: string; today: string;
+  /** 수업 계획 차시 (N43): 새 활동 칸 "차시에서 고르기" — 활동명 · 날짜 · 설명을 채운다 */
+  lessons?: LessonChipItem[];
+}) {
+  const [lessonId, setLessonId] = useState("");
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -26,9 +32,17 @@ export function CommonActivitiesCard({ scope, rows, detailBase, today }: { scope
   const [error, setError] = useState("");
   const [busy, start] = useTransition();
 
-  const reset = () => { setOpen(false); setName(""); setDesc(""); setDate(today); setError(""); };
+  const reset = () => { setOpen(false); setName(""); setDesc(""); setDate(today); setError(""); setLessonId(""); };
+  const fromLesson = (id: string) => {
+    setLessonId(id);
+    const l = lessons?.find((x) => x.id === id);
+    if (!l) return;
+    setName(l.title);
+    if (l.date) setDate(l.date);
+    setDesc(l.detail.slice(0, 300));
+  };
   const submit = () => start(async () => {
-    const r = await createCommonActivity({ scope, name, date: date || null, description: desc }).catch(() => ({ error: "등록하지 못했어요" }) as { error?: string });
+    const r = await createCommonActivity({ scope, name, date: date || null, description: desc, lessonItemId: lessonId || null }).catch(() => ({ error: "등록하지 못했어요" }) as { error?: string });
     if (r.error) return setError(r.error);
     reset();
     router.refresh();
@@ -47,10 +61,20 @@ export function CommonActivitiesCard({ scope, rows, detailBase, today }: { scope
 
       {open && (
         <div className="flex flex-col gap-3 rounded-inner bg-bg p-4">
+          {lessons && lessons.length > 0 && (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[12px] font-medium text-sub">차시에서 고르기</span>
+              <select value={lessonId} onChange={(e) => fromLesson(e.target.value)} aria-label="차시에서 고르기"
+                className="h-11 rounded-field bg-[#fff] px-3 text-[14px] outline-none focus:ring-2 focus:ring-key">
+                <option value="">직접 적기</option>
+                {byNo(lessons).map((l) => <option key={l.id} value={l.id}>{l.no}차시 · {l.title}{l.date ? ` · ${lessonMd(l.date)}` : ""}</option>)}
+              </select>
+            </label>
+          )}
           <div className="flex flex-col gap-3 md:flex-row">
             <label className="flex min-w-0 flex-1 flex-col gap-1.5">
               <span className="text-[12px] font-medium text-sub">활동명</span>
-              <input value={name} onChange={(e) => { setName(e.target.value); setError(""); }} maxLength={ACTIVITY_MAX} placeholder="예: 수행평가 · 빗면 실험" autoFocus
+              <input value={name} onChange={(e) => { setName(e.target.value); setError(""); if (lessonId && e.target.value !== lessons?.find((x) => x.id === lessonId)?.title) setLessonId(""); }} maxLength={ACTIVITY_MAX} placeholder="예: 수행평가 · 빗면 실험" autoFocus
                 className="h-11 rounded-field bg-[#fff] px-3 text-[14px] outline-none focus:ring-2 focus:ring-key" />
             </label>
             <label className="flex flex-col gap-1.5 md:w-[180px]">

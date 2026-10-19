@@ -18,6 +18,8 @@ import { classScope, clubScope } from "@/lib/domain/common-activity";
 import { seoulNow } from "@/lib/domain/night";
 import { commonActivityRows } from "@/lib/server/common-activity";
 import { CommonActivitiesCard } from "@/components/writing/common-activities-card";
+import { LessonPlanCard } from "@/components/writing/lesson-plan-card";
+import { lessonView } from "@/lib/server/lessons";
 
 export const metadata = { title: "AI 기록 쓰기 · 속초고등학교 학생관리시스템" };
 /** 반 전체 글 쓰기 (N42) */
@@ -177,6 +179,8 @@ async function AreaWorkspace({ v, area, clubId, studentId, openCheck }: { v: Vie
   const h = v.kind === "teacher" ? v.teacher.homeroom : null;
   const commonKey = area === "동아리" ? (club ? clubScope(club.id) : null) : h ? classScope(area, h.grade, h.classNo) : null;
   const commonRows = commonKey && students.length ? await commonActivityRows(commonKey, ids) : [];
+  // 차시별 활동 메뉴 (N43 ②): 동아리 · 담임 반(자율·자치 · 진로)
+  const lesson = commonKey ? await lessonView(commonKey, students, club ? club.name : `${h?.grade}학년 ${h?.classNo}반 ${area}`) : undefined;
 
   return (
     <>
@@ -205,7 +209,8 @@ async function AreaWorkspace({ v, area, clubId, studentId, openCheck }: { v: Vie
           <Segmented active={myClubs.indexOf(club)} items={myClubs.map((c) => ({ label: c.name, href: `/teacher/write?area=${encodeURIComponent("동아리")}&club=${c.id}` }))} />
         )}
         <StatTiles items={[["학생", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
-        {commonKey && students.length > 0 && <CommonActivitiesCard scope={commonKey} rows={commonRows} detailBase="/teacher/write/activity" today={seoulNow().date} />}
+        {lesson && <LessonPlanCard view={lesson} year={schoolYear()} />}
+        {commonKey && students.length > 0 && <CommonActivitiesCard scope={commonKey} rows={commonRows} detailBase="/teacher/write/activity" today={seoulNow().date} lessons={lesson?.items} />}
         <AiBanner title="AI 특기사항 초안" line="쌓인 누가기록과 관찰 메모로 초안을 만들어요. 확정은 선생님이 해요" />
         {area === "동아리" && !club ? (
           <Card>
@@ -227,6 +232,7 @@ async function AreaWorkspace({ v, area, clubId, studentId, openCheck }: { v: Vie
             barTitle={club ? club.name : h ? `${h.grade}학년 ${h.classNo}반 ${area === "자율·자치" ? "자율" : area}` : undefined}
             href={(id) => `${base}&student=${id}`}
             openCheck={openCheck}
+            lesson={lesson}
           />
         )}
       </PageBody>

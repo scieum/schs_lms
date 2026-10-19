@@ -211,8 +211,9 @@ export function WorkspaceGrid({ list, main, aside, checkPanel, libraryPanel, wri
   const lib = ws?.panel === "library" && !!libraryPanel;
   const base = kind === "setuk" ? "md:grid-cols-[300px_minmax(0,1fr)]" : "md:grid-cols-[260px_minmax(0,1fr)] lg:grid-cols-[260px_minmax(0,1fr)_300px]";
   return (
-    <div className={cx("grid gap-4 md:gap-6", base, lib && "xl:grid-cols-[minmax(0,1fr)_420px]")}>
-      <div className={cx("min-w-0", check && !sheet && "max-md:hidden", lib && "xl:hidden")}>{list}</div>
+    <div data-guide-grid className={cx("grid gap-4 md:gap-6", base, lib && "xl:grid-cols-[minmax(0,1fr)_420px]")}>
+      {/* N43 기재요령 패널이 열리면(1280 이상) 학생 목록을 숨긴다 — globals.css data-guide-hide */}
+      <div data-guide-hide className={cx("min-w-0", check && !sheet && "max-md:hidden", lib && "xl:hidden")}>{list}</div>
       <div className={cx("min-w-0", check && (sheet ? "md:hidden" : "hidden"))}>{main}</div>
       {check && <div className={cx("min-w-0", !!aside && "lg:col-span-2")}>{writing ? writePanel : checkPanel}</div>}
       {lib && <div className="min-w-0 max-xl:contents">{libraryPanel}</div>}

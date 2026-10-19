@@ -69,6 +69,9 @@ export interface RecordMemo {
   authorId: string;
   content: string;
   createdAt: string;
+  /** 차시 메뉴(Figma N43)로 남긴 메모: 그 차시 · 남긴 날짜(차시 날짜) */
+  lessonItemId?: string | null;
+  date?: string | null;
 }
 
 export function latestRecordByStudent(records: RecordDraft[]): Map<string, RecordDraft> {

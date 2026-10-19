@@ -40,14 +40,14 @@ const toTeacherCourse = (r: TeacherCourseRow): TeacherCourse => ({
 const toSetuk = (r: SetukRow): SetukRecord => ({ id: r.id, courseId: r.course_id, studentId: r.student_id, authorId: r.author_id, content: r.content, unit: r.unit, max: r.max_len, status: r.status, createdAt: r.created_at, ...provFrom(r) });
 
 type ClubRow = { id: string; year: number; name: string; advisor_id: string };
-type LogRow = { id: string; area: ActivityLog["area"]; student_id: string; author_id: string; club_id: string | null; date: string; content: string; created_at: string; common_activity_id?: string | null };
+type LogRow = { id: string; area: ActivityLog["area"]; student_id: string; author_id: string; club_id: string | null; date: string; content: string; created_at: string; common_activity_id?: string | null; lesson_item_id?: string | null };
 type ServiceRow = {
   id: string; student_id: string; uploader_id: string; date: string; end_date?: string | null; hours: number | string; organization: string; activity: string;
   file_path: string | null; file_name: string; mime: string; status: ServiceRecord["status"]; confirmed_by: string | null; confirmed_at: string | null; created_at: string;
   purged_at?: string | null;
 };
 const toClub = (r: ClubRow): Club => ({ id: r.id, year: r.year, name: r.name, advisorId: r.advisor_id });
-const toLog = (r: LogRow): ActivityLog => ({ id: r.id, area: r.area, studentId: r.student_id, authorId: r.author_id, clubId: r.club_id, date: r.date, content: r.content, createdAt: r.created_at, commonActivityId: r.common_activity_id ?? null });
+const toLog = (r: LogRow): ActivityLog => ({ id: r.id, area: r.area, studentId: r.student_id, authorId: r.author_id, clubId: r.club_id, date: r.date, content: r.content, createdAt: r.created_at, commonActivityId: r.common_activity_id ?? null, lessonItemId: r.lesson_item_id ?? null });
 const toService = (r: ServiceRow): ServiceRecord => ({
   id: r.id, studentId: r.student_id, uploaderId: r.uploader_id, date: r.date, endDate: r.end_date ?? r.date, hours: Number(r.hours), organization: r.organization, activity: r.activity,
   filePath: r.file_path ?? "", fileName: r.file_name, mime: r.mime, status: r.status, confirmedBy: r.confirmed_by, confirmedAt: r.confirmed_at, createdAt: r.created_at,

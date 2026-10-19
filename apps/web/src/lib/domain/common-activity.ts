@@ -12,6 +12,8 @@ export interface CommonActivity {
   description: string;
   authorId: string;
   createdAt: string;
+  /** 차시(Figma N43)에서 만든 활동이면 그 차시 ID */
+  lessonItemId?: string | null;
 }
 
 /** 공통 활동에서 만든 조각 기록 (학생마다 한 줄, 상태·개수 셈에 쓴다) */

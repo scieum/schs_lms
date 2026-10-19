@@ -10,13 +10,13 @@ import { cx } from "@/components/ui";
 export type TextSelection = { start: number; end: number; text: string };
 
 /** style (N38): 근거 없음 = dotted(주황 점선), 맞춤법 = wavy(인디고 물결) — 금칙어 막음(빨강 실선) · 확인(주황 실선)과 모양이 다르다 */
-export type Mark = { start: number; end: number; tone: "block" | "warn" | "similar" | "spell"; key?: string; strong?: boolean; style?: "solid" | "dotted" | "wavy" };
+export type Mark = { start: number; end: number; tone: "block" | "warn" | "similar" | "spell" | "guide"; key?: string; strong?: boolean; style?: "solid" | "dotted" | "wavy" };
 
-const TONE: Record<Mark["tone"], string> = { block: "decoration-bad", warn: "decoration-wait", similar: "decoration-wait", spell: "decoration-[#7889FF]" };
+const TONE: Record<Mark["tone"], string> = { block: "decoration-bad", warn: "decoration-wait", similar: "decoration-wait", spell: "decoration-[#7889FF]", guide: "decoration-[#3D56E0] text-[#3D56E0] [-webkit-text-stroke:0.3px_currentColor]" };
 const STYLE = { solid: "", dotted: "decoration-dotted", wavy: "decoration-wavy" } as const;
 
-/** 같은 자리에 둘 이상이면 하나만: 금칙어(막음) > 근거 없음 > 그 밖 확인 > 맞춤법 > 비슷한 문장 */
-const rank = (m: Mark) => (m.tone === "block" ? 0 : m.style === "dotted" ? 1 : m.tone === "warn" ? 2 : m.tone === "spell" ? 3 : 4);
+/** 같은 자리에 둘 이상이면 하나만: 기재요령 찾기(N43, 켠 동안) > 금칙어(막음) > 근거 없음 > 그 밖 확인 > 맞춤법 > 비슷한 문장 */
+const rank = (m: Mark) => (m.tone === "guide" ? -1 : m.tone === "block" ? 0 : m.style === "dotted" ? 1 : m.tone === "warn" ? 2 : m.tone === "spell" ? 3 : 4);
 
 /** 겹치지 않게 고른 조각: 앞선 순위가 자리를 먼저 차지하고, 뒤 순위는 남은 자리만 */
 function pieces(text: string, marks: Mark[]): { text: string; mark?: Mark }[] {
@@ -147,7 +147,7 @@ export function HighlightTextarea({ value, onChange, marks, onPickMark, focusKey
         {pieces(value, marks).map((p, i) =>
           p.mark ? (
             <span key={i} data-mark={p.mark.key}
-              className={cx("underline decoration-2 underline-offset-[3px]", TONE[p.mark.tone], STYLE[p.mark.style ?? "solid"], p.mark.strong && "text-bad [-webkit-text-stroke:0.3px_currentColor]")}>{p.text}</span>
+              className={cx("underline decoration-2 underline-offset-[3px]", TONE[p.mark.tone], STYLE[p.mark.style ?? "solid"], p.mark.strong && p.mark.tone !== "guide" && "text-bad [-webkit-text-stroke:0.3px_currentColor]", p.mark.strong && p.mark.tone === "guide" && "bg-key-soft")}>{p.text}</span>
           ) : (
             <span key={i}>{p.text}</span>
           ),
