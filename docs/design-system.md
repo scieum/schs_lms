@@ -1284,3 +1284,116 @@ Display 32 · H1 28 · H2 20 · Title 17 Bold · Lead 17 Light · Body 15 · Cap
   - 비교 시트 `components/writing/similar-sheet.tsx`(PC 모달 880 · 모바일 바텀시트, 겹친 구간 `<mark>`, "이 학생 다시 쓰기" = 기존 편집 링크 `/teacher/setuk?course=…&student=<내부 id>`). **학번·이름은 URL·쿼리에 넣지 않는다** — 시트는 클라이언트 상태로 열고, 링크에는 지금처럼 내부 id만.
 - [ ] **개인정보**: 위 AI 호출 3종(고치기·다른 버전·순화)은 `aiJson` 래퍼만 쓰고, 보내기 전 반드시 `scrubIdentity`/`maskIdentity`로 이름·학번을 지운다(학생은 가명ID). 감사 로그에도 가명 ID만. 결과는 교사가 "본문에 넣기 · 이걸로 바꾸기 · 조각으로 넣기"를 눌러야만 저장.
 - [ ] 없앨 것: 자동 검사 행의 "찾기" 버튼(펼침이 대신함), `record-checks.tsx`의 따로 있던 찾기 연결은 `onOpen`으로.
+
+## 2026-10-19 반 전체 검사·문장 보관함·성취수준·행발 키워드 (N35)
+> 경쟁 서비스 조사 두 번째 묶음(왓퀴즈 생기부 검사기 "단일 검사 / 다중 검사" + 검사 기록 · 하마룸 라이브러리(생성 문장 저장·책갈피·학생번호/기간 검색·완료 문장 탭) · 하마룸 행동특성 키워드 메뉴판(키워드 등록·편집 → 학생별 성향 고르기) · 교사 후기 "각 성취도 별(상중하) 표현이 달라 그것을 체크하는 항목이 생기면" · 클리포 수행 기반 세특)에서 네 가지를 가져온다. ① **반 전체 검사**: 분반·프로그램·담임 반 학생 모두의 지금 글을 규칙 검사(N23 `autoCheck`)로 한 번에 → 확정 불가 n · 확인 n · 통과 n 요약 + 거르기 + 학생별 가장 큰 문제 → 눌러 그 학생 ③ 검사로. 걸린 학생을 AI로 한꺼번에 고치되 **학생마다 선생님이 보고 넣어야** 바뀐다(자동 확정 없음). ② **문장 보관함**: 본문에서 고른 문장 · AI 결과(다른 버전 · 순화 · 고친 글 · 초안)를 내 보관함에 넣고(이름·학번은 지우고), 편집기 옆 패널에서 찾아 "본문에 넣기 / 조각으로 넣기". ③ **성취수준 고르기**: 세특 ② 본문 만들기에서 학생마다 A~E(학교 설정이 상·중·하면 3단계)를 골라 AI 초안의 **말투**를 바꾼다, 분반 목록에서 한꺼번에 정하기. ④ **행발 키워드 메뉴판**: 담임 행동특성에서 다섯 묶음 키워드를 학생마다 톡톡 고르고(교사가 더하고 숨기는 내 메뉴판) + 에피소드 메모 → 초안 만들기. Figma 새 페이지 **"N35 반 전체 검사·문장 보관함·성취수준·행발 키워드"**(431:1667, 컴퓨터용 줄 y 200 · 모바일용 줄 y 1800). N34 (f) 세특 화면(PC 417:97042 · 모바일 417:100418)을 복제해 바뀐 카드만 다시 그렸다. 여러 줄 한글은 시안에서 글자 사이에 낱말 잇기 문자(U+2060)를 넣어 **낱말 단위로 줄을 바꿨다**(코드는 `word-break: keep-all`, 복사한 시안 글자에 U+2060이 섞여 있으니 문구는 이 문서에서 옮긴다).
+
+| 화면 | 컴퓨터용 (1440) | 모바일용 (412) |
+|---|---|---|
+| (a) 반 전체 검사 결과 — 요약 막대 · 거르기 칩 · 학생별 가장 큰 문제 · AI로 고치기 줄 | 432:2 (패널 432:292 · 학생 목록 432:237) | 433:42 (패널 433:111) |
+| (b) AI로 고치기 대기열 — 5/7 준비 · 한 명 펼침(지금/고친 뒤) · 넣었어요/그대로 둠/만드는 중 | 434:57 (패널 434:207) | 434:467 (패널 434:484) |
+| (c) 문장 보관하기 — 본문에서 고름 → 선택 도구 "보관 · 복사" → 보관함에 넣기 | 435:112 (팝오버 435:418 · 선택 도구 435:407) | 435:478 (바텀시트 435:612) |
+| (d) 문장 보관함 패널 — 찾기 · 영역 · 태그 · 보관 문장 카드 · 본문에 넣기/조각으로 넣기 | 436:273 (패널 436:570) | 436:717 (바텀시트 436:852) |
+| (e) 성취수준 고르기 — ② 본문 만들기 안 성취수준 칸 + 학생 목록 수준 배지 | 437:469 (② 칸 437:784) | 437:846 (② 칸 437:923) |
+| (f) 성취수준 한꺼번에 — 학생 체크 + 네이비 바 [A B C D E] 넣기 | 438:524 | 438:832 (바텀시트 438:931) |
+| (g) 행발 키워드 메뉴판 — 다섯 묶음 칩 · 내 키워드 점 · 에피소드 메모 · 누가기록 같이 쓰기 · 초안 만들기 | 440:579 (카드 440:747 · 반 목록 440:688) | 440:1023 (카드 440:1044) |
+| (h) 메뉴판 고치기 — PC 가운데 모달 600 · 모바일 바텀시트 | 441:646 (모달 441:938) | 441:1065 (바텀시트 441:1234) |
+
+- 시안은 컴포넌트로 묶지 않고 프레임으로 그렸다(N34 컴포넌트가 아직 코드로 옮겨지는 중이라 이름이 바뀔 수 있음). 코드에서 새로 만드는 부품 이름은 아래 "코드 반영"을 따른다.
+
+### ① 반 전체 검사 (세특 분반 · 프로그램 초안 검토 · 담임 반 행발/창체)
+- **들어가는 곳**: 세특 학생 목록 카드 머리 아래 soft 꽉 찬 버튼 **"✓ 반 전체 검사"**(높이 36 · 13 Bold, 패널이 열려 있으면 그대로 soft = 켬). 초안 검토 목록(`/teacher/drafts`)은 프로그램 머리 오른쪽 같은 버튼, 담임 행발/창체 반 목록도 같은 자리. 모바일은 분반 탭 아래 외곽선 꽉 찬 44 버튼(시안은 결과 상태만 그림).
+- **결과 패널**(PC는 오른쪽 편집 카드 자리를 대신 · 모바일은 탭 아래 카드): 머리 "반 전체 검사" 17 Bold + "24명 · 방금 검사" 13 #8B95A1 ↔ 글자 버튼 "↻ 다시 검사"(13 Medium #4E5968) · ×(닫으면 편집 카드로). 설명 "지금 저장된 글을 규칙으로만 검사해요 (AI 없음) · 금칙어 · 분량 · 학번·실명 · 어미 · 문체 · 비슷한 문장"(13/20 #4E5968, 모바일은 앞 문장만).
+- **요약 막대**: 높이 10 · r5 · 칸 사이 2px, 비율 = 확정 불가 #F04452 · 확인 #F5A524 · 통과 #00B86B · 빈 글 #D9DDE3. 숫자는 막대가 아니라 아래 칩에 쓴다(막대만으로 읽게 하지 않음).
+- **거르기 칩**(알약 r16 · 높이 32/모바일 34 · 안쪽 0/12 · 간격 6 · 줄바꿈): [전체 24](선택 #EEF0FF + 1px #536DFE + #3D56E0 Bold) · ●확정 불가 2 · ●확인 5 · ●통과 15 · ●빈 글 2(흰 + 1px #E5E8EB, 앞 점 8 = 막대 색). 클라이언트 상태(URL에 넣지 않음).
+- **학생 표**(PC, 1px #E5E8EB r10): 머리 #F5F6F8 높이 36 · 12 Medium #4E5968 — 학번 56 · 이름 64 · 결과 84 · 가장 큰 문제(남는 폭) · 분량 70(오른쪽) · 40. 행 안쪽 12/16 · 아래 1px #F2F4F6: 학번 13 #8B95A1 · 이름 14 Medium · 결과 태그(확정 불가 #FEECEE/#F04452 · 확인 #FFF5E0/#9A6400 · 통과 #E3F8EE/#00B86B, 12 Bold r6) · 문제 14 #191F28 + "외 n곳" 13 #8B95A1 · 분량 13 Medium(넘었으면 #9A6400) · "열기 ›" 13 Bold #3D56E0. **행 전체가 링크** → 그 학생 편집 ③ + 자동 검사 첫 걸린 행 펼침(N34). 순서 = 확정 불가 → 확인 → 통과 → 빈 글, 같은 결과 안에서는 걸린 수 많은 순. 통과·빈 글은 접어서 "통과 15명 · 빈 글 2명 더 보기 ⌄".
+- **모바일 목록**: 행 = 위 줄(학번 13 #8B95A1 · 이름 15 Bold · 결과 태그 · 오른쪽 바이트 12) + 아래 줄 가장 큰 문제 13 #4E5968 + 오른쪽 "›". 위 1px #F2F4F6, 안쪽 12/0.
+- **가장 큰 문제** 고르는 규칙: 막음(금칙어·학번/실명) → 분량 초과/미달 → 비슷한 문장(N34 ④) → 어미 → 학생 주어 → 그 밖 문체. 글 = 행 이름표 그대로(금칙어 ‘서울대학교’ · 분량 초과 86B · 비슷한 문장 · 학생A와 2곳 · 어미 ‘~하였다.’ 2문장 · 학생 주어 ‘학생E는’ · 쉼표가 많은 문장 1개).
+- 왼쪽 학생 목록(PC)의 상태 칩은 검사 결과 태그로 바뀐다(패널을 닫으면 원래 작성 상태 칩).
+- **AI로 고치기 줄**(패널 바닥, #F5F6F8 r10 · 안쪽 14/16): "걸린 곳이 있는 7명을 AI로 한꺼번에 고칠까요?" 14 Bold + "고친 글은 학생마다 선생님이 보고 넣어야 바뀌어요 · 확정은 하지 않아요" 12 #8B95A1 ↔ soft "✦ 걸린 곳 모두 AI로 고치기"(모바일 꽉 찬 44, 문구 아래). 확인·확정 불가가 0명이면 숨김. **확정된 학생과 빈 글은 넣지 않는다.**
+- **(b) 대기열**(같은 패널이 바뀜): 머리 "AI로 고치기 7명" ↔ "닫기"(닫아도 서버에서 계속 만든다 — 다시 열면 이어서). 진행 "✦ 고친 글 5명 준비 · 2명 만드는 중" ↔ "5 / 7" + 막대(높이 6 #536DFE / #F2F4F6). 안내 줄 #EEF0FF r8 "학생마다 고친 글을 보고 넣어 주세요. 넣어도 확정되지 않아요 — 확정은 학생 화면에서 선생님이 해요."(13 Medium #3D56E0).
+  - 행 상태: **준비됨**(#EEF0FF/#3D56E0 태그 + "보기 ⌄" 13 Bold #3D56E0) · 고친 뒤에도 남은 게 있으면 옆에 "고친 뒤에도 확인 1"(#FFF5E0/#9A6400) · **만드는 중…**(✦ + 13 Medium #0BB4D9) · **✓ 넣었어요**(#E3F8EE/#00B86B + "되돌리기" 13 Medium #4E5968 — 넣기 전 글로) · **그대로 둠**(#F2F4F6/#4E5968, 이름 #8B95A1 + "다시 보기").
+  - **펼친 행**(한 번에 하나): N34 고친 글 카드와 같은 전·후 — "지금"(빠진 말 #F04452 취소선) / "고친 뒤"(바뀐 말 #3D56E0 Medium + 밑줄, 오른쪽 "✓ 검사 통과" #E3F8EE/#00B86B) · PC 나란히 같은 높이 / 모바일 위아래 → "바뀐 곳 4 · 1,383 / 1,500B" 12 #8B95A1 ↔ 외곽선 "그대로 두기" · 인디고 "본문에 넣기"(PC 36 · 모바일 둘 다 꽉 찬 44 나란히). 넣으면 다음 준비된 행이 자동으로 펼쳐진다.
+  - 바닥 줄(위 1px #E5E8EB): "넣은 1명 · 그대로 둔 1명 · 남은 5명"(모바일 "넣음 1 · 그대로 1 · 남음 5"). **"모두 넣기" 버튼은 만들지 않는다**(학생마다 확인이 원칙).
+- 초안 검토(프로그램) 쪽 목록은 학번 대신 가명ID를 쓰는 곳이면 가명ID 그대로(지금 목록 표기를 따름).
+
+### ② 문장 보관함 (교사 개인)
+- **보관하기 자리**: (1) 본문 칸에서 글을 고르면 고른 곳 위에 **선택 도구**(네이비 #1C2033 r8 · 안쪽 6/10 · 간격 12: icon/bookmark 15 흰 + "보관" 13 Bold 흰 | 1px #3A4060 | icon/copy + "복사" 13 Medium #C9CEDB). 모바일은 시스템 선택 메뉴와 겹치지 않게 본문 칸 아래 줄에 "🔖 고른 글 보관"(글자 버튼). (2) N34 버전 카드 · 순화 결과 · 고친 글 카드 · N32 초안 결과 머리 오른쪽에 icon/bookmark 16 #8B95A1 버튼(보관하면 #3D56E0 채움 + 스낵바 "보관함에 넣었어요 · 보관함 열기"). 이 자리는 시안에 따로 그리지 않았다.
+- **보관함에 넣기**(PC 팝오버 380 · 흰 r12 · 1px #E5E8EB · 그림자 0/8/24 16% · 안쪽 16 · 간격 14, 고른 곳 아래 · 본문 칸 오른쪽 끝 맞춤 / 모바일 바텀시트 위 r16 · 손잡이 36×4 #D9DDE3 · 뒤 네이비 50%): 머리 icon/bookmark 18 #3D56E0 + "보관함에 넣기" 15(17) Bold ↔ × → **미리보기**(#F5F6F8 r8 · 안쪽 12/14) 글 14/22, 지울 이름·학번은 #F04452 취소선 + 아래 "🔒 이름·학번은 빼고 저장해요 · 학생 정보는 남지 않아요" 12 Medium #4E5968 → **영역** 칩 [세특 | 창체 | 행발 | 동아리](지금 편집 영역이 기본 선택, 하나만) + 회색 태그 "과목 · 물리학"(세특일 때 자동) → **태그**(#EEF0FF/#3D56E0 r6 높이 26 "#발표 ×", 점선 "+ 태그", 한 개 12자 · 최대 5개) → 바닥 "보관함 38개" 12 #8B95A1 ↔ 외곽선 "취소" · 인디고 "🔖 보관"(모바일 둘 다 꽉 찬 48).
+- **보관함 패널**(PC: 편집 카드 오른쪽 420 카드 — 패널이 열리면 학생 목록 카드는 접힌다 · 모바일: 거의 꽉 찬 바텀시트): 본문 머리 줄 "다른 버전" 앞 글자 버튼 **"🔖 보관함"**(켜면 #EEF0FF/#3D56E0)으로 연다.
+  - 머리 "문장 보관함" 16 Bold + "38" ↔ × → 찾기 칸(#F5F6F8 r8 높이 40/44 · icon/search + "문장·태그 찾기") → 영역 칩 [전체 38 | 세특 21 | 창체 9 | 행발 6 | 동아리 2] → 태그 칩(#F2F4F6 r6 높이 26 12 Medium, 많이 쓴 순 5개 + "+3") → "38개" ↔ "최근 넣은 순 ⌄"(최근 넣은 순 · 많이 넣은 순 · 가나다).
+  - **보관 문장 카드**(1px #E5E8EB r10 · 안쪽 14 · 간격 10, 방금 넣은 것은 1px #536DFE + #FAFBFF): 글 14/22 → 메타 줄(11 Medium 태그: 영역·과목 #F2F4F6 · #태그 #EEF0FF · 출처 "AI 다른 버전/순화/고친 글/초안" #E2F7FC/#0BB4D9 — 본문에서 고른 것은 출처 태그 없음 · "· 10.18" 11 #8B95A1) → 바닥 icon/pencil · icon/trash 15 #8B95A1(지우기는 N33 지우기 확인 인라인) ↔ 글자 "조각으로 넣기" · soft "본문에 넣기"(PC 30 / 모바일 외곽선 "조각으로" + soft 36).
+  - **본문에 넣기** = 커서 자리(없으면 끝)에 넣고 → 바로 자동 검사 → 스낵바 "넣었어요 · 되돌리기"(N33). **조각으로 넣기** = N32 ① 조각 목록에 출처 "보관함" 칩으로 더함(세특 `record_memos` / 창체 `activity_logs`는 만들지 않고 조각 상태로만 — 아래 코드 참조).
+  - 바닥 안내 "본문에 넣기는 커서 자리에 넣고 다시 검사해요 · 이름·학번은 저장하지 않아요" 12 #8B95A1.
+- **보관 페이지**(`/teacher/library`, 사이드바 "수업" 묶음 맨 아래 "문장 보관함" icon/bookmark)는 같은 패널을 본문 폭(최대 880)으로 늘려 쓰고 카드 바닥 버튼만 "복사"로 바꾼다 — 시안은 패널만 그렸다.
+
+### ③ 성취수준 고르기 (세특 ② 본문 만들기)
+- **성취수준 칸**(② 안, 조각 요약과 목표 줄 사이 · 1px #E5E8EB r10 · 안쪽 16 · 간격 12): 머리 "성취수준" 15 Bold + 태그 "5단계 · A~E"(#F2F4F6 11 Medium) ↔ "말투만 바꿔요" 12 #8B95A1 → **세그먼트**(#F5F6F8 r10 · 안쪽 4 · 간격 4, 다섯 칸 같은 폭): 칸 = 글자 15(모바일 16) Bold + 이름 11 Medium #8B95A1 세로, 고른 칸 흰 + 1px #536DFE + #3D56E0 Bold → **말투 안내 줄**(#E2F7FC r8 · 안쪽 10/12 · ✦ 14 #0BB4D9) "B · ‘정확히 이해하고 성실하게 해냄’ 쪽 말투로 써요 · 예: 정확하게 설명함 · 꼼꼼히 정리함" 13/20 Medium → "수준 글자(A~E)는 글에 넣지 않고, 조각에 없는 성과는 만들지 않아요" 12 #8B95A1. 안 고르면 세그먼트 모두 흰 테두리 없음 + 안내 줄 "고르지 않으면 조각 그대로의 말투로 써요".
+- 단계와 말투(학교 설정 5단계 기본 — 2022 개정 고교 A~E):
+
+| 수준 | 이름 | 말투 방향(프롬프트에 넣는 한 줄) | 예 |
+|---|---|---|---|
+| A | 매우 우수 | 깊이 이해하고 스스로 넓혀 감 · 주도적·탁월하게 | 원리를 스스로 확장해 설명함 · 주도적으로 탐구를 이끎 |
+| B | 우수 | 정확히 이해하고 성실하게 해냄 | 정확하게 설명함 · 꼼꼼히 정리함 |
+| C | 보통 | 기본 개념을 이해하고 과제를 수행함 | 기본 개념을 이해하고 실험을 수행함 |
+| D | 미흡 | 기본 개념을 익히려 꾸준히 노력함(노력·참여 중심) | 모둠 활동에 참여하며 개념을 익혀 감 |
+| E | 매우 미흡 | 활동에 참여하며 기초를 다져 감(참여 사실 중심) | 실험 과정에 참여하며 기초를 다짐 |
+
+  학교 설정이 **3단계(상·중·하)**면 세그먼트가 세 칸 [상 | 중 | 하], 말투는 상 = A, 중 = C, 하 = D 줄을 쓴다. 부정적인 말(못함·부족함·소극적)은 어느 수준에서도 쓰지 않는다.
+- **학생 목록 배지**: 학번·이름 뒤 24×22 r6 — 정함 #EEF0FF/#3D56E0 12 Bold 글자, 안 정함 흰 + 1px 점선 #D9DDE3 "—". 상태 칩은 오른쪽 56 고정 칸(배지 세로줄 맞춤). 목록 머리 아래 "성취수준 7 / 9명" 12 Medium #4E5968 ↔ "한꺼번에 정하기" 12 Bold #3D56E0. 모바일은 학생 고르기 칸 안 오른쪽에 같은 배지.
+- **(f) 한꺼번에 정하기**: PC 목록이 체크 모드 — 머리 [체크 · 모두 ↔ 끝내기], 행 앞 N28 체크박스(켬이면 행 #F5F6F8), 목록 바닥 **네이비 바**(#1C2033 r12 · 안쪽 12/12/12/16 · 간격 10): "고른 3명에게" 13 Bold 흰 ↔ "해제" #9EAAFF / [A][B][C][D][E](#2B3152 r8 높이 32 · 14 Bold 흰, 고른 것 흰 바탕 #3D56E0) + 흰 "넣기". 모바일은 바텀시트 "성취수준 한꺼번에"(같은 행 + 바닥 네이비 바, 버튼 높이 40). 넣으면 그 학생들 배지가 바뀌고 스낵바 "3명 C로 정했어요 · 되돌리기".
+- 시안 값: 학생A B · 학생B A · 학생C C · 학생D — · 학생E B · 학생F A · 학생G C · 학생H D · 학생I —, 한꺼번에 학생D·H·I → C.
+
+### ④ 행발 키워드 메뉴판 (담임 행동특성 및 종합의견)
+- 자리: `/homeroom/behavior` 학생 편집 카드 = 지금 N32 ② "키워드로" 방식의 행발판(행발에서는 기본 방식이 키워드). 왼쪽 반 목록 행에 "키워드 6"(12 Medium #4E5968, 없으면 "키워드 —" #C4CAD1). 모바일 학생 고르기 칸 오른쪽 "키워드 6" 태그(#EEF0FF/#3D56E0).
+- **메뉴판**: 머리 "키워드 메뉴판" 15 Bold + "고른 6개" 13 #8B95A1 ↔ 글자 버튼 "✎ 메뉴판 고치기"(모바일 "고치기"). 묶음 = PC 이름표 92 고정(13 Bold #4E5968) + 칩 줄바꿈 / 모바일 이름표 위·칩 아래. 칩 = 알약 r16 높이 30(모바일 34) · 안쪽 0/12 · 13 Medium, 고른 칩 #EEF0FF + 1px #536DFE + #3D56E0 Bold(N28 팔레트와 같은 꼴). **내 키워드**는 글자 앞 5px #536DFE 점. 묶음 끝 점선 "+ 더하기"(그 묶음에 바로 내 키워드 추가 — 이름 12자). 아래 "• 내가 더한 키워드 · 메뉴판은 선생님마다 따로 저장돼요" 12 #8B95A1. 고르는 수 제한은 없되 8개 넘으면 머리 옆 "많으면 글이 흐려져요" 12 #9A6400.
+- 기본 메뉴판(다섯 묶음):
+
+| 묶음 | 기본 키워드 |
+|---|---|
+| 학교생활 태도 | 성실함 · 책임감 · 규칙을 잘 지킴 · 시간 약속 · 바른 말 쓰기 · 맡은 일 끝까지 |
+| 공동체·관계 | 배려 · 경청 · 갈등 중재 · 협력 · 학급 일 도움 · 리더십 · 친구 도움 |
+| 사고·학습 | 호기심 · 질문이 많음 · 꾸준한 복습 · 논리적 설명 · 창의적 생각 · 독서 |
+| 자기관리 | 계획 세우기 · 감정 조절 · 정리 정돈 · 건강 관리 · 목표 의식 |
+| 성장 | 진로 탐색 · 새로운 도전 · 실패 뒤 다시 도전 · 자신감이 커짐 |
+
+  모두 긍정·관찰 낱말만(N28 "참여도는 긍정만"과 같은 원칙). N28 `trait-logs.ts`의 특징 칩(발표·질문·모둠장·친구 도움·끝까지 해냄 …)과 겹치는 말은 같은 낱말을 쓴다(친구 도움 · 맡은 일 끝까지 ← 끝까지 해냄).
+- 그 아래 1px #E5E8EB 구분선 → **에피소드 메모**(15 Bold + "선택") 채움 칸 #F5F6F8 r8 · 안쪽 12/14 · 14/24, 오른쪽 아래 "62자 · 180B". N34 순화 알림 줄이 이 칸 아래에도 붙는다. → 토글 "누가기록 3건 같이 쓰기"(켬 #536DFE 40×22) ↔ "보기"(그 학생 행발 누가기록 펼침) → 목표 1,500B · 최대 1,500B ↔ 인디고 **"✦ 초안 만들기"**(높이 40 · 모바일 꽉 찬 48) → "고른 키워드와 메모·누가기록에 있는 일만 문장으로 써요 · 학생은 가명으로 보내요" 12 #8B95A1. 초안이 나오면 지금 N32 초안 결과 → ③ 본문·검사·확정 흐름 그대로.
+- **(h) 메뉴판 고치기**(PC 가운데 모달 600 · r12 · 안쪽 24 · 뒤 네이비 50% / 모바일 바텀시트): "키워드 메뉴판 고치기" 18 Bold ↔ × · "선생님 메뉴판만 바뀌어요 · 다른 선생님 메뉴판과 이미 쓴 기록은 그대로예요" 13 → 묶음 칩(이름 + 개수, 하나 고름) → 키워드 목록(1px #E5E8EB r10, 행 높이 44/50 · 위 1px #F2F4F6): 끌기 손잡이 "⋮⋮" #C4CAD1 · 이름 14 Medium · 태그 "기본"(#F2F4F6) / "내 키워드"(#EEF0FF/#3D56E0) / "숨김"(이름 #8B95A1 취소선) ↔ 기본은 icon/eye + "숨기기"(숨긴 것은 #3D56E0 "보이기"), 내 키워드는 icon/pencil · icon/trash → 더하기 줄(채움 칸 "새 키워드 (12자까지)" + soft "+ 더하기") → 안내 "키워드는 AI에게 말의 방향만 알려 줘요 · 문장은 메모·누가기록에 있는 일로만 써요 · 기본 키워드는 지우지 않고 숨겨요" → 바닥(위 1px #E5E8EB) "기본으로 되돌리기"(모바일 "기본으로") ↔ 외곽선 "취소" · 인디고 "저장". 순서는 끌어서 바꾸고 저장 때 한 번에.
+- 시안 값: 2학년 3반 · 담임 24명, 학생A 20301 고른 키워드 성실함 · 맡은 일 끝까지 · 배려 · 갈등 중재 · 창의적 생각 · 새로운 도전, 내 키워드 "1인 1역 꾸준함" · "2학기에 달라짐" · "급식 도우미", 메모 "체육대회 때 망가진 반 응원 도구를 혼자 남아 고쳐 둠. 2학기 모둠 활동에서 의견이 갈린 두 친구 사이를 중재함."(62자 · 180B), 누가기록 3건.
+- 시안의 PC 사이드바는 교사 셸을 그대로 썼다(교과 세특 강조만 껐다). 실제 화면은 담임 셸의 "행동특성" 메뉴가 켜진다.
+
+### 공통
+- 버튼 위계: 화면마다 인디고 꽉 찬 버튼은 하나(확정 · 본문에 넣기 · 보관 · 초안 만들기 · 저장). AI 버튼은 soft + ✦.
+- 바이트는 모두 `lib/domain/length.ts` `measure`/`neisBytes` 하나로(한글 3B).
+- 요청과 다른 점: "걸린 곳 모두 AI로 고치기" 결과에 **"모두 넣기"를 두지 않았다**(학생마다 확인). 보관함 "완료 문장 탭"(하마룸)은 확정한 기록을 보관함에 따로 저장해야 해서 이번에는 넣지 않았다 — 열린 결정. 성취수준 3단계(상·중·하)는 세그먼트 칸 수만 바뀌어 따로 그리지 않았다. 반 전체 검사 기록(왓퀴즈 "검사 기록")은 남기지 않고 매번 새로 계산한다(감사 로그에만 남김).
+- 참고(유아이볼):
+  - [피처링 콘텐츠 트래킹 결과(PC)](https://uibowl.io/website/%ED%94%BC%EC%B2%98%EB%A7%81?patterns=%ED%86%B5%EA%B3%84%C2%B7%EB%A6%AC%ED%8F%AC%ED%8A%B8&patternName=%EC%BD%98%ED%85%90%EC%B8%A0%20%ED%8A%B8%EB%9E%98%ED%82%B9%20-%20%EA%B2%B0%EA%B3%BC) — 여러 건 결과를 요약 숫자 + 표 + 상태 태그로 → 반 전체 검사 요약 막대 · 결과 태그 표.
+  - [채널톡 AI 상담 통계(PC)](https://uibowl.io/website/%EC%B1%84%EB%84%90%ED%86%A1?patterns=%ED%86%B5%EA%B3%84%C2%B7%EB%A6%AC%ED%8F%AC%ED%8A%B8&patternName=AI%20%EC%83%81%EB%8B%B4) — 요약 위 거르기 칩, 아래 목록 → 결과별 거르기 칩(개수 포함).
+  - [플랭 맞춤 문장 · 내가 저장한 문장](https://uibowl.io/name/%ED%94%8C%EB%9E%AD?patterns=%EB%AA%A9%EB%A1%9D%20%28PLP%29&imgId=cmsu94v9v0003lb04i9xlon4c) — [전체 | 내가 저장한 문장] + 문장 찾기 칸 + 행마다 책갈피 → 보관함 찾기 칸 · 책갈피 아이콘 · 문장 카드.
+  - [요즘IT 북마크(PC)](https://uibowl.io/website/%EC%9A%94%EC%A6%98IT?patterns=%EB%B6%81%EB%A7%88%ED%81%AC%C2%B7%EC%9C%84%EC%8B%9C%EB%A6%AC%EC%8A%A4%ED%8A%B8) — 저장한 글을 카드 목록으로, 카드 안 태그·날짜 → 보관 문장 카드 메타 줄.
+  - [네이버페이 관심 부동산(PC)](https://uibowl.io/website/%EB%84%A4%EC%9D%B4%EB%B2%84%ED%8E%98%EC%9D%B4?patterns=%EB%B6%81%EB%A7%88%ED%81%AC%C2%B7%EC%9C%84%EC%8B%9C%EB%A6%AC%EC%8A%A4%ED%8A%B8&patternName=%EA%B4%80%EC%8B%AC%20%EB%B6%80%EB%8F%99%EC%82%B0) — 본 화면 옆 패널로 저장 목록 + 저장 스낵바 → 편집기 옆 보관함 패널 · "보관함에 넣었어요" 스낵바.
+  - [다글로 AI 퀴즈 난이도](https://uibowl.io/name/%EB%8B%A4%EA%B8%80%EB%A1%9C?patterns=%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0&imgId=cmpietj9f0005lf04ha7tsryj) — "초급 · 기본 개념 확인"처럼 단계 이름 아래 설명 → 성취수준 칸(글자 + 이름) + 말투 안내 줄.
+  - [오일나우 주유소 키워드](https://uibowl.io/name/%EC%98%A4%EC%9D%BC%EB%82%98%EC%9A%B0?patterns=%EB%A6%AC%EB%B7%B0%EC%93%B0%EA%B8%B0&imgId=cmtpnvtbb003plh04di02x78h) — 키워드 칩 여러 개 고르기 → 글 칸 → 메뉴판 칩 + 에피소드 메모.
+  - [패스오더 스토리 작성](https://uibowl.io/name/%ED%8C%A8%EC%8A%A4%EC%98%A4%EB%8D%94?patterns=%EB%A6%AC%EB%B7%B0%EC%93%B0%EA%B8%B0&imgId=cmspgdck50008ij04qfx37fwy) — 묶음 이름 + 칩 줄 → 다섯 묶음 메뉴판.
+  - [자리톡 집 리뷰 작성](https://uibowl.io/name/%EC%9E%90%EB%A6%AC%ED%86%A1?patterns=%EB%A6%AC%EB%B7%B0%EC%93%B0%EA%B8%B0&imgId=cmpmd1qw3002kl2044u4aofps) — 고른 칩은 파란 테두리 + 연한 바탕 → 고른 키워드 칩 꼴.
+  - [집지켜 당첨 후기](https://uibowl.io/name/%EC%A7%91%EC%A7%80%EC%BC%9C?patterns=%EB%A6%AC%EB%B7%B0%EC%93%B0%EA%B8%B0&imgId=cmubaucna001tl504thugmfrl) — 이름표 위 · 칩 아래 묶음을 세로로 → 모바일 메뉴판 묶음.
+
+### 코드 반영
+- [ ] **DB 마이그레이션 `apps/web/supabase/migrations/0020_n35_library_levels_keywords.sql`**(지금 가장 큰 번호 0019 다음 — 구현 때 더 큰 번호가 생겼으면 그다음 번호). 네 표(`sentence_library` · `achievement_levels` · `behavior_keywords` · `behavior_picks`) 모두 `enable row level security` + 정책 없음 + `grant select, insert, update, delete on … to service_role`(0018·0019와 같은 꼴, 앱은 서버에서 service role로만 읽고 씀):
+  - `sentence_library` — `id uuid pk default gen_random_uuid()`, `owner_id uuid not null references accounts(id) on delete cascade`, `area text not null check (area in ('세특','창체','행발','동아리'))`, `subject text`(세특 과목명만, 학생 정보 아님), `text text not null check (char_length(text) between 2 and 600)`, `tags text[] not null default '{}'`(최대 5개 · 12자, 서버에서 자름), `source text not null default 'body' check (source in ('body','variant','soften','fix','draft'))`, `use_count int not null default 0`, `created_at timestamptz default now()`, `updated_at`. 인덱스 `(owner_id, created_at desc)`, 찾기는 `ilike`로 충분(개인 수백 개). **학생 id·이름·학번 열을 두지 않는다.**
+  - `achievement_levels` — `course_id text not null`(지금 세특 `courseId` 꼴 그대로), `student_id uuid not null references students(id)`, `school_year int not null`, `semester int not null`, `level text not null check (level in ('A','B','C','D','E','상','중','하'))`, `author_id uuid references accounts(id)`, `updated_at`, `primary key (course_id, student_id, school_year, semester)`.
+  - `behavior_keywords` — 교사 메뉴판: `owner_id uuid pk references accounts(id) on delete cascade`, `menu jsonb not null`(`{ groups: { id, label, items: { id, label, custom?: true, hidden?: true }[] }[] }`), `updated_at`. 학생별 고른 키워드는 `behavior_picks` — `student_id uuid references students(id)`, `school_year int`, `owner_id uuid references accounts(id)`, `keywords text[] not null default '{}'`(라벨 그대로 저장 — 메뉴판이 바뀌어도 고른 말은 남음), `memo text not null default ''`(600자), `use_logs boolean not null default true`, `updated_at`, `primary key (student_id, school_year)`.
+  - 학교 설정 성취수준 단계: `app_state`(이미 있음)에 키 `achievement_scale` = `"A-E"`(기본) | `"상중하"` — 관리자 설정 화면에 세그먼트 한 줄 추가.
+- [ ] **반 전체 검사** 새 `lib/domain/class-check.ts` — `classCheck(items: { id: string; label: string; text: string; range: LengthRange; identity: string[]; similar?: number }[])` → 학생마다 `autoCheck`(N23·N34 그대로, 순수 함수) 결과에서 `{ id, status: "block"|"warn"|"pass"|"empty", top: { label, more: number } | null, bytes }` + 합계 `{ block, warn, pass, empty }`. 가장 큰 문제 순서는 위 ① 규칙(막음 → 분량 → 비슷한 문장 → 어미 → 학생 주어 → 문체). 비슷한 문장 수는 N34 `similarPairs` 결과를 넣는다. 정렬 함수 `sortForReview`. 단위 테스트 `class-check.test.ts`(정렬·top·빈 글·확정 학생 제외).
+  - 서버 액션 `teacher/setuk/actions.ts` `classCheckSetuk({ courseId, section })` — 권한은 기존 `saveSetuk`과 같은 분반 담당 확인, 분반 학생들의 최신 세특(확정 포함 — 확정 학생은 결과에 `locked: true`, AI 고치기 대상에서 뺌)으로 `classCheck`. `teacher/drafts/actions.ts` `classCheckDrafts({ programId })`(최신 초안 버전), `teacher/write/actions.ts` `classCheckRecords({ area, clubId? })`(담임 반·동아리). 모두 AI 없음. `repo.audit(v.accountId, "setuk.class_check" | "draft.class_check" | "record.class_check", \`${과목·분반|프로그램|영역} ${n}명 block ${b} warn ${w}\`)` — 학생 식별자는 넣지 않는다.
+  - 화면 새 `components/writing/class-check-panel.tsx`(요약 막대 · 거르기 칩(클라이언트 상태) · PC 표 / 좁은 단(@container < 640) 카드 목록 · "열기"는 지금 편집 링크 `?course=…&student=<내부 id>`에 `&check=1`(③ 자동 검사 첫 행 펼침) — 학번·이름은 URL에 넣지 않는다). 세특 `setuk/page.tsx` 학생 목록 머리 버튼 + 패널 상태, `teacher/drafts/page.tsx`, `homeroom/behavior/page.tsx`·`teacher/write` 반 목록에 같은 버튼.
+- [ ] **걸린 곳 모두 AI로 고치기** — N34 `fixRecord`(merge-record.ts, `aiJson` · `model: "fast"` Haiku)를 학생마다 부른다. 새 액션 `classAiFix({ scope, studentIds })` → 서버에서 3명씩 동시(`Promise.all` 묶음)로 돌리고 결과를 **저장하지 않고** 클라이언트에 스트리밍하거나(간단히: 학생별 액션 `aiFixSetuk`를 클라이언트가 3개씩 차례로 호출) 돌려준다 — 결과는 패널 상태(새로고침하면 사라짐, "닫아도 계속"은 같은 탭 안에서만). 학생마다 `scrubIdentity(text, student, pseudonymId)` 후 가명ID로만 보낸다. "본문에 넣기" = 기존 저장 액션(`saveSetuk` 등)으로 **새 버전 저장, 상태는 작성 중 그대로**(확정 금지 — 확정 학생은 대상 아님), "되돌리기" = 넣기 전 본문으로 다시 저장. 감사 로그 `*.ai_fix`(N34와 같은 라벨)에 `class` 표시 + 가명ID. 학생 수 상한 40명(넘으면 버튼 문구 "앞 40명만").
+- [ ] **문장 보관함** 새 `lib/domain/library.ts` — `stripIdentity(text, names: string[], numbers: string[])`(실명·학번·"○○는/은/이/가" 주어 꼴을 지우고 공백 정리, 지운 범위 반환 → 미리보기 취소선), `normalizeTags`, `LIBRARY_AREAS`. 테스트 추가. 서버 `lib/server/repo` 에 `library.list(ownerId, { q, area, tag, sort })` · `add` · `update` · `remove` · `bump(use_count)`. 액션 새 `app/(app)/teacher/library/actions.ts`: `saveSentence({ text, area, subject?, tags, source, studentId? })` — **studentId는 이름·학번을 지우는 데만 쓰고 저장하지 않는다**(서버에서 다시 `stripIdentity` — 클라이언트 값을 믿지 않음, 지운 뒤 2자 미만이면 거절), `listSentences`, `updateSentence`, `removeSentence`(N33 지우기 확인). 감사 `library.add` · `library.remove`(대상 = 보관 문장 id만). `admin/audit/labels.ts` 라벨 추가.
+  - 화면: `components/writing/library-save.tsx`(PC 팝오버 · 모바일 바텀시트), `components/writing/library-panel.tsx`(편집기 옆 420 · 좁으면 바텀시트), 페이지 `app/(app)/teacher/library/page.tsx`(사이드바 메뉴 추가 — `components/shell` nav 목록). 선택 도구는 본문 `textarea`의 `select` 이벤트 + `selectionStart/End`(N34 `highlight-textarea.tsx` 거울 div로 위치 계산). 보관 버튼을 N34 `variants-panel` 버전 카드 · 순화 결과 · 고친 글 카드 · N32 초안 결과 머리에 추가.
+  - "조각으로 넣기": 세특 = `addRecordPiece`(N32, 출처 `"library"` → 조각 칩 "보관함"), 창체·동아리 = 같은 조각 액션, 행발 = 메모 칸에 덧붙임. "본문에 넣기": 클라이언트에서 커서 자리에 넣고 `bump`.
+- [ ] **성취수준** 새 `lib/domain/achievement.ts` — `ACHIEVEMENT_SCALES = { "A-E": [...], "상중하": [...] }`, 표의 말투 한 줄 `toneLine(level)`, `scaleOf(appState)`. 테스트. 액션 `teacher/setuk/actions.ts` `setLevels({ courseId, studentIds, level })`(분반 담당 확인, upsert, 감사 `setuk.level` + 과목 · 명수 · 수준 — 학생 식별자 없이), 세특 페이지 데이터에 학생별 `level`. `mergeSetuk`/`fitSetuk`/세특 "메모로·키워드로" 초안 액션 입력에 `level?` → `merge-record.ts` 시스템 프롬프트 끝에 `성취수준 말투: ${toneLine(level)} · 수준 글자(A~E/상중하)를 쓰지 않는다 · 조각에 없는 성과·수상·결과를 만들지 않는다 · 부정적인 말을 쓰지 않는다` 한 줄만 붙인다(모델은 지금 그대로 `model: "write"` Sonnet). 수준은 AI에 학생 정보와 함께 보내지 않고 말투 한 줄로만 보낸다. 화면: `components/writing/level-picker.tsx`(세그먼트 5/3칸 · 안내 줄) → N32 ② `merge-list.tsx`/`piece-composer.tsx` 목표 줄 위, `LevelBadge`(목록 · 학생 고르기 칸), 한꺼번에 = N28 고른 학생 바와 같은 네이비 바 컴포넌트 재사용(`batch-writer.tsx`의 바를 `components/writing/pick-bar.tsx`로 빼서 같이 쓴다).
+- [ ] **행발 키워드 메뉴판** 새 `lib/domain/behavior-keywords.ts` — `DEFAULT_MENU`(위 표, id 고정), `mergeMenu(defaults, saved)`(숨김·순서·내 키워드 반영, 기본 키워드는 지우지 않음), `makeKeyword(label, existing)`(12자 · 같은 이름 거절 — `trait-logs.ts` `makeCustomTrait` 규칙과 같게), `pickedLabels`. 테스트. 액션 `homeroom/actions.ts`(또는 `homeroom/behavior/actions.ts` 새로): `saveKeywordMenu(menu)`(본인 것만, 감사 `behavior.menu`), `saveBehaviorPicks({ studentId, keywords, memo, useLogs })`(담임 반 학생인지 확인 — `homeroomStudents`), `draftBehavior({ studentId, range })` → `merge-record.ts`에 `behaviorDraft({ student, keywords, memo, logs, range })`: `aiJson(Draft, { system: recordSystemPrompt("행발") + "고른 키워드는 말의 방향일 뿐, 메모·누가기록에 있는 일로만 문장을 쓴다 · 키워드를 나열하지 않는다 · 키워드에 맞는 일이 자료에 없으면 그 키워드는 쓰지 않는다", model: "write", maxTokens: 3000 })`(Sonnet). 메모·누가기록은 `scrubIdentity`/`maskIdentity` 뒤 가명ID로, 감사 `record.ai_behavior` + 가명ID. 결과는 지금 행발 초안 흐름(초안 결과 → ③)으로. 화면 `components/writing/keyword-menu.tsx`(묶음 칩 · 내 키워드 점 · 더하기) + `keyword-menu-editor.tsx`(PC 모달 600 · 모바일 바텀시트, 끌어 순서 바꾸기는 `@dnd-kit` 없이 위·아래 버튼으로 대체해도 됨) → `homeroom/behavior` 편집 카드 ② "키워드로" 방식.
+- [ ] **개인정보 공통**: AI 호출(반 전체 AI 고치기 · 성취수준 말투 초안 · 행발 키워드 초안)은 모두 `aiJson` 래퍼만, 보내기 전 `scrubIdentity`/`maskIdentity`, 학생은 가명ID. 보관함·메뉴판·성취수준 표에는 실명·학번을 넣지 않는다(성취수준·고른 키워드는 내부 `student_id`만). URL·쿼리에는 내부 id만. 감사 로그는 가명ID 또는 숫자만. AI 결과는 교사가 "본문에 넣기 · 보관 · 초안 만들기"를 눌러야 저장되고, 어떤 경우에도 **자동 확정하지 않는다**.
+- [ ] `admin/audit/labels.ts`: `setuk.class_check` "반 전체 검사" · `draft.class_check` · `record.class_check` · `library.add` "문장 보관" · `library.remove` "보관 문장 지우기" · `setuk.level` "성취수준 정함" · `behavior.menu` "키워드 메뉴판 고침" · `record.ai_behavior` "AI 행발 키워드 초안".
+- [ ] 테스트: 위 순수 함수 4개 파일(class-check · library · achievement · behavior-keywords) 단위 테스트, `npm run build` · 기존 테스트 통과. 하네스(`python -m unittest`)는 건드리지 않는다.
