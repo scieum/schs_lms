@@ -14,9 +14,10 @@ const TEMPLATE_HREF: Record<TemplateKind, string> = {
   teacher: "/admin/accounts/template",
 };
 
+const BTN_SM = "inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-3 text-[14px] font-bold text-white transition-colors md:h-9 md:flex-none md:text-[13px]";
 const BTN = "inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-3.5 text-[14px] font-bold text-white transition-colors md:h-10 md:flex-none";
 
-export function ExcelButtons({ kind, onPick, busy, error, file, className }: {
+export function ExcelButtons({ kind, onPick, busy, error, file, className, compact, uploadLabel }: {
   kind: TemplateKind;
   /** 고른 파일 (.xlsx) — 올리기·읽기는 부르는 쪽이 한다 */
   onPick: (file: File) => void;
@@ -26,10 +27,15 @@ export function ExcelButtons({ kind, onPick, busy, error, file, className }: {
   /** 올린 파일 줄 (이름 + 오른쪽 태그) */
   file?: { name: string; tag: string; failed?: boolean } | null;
   className?: string;
+  /** 카드 머리용 작은 꼴 (Figma N36): 높이 36 · 13 · 아래 안내/오류 줄 없음 (부르는 쪽이 보여 준다) */
+  compact?: boolean;
+  /** "명단 업로드" 대신 (예: 오류 뒤 "다시 올리기") */
+  uploadLabel?: string;
 }) {
   const input = useRef<HTMLInputElement>(null);
+  const btn = compact ? BTN_SM : BTN;
   return (
-    <div className={cx("flex flex-col gap-2", className)}>
+    <div className={cx("flex flex-col", compact ? "gap-0" : "gap-2", className)}>
       {file && (
         <div className="flex min-w-0 items-center gap-2 rounded-field bg-[#fff] px-3 py-2.5">
           <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{file.name}</span>
@@ -37,12 +43,12 @@ export function ExcelButtons({ kind, onPick, busy, error, file, className }: {
         </div>
       )}
       <div className="flex gap-2">
-        <a href={TEMPLATE_HREF[kind]} download={TEMPLATES[kind].file} className={cx(BTN, "bg-[#1D6F42] hover:bg-[#185C37]")}>
+        <a href={TEMPLATE_HREF[kind]} download={TEMPLATES[kind].file} className={cx(btn, "bg-[#1D6F42] hover:bg-[#185C37]")}>
           <FileSpreadsheet size={16} aria-hidden /> 양식 받기
         </a>
         <button type="button" disabled={busy} onClick={() => input.current?.click()}
-          className={cx(BTN, "bg-[#191F28] hover:bg-[#333D4B] disabled:cursor-wait disabled:opacity-60")}>
-          <Upload size={16} aria-hidden /> {busy ? "읽는 중…" : "명단 업로드"}
+          className={cx(btn, "bg-[#191F28] hover:bg-[#333D4B] disabled:cursor-wait disabled:opacity-60")}>
+          <Upload size={16} aria-hidden /> {busy ? "읽는 중…" : uploadLabel ?? "명단 업로드"}
         </button>
         <input ref={input} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" aria-label="명단 엑셀 파일"
           onChange={(e) => {
@@ -51,7 +57,7 @@ export function ExcelButtons({ kind, onPick, busy, error, file, className }: {
             if (f) onPick(f);
           }} />
       </div>
-      {error ? (
+      {compact ? null : error ? (
         <p className="flex items-start gap-1 text-[12px] font-medium text-bad" role="alert">
           <CircleAlert size={14} className="mt-px shrink-0" aria-hidden /> {error}
         </p>
