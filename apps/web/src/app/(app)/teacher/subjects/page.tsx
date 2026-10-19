@@ -32,7 +32,7 @@ export default async function SubjectsPage({ searchParams }: Props) {
     const c = courses.find((x) => x.id === a.courseId);
     if (!c || a.mode !== "moving" || !a.sections?.length) return [];
     const rs = rosters.filter((x) => x.courseId === c.id);
-    return [{ id: c.id, label: c.subject, meta: `${c.grade}학년 ${c.semester}학기 · ${c.type ?? "직접 입력"}`, sections: a.sections.map((name) => ({ name, count: rs.find((r) => r.section === name)?.studentIds.length ?? 0 })) }];
+    return [{ id: c.id, label: c.subject, grade: c.grade, meta: `${c.grade}학년 ${c.semester}학기 · ${c.type ?? "직접 입력"}`, sections: a.sections.map((name) => ({ name, count: rs.find((r) => r.section === name)?.studentIds.length ?? 0, ids: rs.find((r) => r.section === name)?.studentIds ?? [] })) }];
   });
   const fixed = assigned.filter((a) => a.mode !== "moving").map((a) => {
     const c = courses.find((x) => x.id === a.courseId);
@@ -59,7 +59,12 @@ export default async function SubjectsPage({ searchParams }: Props) {
           </p>
         )}
         {/* key: 교사를 바꾸면 폼 상태를 새로 시작 */}
-        <RosterBox teacherId={target} courses={rosterCourses} fixedNote={fixed.length ? fixed.join(" · ") : null} />
+        <RosterBox
+          teacherId={target}
+          courses={rosterCourses}
+          fixedNote={fixed.length ? fixed.join(" · ") : null}
+          students={rosterCourses.length ? students.map((s) => ({ id: s.id, studentNo: s.studentNo, grade: s.grade, classNo: s.classNo, number: s.number, name: s.name })) : []}
+        />
         <SubjectsForm key={target} teacherId={target} initialGroups={groups} initialCourses={assigned} courses={courses} classesByGrade={classesByGrade} />
       </PageBody>
     </>
