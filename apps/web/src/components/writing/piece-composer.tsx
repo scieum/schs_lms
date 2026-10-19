@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, useTransition, type RefObject } from "react";
+import { useMemo, useRef, useState, useTransition, type RefObject } from "react";
 import { FileUp, Paperclip, Plus, RotateCcw, Sparkles, X } from "lucide-react";
 import { Button, Tag, cx } from "@/components/ui";
 import { prepareUpload } from "@/lib/client/shrink-upload";
@@ -8,6 +8,9 @@ import { neisBytes } from "@/lib/domain/length";
 import { ACTIVITY_MAX, cleanActivity, withActivity } from "@/lib/domain/activity-name";
 import { PIECE_MAX, PIECE_MIN, type PieceKind } from "@/lib/domain/merge";
 import type { EvidenceResult } from "@/lib/server/ai/read-evidence";
+import { bluntWords } from "@/lib/domain/soften";
+import { HighlightTextarea } from "./highlight-textarea";
+import { SoftenNotice, SoftenResult } from "./soften";
 
 // 조각 추가 (Figma N32 400:475): 하나뿐인 입력 블록. [메모 | 자료] 세그먼트 · 활동명 칸 하나(②와 같은 값).
 // 메모 = 활동명 + 지금 본 것 → "조각 남기기". 자료 = 활동명 + 자료 + 짧은 설명 → AI 활동 요약(고쳐 쓸 수 있음) → "조각으로 남기기".
@@ -23,12 +26,16 @@ export type ComposerProps = {
   summarize?: (fd: FormData) => Promise<EvidenceResult>;
   placeholder: string;
   onAdded: () => void;
+  /** 순화하기 (Figma N34 ③): 메모에 퉁명스러운 말이 있으면 알림 줄 → 순화한 글 → 조각으로 넣기. 없으면(AI 꺼짐) 버튼 숨김 */
+  soften?: (text: string) => Promise<{ ok: true; text: string; label: "AI" } | { ok: false; error: string }>;
+  /** 메모 칸 밑줄·알림 줄을 보일지 (기록 쓰기 화면) */
+  bluntCheck?: boolean;
 };
 
 type Summary = { text: string; label: "AI" | "자동" };
 const FIELD = "w-full min-w-0 rounded-field bg-[#fff] px-3 text-[14px] outline-none placeholder:text-mute focus:ring-2 focus:ring-key";
 
-export function PieceComposer({ activity, setActivity, activityRef, add, summarize, placeholder, onAdded }: ComposerProps) {
+export function PieceComposer({ activity, setActivity, activityRef, add, summarize, placeholder, onAdded, soften, bluntCheck = !!soften }: ComposerProps) {
   const [mode, setMode] = useState<"memo" | "file">("memo");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -38,6 +45,13 @@ export function PieceComposer({ activity, setActivity, activityRef, add, summari
   const [busy, start] = useTransition();
   const input = useRef<HTMLInputElement>(null);
   const hasActivity = !!cleanActivity(activity);
+  const blunt = useMemo(() => (bluntCheck ? bluntWords(text) : []), [bluntCheck, text]);
+  const [soft, setSoft] = useState<{ memo: string; r: { ok: true; text: string; label: "AI" } | { ok: false; error: string } } | null>(null);
+  const runSoften = () => soften && start(async () => {
+    const memo = text;
+    try { setSoft({ memo, r: await soften(memo) }); } catch { setSoft({ memo, r: { ok: false, error: "순화하지 못했어요. 직접 고쳐 주세요" } }); }
+  });
+  const softShown = mode === "memo" && soft && soft.memo === text ? soft : null;
 
   const save = (body: string, kind: PieceKind) => start(async () => {
     setMsg(null);
@@ -99,9 +113,10 @@ export function PieceComposer({ activity, setActivity, activityRef, add, summari
       {mode === "memo" || !summarize ? (
         <div className="flex flex-col gap-2 md:flex-row">
           {activityField}
-          <textarea value={text} onChange={(e) => { setText(e.target.value); setMsg(null); }} maxLength={PIECE_MAX} aria-label="새 조각"
-            placeholder={placeholder}
-            className={cx(FIELD, "h-[72px] resize-none py-2.5 leading-6 md:h-auto md:max-h-40 md:min-h-10 md:py-2 md:[field-sizing:content]")} />
+          <HighlightTextarea value={text} onChange={(v) => { setText(v); setMsg(null); }} maxLength={PIECE_MAX} aria-label="새 조각"
+            placeholder={placeholder} marks={blunt.map((h) => ({ start: h.start, end: h.end, tone: "warn" as const }))}
+            boxClassName="min-w-0 flex-1 rounded-field bg-[#fff] focus-within:ring-2 focus-within:ring-key"
+            textClassName="min-h-[72px] px-3 py-2.5 text-[14px] leading-6 md:min-h-10 md:py-2" />
         </div>
       ) : !summary ? (
         <div className="flex flex-col gap-2">
@@ -156,6 +171,16 @@ export function PieceComposer({ activity, setActivity, activityRef, add, summari
         </div>
       )}
 
+      {(mode === "memo" || !summarize) && (
+        <>
+          <SoftenNotice hits={blunt} busy={busy} onRun={soften ? runSoften : undefined} />
+          {softShown?.r.ok && (
+            <SoftenResult memo={softShown.memo} soft={softShown.r.text} hits={blunt} label={softShown.r.label} busy={busy}
+              onRedo={runSoften} onKeep={() => setSoft(null)} onInsert={() => { if (softShown.r.ok) { const t = softShown.r.text; setSoft(null); save(t, "memo"); } }} />
+          )}
+          {softShown && !softShown.r.ok && <p className="text-[13px] text-bad" role="alert">{softShown.r.error}</p>}
+        </>
+      )}
       <div className="flex flex-col gap-2 md:flex-row md:items-center">
         {msg ? (
           <p className={cx("min-w-0 flex-1 text-[12px]", msg.ok ? "text-ok" : "text-bad")} role={msg.ok ? "status" : "alert"}>{msg.text}</p>
@@ -165,7 +190,7 @@ export function PieceComposer({ activity, setActivity, activityRef, add, summari
           </span>
         )}
         {mode === "memo" || !summarize ? (
-          <Button type="button" kind="soft" size="sm" disabled={busy || !memoReady} onClick={() => save(text, "memo")} className="h-11 disabled:opacity-40 max-md:w-full md:h-9">
+          <Button type="button" kind="soft" size="sm" disabled={busy || !memoReady || !!softShown?.r.ok} onClick={() => save(text, "memo")} className="h-11 disabled:opacity-40 max-md:w-full md:h-9">
             <Plus size={14} /> {busy ? "남기는 중…" : "조각 남기기"}
           </Button>
         ) : summary ? (

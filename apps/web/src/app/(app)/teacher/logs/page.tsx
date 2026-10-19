@@ -6,6 +6,7 @@ import type { Student } from "@/lib/domain/types";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { LogBoard } from "./log-board";
+import { aiEnabled } from "@/lib/server/ai/claude";
 
 export const metadata = { title: "누가기록 · 속초고등학교 학생관리시스템" };
 
@@ -66,6 +67,7 @@ export default async function LogsPage({ searchParams }: Props) {
             area={area}
             clubId={club?.id}
             today={today()}
+            aiOn={aiEnabled()}
             students={students.map((s) => ({ id: s.id, name: s.name, grade: s.grade, classNo: s.classNo, number: s.number, count: count(s.id) }))}
             logs={logs.map((l) => ({ id: l.id, studentId: l.studentId, date: l.date, content: l.content }))}
           />

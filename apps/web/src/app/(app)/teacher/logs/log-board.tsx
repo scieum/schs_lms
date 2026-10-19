@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useMemo, useRef, useState, useTransition } from "react";
+import { startTransition, useActionState, useMemo, useRef, useState, useTransition } from "react";
 import { CalendarDays, Check, Paperclip, Sparkles, X } from "lucide-react";
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { ACCEPT } from "@/components/writing/evidence-files";
@@ -7,7 +7,10 @@ import { ACTIVITY_MAX, cleanActivity, withActivity } from "@/lib/domain/activity
 import { chipDate, chipOf, shortMd, type DateChip } from "@/lib/domain/log-date";
 import { Button, Card, Tag, cx } from "@/components/ui";
 import { neisBytes } from "@/lib/domain/length";
-import { addLogs, polishLogMemo, readLogFile, type LogState, type PolishResult } from "./actions";
+import { addLogs, polishLogMemo, readLogFile, softenLogMemo, type LogState, type PolishResult } from "./actions";
+import { bluntWords } from "@/lib/domain/soften";
+import { HighlightTextarea } from "@/components/writing/highlight-textarea";
+import { SoftenNotice, SoftenResult } from "@/components/writing/soften";
 import { makeStudentNo } from "@/lib/domain/roster";
 import { StudentListImport } from "@/components/student-list-import";
 import { RecordCompetency } from "@/components/writing/record-competency";
@@ -18,7 +21,7 @@ type L = { id: string; studentId: string; date: string; content: string };
 
 // 왼쪽: 학생 고르기(여러 명) · 오른쪽: 같은 기록을 한 번에 추가 + 최근 기록
 const chipCls = (on: boolean) => cx("flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-field px-3.5 text-[14px]", on ? "bg-key-soft font-bold text-key-strong" : "bg-soft font-medium text-sub");
-export function LogBoard({ area, clubId, students, logs, today }: { area: string; clubId?: string; students: S[]; logs: L[]; today: string }) {
+export function LogBoard({ area, clubId, students, logs, today, aiOn = false }: { area: string; clubId?: string; students: S[]; logs: L[]; today: string; aiOn?: boolean }) {
   const [text, setText] = useState("");
   // 추가하면 글만 비운다 (활동명·날짜·학생은 이어서 쓰게 둔다)
   const [state, action, pending] = useActionState<LogState, FormData>(async (prev, fd) => {
@@ -68,6 +71,25 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
       setPolish({ ok: false, error: "파일을 읽지 못했어요. 직접 써 주세요" });
     }
   });
+  // 순화하기 (Figma N34 ③): 퉁명스러운 말이 있으면 알림 줄 → 순화한 글 → "조각으로 넣기"(= 고른 학생에게 추가)
+  const blunt = useMemo(() => bluntWords(text), [text]);
+  const [soft, setSoft] = useState<{ memo: string; r: PolishResult } | null>(null);
+  const runSoften = () => startPolish(async () => {
+    const memo = text;
+    try { setSoft({ memo, r: await softenLogMemo({ area, clubId, text: memo }) }); } catch { setSoft({ memo, r: { ok: false, error: "순화하지 못했어요. 직접 고쳐 주세요" } }); }
+  });
+  const softShown = soft && soft.memo === text ? soft : null;
+  const insertSoft = (t: string) => {
+    const fd = new FormData();
+    fd.set("area", area);
+    if (clubId) fd.set("clubId", clubId);
+    fd.set("studentIds", JSON.stringify([...picked]));
+    fd.set("date", date);
+    fd.set("activity", activity);
+    fd.set("content", t);
+    setSoft(null);
+    startTransition(() => action(fd));
+  };
   const nameOf = new Map(students.map((s) => [s.id, s.name]));
   const pool = useMemo(() => students.map((s) => ({ ...s, studentNo: makeStudentNo(s.grade, s.classNo, s.number) })), [students]);
   const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -158,9 +180,17 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
                 )}
               </div>
             </div>
-            <textarea name="content" value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} required
+            <HighlightTextarea name="content" value={text} onChange={setText} maxLength={1000} required
+              marks={blunt.map((h) => ({ start: h.start, end: h.end, tone: "warn" as const }))}
               placeholder="관찰한 활동을 짧게 적거나 받아쓰기를 붙여 넣어 주세요. 고른 학생 모두에게 같은 내용이 들어가요"
-              className="min-h-[104px] w-full resize-y rounded-field bg-soft px-4 py-3 text-[15px] leading-6 outline-none placeholder:text-mute focus:ring-2 focus:ring-key md:min-h-[88px] md:text-[14px]" aria-label="기록 내용" />
+              boxClassName="rounded-field bg-soft focus-within:ring-2 focus-within:ring-key"
+              textClassName="min-h-[104px] px-4 py-3 text-[15px] leading-6 md:min-h-[88px] md:text-[14px]" aria-label="기록 내용" />
+            <SoftenNotice hits={blunt} busy={polishing} onRun={aiOn ? runSoften : undefined} />
+            {softShown?.r.ok && (
+              <SoftenResult memo={softShown.memo} soft={softShown.r.text} hits={blunt} label={softShown.r.label} busy={polishing || pending}
+                onRedo={runSoften} onKeep={() => setSoft(null)} onInsert={() => softShown.r.ok && insertSoft(softShown.r.text)} />
+            )}
+            {softShown && !softShown.r.ok && <p className="text-[13px] text-bad" role="alert">{softShown.r.error}</p>}
             {polish?.ok && (
               <div className="flex flex-col gap-2 rounded-inner bg-bg p-3.5">
                 <div className="flex items-center gap-1.5">
@@ -190,7 +220,7 @@ export function LogBoard({ area, clubId, students, logs, today }: { area: string
             </div>
             {state.error && <p className="text-[13px] text-bad" role="alert">{state.error}</p>}
             {state.added && !state.error && <p className="text-[13px] text-ok" role="status">{state.added}명에게 추가했어요</p>}
-            <Button disabled={pending || picked.size === 0 || !cleanActivity(activity) || text.trim().length < 5} className="h-11 w-full py-0 disabled:bg-key disabled:opacity-40 md:h-[42px]">
+            <Button disabled={pending || !!softShown?.r.ok || picked.size === 0 || !cleanActivity(activity) || text.trim().length < 5} className="h-11 w-full py-0 disabled:bg-key disabled:opacity-40 md:h-[42px]">
               {pending ? "추가하는 중…" : picked.size ? `${picked.size}명에게 추가` : "학생을 골라 주세요"}
             </Button>
           </form>

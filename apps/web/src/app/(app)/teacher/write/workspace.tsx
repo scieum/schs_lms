@@ -8,6 +8,7 @@ import { measure, UNIT_LABEL } from "@/lib/domain/length";
 import type { Student } from "@/lib/domain/types";
 import { latestMemoByStudent, latestRecordByStudent, recordMax, recordStatus, type RecordArea, type RecordDraft, type RecordMemo, type RecordStatusLabel } from "@/lib/domain/writing";
 import { makeStudentNo } from "@/lib/domain/roster";
+import { aiEnabled } from "@/lib/server/ai/claude";
 
 // 기록 쓰기 작업 화면 (Figma T4 초안 검토와 같은 배치): 왼쪽 학생 목록 · 가운데 본문(AI 초안·자동 검사·분량) · 오른쪽 근거 자료
 // 특기사항(/teacher/write?area=…)과 행발(/homeroom/behavior)이 함께 쓴다.
@@ -118,6 +119,7 @@ export function RecordWorkspace({
           unit={cur?.unit ?? "bytes"}
           max={cur?.max ?? recordMax(area, "bytes")}
           confirmed={cur?.status === "confirmed"}
+          aiOn={aiEnabled()}
         />
       </section>
 

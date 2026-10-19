@@ -5,7 +5,9 @@ import { measure, UNIT_LABEL, type LengthRange } from "@/lib/domain/length";
 import { mergeByRules, orderPieces, type MergePiece } from "@/lib/domain/merge";
 import { polishStyle } from "@/lib/domain/neis-style";
 import type { Student } from "@/lib/domain/types";
-import { fitToMax, scrubIdentity, sentences } from "@/lib/domain/writing";
+import { findIdentity, fitToMax, scrubIdentity, sentences } from "@/lib/domain/writing";
+import { applyRuleFixes, autoCheck, fixableRows } from "@/lib/domain/auto-check";
+import { sampleVariants, type VariantMode } from "@/lib/domain/variants";
 import { aiEnabled, aiJson } from "./claude";
 import { subjectStandards } from "../standards";
 import { recordSystemPrompt } from "./record-prompts";
@@ -78,6 +80,105 @@ export async function fitRecord(input: { kind: WriteKind; context?: string; stud
   if (!body) return { text: "", sample: false, notice: "본문이 비어 있어요" };
   const content = [`학생: ${student.pseudonymId}`, `분량: ${target(input.range)}`, "", "<본문>", body, "</본문>"].join("\n");
   return rewrite({ ...input, system: FIT_RULES(input.range), content, fallback: () => mergeByRules([{ id: "body", source: "본문", date: null, text: scrubIdentity(input.text, student).text }], input.range) });
+}
+
+// ---------- AI로 고치기 · 다른 버전 (Figma N34) ----------
+
+/** AI가 돌려준 글에서 가명ID를 지운다 (이름을 다시 넣지 않는다 — 생기부에는 이름을 쓰지 않음) */
+function dropPseudonym(text: string, pid: string): string {
+  if (!pid) return text;
+  const re = new RegExp(`${pid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:은|는|이가|이|가|의|을|를)?\\s*`, "g");
+  return text.replace(re, "").replace(/[ \t]{2,}/g, " ").trim();
+}
+
+export type FixResult = { text: string; changes: { from: string; to: string }[]; label: "AI" | "자동"; notice?: string };
+
+/**
+ * AI로 고치기: 자동 검사에 걸린 곳만 고친다 (Haiku). 보내기 전 이름·학번 → 가명ID, 받은 글은 가명ID를 지운다.
+ * AI가 꺼져 있거나 실패하면 규칙 고칠 말만 모두 적용한다 (label "자동"). 분량은 range.max 를 넘지 않게 자른다.
+ */
+export async function fixRecord(input: { kind: WriteKind; context?: string; student: Student; text: string; range: LengthRange }): Promise<FixResult> {
+  const { student, range } = input;
+  const pid = student.pseudonymId;
+  const check = autoCheck(input.text, range, findIdentity(input.text, student), undefined, input.kind === "세특" ? input.context : undefined);
+  const rows = fixableRows(check);
+  const byRule = (notice?: string): FixResult => {
+    const t = fitToMax(applyRuleFixes(input.text, rows), range);
+    return { text: t, changes: rows.filter((r) => r.fix).map((r) => ({ from: r.fix!.from, to: r.fix!.to ?? "" })), label: "자동", notice };
+  };
+  if (!rows.length) return { text: input.text, changes: [], label: "자동", notice: "고칠 곳이 없어요" };
+  if (!aiEnabled()) return byRule();
+
+  const scrub = (s: string) => scrubIdentity(s, student, pid).text;
+  const body = scrub(input.text.trim());
+  const issues = rows.map((r, i) => `${i + 1}. ${r.label.replace(/'.*'/, "")}${r.phrase ? ` — 걸린 말: "${scrub(r.phrase)}"` : ""} — 이유: ${r.why}${r.fix ? ` — 규칙 제안: ${r.fix.to ? `"${scrub(r.fix.to)}"(으)로 바꾸기` : "그 구 빼기"}` : ""}`);
+  const content = [`학생: ${pid}`, `분량: ${range.max.toLocaleString()}${UNIT_LABEL[range.unit]} 이하`, "", "<본문>", body, "</본문>", "", "<걸린 곳>", ...issues, "</걸린 곳>"].join("\n");
+  const system = `${recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null)}
+
+고치기 규칙:
+- 아래 <걸린 곳>만 고치고 나머지 문장은 글자 그대로 둔다. 문장 순서를 바꾸지 않는다.
+- 사실·활동·수치를 보태지 않는다. 기재 금지 표현은 일반 명사로 바꾸거나 그 구를 뺀다.
+- 학생 이름·가명ID·"이 학생은" 같은 주어는 쓰지 않는다.
+- 문장은 "~함." "~임." 같은 명사형 어미로 끝낸다.
+- 분량: ${range.max.toLocaleString()}${UNIT_LABEL[range.unit]}를 넘지 않는다.
+- text 에 고친 본문 전체, changes 에 바꾼 곳(from 원래 말, to 바꾼 말 — 뺐으면 빈 글)을 넣는다.`;
+  const r = await aiJson(z.object({ text: z.string(), changes: z.array(z.object({ from: z.string(), to: z.string() })) }), { system, content, model: "fast", maxTokens: 2000 });
+  if (!r.ok) return byRule(`${r.error} — 규칙으로 고쳤어요`);
+  const clean = dropPseudonym(scrubIdentity(r.data.text, student).text, pid);
+  if (!clean) return byRule("AI 답이 비어 규칙으로 고쳤어요");
+  const fitted = fitToMax(clean, range);
+  return {
+    text: fitted,
+    changes: r.data.changes.map((c) => ({ from: dropPseudonym(c.from, pid), to: dropPseudonym(c.to, pid) })).filter((c) => c.from || c.to).slice(0, 20),
+    label: "AI",
+    notice: fitted !== clean ? "분량을 넘어 마지막 문장을 뺐어요" : undefined,
+  };
+}
+
+export type Variant = { text: string; block: boolean };
+export type VariantsResult = { versions: Variant[]; label: "AI" | "자동"; sample: boolean; notice?: string };
+
+const VARIANT_RULE: Record<VariantMode, string> = {
+  keep: "뜻 그대로: 본문의 내용과 문장 순서를 지키고 표현(낱말·어순·문장 잇기)만 바꾼다.",
+  fresh: "새롭게: 본문에 있는 같은 사실로 글의 구성(문장 순서·묶음·강조)을 새로 짠다. 사실·활동·수치를 보태지 않는다.",
+};
+
+/**
+ * 다른 버전 3개 (Sonnet). 버전마다 분량(range.max)을 넘으면 그 버전만 맞추기(fitRecord)로 줄이고, 그래도 넘으면 버린다.
+ * 결과는 저장하지 않는다 — 교사가 "이걸로 바꾸기"를 눌러야 본문에 들어간다.
+ */
+export async function variantsRecord(input: { kind: WriteKind; context?: string; student: Student; text: string; mode: VariantMode; range: LengthRange }): Promise<VariantsResult> {
+  const { student, range } = input;
+  const pid = student.pseudonymId;
+  const ctx = input.kind === "세특" ? input.context : undefined;
+  const judge = (t: string): Variant => ({ text: t, block: autoCheck(t, range, findIdentity(t, student), undefined, ctx).status === "block" });
+  const body = scrubIdentity(input.text.trim(), student, pid).text;
+  if (!body) return { versions: [], label: "자동", sample: false, notice: "본문이 비어 있어요" };
+  if (!aiEnabled()) {
+    const plain = scrubIdentity(input.text.trim(), student).text;
+    return { versions: sampleVariants(plain, input.mode).map((t) => fitToMax(t, range)).filter((t) => t).slice(0, 3).map(judge), label: "자동", sample: true, notice: "AI 키가 없어 규칙으로 만든 예시예요" };
+  }
+  const content = [`학생: ${pid}`, `분량: 버전마다 ${range.max.toLocaleString()}${UNIT_LABEL[range.unit]} 이하`, "", "<본문>", body, "</본문>"].join("\n");
+  const system = `${recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null)}
+
+다른 버전 규칙:
+- 본문을 서로 다른 3개 버전으로 다시 쓴다. ${VARIANT_RULE[input.mode]}
+- 본문에 없는 내용은 쓰지 않는다. 학생 이름·가명ID·주어는 쓰지 않는다.
+- 버전마다 ${range.max.toLocaleString()}${UNIT_LABEL[range.unit]}를 넘지 않는다. 한 문단.
+- versions 에 3개를 넣는다.`;
+  const r = await aiJson(z.object({ versions: z.array(z.string()) }), { system, content, model: "write", maxTokens: 4000 });
+  if (!r.ok) return { versions: [], label: "AI", sample: false, notice: r.error };
+  const out: Variant[] = [];
+  for (const raw of r.data.versions.slice(0, 3)) {
+    let t = polishStyle(dropPseudonym(scrubIdentity(raw, student).text, pid));
+    if (!t) continue;
+    if (measure(t, range.unit) > range.max) {
+      const f = await fitRecord({ kind: input.kind, context: input.context, student, text: t, range: { ...range, min: Math.min(range.min, Math.ceil(range.max * 0.9)) } });
+      t = f.text;
+    }
+    if (t && measure(t, range.unit) <= range.max) out.push(judge(t));
+  }
+  return { versions: out, label: "AI", sample: false, notice: out.length < 3 ? `분량에 맞는 버전 ${out.length}개만 보여 줘요` : undefined };
 }
 
 const TagOut = z.object({ tags: z.array(z.object({ index: z.number().int(), competency: z.string().nullable(), sub: z.string().nullable() })) });

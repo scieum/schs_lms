@@ -11,7 +11,11 @@ import { requireCan } from "@/lib/server/viewer";
 import { evidenceLogs } from "./data";
 import { forbiddenBlock } from "@/lib/domain/forbidden";
 import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence";
-import { fitRecord, mergeRecord, tagCompetency } from "@/lib/server/ai/merge-record";
+import { fitRecord, fixRecord, mergeRecord, tagCompetency, variantsRecord } from "@/lib/server/ai/merge-record";
+import { softenMemo } from "@/lib/server/ai/teacher-ai";
+import { measure } from "@/lib/domain/length";
+import { scrubIdentity } from "@/lib/domain/writing";
+import type { AiFixResult, VariantsActionResult } from "@/lib/domain/variants";
 import { listMemosWithPieces, logPieces, memoPieces, programPieces } from "@/lib/server/merge-pieces";
 import { seoulNow } from "@/lib/domain/night";
 import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
@@ -203,6 +207,49 @@ export async function fitRecordAction(input: { area: string; studentId: string; 
   const r = await fitRecord({ kind: t.area, context: t.clubName, student: t.student, text: p.data.text, range });
   await repo.audit(t.v.accountId, "record.ai_fit", `${t.area} ${t.student.pseudonymId}`);
   return toDraft(r);
+}
+
+// ---------- AI로 고치기 · 다른 버전 · 순화 (Figma N34) ----------
+
+const VarSchema = FitSchema.extend({ mode: z.enum(["keep", "fresh"]) });
+
+/** AI로 고치기: 자동 검사에 걸린 곳만 고친 글 (저장하지 않음) */
+export async function aiFixRecordAction(input: { area: string; studentId: string; clubId?: string | null } & z.input<typeof FitSchema>): Promise<AiFixResult> {
+  const t = await recordTarget(input.area, input.studentId, input.clubId);
+  if ("error" in t) return { ok: false, error: t.error };
+  const p = FitSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
+  const range = resolveRecordLength(t.area, { unit: p.data.unit, max: p.data.max });
+  const r = await fixRecord({ kind: t.area, context: t.clubName, student: t.student, text: p.data.text, range });
+  await repo.audit(t.v.accountId, "record.ai_fix", `${t.area} ${t.student.pseudonymId}`);
+  return { ok: true, text: r.text, changes: r.changes, label: r.label, bytes: measure(r.text, range.unit), notice: r.notice };
+}
+
+/** 다른 버전 3개 (저장하지 않음) */
+export async function variantsRecordAction(input: { area: string; studentId: string; clubId?: string | null } & z.input<typeof VarSchema>): Promise<VariantsActionResult> {
+  const t = await recordTarget(input.area, input.studentId, input.clubId);
+  if ("error" in t) return { ok: false, error: t.error };
+  const p = VarSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
+  const range = fitRange(resolveRecordLength(t.area, { unit: p.data.unit, max: p.data.max }));
+  const r = await variantsRecord({ kind: t.area, context: t.clubName, student: t.student, text: p.data.text, mode: p.data.mode, range });
+  await repo.audit(t.v.accountId, "record.ai_variants", `${t.area} ${t.student.pseudonymId} ${p.data.mode}`);
+  if (!r.versions.length) return { ok: false, error: r.notice ?? "버전을 만들지 못했어요. 다시 만들어 주세요" };
+  return { ok: true, ...r };
+}
+
+/** 순화하기 (① 조각 추가 메모): 이름·학번을 지운 뒤 보낸다. 저장하지 않음 ("조각으로 넣기"는 addRecordPiece) */
+export async function softenRecordMemo(input: { area: string; studentId: string; clubId?: string | null; text: string }): Promise<{ ok: true; text: string; label: "AI" } | { ok: false; error: string }> {
+  const t = await recordTarget(input.area, input.studentId, input.clubId);
+  if ("error" in t) return { ok: false, error: t.error };
+  const text = String(input.text ?? "").trim();
+  if (text.length < 2) return { ok: false, error: "메모를 먼저 적어 주세요" };
+  if (text.length > PIECE_MAX) return { ok: false, error: `${PIECE_MAX.toLocaleString()}자까지 순화할 수 있어요` };
+  const r = await softenMemo(scrubIdentity(text, t.student).text, RECORD_LABEL[t.area]);
+  if (!r) return { ok: false, error: "AI가 꺼져 있어 순화할 수 없어요. 직접 고쳐 주세요" };
+  if (r.error || !r.data) return { ok: false, error: r.error ?? "순화하지 못했어요. 직접 고쳐 주세요" };
+  await repo.audit(t.v.accountId, "record.ai_soften", `${t.area} ${t.student.pseudonymId}`);
+  return { ok: true, text: r.data, label: "AI" };
 }
 
 export async function tagRecord(input: { area: string; studentId: string; clubId?: string | null; text: string }): Promise<{ tags: TaggedSentence[]; label: "AI" | "자동" } | { error: string }> {

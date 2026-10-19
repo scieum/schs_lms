@@ -209,6 +209,27 @@ export function toNeisSentence(raw: string): string {
   return `${s}함.`;
 }
 
+// 어미 고칠 말 (Figma N34): 규칙으로 확실히 바꿀 수 있는 꼴만. 그 밖은 null (→ AI로 고치기)
+const FIX_ENDINGS: [RegExp, string][] = [
+  [/(?:하였|했)다$/, "함"],
+  [/한다$/, "함"],
+  [/(?:되었|됐)다$/, "됨"],
+  [/(?:이었|였|이)다$/, "임"],
+  [/있(?:었)?다$/, "있음"],
+  [/없(?:었)?다$/, "없음"],
+  [/었다$/, "음"],
+];
+
+/** "~하였다./했다." → "~함.", "~이다./였다." → "~임.", "~었다." → "~음." (못 바꾸면 null) */
+export function fixEnding(sentence: string): string | null {
+  const s = sentence.trim();
+  const body = s.replace(/[.!?]$/, "");
+  for (const [re, end] of FIX_ENDINGS) {
+    if (re.test(body)) return `${body.replace(re, end)}.`;
+  }
+  return null;
+}
+
 /** 범위를 넘으면 뒤 문장부터 뺀다. 한 문장도 안 들어가면 글자 단위로 자른다 */
 export function fitToMax(text: string, range: Pick<LengthRange, "unit" | "max">): string {
   if (measure(text, range.unit) <= range.max) return text;

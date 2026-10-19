@@ -22,8 +22,10 @@ type Focus = { competency: Competency; sub?: string } | null;
  * bare: 바깥 상자 없이 (Figma N32 ③ 본문 — 흰 면 위에 바로, 회색 안 회색 금지). toggle=false 면 역량 보기 스위치를 숨긴다(글이 없을 때).
  * title 이 글자가 아니면(단계 머리 등) 그대로 그린다.
  */
-export function BodyCard({ text, tag, children, title = "본문", editable = true, className, bare = false, toggle = true }: {
+export function BodyCard({ text, tag, children, title = "본문", editable = true, className, bare = false, toggle = true, extra }: {
   text: string; tag: (text: string) => Promise<TagResult>; children: React.ReactNode; title?: React.ReactNode; editable?: boolean; className?: string; bare?: boolean; toggle?: boolean;
+  /** 머리 오른쪽, 역량 보기 앞 (N34 "다른 버전") */
+  extra?: React.ReactNode;
 }) {
   const [state, setOn] = useState(false);
   const on = state && toggle;
@@ -36,6 +38,7 @@ export function BodyCard({ text, tag, children, title = "본문", editable = tru
             <Pencil size={12} /> 수정하기
           </button>
         )}
+        {!on && extra}
         {toggle && <label className={cx("flex shrink-0 items-center gap-2 whitespace-nowrap text-[13px] text-sub", text.trim() ? "cursor-pointer" : "cursor-not-allowed opacity-50")}>
           역량 보기
           <input type="checkbox" role="switch" className="peer sr-only" checked={on} onChange={(e) => setOn(e.target.checked)} disabled={!text.trim()} />
