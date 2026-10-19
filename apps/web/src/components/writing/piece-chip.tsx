@@ -12,6 +12,9 @@ export const PIECE_CHIP: Record<PieceSource, string> = {
   보관함: "bg-wait-soft text-[#9A6400]",
 };
 
+/** 화면에 보이는 이름 (N40: 본문 → 지금 글) */
+const SHOWN: Partial<Record<PieceSource, string>> = { 본문: "지금 글" };
+
 export function PieceChip({ source, className }: { source: PieceSource; className?: string }) {
-  return <span className={cx("shrink-0 whitespace-nowrap rounded-chip px-1.5 py-0.5 text-[12px] font-medium", PIECE_CHIP[source], className)}>{source}</span>;
+  return <span className={cx("shrink-0 whitespace-nowrap rounded-chip px-1.5 py-0.5 text-[12px] font-medium", PIECE_CHIP[source], className)}>{SHOWN[source] ?? source}</span>;
 }

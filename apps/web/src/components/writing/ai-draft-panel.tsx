@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState, useTransition, type ReactNode } from "react";
-import { Combine, Copy, Plus, RotateCcw, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Plus, RotateCcw, Sparkles, Undo2, X } from "lucide-react";
 import { Button, Tag, cx } from "@/components/ui";
 import { measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import { MergeList } from "./merge-list";
@@ -11,14 +11,13 @@ import { StepHead } from "./step-head";
 import { SaveBookmark } from "./library-save";
 
 const EMPTY: KeywordBlock = { topic: "", activity: "", keywords: "" };
-const FIELD = "w-full rounded-field bg-soft px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-key";
+const FIELD = "w-full rounded-field bg-[#fff] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-key";
 type Mode = "merge" | "memo" | "keywords";
-const TABS: [Mode, string][] = [["merge", "조각 합치기"], ["memo", "메모로"], ["keywords", "키워드로"]];
 
-// ② 본문 만들기 (Figma N32 401:580): [조각 합치기 | 메모로 | 키워드로] → 목표 바이트(바닥 줄 한 곳) → 초안 결과 → 본문에 넣기.
-// 조각이 있으면 조각 합치기가 기본, 0개면 메모로. 자료는 ① 조각 모으기에서만 받는다(자료로 탭 없음).
-// 활동명은 ①의 칸 하나를 같이 쓴다 — 여기서는 칩으로 보여 주고 "바꾸기"는 ① 칸으로 보낸다.
-// 결과는 본문(편집기)에 채우기만 하고 저장은 교사가 따로 누른다. 본문이 비어 있으면 바로 채운다.
+// ② AI로 쓰기 (Figma N40 484:700): 버튼 하나 "AI로 글 쓰기" — 고른 활동 메모 전부(코드 이름 조각 · 합치기) + 목표 + 성취수준.
+// 결과는 ③ 글에 바로 들어가고(지난 글은 "되돌리기") 쓴 뒤 줄이 남는다. 따로 "본문에 넣기"를 누르지 않는다.
+// 메모 고르기(N20 중요도)와 다른 방법(메모 한 번에 적기 = 옛 메모로 · 키워드로)은 접어 둔다.
+// 활동명은 ① 칸 하나를 같이 쓴다 — 다른 방법에서만 칩으로 보여 주고 "바꾸기"는 ① 칸으로 보낸다.
 export function AiDraftPanel({
   initialMemo = "",
   placeholder,
@@ -33,41 +32,46 @@ export function AiDraftPanel({
   levelBox,
   keywordPane,
   defaultMode,
+  what = "글",
 }: {
   initialMemo?: string;
   placeholder: string;
   unit: LengthUnit;
   bodyEmpty: boolean;
-  /** ① 조각 모으기의 활동명 (N27, 메모로·키워드로에서 필수) */
+  /** ① 활동 메모의 활동명 (N27, 메모 한 번에 · 키워드로에서 필수) */
   activity: string;
   /** "바꾸기"·"적기": ① 활동명 칸으로 */
   onEditActivity: () => void;
   generate: (memo: string, activity: string, max: number) => Promise<AiDraftResult>;
-  /** 합치기: ①에서 불러온 조각(null = 불러오는 중) · 지금 본문 · NEIS 최대 · 합치기 */
+  /** 활동 메모로: ①에서 불러온 메모(null = 불러오는 중) · 지금 글 · NEIS 최대 · 쓰기 */
   merge: { pieces: MergePiece[] | null; body: string; neisMax: number; run: (pieces: MergePiece[], max: number) => Promise<AiDraftResult> };
   onApply: (text: string, result?: AiDraftResult) => void;
   done?: boolean;
-  /** 성취수준 칸 (N35 ③, 세특): 조각 요약과 목표 줄 사이 */
+  /** 성취수준 칸 (N35 ③, 세특): 목표 옆 */
   levelBox?: ReactNode;
-  /** 키워드로 탭을 대신하는 칸 (N35 ④ 행발 키워드 메뉴판 — 목표·초안 결과를 스스로 그린다) */
+  /** 키워드로를 대신하는 칸 (N35 ④ 행발 키워드 메뉴판 — 목표·결과를 스스로 그린다) */
   keywordPane?: ReactNode;
-  /** 처음 고를 방법 (행발은 키워드로) */
+  /** 메모가 없을 때 처음 고를 방법 (행발은 키워드로) */
   defaultMode?: Mode;
+  /** ③ 글 이름 (예: "세특 글") */
+  what?: string;
 }) {
   const [memo, setMemo] = useState(initialMemo);
   const [blocks, setBlocks] = useState<KeywordBlock[]>(() => parseKeywordMemo(initialMemo) ?? [{ ...EMPTY }]);
   const [picked, setPicked] = useState<Mode | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [levelOpen, setLevelOpen] = useState(false);
   const pieceCount = merge.pieces?.length ?? 0;
-  // 고르기 전에는: 조각이 있으면 합치기, 없으면 메모로(키워드 메모가 있으면 키워드로)
-  const mode: Mode = picked ?? defaultMode ?? (pieceCount > 0 ? "merge" : parseKeywordMemo(initialMemo) ? "keywords" : "memo");
+  // 기본은 활동 메모로. 메모가 하나도 없을 때만 예전 메모·키워드(또는 행발 키워드 메뉴판)를 먼저 연다
+  const fallback: Mode | null = defaultMode ?? (parseKeywordMemo(initialMemo) ? "keywords" : initialMemo.trim() ? "memo" : null);
+  const mode: Mode = picked ?? (merge.pieces !== null && pieceCount === 0 && fallback ? fallback : "merge");
   const [target, setTarget] = useState(merge.neisMax);
   const max = Math.min(merge.neisMax, Math.max(1, target || merge.neisMax));
   const u = unit === "bytes" ? "B" : UNIT_LABEL[unit];
 
-  // 합치기에서 뺀 조각 (새로 남긴 조각은 저절로 골라진다)
+  // 쓰기에서 뺀 메모 (새로 남긴 메모는 저절로 들어간다)
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
-  const [mergedCount, setMergedCount] = useState(0);
-  // 조각 중요도 (Figma N20): 이 기기에만 기억해 둔다 (다음에 열어도 그대로)
+  // 메모 중요도 (Figma N20): 이 기기에만 기억해 둔다 (다음에 열어도 그대로)
   const [weights, setWeights] = useState<Record<string, Importance>>({});
   const weightOf = (id: string): Importance => {
     if (weights[id]) return weights[id];
@@ -82,20 +86,20 @@ export function AiDraftPanel({
     setWeights((cur) => ({ ...cur, [id]: w }));
     try {
       if (id !== "body") localStorage.setItem(`schs.piece-weight.${id}`, String(w));
-    } catch { /* 기억 못 해도 이번 합치기에는 쓴다 */ }
+    } catch { /* 기억 못 해도 이번 쓰기에는 쓴다 */ }
   };
-  // 지금 본문도 조각 하나 (맨 위)
+  // 지금 글도 하나 (맨 위) — 고친 것을 잃지 않게
   const bodyPiece: MergePiece[] = merge.body.trim() ? [{ id: "body", source: "본문", date: null, text: merge.body.trim() }] : [];
   const allPieces = [...bodyPiece, ...(merge.pieces ?? [])].map((p) => ({ ...p, weight: weightOf(p.id) }));
   const selected = new Set(allPieces.filter((p) => !excluded.has(p.id)).map((p) => p.id));
   const setSelected = (s: Set<string>) => setExcluded(new Set(allPieces.filter((p) => !s.has(p.id)).map((p) => p.id)));
+  const memoPicked = (merge.pieces ?? []).filter((p) => selected.has(p.id)).length;
 
   const input = mode === "keywords" ? composeKeywordMemo(blocks) : memo;
   const setBlock = (i: number, k: keyof KeywordBlock, v: string) => setBlocks((bs) => bs.map((b, j) => (j === i ? { ...b, [k]: v } : b)));
-  const [result, setResult] = useState<Extract<AiDraftResult, { ok: true }> | null>(null);
-  const [resultMode, setResultMode] = useState<Mode>("memo");
+  // 쓴 뒤: ③에 넣은 글 · 그 전 글(되돌리기) · 쓴 메모 수
+  const [wrote, setWrote] = useState<{ text: string; prev: string; count: number; mode: Mode; notice?: string; sample?: boolean } | null>(null);
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
   const [pending, start] = useTransition();
   const req = useRef(0);
   const name = cleanActivity(activity);
@@ -103,15 +107,16 @@ export function AiDraftPanel({
   function run() {
     const id = ++req.current;
     setError("");
-    setCopied(false);
     const m = mode;
+    const prev = merge.body;
     start(async () => {
       let r: AiDraftResult;
+      let count = 0;
       try {
         if (m === "merge") {
           const chosen = allPieces.filter((x) => selected.has(x.id));
-          setMergedCount(chosen.length);
-          r = chosen.length ? await merge.run(chosen, max) : { ok: false, error: "합칠 조각을 골라 주세요" };
+          count = chosen.filter((x) => x.id !== "body").length;
+          r = chosen.length ? await merge.run(chosen, max) : { ok: false, error: "쓸 메모를 골라 주세요" };
         } else {
           r = await generate(input, activity, max);
         }
@@ -120,29 +125,22 @@ export function AiDraftPanel({
       }
       if (id !== req.current) return; // 취소됨
       if (!r.ok) {
-        setResult(null);
         setError(r.error);
         return;
       }
-      setResult(r);
-      setResultMode(m);
-      if (bodyEmpty) onApply(r.text, r);
+      onApply(r.text, r);
+      setWrote({ text: r.text, prev, count, mode: m, notice: r.notice, sample: r.sample });
+      setPicking(false);
     });
   }
 
-  async function copy() {
-    if (!result) return;
-    try {
-      await navigator.clipboard.writeText(result.text);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  }
+  const undo = () => { if (!wrote) return; onApply(wrote.prev); setWrote(null); };
+  // ③을 손으로 고치면 되돌리기는 숨긴다 (고친 것을 덮지 않게)
+  const canUndo = !!wrote && merge.body === wrote.text;
 
-  const meta = mode === "merge" ? (merge.pieces === null ? "" : `조각 ${selected.size}개 고름`) : mode === "memo" ? "메모로 초안" : "키워드로 초안";
+  const meta = wrote ? (wrote.mode === "merge" ? `메모 ${wrote.count}개로 썼어요` : "썼어요") : `메모로 ${what}을 써요`;
   const activityChip = (
-    <span className="inline-flex max-w-full items-center gap-1.5 self-start rounded-chip bg-soft px-2.5 py-[5px]">
+    <span className="inline-flex max-w-full items-center gap-1.5 self-start rounded-chip border border-line bg-[#fff] px-2.5 py-[5px]">
       <span className="shrink-0 text-[12px] text-mute">활동명</span>
       {name ? (
         <>
@@ -151,125 +149,166 @@ export function AiDraftPanel({
         </>
       ) : (
         <>
-          <span className="min-w-0 truncate text-[13px] text-sub">①에서 먼저 적어 주세요</span>
+          <span className="min-w-0 truncate text-[13px] text-[#9A6400]">①에서 먼저 적어 주세요</span>
           <button type="button" onClick={onEditActivity} className="shrink-0 whitespace-nowrap text-[12px] font-medium text-key-strong">적기</button>
         </>
       )}
     </span>
   );
   const custom = mode === "keywords" && !!keywordPane;
-  const needsActivity = mode !== "merge" && !custom;
-  const canRun = mode === "merge" ? selected.size > 0 && merge.pieces !== null : !!name && !!input.trim();
+  const canRun = mode === "merge" ? selected.size > 0 && merge.pieces !== null && pieceCount > 0 : !!name && !!input.trim();
+  const choose = (m: Mode) => { setPicked(m); setError(""); };
+
+  // 첫 줄: 무엇으로 쓰는지
+  const head = mode !== "merge" ? (
+    <div className="flex items-center gap-2">
+      <button type="button" onClick={() => choose("merge")} className="flex items-center gap-1 text-[13px] font-medium text-key-strong">
+        <ArrowLeft size={14} /> 활동 메모로 쓰기
+      </button>
+      <span className="ml-auto text-[13px] font-bold">{mode === "memo" ? "메모 한 번에 적기" : "키워드로"}</span>
+    </div>
+  ) : merge.pieces === null ? (
+    <p className="text-[14px] text-mute" role="status">메모를 불러오는 중이에요</p>
+  ) : pieceCount === 0 ? (
+    <p className="text-[14px] font-medium text-[#9A6400] break-keep">활동 메모를 하나 남기면 쓸 수 있어요</p>
+  ) : (
+    <div className="flex items-center gap-2">
+      <p className="min-w-0 flex-1 text-[14px] font-bold break-keep">
+        활동 메모 {memoPicked === pieceCount ? <span className="text-key-strong">{pieceCount}개</span> : <><span className="text-key-strong">{memoPicked}개</span> / {pieceCount}개</>}로 써요
+      </p>
+      <button type="button" onClick={() => setPicking(!picking)} aria-expanded={picking}
+        className="flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[13px] font-medium text-key-strong">
+        {picking ? "접기" : "고르기"}<ChevronDown size={14} className={picking ? "rotate-180" : ""} />
+      </button>
+    </div>
+  );
+
+  const others = (
+    <span className="flex flex-wrap items-center justify-center gap-x-1.5 text-[12px] text-sub md:justify-start">
+      <span className="text-mute">다른 방법</span>
+      <span aria-hidden className="text-faint">·</span>
+      <button type="button" onClick={() => choose("memo")} className={cx("font-medium hover:text-ink", mode === "memo" && "text-key-strong")}>메모 한 번에 적기</button>
+      <span aria-hidden className="text-faint">·</span>
+      <button type="button" onClick={() => choose("keywords")} className={cx("font-medium hover:text-ink", mode === "keywords" && "text-key-strong")}>키워드로</button>
+    </span>
+  );
 
   return (
-    <section aria-label="본문 만들기" className="flex flex-col gap-3">
-      <StepHead n={2} title="본문 만들기" meta={meta} done={done} />
-      <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
-        <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none]">
-          <div className="flex w-max rounded-full bg-soft p-[3px]" role="tablist" aria-label="본문 만드는 방법">
-            {TABS.map(([k, l]) => {
-              const off = k === "merge" && pieceCount === 0;
-              return (
-                <button key={k} type="button" role="tab" aria-selected={mode === k} disabled={off} onClick={() => setPicked(k)}
-                  className={cx("h-[30px] shrink-0 whitespace-nowrap rounded-full px-3.5 text-[13px] disabled:opacity-40", mode === k ? "bg-key-soft font-bold text-key-strong" : "font-medium text-sub")}>{l}</button>
-              );
-            })}
-          </div>
-        </div>
-        {needsActivity && activityChip}
-      </div>
+    <section aria-label="AI로 쓰기" className="flex flex-col gap-3">
+      <StepHead n={2} title="AI로 쓰기" meta={meta} done={done} />
 
-      {custom ? keywordPane : mode === "merge" ? (
-        merge.pieces === null ? (
-          <p className="py-6 text-center text-[13px] text-mute" role="status">조각을 모으는 중이에요</p>
-        ) : (
-          <MergeList pieces={allPieces} onWeight={setWeight} selected={selected} setSelected={setSelected} unit={unit} target={max} />
-        )
-      ) : mode === "memo" ? (
-        <textarea
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-          maxLength={6000}
-          placeholder={placeholder}
-          aria-label="관찰 메모"
-          className="h-[120px] w-full resize-y rounded-field bg-soft px-3 py-2.5 text-[14px] leading-6 outline-none focus:ring-2 focus:ring-key md:h-24"
-        />
-      ) : (
-        <div className="flex flex-col gap-2">
-          {blocks.map((b, i) => (
-            <div key={i} className="flex flex-col gap-1.5 rounded-inner border border-line p-2.5">
-              <div className="flex items-center gap-2">
-                <span className="text-[12px] font-bold text-sub">활동 {i + 1}</span>
-                <span className="flex-1" />
-                {blocks.length > 1 && (
-                  <button type="button" aria-label={`활동 ${i + 1} 빼기`} onClick={() => setBlocks((bs) => bs.filter((_, j) => j !== i))} className="text-mute"><X size={14} /></button>
-                )}
-              </div>
-              <input value={b.topic} onChange={(e) => setBlock(i, "topic", e.target.value)} maxLength={100} placeholder="(주제) 예: 빗면에서 가속도 측정" aria-label={`활동 ${i + 1} 주제`} className={FIELD} />
-              <textarea value={b.activity} onChange={(e) => setBlock(i, "activity", e.target.value)} rows={2} maxLength={400}
-                placeholder="(활동) 예: 각도를 바꿔 측정, 오차 원인을 마찰로 분류, 반복 측정 제안" aria-label={`활동 ${i + 1} 활동`} className={cx(FIELD, "resize-y leading-6")} />
-              <input value={b.keywords} onChange={(e) => setBlock(i, "keywords", e.target.value)} maxLength={100} placeholder="(키워드) 예: 실험 설계, 오차 분석, 주도성" aria-label={`활동 ${i + 1} 키워드`} className={FIELD} />
-            </div>
-          ))}
-          {blocks.length < 3 && (
-            <button type="button" onClick={() => setBlocks((bs) => [...bs, { ...EMPTY }])} className="flex items-center gap-1 self-start text-[13px] font-medium text-key-strong">
-              <Plus size={14} /> 활동 추가
-            </button>
-          )}
-        </div>
-      )}
-
-      {!custom && levelBox}
-      {/* 바닥 줄: 목표 분량은 여기 한 번 (합치기·메모로·키워드로 모두) */}
-      <div className={cx("flex flex-col gap-2.5 md:flex-row md:items-center", custom && "hidden")}>
-        <div className="flex min-w-0 items-center gap-2.5 md:flex-1">
-          <span className="shrink-0 text-[13px] font-medium text-sub">목표</span>
-          <label className="flex h-9 min-w-0 flex-1 items-center rounded-field bg-soft px-3 focus-within:ring-2 focus-within:ring-key md:w-24 md:flex-none">
-            <input inputMode="numeric" value={target ? target.toLocaleString() : ""} aria-label="목표 분량"
-              onChange={(e) => setTarget(Math.min(merge.neisMax, Number(e.target.value.replace(/[^\d]/g, "")) || 0))}
-              className="w-full min-w-0 bg-transparent text-right text-[14px] font-medium tabular-nums outline-none" />
-            <span className="ml-1 shrink-0 text-[13px] text-mute">{u}</span>
-          </label>
-          <span className="shrink-0 whitespace-nowrap text-[12px] text-mute">최대 {merge.neisMax.toLocaleString()}{u}</span>
-        </div>
-        {pending ? (
-          <div className="flex items-center gap-2">
-            <div className="h-1.5 w-24 flex-1 overflow-hidden rounded-full bg-line md:flex-none" aria-hidden>
-              <div className="h-full w-1/3 animate-pulse rounded-full bg-key" />
-            </div>
-            <span className="whitespace-nowrap text-[13px] text-sub" role="status">쓰는 중이에요</span>
-            <Button type="button" kind="ghost" size="sm" onClick={() => { req.current++; setError(""); }}>취소</Button>
-          </div>
-        ) : mode === "merge" ? (
-          <Button type="button" kind="soft" size="sm" onClick={run} disabled={!canRun} className="h-11 disabled:opacity-40 max-md:w-full md:h-9"><Combine size={14} /> 합치기</Button>
-        ) : (
-          <Button type="button" kind="soft" size="sm" onClick={run} disabled={!canRun} className="h-11 disabled:opacity-40 max-md:w-full md:h-9"><Sparkles size={14} /> AI 초안</Button>
-        )}
-      </div>
-      {error && !custom && <p className="text-[13px] text-bad" role="alert">{error}</p>}
-
-      {result && !pending && !custom && (
-        <div className="flex flex-col gap-2.5 rounded-inner bg-bg p-3.5">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Tag tone="bg-new-soft text-new">초안</Tag>
-            {result.sample && <Tag tone="bg-[#fff] text-mute">예시</Tag>}
-            {resultMode === "merge" && mergedCount > 0 && <Tag tone="bg-[#fff] text-sub">{`조각 ${mergedCount}개`}</Tag>}
-            <span className="ml-auto text-[12px] tabular-nums text-sub">
-              <b className="text-ink">{measure(result.text, unit).toLocaleString()}</b> / {max.toLocaleString()}{u}
+      {wrote && !pending && (
+        <div className="flex flex-col gap-2.5 rounded-inner bg-ok-soft px-3.5 py-3">
+          <div className="flex min-w-0 flex-col break-keep">
+            <span className="flex items-center gap-1.5 text-[14px] font-bold text-[#00A05D]">
+              <Check size={15} strokeWidth={3} className="shrink-0" /> AI가 ③ {what}에 썼어요
+              {wrote.sample && <Tag tone="bg-[#fff] text-mute">예시</Tag>}
             </span>
-            <SaveBookmark text={result.text} source="draft" />
+            <span className="text-[12px] text-sub break-keep">
+              {wrote.mode === "merge" ? `메모 ${wrote.count}개 · ` : ""}{measure(wrote.text, unit).toLocaleString()}{u}
+              {canUndo ? " · 지난 글은 되돌리기로 살릴 수 있어요" : ""}
+              {wrote.notice ? ` · ${wrote.notice.replace(/조각을/g, "메모를").replace(/조각/g, "메모")}` : ""}
+            </span>
           </div>
-          <p className="whitespace-pre-wrap text-[14px] leading-6">{result.text}</p>
-          {result.notice && <p className="text-[12px] text-mute">{result.notice}</p>}
-          <div className="flex flex-col gap-2 md:flex-row md:items-center">
-            <div className="flex gap-2">
-              <Button type="button" kind="outline" size="sm" onClick={copy}><Copy size={13} /> {copied ? "복사했어요" : "복사"}</Button>
-              <Button type="button" kind="ghost" size="sm" onClick={run}><RotateCcw size={13} /> 다시 쓰기</Button>
-            </div>
-            <Button type="button" size="sm" className="h-11 max-md:w-full md:ml-auto md:h-9" onClick={() => onApply(result.text, result)}>본문에 넣기</Button>
+          <div className="flex items-center gap-1.5 [&>button]:h-10 md:[&>button]:h-[34px]">
+            {canUndo && <Button type="button" kind="outline" size="sm" onClick={undo} className="max-md:flex-1"><Undo2 size={13} /> 되돌리기</Button>}
+            <Button type="button" kind="outline" size="sm" onClick={run} disabled={!canRun} className="max-md:flex-1"><RotateCcw size={13} /> 다시 쓰기</Button>
+            <SaveBookmark text={wrote.text} source="draft" />
+            <button type="button" aria-label="쓴 뒤 줄 닫기" onClick={() => setWrote(null)} className="flex size-8 shrink-0 items-center justify-center text-mute"><X size={14} /></button>
           </div>
         </div>
       )}
+
+      <div className={cx("flex flex-col gap-3 rounded-inner bg-bg px-3.5 py-3.5 md:px-4", wrote && !pending && "hidden")}>
+        {head}
+
+        {custom ? keywordPane : mode === "merge" ? (
+          picking && merge.pieces !== null && (
+            <div className="rounded-field bg-[#fff] px-3 pb-1 pt-3">
+              <MergeList pieces={allPieces} onWeight={setWeight} selected={selected} setSelected={setSelected} unit={unit} target={max} />
+            </div>
+          )
+        ) : mode === "memo" ? (
+          <>
+            {activityChip}
+            <textarea
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              maxLength={6000}
+              placeholder={placeholder}
+              aria-label="한 번에 적는 메모"
+              className="h-[120px] w-full resize-y rounded-field bg-[#fff] px-3 py-2.5 text-[14px] leading-6 outline-none focus:ring-2 focus:ring-key md:h-24"
+            />
+          </>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {activityChip}
+            {blocks.map((b, i) => (
+              <div key={i} className="flex flex-col gap-1.5 rounded-inner border border-line bg-[#fff] p-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-bold text-sub">활동 {i + 1}</span>
+                  <span className="flex-1" />
+                  {blocks.length > 1 && (
+                    <button type="button" aria-label={`활동 ${i + 1} 빼기`} onClick={() => setBlocks((bs) => bs.filter((_, j) => j !== i))} className="text-mute"><X size={14} /></button>
+                  )}
+                </div>
+                <input value={b.topic} onChange={(e) => setBlock(i, "topic", e.target.value)} maxLength={100} placeholder="(주제) 예: 빗면에서 가속도 측정" aria-label={`활동 ${i + 1} 주제`} className={cx(FIELD, "bg-soft")} />
+                <textarea value={b.activity} onChange={(e) => setBlock(i, "activity", e.target.value)} rows={2} maxLength={400}
+                  placeholder="(활동) 예: 각도를 바꿔 측정, 오차 원인을 마찰로 분류, 반복 측정 제안" aria-label={`활동 ${i + 1} 활동`} className={cx(FIELD, "resize-y bg-soft leading-6")} />
+                <input value={b.keywords} onChange={(e) => setBlock(i, "keywords", e.target.value)} maxLength={100} placeholder="(키워드) 예: 실험 설계, 오차 분석, 주도성" aria-label={`활동 ${i + 1} 키워드`} className={cx(FIELD, "bg-soft")} />
+              </div>
+            ))}
+            {blocks.length < 3 && (
+              <button type="button" onClick={() => setBlocks((bs) => [...bs, { ...EMPTY }])} className="flex items-center gap-1 self-start text-[13px] font-medium text-key-strong">
+                <Plus size={14} /> 활동 추가
+              </button>
+            )}
+          </div>
+        )}
+
+        {!custom && (
+          <>
+            {/* 목표 · 성취수준: 흰 작은 칸 (Figma N40) */}
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex h-9 items-center gap-1.5 rounded-field border border-line bg-[#fff] px-2.5 focus-within:ring-2 focus-within:ring-key">
+                <span className="shrink-0 text-[12px] text-mute">목표</span>
+                <input inputMode="numeric" value={target ? target.toLocaleString() : ""} aria-label="목표 분량"
+                  onChange={(e) => setTarget(Math.min(merge.neisMax, Number(e.target.value.replace(/[^\d]/g, "")) || 0))}
+                  className="w-14 min-w-0 bg-transparent text-right text-[13px] font-bold tabular-nums outline-none" />
+                <span className="shrink-0 text-[13px] font-bold">{u}</span>
+              </label>
+              {levelBox && (
+                <button type="button" onClick={() => setLevelOpen(!levelOpen)} aria-expanded={levelOpen}
+                  className="flex h-9 items-center gap-1 rounded-field border border-line bg-[#fff] px-2.5 text-[13px] font-medium text-ink">
+                  <span className="text-[12px] font-normal text-mute">성취수준</span> 고르기<ChevronDown size={14} className={cx("text-mute", levelOpen && "rotate-180")} />
+                </button>
+              )}
+              <span className="whitespace-nowrap text-[12px] text-mute">최대 {merge.neisMax.toLocaleString()}{u}</span>
+            </div>
+            {levelOpen && levelBox}
+            <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:gap-3">
+              <div className="md:min-w-0 md:flex-1">{others}</div>
+              {pending ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-24 flex-1 overflow-hidden rounded-full bg-line md:flex-none" aria-hidden>
+                    <div className="h-full w-1/3 animate-pulse rounded-full bg-key" />
+                  </div>
+                  <span className="whitespace-nowrap text-[13px] text-sub" role="status">쓰는 중이에요</span>
+                  <Button type="button" kind="ghost" size="sm" onClick={() => { req.current++; setError(""); }}>취소</Button>
+                </div>
+              ) : (
+                <Button type="button" onClick={run} disabled={!canRun}
+                  className="h-12 w-full text-[15px] disabled:bg-line disabled:text-mute md:h-10 md:w-auto md:px-4 md:text-[14px]">
+                  <Sparkles size={15} /> AI로 글 쓰기
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+        {custom && <div className="border-t border-line pt-2.5">{others}</div>}
+        {error && !custom && <p className="text-[13px] text-bad" role="alert">{error}</p>}
+        {!custom && !bodyEmpty && !pending && <p className="-mt-1 text-[12px] text-mute break-keep">쓰면 ③ 글이 바뀌어요 · 지난 글은 되돌리기로 살릴 수 있어요</p>}
+      </div>
     </section>
   );
 }

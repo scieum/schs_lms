@@ -12,6 +12,7 @@ import type { MergePiece } from "@/lib/domain/merge";
 import { BodyCard } from "@/components/writing/competency-view";
 import { PiecesCard } from "@/components/writing/pieces-card";
 import { StepHead, STEP_GAP } from "@/components/writing/step-head";
+import { WritingProgress } from "@/components/writing/writing-progress";
 import { addSetukPiece, aiFixSetuk, aiSetukDraft, summarizeSetukFile, fitSetuk, listSetukPieces, mergeSetuk, saveSetuk, tagSetuk, variantsSetuk, type SetukState } from "./actions";
 import { OverApproval } from "@/components/writing/over-approval";
 import { LevelPicker, useLevels } from "@/components/writing/level-picker";
@@ -19,8 +20,8 @@ import { LibraryToggle, useBodyLibrary } from "@/components/writing/library-save
 import { pieceFromLibrary } from "@/app/(app)/teacher/library/actions";
 import { BodyViewSwitch, useProvenance, type ProvInit } from "@/components/writing/provenance";
 
-// 세특 쓰기 (Figma N32): ① 조각 모으기 → ② 본문 만들기 → ③ 본문 · 검사 · 확정.
-// 활동명은 ①의 칸 하나를 ②가 같이 쓴다. AI 결과는 본문에 채우기만 하고 저장은 교사가 누른다.
+// 세특 쓰기 (Figma N40, N32 구조): 진행 줄 · ① 활동 메모 → ② AI로 쓰기 → ③ 글 확인 · 확정.
+// 활동명은 ①의 칸 하나를 ②가 같이 쓴다. AI 결과는 ③ 글에 채우기만 하고(되돌리기 있음) 저장은 교사가 누른다.
 export function SetukEditor({
   courseId,
   studentId,
@@ -96,6 +97,7 @@ export function SetukEditor({
 
   return (
     <div className="flex flex-col gap-5">
+      <WritingProgress memos={pieces?.length ?? null} text={text} unit={range.unit} max={range.max} check={bc.check} />
       <PiecesCard key={`${courseId}-${studentId}-${piecesKey}`} studentId={studentId} placeholder="지금 본 것을 짧게 (예: 오차 원인을 찾아 다시 측정)"
         activity={activity} setActivity={setActivity} activityRef={activityRef} onPieces={setPieces} done={!!pieces?.length && hasBody}
         load={() => listSetukPieces({ courseId, studentId })}
@@ -117,16 +119,17 @@ export function SetukEditor({
             run: (ps, max) => mergeSetuk({ courseId, studentId, pieces: ps, unit: range.unit, max, level }),
           }}
           onApply={(t, r) => { setText(t); pv.adopt(r); }}
+          what="세특 글"
           done={hasBody}
           levelBox={lv && <LevelPicker scale={lv.scale} value={level} onChange={(l) => { void lv.set([{ studentId, level: l }]); }} />}
         />
       </div>
       <form action={action} className={`flex flex-col gap-3 ${STEP_GAP}`}>
-        <StepHead n={3} title="본문 · 검사 · 확정" meta={checkMeta(bc.check, sim.length)} done={confirmed && hasBody && text === initial} />
+        <StepHead n={3} title="글 확인 · 확정" meta={checkMeta(bc.check, sim.length).replace("본문", "글")} done={confirmed && hasBody && text === initial} />
         <input type="hidden" name="courseId" value={courseId} />
         <input type="hidden" name="studentId" value={studentId} />
         {pv.inputs()}
-        <BodyCard bare toggle={hasBody} text={text} tag={(t) => tagSetuk({ courseId, studentId, text: t })}
+        <BodyCard bare title="세특 글" toggle={hasBody} text={text} tag={(t) => tagSetuk({ courseId, studentId, text: t })}
           extra={<><BodyViewSwitch {...pv.switchProps} className="hidden @lg:inline-flex" /><LibraryToggle />{hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}</>}>
           <BodyViewSwitch {...pv.switchProps} full className="mb-2 @lg:hidden" />
           {pv.body(<HighlightTextarea
@@ -138,7 +141,7 @@ export function SetukEditor({
             onPickMark={bc.setOpen}
             focusKey={bc.open}
             maxLength={5000}
-            placeholder="② 결과를 넣거나 직접 써 주세요. 문장은 '~함.'으로 끝내요"
+            placeholder="AI로 쓰거나 직접 써요. 문장은 '~함.'으로 끝내요"
             boxClassName="rounded-field bg-soft focus-within:ring-2 focus-within:ring-key"
             textClassName="min-h-[120px] px-4 py-3.5 text-[15px] leading-[26px]"
             aria-label="세특 내용"

@@ -33,7 +33,7 @@ export function LevelPicker({ scale, value, onChange, busy }: { scale: ScaleKey;
       <p className="flex gap-2 rounded-control bg-new-soft px-3 py-2.5 text-[13px] font-medium leading-5">
         <Sparkles size={14} className="mt-0.5 shrink-0 text-new" /><span className="break-keep">{guideLine(value)}</span>
       </p>
-      <p className="break-keep text-[12px] text-mute">수준 글자({scale === "A-E" ? "A~E" : "상·중·하"})는 글에 넣지 않고, 조각에 없는 성과는 만들지 않아요</p>
+      <p className="break-keep text-[12px] text-mute">수준 글자({scale === "A-E" ? "A~E" : "상·중·하"})는 글에 넣지 않고, 메모에 없는 성과는 만들지 않아요</p>
     </div>
   );
 }

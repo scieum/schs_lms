@@ -10,13 +10,14 @@ import { RecordCompetency } from "./record-competency";
 import { PieceComposer, type ComposerProps } from "./piece-composer";
 import { PieceChip } from "./piece-chip";
 import { StepHead } from "./step-head";
+import { PiecesEmpty } from "./pieces-empty";
 
-// ① 조각 모으기 (Figma N32): 단계 머리 + 조각 추가(메모 | 자료) + 상자 없는 조각 목록.
-// 남긴 조각은 생기부 조각 화면과 ② 조각 합치기에 같이 모인다. 조각이 있을 때만 역량 보기(N18) 스위치를 보여 준다.
+// ① 활동 메모 (Figma N40, N32 구조): 단계 머리 + 활동 메모 추가(메모 | 자료) + 상자 없는 메모 목록 · 없으면 빈 상태.
+// 남긴 메모(코드 이름은 조각)는 생기부 조각 화면과 ② AI로 쓰기에 같이 모인다. 메모가 있을 때만 역량 보기(N18) 스위치를 보여 준다.
 
 const SHOWN = 4;
 
-export function PiecesCard({ studentId, load, onPieces, note, done, ...composer }: Omit<ComposerProps, "onAdded"> & {
+export function PiecesCard({ studentId, load, onPieces, note, done, what, ...composer }: Omit<ComposerProps, "onAdded"> & {
   studentId: string;
   load: () => Promise<MergePiece[]>;
   /** 불러온 조각을 editor 에 알린다 (② 조각 합치기가 같은 목록을 쓴다) */
@@ -24,6 +25,8 @@ export function PiecesCard({ studentId, load, onPieces, note, done, ...composer 
   /** 단계 머리 설명 뒤에 붙는 말 (예: "누가기록에도 남아요") */
   note?: ReactNode;
   done?: boolean;
+  /** 빈 상태 "AI가 ○○로 써요" (기본 세특 글) */
+  what?: string;
 }) {
   const [pieces, setPieces] = useState<MergePiece[] | null>(null);
   const [all, setAll] = useState(false);
@@ -41,15 +44,15 @@ export function PiecesCard({ studentId, load, onPieces, note, done, ...composer 
   // 새 것부터 보여 준다
   const list = pieces ? orderPieces(pieces).reverse() : [];
   const visible = all ? list : list.slice(0, SHOWN);
-  const meta = pieces === null ? "" : <>{list.length}개{note && <span className="max-md:hidden"> · {note}</span>}</>;
+  const meta = pieces === null ? "" : !list.length ? "아직 없어요" : <>{list.length}개{note && <span className="max-md:hidden"> · {note}</span>}</>;
 
   const body = (
     <div className="flex flex-col gap-3">
       <PieceComposer {...composer} onAdded={reload} />
       {pieces === null ? (
-        <p className="text-[13px] text-mute" role="status">조각을 모으는 중이에요</p>
+        <p className="text-[13px] text-mute" role="status">메모를 불러오는 중이에요</p>
       ) : list.length === 0 ? (
-        <p className="text-[13px] text-mute">아직 조각이 없어요. 위에서 첫 조각을 남겨요</p>
+        <PiecesEmpty what={what} />
       ) : (
         <div className="flex flex-col">
           <ul className="flex flex-col">
@@ -76,7 +79,7 @@ export function PiecesCard({ studentId, load, onPieces, note, done, ...composer 
                 {all ? "접기" : `${list.length - SHOWN}개 더 보기`}<ChevronDown size={13} className={all ? "rotate-180" : ""} />
               </button>
             ) : <span />}
-            <Link href={`/teacher/pieces?student=${studentId}`} className="ml-auto whitespace-nowrap text-[13px] font-medium text-key-strong">생기부 조각 ›</Link>
+            <Link href={`/teacher/pieces?student=${studentId}`} className="ml-auto whitespace-nowrap text-[13px] font-medium text-key-strong">메모 모아 보기 ›</Link>
           </div>
         </div>
       )}
@@ -84,8 +87,8 @@ export function PiecesCard({ studentId, load, onPieces, note, done, ...composer 
   );
 
   return (
-    <section aria-label="조각 모으기">
-      <RecordCompetency studentId={studentId} title={<StepHead n={1} title="조각 모으기" meta={meta} done={done} />} toggle={list.length > 0}
+    <section aria-label="활동 메모">
+      <RecordCompetency studentId={studentId} title={<StepHead n={1} title="활동 메모" meta={meta} done={done} />} toggle={list.length > 0}
         text={[...list].reverse().map((p) => p.text.trim()).join(" ")}>
         {body}
       </RecordCompetency>

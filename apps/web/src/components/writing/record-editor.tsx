@@ -13,6 +13,7 @@ import { checkMeta, RecordChecks, useBodyChecks, type Who } from "./record-check
 import { HighlightTextarea } from "./highlight-textarea";
 import { VariantsPanel, VariantsToggle } from "./variants-panel";
 import { StepHead, STEP_GAP } from "./step-head";
+import { WritingProgress } from "./writing-progress";
 import { OverApproval } from "@/components/writing/over-approval";
 import { LibraryToggle, useBodyLibrary } from "./library-save";
 import { pieceFromLibrary } from "@/app/(app)/teacher/library/actions";
@@ -35,8 +36,8 @@ const PIECE_HINT: Record<RecordArea, string> = {
   행발: "지금 본 모습을 짧게 (예: 체육대회 뒷정리를 끝까지 맡음)",
 };
 
-// 특기사항·행발 쓰기 (Figma N32, 세특과 같은 3단계): ① 조각 모으기 → ② 본문 만들기 → ③ 본문 · 검사 · 확정 (새 버전)
-// 자율·자치·동아리·진로의 조각은 누가기록으로 쌓인다.
+// 특기사항·행발 쓰기 (Figma N40, 세특과 같은 3단계): 진행 줄 · ① 활동 메모 → ② AI로 쓰기 → ③ 글 확인 · 확정 (새 버전)
+// 자율·자치·동아리·진로의 활동 메모(코드 이름 조각)는 누가기록으로 쌓인다.
 export function RecordEditor({
   area,
   studentId,
@@ -102,8 +103,9 @@ export function RecordEditor({
 
   return (
     <div className="flex flex-col gap-5">
+      <WritingProgress memos={pieces?.length ?? null} text={text} unit={range.unit} max={range.max} check={bc.check} />
       <PiecesCard key={`${area}-${clubId ?? ""}-${studentId}-${piecesKey}`} studentId={studentId} placeholder={PIECE_HINT[area]}
-        note={area === "행발" ? undefined : "누가기록에도 남아요"}
+        note={area === "행발" ? undefined : "누가기록에도 남아요"} what={`${area} 글`}
         activity={activity} setActivity={setActivity} activityRef={activityRef} onPieces={setPieces} done={!!pieces?.length && hasBody}
         load={() => listRecordPieces({ area, studentId, clubId })}
         add={(t, a, kind) => addRecordPiece({ area, studentId, clubId, text: t, activity: a, kind })}
@@ -125,18 +127,19 @@ export function RecordEditor({
             run: (ps, max) => mergeRecordAction({ area, studentId, clubId, pieces: ps, unit: range.unit, max }),
           }}
           onApply={apply}
+          what={`${area} 글`}
           done={hasBody}
           keywordPane={keywordPane?.({ onApply: apply, bodyEmpty: !hasBody })}
           defaultMode={keywordPane ? "keywords" : undefined}
         />
       </div>
       <form action={action} className={`flex flex-col gap-3 ${STEP_GAP}`}>
-        <StepHead n={3} title="본문 · 검사 · 확정" meta={checkMeta(bc.check)} done={confirmed && hasBody && text === initial} />
+        <StepHead n={3} title="글 확인 · 확정" meta={checkMeta(bc.check).replace("본문", "글")} done={confirmed && hasBody && text === initial} />
         <input type="hidden" name="area" value={area} />
         <input type="hidden" name="studentId" value={studentId} />
         {clubId && <input type="hidden" name="clubId" value={clubId} />}
         {pv.inputs()}
-        <BodyCard bare toggle={hasBody} text={text} tag={(t) => tagRecord({ area, studentId, clubId, text: t })}
+        <BodyCard bare title={`${area} 글`} toggle={hasBody} text={text} tag={(t) => tagRecord({ area, studentId, clubId, text: t })}
           extra={<><BodyViewSwitch {...pv.switchProps} className="hidden @lg:inline-flex" /><LibraryToggle />{hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}</>}>
           <BodyViewSwitch {...pv.switchProps} full className="mb-2 @lg:hidden" />
           {pv.body(<HighlightTextarea
@@ -148,7 +151,7 @@ export function RecordEditor({
             onPickMark={bc.setOpen}
             focusKey={bc.open}
             maxLength={5000}
-            placeholder="② 결과를 넣거나 직접 써 주세요. 문장은 '~함.'으로 끝내요"
+            placeholder="AI로 쓰거나 직접 써요. 문장은 '~함.'으로 끝내요"
             boxClassName="rounded-field bg-soft focus-within:ring-2 focus-within:ring-key"
             textClassName="min-h-[120px] px-4 py-3.5 text-[15px] leading-[26px]"
             aria-label="기록 내용"

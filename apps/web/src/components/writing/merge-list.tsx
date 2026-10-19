@@ -41,7 +41,7 @@ export function MergeList({ pieces, onWeight, selected, setSelected, unit, targe
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-bold">조각 {pieces.length}개 · 선택 {picked.length}</span>
+        <span className="text-[13px] font-bold">{pieces.length}개 중 {picked.length}개 고름</span>
         <button type="button" disabled={!pieces.length} onClick={() => setSelected(new Set(picked.length === pieces.length ? [] : pieces.map((p) => p.id)))} className="text-[12px] font-medium text-key-strong disabled:text-faint">
           {pieces.length && picked.length === pieces.length ? "모두 해제" : "전체 선택"}
         </button>
@@ -97,7 +97,7 @@ export function MergeList({ pieces, onWeight, selected, setSelected, unit, targe
             </button>
           </li>
         )}
-        {pieces.length === 0 && <li className="py-6 text-center text-[13px] text-mute">합칠 조각이 없어요. 누가기록이나 메모를 먼저 남겨 주세요</li>}
+        {pieces.length === 0 && <li className="py-6 text-center text-[13px] text-mute">활동 메모가 없어요. ①에서 먼저 남겨 주세요</li>}
       </ul>
     </div>
   );
