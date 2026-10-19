@@ -7,7 +7,6 @@ import { SimilarBadge } from "@/components/writing/similar-sheet";
 import { LevelBadge, useLevels } from "@/components/writing/level-picker";
 import { PickBar, PickBox } from "@/components/writing/pick-bar";
 import { CheckStatus } from "@/components/writing/workspace";
-import { ClassCheckButton } from "@/components/writing/class-check-panel";
 import { useUndoSnack } from "@/components/writing/undo-snack";
 import { ACHIEVEMENT_SCALES, countLevels, type Level } from "@/lib/domain/achievement";
 
@@ -92,7 +91,6 @@ export function SetukStudentList({ items, title }: { items: ListItem[]; title?: 
 
   return (
     <>
-      <div className="-mt-1 mb-3 hidden md:block"><ClassCheckButton /></div>
       {lv && !bulk && (
         <div className="-mt-1 mb-2 flex items-center justify-between gap-2">
           <span className="text-[12px] font-medium text-sub">성취수준 {countLevels(lv.levels, ids)} / {items.length}명</span>

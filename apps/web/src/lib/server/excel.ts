@@ -1,11 +1,24 @@
 import "server-only";
 import ExcelJS from "exceljs";
 import { readTemplate, TEMPLATE_ERROR, TEMPLATE_MAX_ROWS, TEMPLATES, type TemplateKind } from "@/lib/domain/excel-template";
+import { cellOf, sheetName, type ExportCol, type ExportRow } from "@/lib/domain/records-export";
 
 // 엑셀 양식 (Figma N25): 모든 엑셀 받기는 같은 모양의 양식을 내려주고, 그 양식만 읽는다.
 // 규칙(제목 검사·줄 자르기)은 lib/domain/excel-template.ts. 여기는 파일 만들기·열기만.
 
 export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // 2MB
+
+/** 1행 제목 서식 (N25 양식 · N42 기록 엑셀 같이): 파란 바탕 · 굵게 · 아래 굵은 선 */
+export function styleHead(head: ExcelJS.Row, n: number) {
+  head.height = 20;
+  for (let i = 1; i <= n; i++) {
+    const c = head.getCell(i);
+    c.font = { bold: true, color: { argb: "FF26348C" } };
+    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDFE3FF" } };
+    c.alignment = { horizontal: "left", vertical: "middle" };
+    c.border = { bottom: { style: "medium", color: { argb: "FF8B95A1" } } };
+  }
+}
 
 /** 양식 파일: 1행 제목(파란 바탕·굵게·틀 고정) + "작성 방법" 시트. 본문은 비워 둔다(예시는 작성 방법 시트에) */
 export async function buildTemplate(kind: TemplateKind): Promise<ArrayBuffer> {
@@ -14,15 +27,7 @@ export async function buildTemplate(kind: TemplateKind): Promise<ArrayBuffer> {
   wb.creator = "속초고등학교 학생관리시스템";
   const ws = wb.addWorksheet("양식", { views: [{ state: "frozen", ySplit: 1 }] });
   ws.columns = t.columns.map((h, i) => ({ header: h, key: h, width: Math.max(8, Math.round(t.widths[i] / 6)) }));
-  const head = ws.getRow(1);
-  head.height = 20;
-  t.columns.forEach((_, i) => {
-    const c = head.getCell(i + 1);
-    c.font = { bold: true, color: { argb: "FF26348C" } };
-    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDFE3FF" } };
-    c.alignment = { horizontal: "left", vertical: "middle" };
-    c.border = { bottom: { style: "medium", color: { argb: "FF8B95A1" } } };
-  });
+  styleHead(ws.getRow(1), t.columns.length);
   // 모든 칸을 글자로 (학번 앞 0·반 번호가 날짜로 바뀌지 않게)
   t.columns.forEach((_, i) => { ws.getColumn(i + 1).numFmt = "@"; });
 
@@ -90,4 +95,36 @@ export async function readTemplateFile(f: unknown, kind: TemplateKind): Promise<
   if (ws.rowCount > TEMPLATE_MAX_ROWS + 1) return { error: `한 번에 ${TEMPLATE_MAX_ROWS}줄까지 올릴 수 있어요` };
   const body = readTemplate(rows, kind);
   return body ? { body } : { error: TEMPLATE_ERROR };
+}
+
+// ---------- 기록 엑셀 (Figma N42 ②): AI 원안 · 최종 글 나란히 + 요약 시트 ----------
+
+const WIDTH: Partial<Record<ExportCol, number>> = { 학번: 9, 이름: 10, 영역: 8, "AI 원안": 60, "최종 글": 60, "수정 %": 8, 바이트: 8, 상태: 8, 확정일: 12, 성취수준: 9 };
+
+/** 시트마다 학생 한 줄 (학번 글자 서식 · 글 칸 줄바꿈 · 한도 넘은 바이트 굵게 #9A6400) + 마지막 "요약" 시트 */
+export async function buildRecordsWorkbook(input: { sheets: { name: string; rows: ExportRow[] }[]; cols: ExportCol[]; summary: { head: string[]; rows: (string | number)[][] } }): Promise<ArrayBuffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "속초고등학교 학생관리시스템";
+  const used = new Set<string>();
+  const uniq = (n: string) => { let s = sheetName(n); let i = 2; while (used.has(s)) s = sheetName(`${n} ${i++}`); used.add(s); return s; };
+  for (const sh of input.sheets) {
+    const ws = wb.addWorksheet(uniq(sh.name), { views: [{ state: "frozen", ySplit: 1 }] });
+    ws.columns = input.cols.map((c) => ({ header: c, key: c, width: WIDTH[c] ?? 10 }));
+    styleHead(ws.getRow(1), input.cols.length);
+    const noCol = input.cols.indexOf("학번") + 1;
+    if (noCol) ws.getColumn(noCol).numFmt = "@";
+    for (const r of sh.rows) {
+      const row = ws.addRow(input.cols.map((c) => cellOf(r, c)));
+      row.alignment = { vertical: "top", wrapText: true };
+      if (r.over) {
+        const b = input.cols.indexOf("바이트") + 1;
+        if (b) row.getCell(b).font = { bold: true, color: { argb: "FF9A6400" } };
+      }
+    }
+  }
+  const sum = wb.addWorksheet(uniq("요약"), { views: [{ state: "frozen", ySplit: 1 }] });
+  sum.columns = input.summary.head.map((h, i) => ({ header: h, key: `c${i}`, width: i === 0 ? 22 : 16 }));
+  styleHead(sum.getRow(1), input.summary.head.length);
+  for (const r of input.summary.rows) sum.addRow(r);
+  return (await wb.xlsx.writeBuffer()) as ArrayBuffer;
 }

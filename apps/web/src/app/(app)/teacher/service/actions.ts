@@ -2,10 +2,13 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { matchStudent, parseHours, servicePeriod, SERVICE_FILE_TYPES, SERVICE_MAX_BYTES } from "@/lib/domain/activity";
-import { isAdmin } from "@/lib/domain/policy";
+import { can, isAdmin } from "@/lib/domain/policy";
 import { readServiceDoc } from "@/lib/server/ai/read-service-doc";
 import { repo } from "@/lib/server/repo";
-import { requireCan } from "@/lib/server/viewer";
+import { requireCan, requireViewer } from "@/lib/server/viewer";
+import { cutServiceActivity, serviceActivityCheck } from "@/lib/domain/length";
+import { scrubIdentity } from "@/lib/domain/writing";
+import { aiEnabled, aiJson } from "@/lib/server/ai/claude";
 
 /** 한 번에 읽고 보낼 수 있는 확인서 수 */
 const MAX_FILES = 20;
@@ -144,6 +147,69 @@ export async function sendServices(prev: SendState, form: FormData): Promise<Sen
   revalidatePath("/homeroom/service");
   const classes = new Set(ready.map((x) => `${x.s.grade}-${x.s.classNo}`)).size;
   return { sent: `${ready.length}건을 ${classes}개 반 담임 선생님께 보냈어요`, n };
+}
+
+// ---------- 봉사 활동내용 50자 (Figma N42 ④) ----------
+
+export type ShortenResult = { ok: true; text: string; label: "AI" | "자동"; chars: number; bytes: number; over: boolean; notice?: string } | { ok: false; error: string };
+
+/**
+ * "✦ 줄이기": 활동내용을 50자(나이스 150B) 안으로 (Haiku). 활동내용 글만 보낸다 — 학생 id · 기관 · 날짜는 보내지 않고,
+ * 글 속 이름·학번은 지운 뒤 보낸다(studentId 는 지우는 데만). 저장하지 않는다(넣기 · 바꾸고 확인을 눌러야 저장).
+ */
+export async function shortenServiceActivity(input: { text: string; studentId?: string | null }): Promise<ShortenResult> {
+  const v = await requireViewer();
+  if (!can(v, "service.upload") && !can(v, "service.receive")) return { ok: false, error: "권한이 없어요" };
+  const raw = String(input?.text ?? "").replace(/\s+/g, " ").trim().slice(0, 400);
+  if (raw.length < 2) return { ok: false, error: "활동내용을 먼저 적어 주세요" };
+  const s = input?.studentId ? await repo.getStudent(String(input.studentId)) : null;
+  const clean = (s ? scrubIdentity(raw, s).text : raw).replace(/\b\d{5}\b/g, "").replace(/\s+/g, " ").trim();
+  const before = serviceActivityCheck(raw).bytes;
+  let text = "";
+  let label: "AI" | "자동" = "자동";
+  let notice: string | undefined;
+  if (aiEnabled()) {
+    const r = await aiJson(z.object({ text: z.string().max(120) }), {
+      model: "fast", maxTokens: 300,
+      system: "봉사활동 실적 활동내용을 50자(나이스 150바이트, 한글 3바이트 · 영문·숫자·공백 1바이트) 안으로 줄인다 · 받은 글에 있는 말과 사실만 쓴다 · 기관명·학생 이름·날짜·시간은 넣지 않는다 · ‘~함’으로 끝낸다 · 한 문장",
+      content: `<활동내용>\n${clean}\n</활동내용>`,
+    });
+    if (r.ok) { text = r.data.text.replace(/\s+/g, " ").trim(); label = "AI"; } else notice = r.error;
+  }
+  if (!text) text = cutServiceActivity(clean);
+  if (s) text = scrubIdentity(text, s).text;
+  const c = serviceActivityCheck(text);
+  if (c.over) notice = "아직 50자를 넘어요 · 더 줄여 주세요";
+  if (label === "AI") await repo.audit(v.accountId, "service.ai.shorten", `bytes=${before}→${c.bytes}`);
+  return { ok: true, text, label, ...c, notice };
+}
+
+/** 담임 반 학생의 확인 대기 확인서인지 (관리자는 모두) */
+async function myWaitingService(v: Awaited<ReturnType<typeof requireCan>>, id: string) {
+  const r = await repo.getServiceRecord(id);
+  if (!r || r.status !== "sent") return null;
+  const s = await repo.getStudent(r.studentId);
+  const h = v.kind === "teacher" ? v.teacher.homeroom : null;
+  const mine = !!s && !!h && h.grade === s.grade && h.classNo === s.classNo;
+  return mine || isAdmin(v) ? { r, s } : null;
+}
+
+/** 받은함 "바꾸고 확인": 활동내용만 바꾸고(확인서 원문 파일은 그대로) 확인까지 한 번에 */
+export async function updateServiceActivity(input: { id: string; activity: string; confirm?: boolean }): Promise<{ ok: true } | { ok: false; error: string }> {
+  const v = await requireCan("service.receive");
+  const activity = String(input?.activity ?? "").replace(/\s+/g, " ").trim();
+  if (activity.length < 2 || activity.length > 200) return { ok: false, error: "활동내용을 2~200자로 써 주세요" };
+  const t = await myWaitingService(v, String(input?.id ?? ""));
+  if (!t) return { ok: false, error: "우리 반 확인 대기 확인서만 고칠 수 있어요" };
+  if (!(await repo.updateServiceActivity(t.r.id, activity))) return { ok: false, error: "고치지 못했어요" };
+  await repo.audit(v.accountId, "service.activity_edit", t.r.id);
+  if (input.confirm !== false) {
+    await repo.confirmService(t.r.id, v.accountId);
+    await repo.audit(v.accountId, "service.confirm", t.s?.pseudonymId ?? null);
+  }
+  revalidatePath("/homeroom/service");
+  revalidatePath("/teacher/service");
+  return { ok: true };
 }
 
 /** 담임 확인 */

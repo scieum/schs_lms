@@ -10,6 +10,10 @@ import { cx } from "@/components/ui";
 import { aiFixSetuk, classCheckSetuk, saveSetuk } from "@/app/(app)/teacher/setuk/actions";
 import { aiFixDraft, classCheckDrafts, saveDraft } from "@/app/(app)/teacher/drafts/actions";
 import { aiFixRecordAction, classCheckRecords, saveRecord } from "@/app/(app)/teacher/write/actions";
+import { runPool } from "@/lib/domain/pool";
+import { CLASS_WRITE_CONCURRENCY, type WriteRow } from "@/lib/domain/class-write";
+import { useClassWriteRun, type ClassWriteRun } from "./class-write-run";
+import type { ScopeArg } from "@/app/(app)/teacher/class-actions";
 
 // 작업 화면 상태 (Figma N35): 학생 목록 · 편집 카드 옆에 여는 패널(반 전체 검사 · 문장 보관함)과
 // 반 전체 AI 고치기 대기열(화면 상태 — 새로고침하면 사라짐, 패널을 닫아도 같은 탭에서는 계속 만든다).
@@ -19,7 +23,8 @@ export type ClassScope =
   | { kind: "drafts"; programId: string }
   | { kind: "record"; area: string; clubId?: string | null };
 
-export type Panel = "check" | "library" | null;
+/** write = 반 전체 글 쓰기 (Figma N42 ①) */
+export type Panel = "check" | "library" | "write" | null;
 
 /** 편집기가 보관함 패널에 알려 주는 것: 본문에 넣기 · 조각으로 넣기 · 지금 영역 */
 export type Inserter = { insert: (text: string) => void; addPiece?: (entryId: string) => Promise<{ error?: string }>; area: LibraryArea; subject?: string | null };
@@ -43,6 +48,8 @@ type Ctx = {
   undo: (id: string) => Promise<void>;
   keep: (id: string) => void;
   reopen: (id: string) => void;
+  /** 반 전체 글 쓰기 (N42): 세특 분반 · 담임 반 · 동아리만 (초안 검토는 없음) */
+  write: ClassWriteRun | null;
 };
 
 const WsCtx = createContext<Ctx | null>(null);
@@ -84,7 +91,7 @@ async function save(scope: ClassScope, r: ClassViewRow, text: string): Promise<s
   return (await saveRecord({}, fd)).error;
 }
 
-const CONCURRENCY = 3;
+const CONCURRENCY = CLASS_WRITE_CONCURRENCY;
 
 export function WorkspaceProvider({ scope, children, initialPanel = null }: { scope: ClassScope; children: ReactNode; initialPanel?: Panel }) {
   const [panel, setPanel] = useState<Panel>(initialPanel);
@@ -95,6 +102,10 @@ export function WorkspaceProvider({ scope, children, initialPanel = null }: { sc
   const [queueOpen, setQueueOpen] = useState(false);
   const rowsRef = useRef<Map<string, ClassViewRow>>(new Map());
   const runId = useRef(0);
+  const writeScope = useMemo<ScopeArg | null>(() => (scope.kind === "setuk" ? { kind: "setuk", courseId: scope.courseId, section: scope.section } : scope.kind === "record" ? { kind: "record", area: scope.area, clubId: scope.clubId ?? null } : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scope.kind, scope.kind === "setuk" ? scope.courseId : "", scope.kind === "setuk" ? scope.section : "", scope.kind === "record" ? scope.area : "", scope.kind === "record" ? scope.clubId : ""]);
+  const writeRun = useClassWriteRun(writeScope);
 
   const runCheck = useCallback(() => {
     const id = ++runId.current;
@@ -113,23 +124,15 @@ export function WorkspaceProvider({ scope, children, initialPanel = null }: { sc
     rowsRef.current = new Map(targets.map((r) => [r.id, r]));
     setQueue(targets.map((r) => ({ id: r.id, status: "making", before: r.text!, issues: r.issues })));
     setQueueOpen(true);
-    let at = 0;
-    const work = async () => {
-      while (at < targets.length) {
-        const r = targets[at++];
-        try {
-          const res = await fix(scope, r);
-          if (!res.ok) { patch(r.id, { status: "error", error: res.error }); continue; }
-          const range = { ...resolveLength("세특", { unit: r.unit, max: r.max }), max: r.max };
-          const c = autoCheck(res.text, range, findIdentity(res.text, whoOf(r)));
-          const left = fixableRows(c).length + c.rows.filter((x) => x.key === "len" && x.label.startsWith("분량 초과")).length;
-          patch(r.id, { status: "ready", after: res.text, left });
-        } catch {
-          patch(r.id, { status: "error", error: "고치지 못했어요" });
-        }
-      }
-    };
-    void Promise.all(Array.from({ length: Math.min(CONCURRENCY, targets.length) }, work));
+    // N42: 동시 3 풀 (끝나는 대로 다음 학생)
+    void runPool(targets, CONCURRENCY, async (r) => {
+      const res = await fix(scope, r);
+      if (!res.ok) { patch(r.id, { status: "error", error: res.error }); return; }
+      const range = { ...resolveLength("세특", { unit: r.unit, max: r.max }), max: r.max };
+      const c = autoCheck(res.text, range, findIdentity(res.text, whoOf(r)));
+      const left = fixableRows(c).length + c.rows.filter((x) => x.key === "len" && x.label.startsWith("분량 초과")).length;
+      patch(r.id, { status: "ready", after: res.text, left });
+    }, { onError: (r) => patch(r.id, { status: "error", error: "고치지 못했어요" }) });
   }, [scope]);
 
   const put = useCallback(async (id: string) => {
@@ -151,14 +154,18 @@ export function WorkspaceProvider({ scope, children, initialPanel = null }: { sc
   const keep = useCallback((id: string) => patch(id, { status: "kept" }), []);
   const reopen = useCallback((id: string) => patch(id, { status: "ready" }), []);
 
-  const value = useMemo<Ctx>(() => ({ scope, panel, setPanel, view, checking, runCheck, inserter, setInserter, queue, queueOpen, setQueueOpen, startFix, put, undo, keep, reopen }),
-    [scope, panel, view, checking, runCheck, inserter, setInserter, queue, queueOpen, startFix, put, undo, keep, reopen]);
+  const write = writeScope ? writeRun : null;
+  const value = useMemo<Ctx>(() => ({ scope, panel, setPanel, view, checking, runCheck, inserter, setInserter, queue, queueOpen, setQueueOpen, startFix, put, undo, keep, reopen, write }),
+    [scope, panel, view, checking, runCheck, inserter, setInserter, queue, queueOpen, startFix, put, undo, keep, reopen, write]);
   return <WsCtx.Provider value={value}>{children}</WsCtx.Provider>;
 }
 
 /** 목록 행의 상태 칩: 반 전체 검사 패널이 열려 있으면 검사 결과 태그로 바꾼다 (닫으면 원래 작성 상태 칩) */
 export function CheckStatus({ id, children }: { id: string; children: ReactNode }) {
   const ws = useWorkspace();
+  // 반 전체 글 쓰기 중 (N42): ✓ 임시 · ✦ 쓰는 중 · 대기 · 실패 · 건너뜀
+  const w = ws?.panel === "write" && ws.write && ws.write.phase !== "idle" ? ws.write.rows.find((r) => r.id === id) : undefined;
+  if (w) return <WriteTag row={w} />;
   const row = ws?.panel === "check" && ws.view?.ok ? ws.view.rows.find((r) => r.id === id) : undefined;
   if (!row) return <>{children}</>;
   return <ResultTag status={row.status} />;
@@ -171,6 +178,19 @@ export const RESULT: Record<ClassViewRow["status"], { label: string; tag: string
   empty: { label: "빈 글", tag: "bg-soft text-mute", dot: "bg-hair" },
 };
 
+const WRITE_TAG: Record<WriteRow["state"], { label: string; tag: string }> = {
+  done: { label: "✓ 임시", tag: "bg-ok-soft text-[#00A05D]" },
+  running: { label: "✦ 쓰는 중", tag: "bg-new-soft text-[#0B8FB0]" },
+  waiting: { label: "대기", tag: "bg-soft text-sub" },
+  failed: { label: "실패", tag: "bg-bad-soft text-bad" },
+  skipped: { label: "건너뜀", tag: "bg-soft text-mute" },
+};
+
+export function WriteTag({ row, long }: { row: Pick<WriteRow, "state">; long?: boolean }) {
+  const t = WRITE_TAG[row.state];
+  return <span className={cx("inline-flex shrink-0 items-center whitespace-nowrap rounded-chip px-1.5 py-0.5 text-[12px] font-bold", t.tag)}>{long && row.state === "done" ? "✓ 임시 저장" : t.label}</span>;
+}
+
 export function ResultTag({ status }: { status: ClassViewRow["status"] }) {
   return <span className={cx("inline-flex shrink-0 items-center whitespace-nowrap rounded-chip px-1.5 py-0.5 text-[12px] font-bold", RESULT[status].tag)}>{RESULT[status].label}</span>;
 }
@@ -179,18 +199,22 @@ export function ResultTag({ status }: { status: ClassViewRow["status"] }) {
  * 작업 화면 칸: 목록 | 편집(또는 반 전체 검사 패널) | (근거 자료) | (보관함 패널: xl 이상은 오른쪽 420 카드, 그보다 좁으면 바텀시트).
  * 편집 카드는 패널이 열려도 숨기기만 한다(쓰던 글이 그대로 남게).
  */
-export function WorkspaceGrid({ list, main, aside, checkPanel, libraryPanel, kind }: {
-  list: ReactNode; main: ReactNode; aside?: ReactNode; checkPanel: ReactNode; libraryPanel?: ReactNode; kind: "setuk" | "record";
+export function WorkspaceGrid({ list, main, aside, checkPanel, libraryPanel, writePanel, kind }: {
+  list: ReactNode; main: ReactNode; aside?: ReactNode; checkPanel: ReactNode; libraryPanel?: ReactNode; writePanel?: ReactNode; kind: "setuk" | "record";
 }) {
   const ws = useWorkspace();
-  const check = ws?.panel === "check";
+  // 반 전체 검사 · 반 전체 글 쓰기(N42)는 편집 카드 자리를 대신한다
+  const writing = ws?.panel === "write" && !!writePanel;
+  const check = ws?.panel === "check" || writing;
+  // 모바일 시작 화면은 바텀시트 — 뒤 목록 · 편집 카드를 그대로 둔다
+  const sheet = writing && ws?.write?.phase === "idle";
   const lib = ws?.panel === "library" && !!libraryPanel;
   const base = kind === "setuk" ? "md:grid-cols-[300px_minmax(0,1fr)]" : "md:grid-cols-[260px_minmax(0,1fr)] lg:grid-cols-[260px_minmax(0,1fr)_300px]";
   return (
     <div className={cx("grid gap-4 md:gap-6", base, lib && "xl:grid-cols-[minmax(0,1fr)_420px]")}>
-      <div className={cx("min-w-0", check && "max-md:hidden", lib && "xl:hidden")}>{list}</div>
-      <div className={cx("min-w-0", check && "hidden")}>{main}</div>
-      {check && <div className={cx("min-w-0", !!aside && "lg:col-span-2")}>{checkPanel}</div>}
+      <div className={cx("min-w-0", check && !sheet && "max-md:hidden", lib && "xl:hidden")}>{list}</div>
+      <div className={cx("min-w-0", check && (sheet ? "md:hidden" : "hidden"))}>{main}</div>
+      {check && <div className={cx("min-w-0", !!aside && "lg:col-span-2")}>{writing ? writePanel : checkPanel}</div>}
       {lib && <div className="min-w-0 max-xl:contents">{libraryPanel}</div>}
       {aside && !check && <div className={cx("min-w-0 md:col-span-2 lg:col-span-1", lib && "xl:hidden")}>{aside}</div>}
     </div>

@@ -4,6 +4,8 @@ import { FileUp, Plus, Sparkles, X } from "lucide-react";
 import { Button, cx } from "@/components/ui";
 import { batchBySize, prepareUploads } from "@/lib/client/shrink-upload";
 import { scanServiceDocs, sendServices, type ScanState, type SendState, type ServiceRowDraft } from "./actions";
+import { serviceActivityCheck } from "@/lib/domain/length";
+import { ServiceLengthChip, ShortenBox } from "./service-length";
 
 const INPUT = "h-10 w-full min-w-0 rounded-field bg-white px-3 text-[14px] outline-none focus:ring-2 focus:ring-key";
 type S = { id: string; label: string };
@@ -127,6 +129,8 @@ function RowsEditor({ initial, files, students, sending, error, onSend }: {
   const matched = rows.filter((r) => r.studentId).length;
   const chosen = rows.filter((r) => r.on);
   const missing = chosen.filter((r) => !r.studentId).length;
+  // N42 ④: 활동내용 50자(150B) 넘음 — 경고만, 보내기는 막지 않는다
+  const overN = rows.filter((r) => serviceActivityCheck(r.activity).over).length;
   // 단체 확인서: 같은 파일로 학생 한 줄 더
   const addRow = (r: Edit) => setRows([...rows, { ...r, key: `${r.key}+${rows.length}`, studentId: null, studentHint: null, error: null, on: true }]);
 
@@ -135,10 +139,13 @@ function RowsEditor({ initial, files, students, sending, error, onSend }: {
       <div className="flex items-center gap-2 text-[13px]">
         <span className="font-bold">자동 매칭 {matched}/{rows.length}</span>
         {matched < rows.length && <span className="text-wait">· 못 찾은 {rows.length - matched}명은 학생을 골라 주세요</span>}
+        {overN > 0 && <span className="font-medium text-[#9A6400]">· 활동내용 50자 넘음 {overN}건</span>}
       </div>
       <ul className="flex flex-col gap-2">
-        {rows.map((r) => (
-          <li key={r.key} className={cx("flex flex-col gap-2 rounded-inner bg-white p-3", !r.on && "opacity-50")}>
+        {rows.map((r) => {
+          const over = serviceActivityCheck(r.activity).over;
+          return (
+          <li key={r.key} className={cx("flex flex-col gap-2 rounded-inner p-3", over ? "border border-[#FFE2A8] bg-[#FFFBF2]" : "bg-white", !r.on && "opacity-50")}>
             <div className="flex items-center gap-2 text-[13px]">
               <input type="checkbox" checked={r.on} onChange={(e) => set(r.key, { on: e.target.checked })} aria-label="이 줄 보내기" className="size-4 accent-[var(--color-key)]" />
               <span className="min-w-0 flex-1 truncate text-mute">{r.fileName}</span>
@@ -158,12 +165,19 @@ function RowsEditor({ initial, files, students, sending, error, onSend }: {
             </div>
             <div className="grid gap-2 md:grid-cols-[1fr_1.6fr]">
               <input value={r.organization} onChange={(e) => set(r.key, { organization: e.target.value })} placeholder="기관 (예: 속초시노인복지관)" maxLength={60} className={INPUT} aria-label="기관" />
-              <input value={r.activity} onChange={(e) => set(r.key, { activity: e.target.value })} placeholder="활동 내용 (예: 급식 배식 보조)" maxLength={200} className={INPUT} aria-label="활동 내용" />
+              <span className="relative block min-w-0">
+                <input value={r.activity} onChange={(e) => set(r.key, { activity: e.target.value })} placeholder="활동 내용 (예: 급식 배식 보조)" maxLength={200}
+                  className={cx(INPUT, "pr-[136px]", over && "border-[1.5px] border-wait bg-[#fff]")} aria-label="활동 내용" />
+                {r.activity.trim() && <ServiceLengthChip text={r.activity} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />}
+              </span>
             </div>
+            {over && <ShortenBox text={r.activity} studentId={r.studentId} onApply={(v) => set(r.key, { activity: v })} applyLabel="넣기" />}
           </li>
-        ))}
+          );
+        })}
       </ul>
       {error && <p className="text-sm text-bad" role="alert">{error}</p>}
+      {overN > 0 && <p className="break-keep text-[12px] text-mute">50자를 넘는 줄이 있어도 보낼 수 있어요 · 담임 받은함에도 ‘넘음’으로 보여요</p>}
       <Button
         type="button"
         disabled={sending || chosen.length === 0 || missing > 0 || files.length === 0}

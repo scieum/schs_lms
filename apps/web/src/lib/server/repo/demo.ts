@@ -265,6 +265,12 @@ export const demoRepo: Repo = {
     const r = store().service.find((x) => x.id === id);
     if (r && r.status === "sent") Object.assign(r, { status: "confirmed", confirmedBy: by, confirmedAt: new Date().toISOString() });
   },
+  async updateServiceActivity(id, activity) {
+    const r = store().service.find((x) => x.id === id);
+    if (!r || r.status !== "sent") return false;
+    r.activity = activity;
+    return true;
+  },
   async purgeServiceFiles(ids) {
     const set = new Set(ids);
     let n = 0;

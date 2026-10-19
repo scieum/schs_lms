@@ -66,3 +66,29 @@ export function checkLength(text: string, range: LengthRange): { value: number; 
 }
 
 export const UNIT_LABEL: Record<LengthUnit, string> = { bytes: "바이트", chars: "글자" };
+
+// ---------- 봉사 활동내용 50자 (Figma N42 ④) ----------
+
+/** 2026 기재요령 봉사활동 실적 "활동내용" 50자 = 나이스 바이트 150B (한글 3B · 영숫자·공백 1B). 판정은 바이트 */
+export const SERVICE_ACTIVITY_MAX_BYTES = 150;
+
+/** 활동내용 길이: 글자 · 바이트 · 넘었는지 (넘어도 막지 않고 경고만) */
+export function serviceActivityCheck(text: string | null | undefined): { chars: number; bytes: number; over: boolean } {
+  const t = String(text ?? "").trim();
+  const bytes = neisBytes(t);
+  return { chars: charCount(t), bytes, over: bytes > SERVICE_ACTIVITY_MAX_BYTES };
+}
+
+/** 규칙으로 150B 안에 자르기 (AI가 꺼졌을 때 줄인 글 후보): 어절 경계에서 자른다 */
+export function cutServiceActivity(text: string, max = SERVICE_ACTIVITY_MAX_BYTES): string {
+  const t = String(text ?? "").replace(/\s+/g, " ").trim();
+  if (neisBytes(t) <= max) return t;
+  let out = "";
+  for (const w of t.split(" ")) {
+    const next = out ? `${out} ${w}` : w;
+    if (neisBytes(next) > max) break;
+    out = next;
+  }
+  if (!out) for (const ch of t) { if (neisBytes(out + ch) > max) break; out += ch; }
+  return out.replace(/[,·\s]+$/, "");
+}

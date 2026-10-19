@@ -31,6 +31,8 @@ const LABEL: Record<string, string> = {
   "library.add": "문장 보관", "library.remove": "보관 문장 지우기", "setuk.level": "성취수준 정함", "setting.achievement_scale": "성취수준 단계 설정",
   "record_report.export": "학생부 점검 엑셀", "record_report.print": "학생부 점검 인쇄", "retention.update": "보존 기간 바꿈", "retention.hold": "파기 한 번 미룸", "retention.purge": "자료 파기", "retention.run": "파기 지금 확인",
   "behavior.menu": "키워드 메뉴판 고침", "record.ai_behavior": "AI 행발 키워드 초안",
+  "class_write.start": "반 전체 글 쓰기", "class_write.done": "반 전체 글 쓰기 끝", "records.export_xlsx": "기록 엑셀 받기", "records.copy_tsv": "시트용 복사",
+  "service.ai.shorten": "AI 봉사 활동내용 줄이기", "service.activity_edit": "봉사 활동내용 고침", "setuk.ai_merge": "AI 메모 모아 쓰기 (세특)", "record.ai_merge": "AI 메모 모아 쓰기 (기록)",
   "common.create": "공통 활동 등록", "common.ai_file": "AI 자료 요약 (공통 활동)", "common.piece": "공통 활동 조각",
   "counsel.add": "상담 기록", "counsel.revise": "상담 기록 수정", "counsel.ai_summary": "AI 상담 요약", "career.update": "희망 진로 변경", "recs.ai": "AI 추천",
   // 성적·최저·야자

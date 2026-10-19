@@ -18,7 +18,9 @@ import { CommonActivitiesCard } from "@/components/writing/common-activities-car
 import { similarCount, similarPairs } from "@/lib/domain/similar";
 import { SetukStudentList } from "./student-list";
 import { WorkspaceGrid, WorkspaceProvider } from "@/components/writing/workspace";
-import { ClassCheckButton, ClassCheckPanel } from "@/components/writing/class-check-panel";
+import { ClassCheckPanel } from "@/components/writing/class-check-panel";
+import { ClassActionsBar } from "@/components/writing/class-actions-bar";
+import { ClassWritePanel } from "@/components/writing/class-write-panel";
 import { LibraryPanel } from "@/components/writing/library-panel";
 import { LibrarySaveProvider } from "@/components/writing/library-save";
 import { LevelsProvider } from "@/components/writing/level-picker";
@@ -26,6 +28,8 @@ import { piecesPool, provView } from "@/lib/server/provenance";
 import { listMemosWithPieces, memoPieces } from "@/lib/server/merge-pieces";
 
 export const metadata = { title: "교과 세특 · 속초고등학교 학생관리시스템" };
+/** 반 전체 글 쓰기 (N42): 학생 한 명 Sonnet 쓰기 ~10~25초 */
+export const maxDuration = 60;
 
 type Props = { searchParams: Promise<{ course?: string; section?: string; student?: string; check?: string }> };
 
@@ -140,11 +144,12 @@ export default async function SetukPage({ searchParams }: Props) {
         ) : (
           <WorkspaceProvider key={`${course.id}-${tab.section ?? ""}`} scope={{ kind: "setuk", courseId: course.id, section: tab.section }}>
             <LevelsProvider courseId={course.id} scale={scale} initial={levels}>
-              <div className="md:hidden"><ClassCheckButton mobile /></div>
+              <ClassActionsBar title={listTitle} total={students.length} counts={{ confirmed: counts.확정, draft: counts["작성 중"], empty: counts.미작성 }} />
               <WorkspaceGrid
                 kind="setuk"
                 checkPanel={<ClassCheckPanel />}
                 libraryPanel={<LibraryPanel />}
+                writePanel={<ClassWritePanel hrefBase={`/teacher/setuk?course=${course.id}${sec}`} word="세특 글" />}
                 list={
                   <Card title={listTitle} action={<span className="text-[12px] text-mute">{tab.section ? "이동반 · " : ""}{students.length}명</span>}>
                     <SetukStudentList title={listTitle} items={students.map((s) => ({

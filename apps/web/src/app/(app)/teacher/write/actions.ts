@@ -28,6 +28,11 @@ import { buildClassView, classAudit } from "@/lib/server/class-check";
 import { latestRecordByStudent } from "@/lib/domain/writing";
 import { classProv, confirmAudit, pieceKey, piecesPool, provForSave, saveOriginal } from "@/lib/server/provenance";
 import { sourceKey, type SourceItem } from "@/lib/domain/provenance";
+import type { WriteOutcome } from "@/lib/domain/class-write";
+import { aiFailed, runClassWrite } from "@/lib/server/class-write";
+import { aiEnabled } from "@/lib/server/ai/claude";
+import { behaviorDraft } from "@/lib/server/ai/merge-record";
+import { RECORD_MAX_BYTES } from "@/lib/domain/writing";
 
 // 창체 특기사항(자율·자치/동아리/진로)·행발: AI 초안 → 교사 수정 → 저장(새 버전) → 확정
 
@@ -335,4 +340,66 @@ export async function classCheckRecords(input: { area: string; clubId?: string |
   }));
   await repo.audit(v.accountId, "record.class_check", classAudit(area, view));
   return view;
+}
+
+// ---------- 반 전체 글 쓰기 (Figma N42 ①) ----------
+
+const ClassWriteSchema = z.object({
+  area: z.string(),
+  clubId: z.string().nullish(),
+  studentId: z.string().min(1),
+  runId: z.string().uuid(),
+  target: z.number().int().min(100).max(5000),
+  rewrite: z.boolean(),
+});
+
+/**
+ * 반 전체 글 쓰기 (담임 반 자율·자치 · 진로 · 행발 / 동아리): 학생 한 명 = 요청 하나.
+ * 창체는 N41 메모 모아 쓰기와 같은 길(누가기록 · 메모 · 받은 특색 활동 모두, 보통 중요도, 과장 막기).
+ * 행발은 N35 키워드·에피소드 메모가 있으면 키워드 초안, 없으면 활동 메모로. 임시 저장 + AI 원안 — 확정하지 않는다.
+ */
+export async function classWriteRecord(input: z.input<typeof ClassWriteSchema>): Promise<WriteOutcome> {
+  const p = ClassWriteSchema.safeParse(input);
+  if (!p.success) return { status: "failed", error: "입력을 확인해 주세요" };
+  const { studentId, runId, target, rewrite } = p.data;
+  const clubId = p.data.clubId ?? null;
+  const t = await recordTarget(p.data.area, studentId, clubId);
+  if ("error" in t) return { status: "failed", error: t.error };
+  const area = t.area;
+  return runClassWrite({
+    lockScope: `record:${area}${clubId ? `:${clubId}` : ""}`, studentId, runId,
+    write: async (): Promise<WriteOutcome> => {
+      const year = schoolYear();
+      const cur = latestRecordByStudent(await repo.listRecordDrafts({ area, year, studentIds: [studentId] })).get(studentId);
+      if (cur?.status === "confirmed") return { status: "locked" };
+      const range = fitRange(resolveRecordLength(area, { unit: "bytes", max: target }));
+      const pick = area === "행발" ? (await repo.listBehaviorPicks([studentId], year).catch(() => []))[0] : undefined;
+      const usePick = !!pick && (pick.keywords.length > 0 || !!pick.memo.trim());
+      let r: Awaited<ReturnType<typeof mergeRecord>>;
+      let kind: "record" | "behavior_keyword" = "record";
+      if (usePick && pick) {
+        const raw = pick.useLogs ? await evidenceLogs("행발", [studentId]) : [];
+        if (!pick.memo.trim() && !raw.length) return { status: "skipped", reason: "no_memo" };
+        if (cur?.content.trim() && !rewrite) return { status: "skipped", reason: "has_text" };
+        const logs = raw.map((l) => ({ date: l.date, content: l.content, key: pieceKey({ id: `log-${l.id}`, source: l.commonActivityId ? "공통 활동" : "누가기록" }) }));
+        r = await behaviorDraft({ student: t.student, keywords: pick.keywords, memo: pick.memo, logs, range, memoKey: sourceKey({ type: "piece", ref: "pick" }) });
+        kind = "behavior_keyword";
+        await repo.audit(t.v.accountId, "record.ai_behavior", `행발 ${t.student.pseudonymId} 키워드 ${pick.keywords.length} class`);
+      } else {
+        const pieces = await listRecordPieces({ area, studentId, clubId });
+        if (!pieces.length) return { status: "skipped", reason: "no_memo" };
+        if (cur?.content.trim() && !rewrite) return { status: "skipped", reason: "has_text" };
+        r = await mergeRecord({ kind: area, context: t.clubName, student: t.student, pieces, range, level: null });
+        await repo.audit(t.v.accountId, "record.ai_merge", `${area} ${t.student.pseudonymId} ${pieces.length}조각 class`);
+      }
+      const fail = aiFailed(r, aiEnabled());
+      if (fail) return fail;
+      const o = await saveOriginal({ kind, studentId, scope: area, text: r.text, aiSentences: r.sentences, pool: await recordPool(area, studentId, clubId), model: r.sample ? "sample" : "write" });
+      const pv = await provForSave({ aiOriginalId: o?.original.id ?? null, pins: [], content: r.text, studentId, confirm: false, reason: "" });
+      const max = RECORD_MAX_BYTES[area];
+      const rec = await repo.addRecordDraft({ area, studentId, authorId: t.v.accountId, year, semester: null, content: r.text, unit: "bytes", max, status: "draft", ...pv.prov });
+      await repo.audit(t.v.accountId, "record.save", `${area} ${t.student.pseudonymId} class`);
+      return { status: "done", bytes: measure(r.text, "bytes"), max, versionId: rec.id, sample: r.sample };
+    },
+  });
 }

@@ -7,6 +7,15 @@ import { neisSets } from "@/lib/server/neis";
 import { requireCan } from "@/lib/server/viewer";
 import { CopyButton } from "./copy-button";
 import { Steps } from "./steps";
+import { SheetCopyButton } from "@/components/writing/sheet-copy";
+import { ExcelExportButton } from "@/components/writing/excel-export";
+import type { ScopeArg } from "../class-actions";
+
+/** N42: 내보내기 주소(내부 id 만)에서 반 범위 → 시트용 복사 · 엑셀로 받기 */
+function scopeOf(href: string): ScopeArg {
+  const q = new URL(href, "http://x").searchParams;
+  return href.startsWith("/teacher/setuk") ? { kind: "setuk", courseId: q.get("course") ?? "", section: q.get("section") } : { kind: "record", area: q.get("area") ?? "", clubId: q.get("club") };
+}
 
 export const metadata = { title: "나이스 입력 · 속초고등학교 학생관리시스템" };
 
@@ -50,8 +59,10 @@ export default async function NeisPage() {
                               {readyNote(s).map((n) => <span key={n.text} className={cx("rounded-chip px-1.5 py-0.5 text-[11px] font-bold", CHIP[n.tone])}>{n.text}</span>)}
                             </span>
                           </div>
-                          <div className="flex shrink-0 gap-2 md:w-[196px] md:justify-end [&>*:first-child]:flex-1 md:[&>*:first-child]:flex-none">
+                          <div className="grid shrink-0 grid-cols-2 gap-2 md:flex md:w-auto md:justify-end">
                             <CopyButton href={s.exportHref} disabled={!s.confirmed} />
+                            <SheetCopyButton scope={scopeOf(s.exportHref)} disabled={!s.total} />
+                            <ExcelExportButton scope={scopeOf(s.exportHref)} disabled={!s.total} />
                             <a href={s.exportHref} download aria-disabled={!s.confirmed}
                               className={cx("inline-flex h-9 shrink-0 items-center gap-1.5 rounded-control border border-hair bg-[#fff] px-3 text-[13px] font-bold hover:bg-soft", !s.confirmed && "pointer-events-none opacity-40")}>
                               <Download size={15} />파일

@@ -26,6 +26,9 @@ import { buildClassView, classAudit } from "@/lib/server/class-check";
 import { classProv, confirmAudit, piecesPool, provForSave, saveOriginal } from "@/lib/server/provenance";
 import { sourceKey } from "@/lib/domain/provenance";
 import { parseKeywordMemo } from "@/lib/domain/writing";
+import type { WriteOutcome } from "@/lib/domain/class-write";
+import { aiFailed, runClassWrite } from "@/lib/server/class-write";
+import { aiEnabled } from "@/lib/server/ai/claude";
 
 /** needReason (N38): 적게 고친 채 확정 — 까닭을 받아 다시 확정 (n: 몇 번째 응답인지) */
 export type SetukState = { error?: string; saved?: "draft" | "confirmed"; at?: string; needReason?: { ratio: number; nosource: number; n: number } };
@@ -324,4 +327,51 @@ async function toneFor(level: unknown): Promise<string> {
   if (!level) return "";
   const scale = await repo.getAchievementScale();
   return levelIn(scale, level) ? levelPrompt(level) : "";
+}
+
+// ---------- 반 전체 글 쓰기 (Figma N42 ①) ----------
+
+const ClassWriteSchema = z.object({
+  courseId: z.string().min(1),
+  studentId: z.string().min(1),
+  runId: z.string().uuid(),
+  /** 목표 분량 (바이트) — 나이스 한도를 넘을 수 없다 */
+  target: z.number().int().min(100).max(5000),
+  rewrite: z.boolean(),
+});
+
+/**
+ * 반 전체 글 쓰기: 학생 한 명 = 요청 하나 (화면이 3명씩 동시에 부른다 — /teacher/class-write).
+ * N41 메모 모아 쓰기와 같은 길(메모 모두 · 보통 중요도 · 과장 막기 · 성취수준 말투)로 쓰고 임시 저장 + AI 원안. 확정하지 않는다.
+ */
+export async function classWriteSetuk(input: z.input<typeof ClassWriteSchema>): Promise<WriteOutcome> {
+  const p = ClassWriteSchema.safeParse(input);
+  if (!p.success) return { status: "failed", error: "입력을 확인해 주세요" };
+  const { courseId, studentId, runId, target, rewrite } = p.data;
+  const t = await setukTarget(courseId, studentId);
+  if (!t) return { status: "failed", error: "내 담당 과목·반 학생만 쓸 수 있어요" };
+  return runClassWrite({
+    lockScope: `setuk:${courseId}`, studentId, runId,
+    write: async (): Promise<WriteOutcome> => {
+      const cur = latestByStudent((await repo.listSetuk(courseId)).filter((r) => r.studentId === studentId)).get(studentId);
+      if (cur?.status === "confirmed") return { status: "locked" };
+      const scope = `세특:${courseId}`;
+      const pieces = memoPieces(await listMemosWithPieces(scope, [studentId]));
+      if (!pieces.length) return { status: "skipped", reason: "no_memo" };
+      if (cur?.content.trim() && !rewrite) return { status: "skipped", reason: "has_text" };
+      const levelMap = await repo.listLevels({ courseId, year: schoolYear(), semester: t.course.semester }, [studentId]).catch(() => ({} as Record<string, Level>));
+      const level = await levelFor(levelMap[studentId] ?? null);
+      const range = fitRange(resolveLength("세특", { unit: "bytes", max: target }));
+      const r = await mergeRecord({ kind: "세특", context: t.course.subject, student: t.student, pieces, range, tone: await toneFor(level), level });
+      await repo.audit(t.v.accountId, "setuk.ai_merge", `${t.course.subject} ${t.student.pseudonymId} ${pieces.length}조각 class`);
+      const fail = aiFailed(r, aiEnabled());
+      if (fail) return fail;
+      const o = await saveOriginal({ kind: "setuk_merge", studentId, scope: courseId, text: r.text, aiSentences: r.sentences, pool: piecesPool(pieces, t.course.subject), model: r.sample ? "sample" : "write" });
+      const pv = await provForSave({ aiOriginalId: o?.original.id ?? null, pins: [], content: r.text, studentId, confirm: false, reason: "" });
+      const max = resolveLength("세특", { unit: "bytes" }).max;
+      const rec = await repo.addSetuk({ courseId, studentId, authorId: t.v.accountId, content: r.text, unit: "bytes", max, status: "draft", ...pv.prov });
+      await repo.audit(t.v.accountId, "setuk.save", `${t.course.subject} ${t.student.pseudonymId} class`);
+      return { status: "done", bytes: measure(r.text, "bytes"), max, versionId: rec.id, sample: r.sample };
+    },
+  });
 }

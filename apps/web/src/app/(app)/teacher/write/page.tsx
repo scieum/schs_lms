@@ -20,6 +20,8 @@ import { commonActivityRows } from "@/lib/server/common-activity";
 import { CommonActivitiesCard } from "@/components/writing/common-activities-card";
 
 export const metadata = { title: "AI 기록 쓰기 · 속초고등학교 학생관리시스템" };
+/** 반 전체 글 쓰기 (N42) */
+export const maxDuration = 60;
 
 type Props = { searchParams: Promise<{ area?: string; club?: string; student?: string; check?: string }> };
 
@@ -222,6 +224,7 @@ async function AreaWorkspace({ v, area, clubId, studentId, openCheck }: { v: Vie
             memos={memos}
             logs={logs}
             clubId={club?.id}
+            barTitle={club ? club.name : h ? `${h.grade}학년 ${h.classNo}반 ${area === "자율·자치" ? "자율" : area}` : undefined}
             href={(id) => `${base}&student=${id}`}
             openCheck={openCheck}
           />

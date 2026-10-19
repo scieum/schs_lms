@@ -15,6 +15,8 @@ import { CommonActivitiesCard } from "@/components/writing/common-activities-car
 import { DEFAULT_MENU, mergeMenu } from "@/lib/domain/behavior-keywords";
 
 export const metadata = { title: "행동특성 및 종합의견 · 속초고등학교 학생관리시스템" };
+/** 반 전체 글 쓰기 (N42) */
+export const maxDuration = 60;
 
 type Props = { searchParams: Promise<{ student?: string; check?: string }> };
 
@@ -91,6 +93,7 @@ export default async function BehaviorPage({ searchParams }: Props) {
           href={(id) => `/homeroom/behavior?student=${id}`}
           openCheck={q.check === "1"}
           behavior={{ menu, picks }}
+          barTitle={`${h.grade}학년 ${h.classNo}반 행발`}
         />
       </PageBody>
     </>

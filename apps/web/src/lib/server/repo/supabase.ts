@@ -283,6 +283,11 @@ export const supabaseRepo: Repo = {
     if (!isUuid(id)) return;
     check(await db().from("service_records").update({ status: "confirmed", confirmed_by: by, confirmed_at: new Date().toISOString() }).eq("id", id).eq("status", "sent"));
   },
+  async updateServiceActivity(id, activity) {
+    if (!isUuid(id)) return false;
+    const res = await db().from("service_records").update({ activity }).eq("id", id).eq("status", "sent").select("id");
+    return !!check(res)?.length;
+  },
   async purgeServiceFiles(ids) {
     const list = ids.filter(isUuid);
     let n = 0;

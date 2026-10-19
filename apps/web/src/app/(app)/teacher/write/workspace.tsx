@@ -10,7 +10,9 @@ import { latestMemoByStudent, latestRecordByStudent, recordMax, recordStatus, ty
 import { makeStudentNo } from "@/lib/domain/roster";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { CheckStatus, WorkspaceGrid, WorkspaceProvider } from "@/components/writing/workspace";
-import { ClassCheckButton, ClassCheckPanel } from "@/components/writing/class-check-panel";
+import { ClassCheckPanel } from "@/components/writing/class-check-panel";
+import { ClassActionsBar } from "@/components/writing/class-actions-bar";
+import { ClassWritePanel } from "@/components/writing/class-write-panel";
 import { LibraryPanel } from "@/components/writing/library-panel";
 import { LibrarySaveProvider } from "@/components/writing/library-save";
 import { BehaviorEditor } from "@/components/writing/behavior-editor";
@@ -23,6 +25,8 @@ import { recordSourcePool } from "./actions";
 
 // 기록 쓰기 작업 화면 (Figma T4 초안 검토와 같은 배치): 왼쪽 학생 목록 · 가운데 본문(AI 초안·자동 검사·분량) · 오른쪽 근거 자료
 // 특기사항(/teacher/write?area=…)과 행발(/homeroom/behavior)이 함께 쓴다.
+
+const AREA_WORD: Record<RecordArea, string> = { "자율·자치": "자율", 진로: "진로", 동아리: "동아리", 행발: "행발" };
 
 export const STATUS_TONE: Record<RecordStatusLabel, string | undefined> = {
   확정: undefined,
@@ -42,7 +46,10 @@ export async function RecordWorkspace({
   href,
   openCheck = false,
   behavior,
+  barTitle,
 }: {
+  /** 동작 줄 제목 (N42): "2학년 3반 행발" · 동아리 이름 */
+  barTitle?: string;
   /** 반 전체 검사(N35)에서 "열기": ③ 첫 걸린 행 펼침 */
   openCheck?: boolean;
   /** 행발 키워드 메뉴판 (N35 ④): 내 메뉴판 · 학생별 고른 키워드 */
@@ -59,6 +66,8 @@ export async function RecordWorkspace({
 }) {
   const latest = latestRecordByStudent(drafts);
   const memo = latestMemoByStudent(memos);
+  const counts = { confirmed: 0, draft: 0, empty: 0 };
+  for (const s of students) { const st = recordStatus(latest.get(s.id)); counts[st === "확정" ? "confirmed" : st === "작성 중" ? "draft" : "empty"]++; }
   const selected = students.find((s) => s.id === selectedId) ?? students.find((s) => recordStatus(latest.get(s.id)) !== "확정") ?? students[0];
 
   if (!selected) {
@@ -89,14 +98,14 @@ export async function RecordWorkspace({
 
   return (
     <WorkspaceProvider key={`${area}-${clubId ?? ""}`} scope={{ kind: "record", area, clubId: clubId ?? null }}>
-      <div className="md:hidden"><ClassCheckButton mobile /></div>
+      <ClassActionsBar title={barTitle ?? listTitle} total={students.length} counts={counts} />
       <WorkspaceGrid
         kind="record"
         checkPanel={<ClassCheckPanel />}
         libraryPanel={<LibraryPanel />}
+        writePanel={<ClassWritePanel hrefBase={href("__ID__").replace(/[?&]student=__ID__$/, "")} word={`${AREA_WORD[area]} 글`} />}
         list={
           <Card title={listTitle}>
-            <div className="-mt-1 mb-3 hidden md:block"><ClassCheckButton /></div>
             <ul className="-mx-2 flex max-h-[620px] flex-col overflow-y-auto">
               {students.map((s) => {
                 const r = latest.get(s.id);

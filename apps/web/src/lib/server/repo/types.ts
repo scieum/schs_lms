@@ -72,6 +72,8 @@ export interface Repo {
   getServiceRecord(id: string): Promise<ServiceRecord | null>;
   getServiceFile(r: ServiceRecord): Promise<Uint8Array | null>;
   confirmService(id: string, by: string): Promise<void>;
+  /** 확인 대기(sent) 확인서의 활동내용만 바꾼다 (N42 ④ "바꾸고 확인" — 확인서 파일 그대로). 바꿨으면 true */
+  updateServiceActivity(id: string, activity: string): Promise<boolean>;
   /** 보존 기간이 지난 봉사 확인서 원본 파일만 지운다 (N39). 봉사 기록은 남긴다. 지운 개수 */
   purgeServiceFiles(ids: string[]): Promise<number>;
 
