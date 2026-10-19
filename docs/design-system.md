@@ -1130,3 +1130,73 @@ Display 32 · H1 28 · H2 20 · Title 17 Bold · Lead 17 Light · Body 15 · Cap
 - [ ] **`teacher/logs/log-board.tsx`** 한 명씩 폼: 활동명 칸 추가(`withActivity`로 "[활동명] " 붙여 저장, 비면 버튼 흐림), `type="date"` 칸 → 날짜 칩 [오늘 | 어제 | 날짜](날짜를 누르면 date input), 고른 학생 칩 줄(× = `toggle`), 칸 배경 `bg-white` → `bg-soft`, 바닥 줄 "활동명이 맨 앞에 붙어요 · n자 · nB" + 외곽선 작은 버튼 둘, 꽉 찬 인디고 "n명에게 추가". 최근 기록 행을 PC 한 줄(날짜 40 · 이름 52 · 글 두 줄 말줄임)로. `batch-writer.tsx`(한꺼번에)는 그대로.
 - [ ] **`common-activities-card.tsx`**: 변화 없음(만든 조각은 ① 목록에 "공통 활동" 칩으로 보임).
 - [ ] 없앨 것: `piece-maker.tsx`(composer로 합친 뒤 삭제), AI 초안 패널 "자료로" 탭 · "자료·메모·누가기록으로 써요" 문구, `PiecesCard`의 `maker` 분기 · "메모로 남기기" 이름표, 세특 `AiBanner` 문구의 "주제·활동·키워드 칸" 설명은 단계 흐름에 맞게 짧게.
+
+## 2026-10-19 올린 파일 지우기 (N33)
+> "결과물 업로드한거 삭제도 가능하게. 여러 방향에서 삭제가 가능하게 로직짜봐"(사용자, 초안 자료 등록 "올린 파일" 목록 캡처 — 지우는 버튼 없음). 올린 파일이 보이는 **모든 자리에서 같은 모양으로** 지운다: ① 초안 자료 등록 올린 파일 목록 ② N24 학생 팝업 서류 칩 ③ 초안 검토 근거 자료 ④ 학생 설문·서류 제출(내 파일). 모달 없이 **그 자리에서 묻고(인라인 확인)**, 빨강 #F04452는 마지막 "지우기" 버튼에만 쓴다. 교사 페이지 y 98000~ "N33 올린 파일 지우기" 줄(줄 제목 408:12758), 학생 페이지 y 18900~ (줄 제목 408:92567).
+
+| 화면 | 원본(교사·학생 페이지 컴포넌트) | 컴퓨터용 인스턴스 | 모바일용 인스턴스 |
+|---|---|---|---|
+| N33 초안 자료 등록 · 올린 파일 (a) 기본 · 호버 — PC | 408:12759 | 408:93221 | — |
+| N33 초안 자료 등록 · 올린 파일 (b) 한 개 지우기 확인 — PC | 408:13122 | 408:93575 | — |
+| N33 초안 자료 등록 · 올린 파일 (c) 고르기 · 여러 개 — PC | 408:13483 | 408:93919 | — |
+| N33 초안 자료 등록 · 올린 파일 (d) 지운 뒤 · 스낵바 — PC | 408:13821 | 408:94258 | — |
+| N33 초안 자료 등록 · 올린 파일 (a) 기본 · 호버 — Mobile | 408:14179 | — | 408:95819 |
+| N33 초안 자료 등록 · 올린 파일 (b) 한 개 지우기 확인 — Mobile | 408:14357 | — | 408:95998 |
+| N33 초안 자료 등록 · 올린 파일 (c) 고르기 · 여러 개 — Mobile | 408:14543 | — | 408:96167 |
+| N33 초안 자료 등록 · 올린 파일 (d) 지운 뒤 · 스낵바 — Mobile | 408:14718 | — | 408:96339 |
+| N33 프로그램 상세 · 학생 팝업 서류 지우기 — PC (N24) | 408:91622 (팝업 408:92089) | 408:94599 | — |
+| N33 프로그램 상세 · 학생 팝업 서류 지우기 — Mobile (N24 시트) | 408:92172 (시트 408:92460) | — | 408:96505 |
+| N33 초안 검토 · 근거 자료 지우기 — PC | 408:90563 (근거 카드 408:90756) | 408:95078 | — |
+| N33 초안 검토 · 근거 자료 지우기 — Mobile ("근거 자료" 탭) | 408:90938 (카드 408:91075) | — | 408:96805 |
+| N33 설문·서류 제출 · 내 파일 마감 전 (지우기) — PC (학생 페이지) | 408:92568 | 408:95446 | — |
+| N33 설문·서류 제출 · 내 파일 마감 후 (잠금) — PC | 408:92769 | 408:95633 | — |
+| N33 설문·서류 제출 · 내 파일 마감 전 (지우기) — Mobile | 408:92959 | — | 408:96889 |
+| N33 설문·서류 제출 · 내 파일 마감 후 (잠금) — Mobile | 408:93095 | — | 408:97011 |
+
+| 공통 컴포넌트 (컴포넌트 페이지 y 13400~, 줄 제목 407:461) | id |
+|---|---|
+| icon/trash (Lucide trash-2, 아이콘 줄 끝 x 2364) | 407:468 |
+| N33 지우기 버튼 (State=기본 407:469 · 호버 407:476 · × 기본 408:92547 · × 호버 408:92557) | 407:483 |
+| N33 지우기 확인 (Type=행 407:484 · 작게 407:492, 텍스트 레이어 "질문"·"파일") | 407:499 |
+| N33 파일 칩 (State=기본 407:500 · 지우기 보임 407:506 · 지울 칩 407:514) | 407:522 |
+| N33 고름 바 (Layout=PC 407:523 · Mobile 407:531) | 407:539 |
+| N33 스낵바 (Undo=있음 407:540 · 없음 407:545) | 407:548 |
+| N33 잠금 안내 | 407:549 |
+
+### 모양
+- **지우기 버튼**: 행 끝 32×32 고스트(r8, 바탕 없음), 아이콘 18 #8B95A1. 호버·키보드 포커스 = 아이콘 #F04452 + 바탕 #FEECEE. 교사 목록·근거 자료는 휴지통, 학생 내 파일은 ×. `aria-label="‘파일 이름’ 지우기"`. 모바일은 늘 보인다.
+- **인라인 확인(행)**: 누른 행이 그 자리에서 #F5F6F8 r10 블록(회색 카드 위에서는 흰색)으로 바뀐다 — "이 파일을 지울까요?" 14 Bold + 파일 이름 12 #8B95A1 한 줄 말줄임 ↔ 글자 버튼 "취소"(13 Medium #4E5968, h32) + 작은 빨강 "지우기"(h32 r8 #F04452 · 흰 13 Bold). Esc·바깥 누름 = 취소, 포커스는 "취소"에 먼저. 폭이 좁으면(근거 자료 280) 글 위 · 버튼 아래 오른쪽 정렬로 쌓는다.
+- **인라인 확인(작게)**: 칩 아래 한 줄 "‘발표자료.pptx’ 파일을 지울까요? 취소 · 지우기"(13 Medium). "파일을"로 써서 을/를 받침 문제를 피한다.
+- **파일 칩**(N24): 기본(클립 · 이름 · ›) → PC 호버·포커스에 × 24 칸(#F2F4F6 r4) → × 누르면 그 칩만 1px #F04452 테두리 + × #FEECEE, 칩 줄 아래 작은 확인. 모바일은 처음부터 × 보임. 칩 줄은 줄바꿈(wrap, 간격 6).
+- **고르기(여러 개)**: 올린 파일 머리 오른쪽 글자 버튼 "고르기"(13 Medium #4E5968, 예전 시안의 "전체 삭제" 자리 — 전체 삭제는 없앤다). 누르면 행마다 N28 체크박스(행 앞), 휴지통은 숨김, 목록 아래에 붙는(sticky) **고름 바**(흰 · 1px #E5E8EB · r10 · 안쪽 8/16: "3개 고름" 14 Bold + "전체 고르기" 13 Medium #3D56E0 ↔ "취소" · 빨강 글자 "지우기" 14 Bold). 0개면 지우기 40%. 지우기 → 바가 인라인 확인 "3개를 지울까요? 취소 · 지우기"로 바뀐다. 모바일은 화면 아래 꽉 찬 바(위 선만, 버튼 높이 44)가 "다음" CTA 자리를 대신한다. 업로드 중인 행은 체크 끔 40%.
+- **지운 뒤**: 행이 높이 0으로 접히고(200ms), 화면 아래 가운데 **스낵바**(네이비 #1C2033 r10 · 그림자 없음 · PC 360 / 모바일 꽉 찬 폭 − 40, 탭바·CTA 위 12): "파일 1개를 지웠어요" 14 Medium 흰 ↔ "되돌리기" 14 Bold #9EAAFF. **5초** 뒤 사라진다. 영랑이 FAB는 스낵바 위로 올린다. 여러 개면 "파일 3개를 지웠어요".
+- **근거 자료(초안 검토)**: 서류 블록 머리 줄(파일 · 쪽수) 오른쪽에 휴지통. 확인 아래 줄 = "이미 만든 초안은 그대로예요". 모바일은 "근거 자료" 탭 안 같은 모양.
+- **학생 내 파일**: 마감 전(`effectiveStatus === "open"` 이고 `daysLeft ≥ 0`) 내 파일 행 끝 × → 행 인라인 확인("마감 전엔 다시 올릴 수 있어요"). 마감 후 = ×·올리기 칸 없이 ✓만 + 아래 **잠금 안내**(r10 · icon/lock 16 #8B95A1 · "마감 후에는 선생님께 말해 주세요" 13 Medium #4E5968, 회색 카드 위라 흰 바탕). 제출·임시 저장 40%.
+- 시안 값: 학생A~F, "화학_세미나_학생A.pdf · 332KB · 1쪽 · 학생A · 직접 지정 · 글 읽음"(캡처의 그 행), 올린 파일 32 → 31, 매칭 28 → 27. T6 · N24 · N23 · S2 D2 화면을 복제해 목록만 바꿨다(복제한 화면의 실명은 학생A~F로 바꿈).
+- 요청과 다른 점: 되돌리기를 넣었다(교사 화면). 파일은 다시 모으기 어렵고(AI로 읽은 글·매칭이 같이 사라짐) 실수 비용이 커서 5초 되돌리기가 값어치 있다 — 대신 **서버 삭제를 5초 미룬다**(아래 코드 반영). 학생 화면은 같은 스낵바를 되돌리기 없이 3초(Undo=없음). 머리 줄 "전체 삭제"는 "고르기"로 바꿨다(다 지우기 = 고르기 → 전체 고르기 → 지우기).
+- 참고(유아이볼):
+  - [디맨드 경험 삭제(PC)](https://uibowl.io/website/%EB%94%94%EB%A7%A8%EB%93%9C?patterns=AI&patternName=%EA%B2%BD%ED%97%98%20-%20%EC%82%AD%EC%A0%9C%ED%95%98%EA%B8%B0) — 목록 카드에 마우스를 올리면 끝에 작은 휴지통 → 행 끝 고스트 휴지통, 호버에 빨강.
+  - [카카오페이지 간편로그인 계정 삭제(PC)](https://uibowl.io/website/%EC%B9%B4%EC%B9%B4%EC%98%A4%ED%8E%98%EC%9D%B4%EC%A7%80?patterns=%EA%B8%B0%ED%83%80&patternName=%EA%B0%84%ED%8E%B8%EB%A1%9C%EA%B7%B8%EC%9D%B8%20%EA%B3%84%EC%A0%95%20%EC%82%AD%EC%A0%9C) — 항목 줄 끝 작은 × 하나로 지움 → 칩·학생 내 파일의 ×.
+  - [카카오골프예약 최근 기록 편집](https://uibowl.io/name/%EC%B9%B4%EC%B9%B4%EC%98%A4%EA%B3%A8%ED%94%84%EC%98%88%EC%95%BD?patterns=%EA%B2%80%EC%83%89&patternName=%EC%B5%9C%EA%B7%BC%EA%B8%B0%EB%A1%9D%ED%8E%B8%EC%A7%91) — 편집 모드에서 행마다 체크 + 전체선택 + "0개 선택", 아래 고정 "취소 | 삭제" 바 → 고르기 · 고름 바.
+  - [셀레트립 여행 일정 편집](https://uibowl.io/name/%EC%85%80%EB%A0%88%ED%8A%B8%EB%A6%BD?patterns=%ED%8E%B8%EC%A7%91%C2%B7%EC%88%98%EC%A0%95%ED%95%98%EA%B8%B0&patternName=%EC%97%AC%ED%96%89%20%EC%9D%BC%EC%A0%95%20%ED%8E%B8%EC%A7%91) — 행 앞 체크박스, 고르기 전엔 아래 버튼 흐림 → 0개면 지우기 40%.
+  - [모으미 자동이체 삭제](https://uibowl.io/name/%EB%AA%A8%EC%9C%BC%EB%AF%B8?patterns=%ED%8E%B8%EC%A7%91%C2%B7%EC%88%98%EC%A0%95%ED%95%98%EA%B8%B0&patternName=%EC%9E%90%EB%8F%99%EC%9D%B4%EC%B2%B4%20%EB%B8%8C%EB%A6%AC%ED%95%91%20-%20%EC%9E%90%EB%8F%99%EC%9D%B4%EC%B2%B4%20-%20%EC%82%AD%EC%A0%9C) — 삭제 버튼만 연한 빨강, 지운 뒤 스낵바 → 빨강은 지우기 버튼 하나, 지운 뒤 스낵바.
+  - [캐시워크 게시글 삭제](https://uibowl.io/name/%EC%BA%90%EC%8B%9C%EC%9B%8C%ED%81%AC?patterns=%ED%8E%B8%EC%A7%91%C2%B7%EC%88%98%EC%A0%95%ED%95%98%EA%B8%B0&patternName=%EA%B2%8C%EC%8B%9C%EA%B8%80%20%EC%82%AD%EC%A0%9C) — 묻고 → 지우고 → 아래 토스트로 결과 한 줄 → 스낵바 "파일 1개를 지웠어요".
+  - [왓섭 정기 지출 삭제](https://uibowl.io/name/%EC%99%93%EC%84%AD?patterns=%EC%B7%A8%EC%86%8C%ED%95%98%EA%B8%B0&patternName=%EC%A0%95%EA%B8%B0%20%EC%A7%80%EC%B6%9C%20%EC%82%AD%EC%A0%9C) — "~을 삭제할까요?" + 무엇이 남는지 한 줄 + "돌아가기" · 빨강 글자 "삭제하기" → 확인 둘째 줄("이미 만든 초안은 그대로예요") · "취소 | 지우기" 순서. 단, 모달 대신 인라인.
+  - [유아이볼 댓글 삭제(PC)](https://uibowl.io/website/%EC%9C%A0%EC%95%84%EC%9D%B4%EB%B3%BC?patterns=%EA%B8%B0%ED%83%80&patternName=%EB%8C%93%EA%B8%80%20%EC%82%AD%EC%A0%9C) — dim 모달로 묻는 예(반례) → 파일 하나 지우는 데 화면을 가리는 모달은 무거워서 인라인으로 했다.
+
+### 코드 반영
+- [ ] **권한 함수 하나** `lib/domain/program.ts`(또는 `policy.ts`): `canDeleteMaterial(viewer, program, material, today)` —
+  - 교사: `isProgramOwner(program, v.accountId)`(주인·공동 주인) 또는 `isAdmin(v)` → 그 프로그램 **모든** 자료(학생이 올린 것 포함).
+  - 학생: `material.uploaderId === me.id` **이고** `material.matchedBy === "student"` **이고** 프로그램이 열려 있고 마감 전(`effectiveStatus(p, t) === "open" && daysLeft(p.endDate, t) >= 0`, `student/submit/actions.ts` `openProgramFor`와 같은 조건). 남의 파일·교사가 올린 파일은 안 됨.
+  - 그 밖(담임·다른 교사)은 안 됨. 단위 테스트 추가.
+- [ ] **저장소** `lib/server/repo/modules/programs.ts` `ProgramRepo`에 `deleteMaterial(id): Promise<Material | null>`(지금 없음) — 메모리판: `materials`에서 빼고 `files.delete(filePath)`. Supabase판: `program_materials` 행 삭제 → `storage.from(BUCKET).remove([file_path])`(`deleteProgram`과 같은 순서, 저장소 실패는 로그만). 지운 행을 돌려준다. 합본 원본(`bundle`·`split_done`)을 지워도 나눈 파일(`matchedBy: "split"`)은 따로 남는다.
+- [ ] **교사 서버 액션 하나** `teacher/programs/[id]/materials/actions.ts` `deleteMaterials(form)` — `programId` + `materialId`(여러 개, 최대 60) → `requireProgram`(주인·공동 주인·관리자) → 자료마다 이 프로그램 것인지 확인 → `repo.deleteMaterial` → `repo.audit(v.accountId, "material.delete", \`${program.id} ${n}개 ${pseudonymIds}\`)`(**가명 ID만**, 파일 이름·실명은 남기지 않음) → `revalidatePath`: `/teacher/programs/${id}/materials` · `/teacher/programs/${id}` · `/teacher/drafts` · `/student/submit`. 돌려주는 값 `{ deleted: n }`. `admin/audit/labels.ts`에 `"material.delete": "서류 지움"` · `"material.student.delete": "학생이 서류 지움"`.
+- [ ] **학생 액션** `student/submit/actions.ts` `deleteMyDoc(form)` — `openProgramFor`로 열림·마감 전 확인 → `canDeleteMaterial` → `repo.deleteMaterial` → `repo.audit(me.id, "material.student.delete", \`${program.id} ${me.pseudonymId}\`)` → 같은 경로 revalidate. 마감 뒤면 `{ error: "마감 후에는 선생님께 말해 주세요" }`.
+- [ ] **지운 뒤 다시 셈**: 매칭·확인 필요·합본 수, `programRows`의 `hasEvidence`·`evidenceLabel`·단계(`studentStage`), N24 "서류 n개" 칩, 근거 자료 "제출 서류 n"은 모두 `listMaterials`에서 다시 읽으니 revalidate로 충분하다. 서류가 0개가 된 학생은 미제출 사유 칸에 다시 뜬다. **이미 만든 초안(`draft_jobs`·`draft_versions`)은 건드리지 않는다** — 다시 만들 때만 새 근거(`buildEvidence`)를 쓴다.
+- [ ] **되돌리기(교사 화면만)**: 클라이언트 훅 `useDelayedDelete()` — 지우기를 누르면 행을 바로 숨기고(optimistic) 스낵바 5초, 5초 뒤 `deleteMaterials` 호출. "되돌리기"면 타이머 취소 · 행 다시 보임. 페이지를 떠나거나(`pagehide`·언마운트) 새 지우기가 오면 남은 것을 바로 보낸다. 서버는 받으면 바로 진짜로 지운다(소프트 삭제 칼럼 없음). 학생 화면은 되돌리기 없이 바로 호출 + "파일을 지웠어요" 3초.
+- [ ] **같은 액션을 부르는 곳(4곳)** — 공통 클라이언트 컴포넌트 `components/materials/delete-file.tsx`(`DeleteFileButton`: 휴지통/× → 인라인 확인 → 액션, props `programId · materialId · fileName · variant: "row" | "chip" | "evidence" | "mine"`) + `SelectBar` + `Snackbar`로 한 번만 만든다.
+  1. `teacher/programs/[id]/materials/page.tsx` `fileRow` — 행 끝 `variant="row"`(학생 지정·페이지 나누기 버튼 오른쪽). 머리 "고르기" → 목록을 클라이언트 `materials/file-list.tsx`로 떼어 체크 + `SelectBar` → `deleteMaterials`(여러 id).
+  2. `teacher/programs/[id]/student-popup.tsx` 서류 칩 — `<a>` 칩 옆 ×(`variant="chip"`, PC는 `group-hover`·`focus-within`에만, 모바일 늘), 칩 줄 아래 작은 확인. 지운 뒤 팝업 데이터(`data.materials`) 다시 읽기.
+  3. `teacher/drafts/page.tsx` 근거 자료 "제출 서류" 블록 — `<a>` 블록 머리 오른쪽 휴지통(`variant="evidence"`, 링크와 분리해 `preventDefault`), 확인 둘째 줄 "이미 만든 초안은 그대로예요".
+  4. `student/submit/survey-form.tsx` `myDocs` 행 — `!closed`일 때만 ×(`variant="mine"` → `deleteMyDoc`), `closed`면 ✓ + 잠금 안내.
+- [ ] 파일 보기 라우트 `materials/file/[mid]/route.ts`: 지운 id면 404인지 확인.
