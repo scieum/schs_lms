@@ -1,6 +1,6 @@
 import { Download } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { AiBanner, ButtonLink, Card, Segmented, StatTiles, cx } from "@/components/ui";
+import { ButtonLink, Card, Segmented, StatTiles, cx } from "@/components/ui";
 import { measure, neisMax, UNIT_LABEL } from "@/lib/domain/length";
 import { latestByStudent, statusLabel, studentsInCourse } from "@/lib/domain/setuk";
 import { latestMemoByStudent } from "@/lib/domain/writing";
@@ -14,7 +14,6 @@ import { makeStudentNo } from "@/lib/domain/roster";
 import { setukScope } from "@/lib/domain/common-activity";
 import { seoulNow } from "@/lib/domain/night";
 import { commonActivityRows } from "@/lib/server/common-activity";
-import { CommonActivitiesCard } from "@/components/writing/common-activities-card";
 import { similarCount, similarPairs } from "@/lib/domain/similar";
 import { SetukStudentList } from "./student-list";
 import { WorkspaceGrid, WorkspaceProvider } from "@/components/writing/workspace";
@@ -28,7 +27,7 @@ import { piecesPool, provView } from "@/lib/server/provenance";
 import { listMemosWithPieces, memoPieces } from "@/lib/server/merge-pieces";
 import { GuideBookButton } from "@/components/writing/guide-panel";
 import { GuideStepLinks } from "@/components/writing/guide-step-links";
-import { LessonPlanCard } from "@/components/writing/lesson-plan-card";
+import { ClassMaterials } from "@/components/writing/class-materials";
 import { lessonView } from "@/lib/server/lessons";
 
 export const metadata = { title: "교과 세특 · 속초고등학교 학생관리시스템" };
@@ -105,9 +104,11 @@ export default async function SetukPage({ searchParams }: Props) {
   const [scale, levelMap] = await Promise.all([repo.getAchievementScale(), repo.listLevels({ courseId: course.id, year: schoolYear(), semester: course.semester }, students.map((s) => s.id))]);
   const levels = Object.fromEntries(students.map((s) => [s.id, levelMap[s.id] ?? null]));
   // N38: AI 원안 · 교사가 정한 문장 · 근거 표 (원안이 없는 글은 근거 · 원안 비교 · 수정 칩이 숨는다)
-  const [pv, pool, provSettings] = selected
-    ? await Promise.all([provView(cur), listMemosWithPieces(`세특:${course.id}`, [selected.id]).then((m) => piecesPool(memoPieces(m), course.subject)), repo.getProvenanceSettings()])
+  // N48: 활동 메모 수(처음 단계 ① · ②를 바로 정한다)도 같은 목록에서 센다
+  const [pv, myPieces, provSettings] = selected
+    ? await Promise.all([provView(cur), listMemosWithPieces(`세특:${course.id}`, [selected.id]).then(memoPieces), repo.getProvenanceSettings()])
     : [{ original: null, pins: [] }, [], await repo.getProvenanceSettings()];
+  const pool = piecesPool(myPieces, course.subject);
   const listTitle = tab.section ? `${course.subject} ${tab.section}` : `${course.subject} · ${assignment?.classes.join("·")}반`;
   // 차시별 활동 메뉴 (N43 ②): 이 분반 수업 계획 · 학생별 남긴 차시
   const lesson = await lessonView(commonScopeKey, students, tab.section ? `${course.subject} ${tab.section}` : course.subject);
@@ -141,9 +142,9 @@ export default async function SetukPage({ searchParams }: Props) {
           <p className="rounded-inner bg-wait-soft px-4 py-3 text-[13px] text-[#9a6400]">이 분반 명단이 아직 없어요. 내 수업 → 이동반 명단에서 양식 명단을 올려 주세요</p>
         )}
         <StatTiles items={[["학생", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
-        {lesson && <LessonPlanCard view={lesson} year={schoolYear()} />}
-        {students.length > 0 && <CommonActivitiesCard scope={commonScopeKey} rows={commonRows} detailBase="/teacher/setuk/activity" today={seoulNow().date} lessons={lesson?.items} />}
-        <AiBanner title="AI로 세특 쓰기" label={aiEnabled() ? "AI" : "자동"} line="활동 메모를 남기고 AI로 글 쓰기를 누르면 세특 글이 채워져요. 고치고 확정은 선생님이 해요" />
+        {/* N48: 차시별 활동 · 공통 활동은 한 줄 머리로 접어 둔다 (누르면 원래 카드). AI 안내 줄은 ② 단계 안내로 옮겼다 */}
+        <ClassMaterials year={schoolYear()} lesson={lesson}
+          common={students.length > 0 ? { scope: commonScopeKey, rows: commonRows, detailBase: "/teacher/setuk/activity", today: seoulNow().date } : undefined} />
 
         {students.length === 0 ? (
           <Card>
@@ -193,6 +194,8 @@ export default async function SetukPage({ searchParams }: Props) {
                         subject={course.subject}
                         openCheck={q.check === "1" && q.student === selected.id}
                         lesson={lesson}
+                        memoCount={myPieces.length}
+                        aiOn={aiEnabled()}
                         prov={{ original: pv.original, pins: pv.pins, pool, editRatioMin: provSettings.editRatioMin, who: selected.name }}
                         similar={{
                           self: { id: selected.id, name: selected.name, no: makeStudentNo(selected.grade, selected.classNo, selected.number), href: href(selected.id) },

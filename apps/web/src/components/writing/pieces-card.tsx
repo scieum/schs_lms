@@ -88,7 +88,7 @@ export function PiecesCard({ studentId, load, onPieces, note, done, what, ...com
 
   return (
     <section aria-label="활동 메모">
-      <RecordCompetency studentId={studentId} title={<StepHead n={1} title="활동 메모" meta={meta} done={done} />} toggle={list.length > 0}
+      <RecordCompetency studentId={studentId} title={<StepHead n={1} title="활동 메모" meta={meta} done={done} hint={note ? `본 일을 한 줄씩 남겨요 · ${typeof note === "string" ? note : ""}` : "본 일을 한 줄씩 남겨요 · 활동명은 꼭 적어요"} />} toggle={list.length > 0}
         text={[...list].reverse().map((p) => p.text.trim()).join(" ")}>
         {body}
       </RecordCompetency>

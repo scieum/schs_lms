@@ -1,5 +1,5 @@
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { AiBanner, ButtonLink, Card, Segmented } from "@/components/ui";
+import { ButtonLink, Card, Segmented } from "@/components/ui";
 import { areasFor, homeroomStudents, isAreaOf, today, type ActivityArea } from "@/lib/domain/activity";
 import { schoolYear } from "@/lib/domain/curriculum";
 import type { Student } from "@/lib/domain/types";
@@ -36,7 +36,12 @@ export default async function LogsPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="누가기록" actions={<><GuideBookButton area="누가기록" className="h-9 md:h-9" /><ButtonLink href="/teacher/club" kind="outline" size="sm">내 동아리</ButtonLink></>} />
+      <PageHeader title="누가기록" actions={<>
+        <GuideBookButton area="누가기록" className="h-9 md:h-9" />
+        {/* N48: AI 안내 줄 대신 머리 버튼 — 쌓인 누가기록으로 특기사항 초안 쓰기 */}
+        <ButtonLink href={`/teacher/write?area=${encodeURIComponent(area)}${club ? `&club=${club.id}` : ""}`} kind="outline" size="sm">초안 쓰기</ButtonLink>
+        <ButtonLink href="/teacher/club" kind="outline" size="sm">내 동아리</ButtonLink>
+      </>} />
       <PageBody>
         {areas.length > 1 && (
           <Segmented active={areas.indexOf(area)} items={areas.map((a) => ({ label: a, href: `/teacher/logs?area=${encodeURIComponent(a)}` }))} />
@@ -44,15 +49,6 @@ export default async function LogsPage({ searchParams }: Props) {
         {area === "동아리" && myClubs.length > 1 && club && (
           <Segmented active={myClubs.indexOf(club)} items={myClubs.map((c) => ({ label: c.name, href: `/teacher/logs?area=${encodeURIComponent("동아리")}&club=${c.id}` }))} />
         )}
-        <AiBanner
-          title="AI 특기사항 초안"
-          line="쌓인 누가기록을 모아 학기말에 특기사항 초안으로 만들어요"
-          action={
-            <ButtonLink href={`/teacher/write?area=${encodeURIComponent(area)}${club ? `&club=${club.id}` : ""}`} kind="outline" size="sm">
-              초안 쓰기
-            </ButtonLink>
-          }
-        />
 
         {area === "동아리" && !club ? (
           <Card>

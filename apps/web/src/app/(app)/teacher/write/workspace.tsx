@@ -100,6 +100,8 @@ export async function RecordWorkspace({
     max: cur?.max ?? recordMax(area, "bytes"), confirmed: cur?.status === "confirmed", aiOn: aiEnabled(), openCheck,
     prov: { original: pv.original, pins: pv.pins, pool, editRatioMin: settings.editRatioMin, who: selected.name },
     lesson,
+    // N48: 누가기록이 있으면 처음 단계를 바로 ②로
+    memoHint: mine.length,
   };
 
   return (

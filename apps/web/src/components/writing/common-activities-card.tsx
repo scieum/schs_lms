@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Calendar, ChevronRight, Layers, Plus } from "lucide-react";
@@ -18,8 +18,10 @@ export type CommonRow = {
 const CHIP = { key: "bg-key-soft text-key-strong", ok: "bg-ok-soft text-ok", none: "bg-soft text-mute" } as const;
 const md = (d: string | null) => (d ? `${+d.slice(5, 7)}.${+d.slice(8, 10)}` : "");
 
-export function CommonActivitiesCard({ scope, rows, detailBase, today, lessons }: {
+export function CommonActivitiesCard({ scope, rows, detailBase, today, lessons, fold }: {
   scope: string; rows: CommonRow[]; detailBase: string; today: string;
+  /** N48 접기 버튼 (머리 오른쪽 끝) */
+  fold?: ReactNode;
   /** 수업 계획 차시 (N43): 새 활동 칸 "차시에서 고르기" — 활동명 · 날짜 · 설명을 채운다 */
   lessons?: LessonChipItem[];
 }) {
@@ -57,6 +59,7 @@ export function CommonActivitiesCard({ scope, rows, detailBase, today, lessons }
         <Button type="button" kind="soft" size="sm" className="h-8 font-bold md:h-9" onClick={() => (open ? reset() : setOpen(true))} aria-expanded={open}>
           <Plus size={14} /> 공통 활동
         </Button>
+        {fold}
       </div>
 
       {open && (

@@ -31,7 +31,13 @@ function TraitChip({ label, onRemove }: { label: string; onRemove?: () => void }
 
 const fieldCls = "w-full rounded-field bg-soft px-3 text-[15px] outline-none focus:ring-2 focus:ring-key md:text-[14px]";
 
-export function BatchWriter({ area, clubId, today, students, onAdded }: { area: string; clubId?: string; today: string; students: S[]; onAdded: (n: number) => void }) {
+export type BatchPhase = "pick" | "preview";
+
+export function BatchWriter({ area, clubId, today, students, onAdded, phase, onPhase }: {
+  area: string; clubId?: string; today: string; students: S[]; onAdded: (n: number) => void;
+  /** 단계 표시(N48)가 정하는 지금 칸: pick = ② 공통 내용 · 특징, preview = ③ 미리보기 · 추가 */
+  phase?: BatchPhase; onPhase?: (p: BatchPhase) => void;
+}) {
   const [activity, setActivity] = useState("");
   const [date, setDate] = useState(today);
   const [shared, setShared] = useState("");
@@ -42,7 +48,9 @@ export function BatchWriter({ area, clubId, today, students, onAdded }: { area: 
   const [lastChip, setLastChip] = useState<string>("leader");
   const [hint, setHint] = useState<string | null>(null);
   const [adding, setAdding] = useState<{ label: string; sentence: string } | null>(null);
-  const [step, setStep] = useState<"pick" | "preview">("pick");
+  const [ownStep, setOwnStep] = useState<BatchPhase>("pick");
+  const step = phase ?? ownStep;
+  const setStep = (p: BatchPhase) => { if (onPhase) onPhase(p); else setOwnStep(p); };
   const [order, setOrder] = useState<string[]>([]);
   const [preview, setPreview] = useState<Record<string, Preview>>({});
   const [polish, setPolish] = useState<Record<string, PolishResult | "busy">>({});

@@ -1,6 +1,6 @@
 import { Download } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { AiBanner, ButtonLink, Card, StatTiles, cx } from "@/components/ui";
+import { ButtonLink, Card, StatTiles, cx } from "@/components/ui";
 import { homeroomStudents } from "@/lib/domain/activity";
 import { schoolYear } from "@/lib/domain/curriculum";
 import { latestRecordByStudent, recordStatus } from "@/lib/domain/writing";
@@ -11,7 +11,7 @@ import { RecordWorkspace } from "@/app/(app)/teacher/write/workspace";
 import { classScope } from "@/lib/domain/common-activity";
 import { seoulNow } from "@/lib/domain/night";
 import { commonActivityRows } from "@/lib/server/common-activity";
-import { CommonActivitiesCard } from "@/components/writing/common-activities-card";
+import { ClassMaterials } from "@/components/writing/class-materials";
 import { DEFAULT_MENU, mergeMenu } from "@/lib/domain/behavior-keywords";
 
 export const metadata = { title: "행동특성 및 종합의견 · 속초고등학교 학생관리시스템" };
@@ -80,8 +80,8 @@ export default async function BehaviorPage({ searchParams }: Props) {
       />
       <PageBody>
         <StatTiles items={[["우리 반", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
-        {students.length > 0 && <CommonActivitiesCard scope={commonKey} rows={commonRows} detailBase="/teacher/write/activity" today={seoulNow().date} />}
-        <AiBanner title="AI 행발 초안" line="키워드 메뉴판에서 고르고 에피소드 메모·누가기록으로 초안을 만들어요. 확정은 선생님이 해요" />
+        {/* N48: 공통 활동은 한 줄 머리로 접어 둔다. AI 안내 줄은 ② 단계 안내로 옮겼다 */}
+        <ClassMaterials common={students.length > 0 ? { scope: commonKey, rows: commonRows, detailBase: "/teacher/write/activity", today: seoulNow().date } : undefined} />
         <RecordWorkspace
           area="행발"
           listTitle={`${h.grade}학년 ${h.classNo}반 ${students.length}`}

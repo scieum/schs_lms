@@ -17,8 +17,7 @@ import { RecordWorkspace } from "./workspace";
 import { classScope, clubScope } from "@/lib/domain/common-activity";
 import { seoulNow } from "@/lib/domain/night";
 import { commonActivityRows } from "@/lib/server/common-activity";
-import { CommonActivitiesCard } from "@/components/writing/common-activities-card";
-import { LessonPlanCard } from "@/components/writing/lesson-plan-card";
+import { ClassMaterials } from "@/components/writing/class-materials";
 import { lessonView } from "@/lib/server/lessons";
 
 export const metadata = { title: "AI 기록 쓰기 · 속초고등학교 학생관리시스템" };
@@ -209,9 +208,9 @@ async function AreaWorkspace({ v, area, clubId, studentId, openCheck }: { v: Vie
           <Segmented active={myClubs.indexOf(club)} items={myClubs.map((c) => ({ label: c.name, href: `/teacher/write?area=${encodeURIComponent("동아리")}&club=${c.id}` }))} />
         )}
         <StatTiles items={[["학생", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
-        {lesson && <LessonPlanCard view={lesson} year={schoolYear()} />}
-        {commonKey && students.length > 0 && <CommonActivitiesCard scope={commonKey} rows={commonRows} detailBase="/teacher/write/activity" today={seoulNow().date} lessons={lesson?.items} />}
-        <AiBanner title="AI 특기사항 초안" line="쌓인 누가기록과 관찰 메모로 초안을 만들어요. 확정은 선생님이 해요" />
+        {/* N48: 차시별 활동 · 공통 활동은 한 줄 머리로 접어 둔다. AI 안내 줄은 ② 단계 안내로 옮겼다 */}
+        <ClassMaterials year={schoolYear()} lesson={lesson}
+          common={commonKey && students.length > 0 ? { scope: commonKey, rows: commonRows, detailBase: "/teacher/write/activity", today: seoulNow().date } : undefined} />
         {area === "동아리" && !club ? (
           <Card>
             <div className="flex flex-col items-center gap-3 py-8 text-center">

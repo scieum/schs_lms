@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { FileSpreadsheet, FileUp, List, Pencil, Upload, Users } from "lucide-react";
 import { Button, cx } from "@/components/ui";
@@ -18,7 +18,7 @@ import { useUndoSnack } from "./undo-snack";
 const BTN = "inline-flex h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-3.5 text-[14px] font-bold md:h-10 md:text-[13px]";
 const ROW = 5;
 
-export function LessonPlanCard({ view, year }: { view: LessonView; year: number }) {
+export function LessonPlanCard({ view, year, fold }: { view: LessonView; year: number; /** N48 접기 버튼 (머리 오른쪽 끝) */ fold?: ReactNode }) {
   const router = useRouter();
   const excel = useRef<HTMLInputElement>(null);
   const doc = useRef<HTMLInputElement>(null);
@@ -73,7 +73,10 @@ export function LessonPlanCard({ view, year }: { view: LessonView; year: number 
   if (!has) {
     return (
       <section className="surface flex flex-col gap-3.5 rounded-card p-4 md:px-6 md:py-5" aria-label="차시별 활동">
-        <h2 className="text-[15px] font-bold md:text-[17px]">차시별 활동 <span className="text-[13px] font-normal text-mute">{view.label}</span></h2>
+        <div className="flex items-center gap-2">
+          <h2 className="min-w-0 flex-1 text-[15px] font-bold md:text-[17px]">차시별 활동 <span className="text-[13px] font-normal text-mute">{view.label}</span></h2>
+          {fold}
+        </div>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-key-soft text-key max-md:hidden"><List size={18} /></span>
@@ -115,6 +118,7 @@ export function LessonPlanCard({ view, year }: { view: LessonView; year: number 
         <Button type="button" kind="soft" size="sm" onClick={() => bulk.open(now?.id)} className="h-9 font-bold max-md:hidden">
           <Users size={14} /> 여러 학생에게
         </Button>
+        {fold}
       </div>
       <div className={cx("flex items-center gap-1.5 max-md:hidden", more ? "flex-wrap" : "overflow-x-auto [scrollbar-width:none]")}>
         {list.map((i) => (
