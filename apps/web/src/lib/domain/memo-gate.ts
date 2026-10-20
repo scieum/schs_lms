@@ -86,14 +86,14 @@ export function missingPieces<T extends { id: string }>(missing: string[] | unde
 
 // ---------- ② 쓴 뒤 줄 (N49 b): 서버가 거친 단계 그대로 ----------
 
-/** "첫 글 1,612B · 빠진 메모 넣기 4→5 · 분량 맞추기 1,612→1,480B" */
+/** (N52 메모 → 조각) "첫 글 1,612B · 빠진 조각 넣기 4→5 · 분량 맞추기 1,612→1,480B" */
 export function traceLine(gate: GateResult | undefined, unit: LengthUnit): string {
   if (!gate?.trace) return "";
   const u = unitMark(unit);
   const t = gate.trace;
   const parts = [`첫 글 ${n(t.first)}${u}`];
-  if (t.added) parts.push(`빠진 메모 넣기 ${t.added.before}→${t.added.after}`);
-  else if (gate.memos) parts.push(`메모 반영 ${gate.memos.covered}/${gate.memos.picked}`);
+  if (t.added) parts.push(`빠진 조각 넣기 ${t.added.before}→${t.added.after}`);
+  else if (gate.memos) parts.push(`조각 반영 ${gate.memos.covered}/${gate.memos.picked}`);
   if (t.fit) parts.push(`분량 맞추기 ${n(t.fit.from)}→${n(t.fit.to)}${u}`);
   else if (gate.pass) parts.push(`${n(gate.value)}${u} · 맞음`);
   return parts.join(" · ");

@@ -40,7 +40,7 @@ export function GateChips({ row, unit, missing, onRefit, refitting = false, onAd
   /** [↻ 넣어서 다시 맞추기] */
   onAddMissing?: () => void;
   adding?: boolean;
-  /** 짧음 아래 "① 메모 더 남기기" */
+  /** 짧음 아래 "조각 더 모으기" (Figma N52: 메모 → 조각) */
   onMoreMemos?: () => void;
   error?: string;
 }) {
@@ -64,10 +64,10 @@ export function GateChips({ row, unit, missing, onRefit, refitting = false, onAd
         {m && m.picked > 0 && (gap > 0 ? (
           <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
             className={cx(CHIP, "border border-wait bg-wait-soft text-[#9A6400]")}>
-            메모 반영 {m.covered}/{m.picked} {open ? <ChevronUp size={12} strokeWidth={2.5} aria-hidden /> : <ChevronDown size={12} strokeWidth={2.5} aria-hidden />}
+            조각 반영 {m.covered}/{m.picked} {open ? <ChevronUp size={12} strokeWidth={2.5} aria-hidden /> : <ChevronDown size={12} strokeWidth={2.5} aria-hidden />}
           </button>
         ) : (
-          <span className={cx(CHIP, "bg-soft text-sub")}><Check size={12} strokeWidth={3} aria-hidden />메모 반영 {m.covered}/{m.picked}</span>
+          <span className={cx(CHIP, "bg-soft text-sub")}><Check size={12} strokeWidth={3} aria-hidden />조각 반영 {m.covered}/{m.picked}</span>
         ))}
         {fail && onRefit ? (
           <button type="button" onClick={onRefit} disabled={busy}
@@ -81,12 +81,12 @@ export function GateChips({ row, unit, missing, onRefit, refitting = false, onAd
       {row.tone === "short" && (
         <p className="flex flex-wrap items-center gap-x-2 text-[12px] text-sub break-keep">
           <span>없는 내용은 채우지 않아요</span>
-          {onMoreMemos && <button type="button" onClick={onMoreMemos} className="whitespace-nowrap font-bold text-key-strong">① 메모 더 남기기</button>}
+          {onMoreMemos && <button type="button" onClick={onMoreMemos} className="whitespace-nowrap font-bold text-key-strong">조각 더 모으기</button>}
         </p>
       )}
       {open && gap > 0 && (
         <div className="flex flex-col gap-2 rounded-inner border border-line bg-[#fff] px-3.5 py-3">
-          <span className="text-[13px] font-bold">빠진 메모 {gap}개</span>
+          <span className="text-[13px] font-bold">빠진 조각 {gap}개</span>
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
             <ul className="flex min-w-0 flex-1 flex-col gap-2">
               {missing.map((p) => (
@@ -98,7 +98,7 @@ export function GateChips({ row, unit, missing, onRefit, refitting = false, onAd
                   <span className="text-[13px] leading-5 break-keep">{p.text}</span>
                 </li>
               ))}
-              {missing.length === 0 && <li className="text-[13px] text-mute">메모 목록이 바뀌어 다시 불러와야 해요</li>}
+              {missing.length === 0 && <li className="text-[13px] text-mute">조각 목록이 바뀌어 다시 불러와야 해요</li>}
             </ul>
             {onAddMissing && (
               <button type="button" onClick={onAddMissing} disabled={busy}

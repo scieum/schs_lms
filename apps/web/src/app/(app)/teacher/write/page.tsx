@@ -1,30 +1,24 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronRight, Download } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { AiBanner, ButtonLink, Card, Segmented, StatTiles, Tag, cx } from "@/components/ui";
-import { areasFor, homeroomStudents } from "@/lib/domain/activity";
+import { AiBanner, ButtonLink, Card, StatTiles, Tag } from "@/components/ui";
+import { homeroomStudents } from "@/lib/domain/activity";
 import { schoolYear } from "@/lib/domain/curriculum";
 import { NEIS_MAX_BYTES } from "@/lib/domain/length";
 import { latestByStudent, statusLabel, studentsInCourse } from "@/lib/domain/setuk";
 import type { Student, Viewer } from "@/lib/domain/types";
-import { isRecordArea, latestRecordByStudent, RECORD_LABEL, RECORD_MAX_BYTES, recordStatus, type RecordArea } from "@/lib/domain/writing";
+import { latestRecordByStudent, RECORD_LABEL, RECORD_MAX_BYTES, recordStatus, type RecordArea } from "@/lib/domain/writing";
+import { writeRedirect } from "@/lib/domain/compose";
 import { repo } from "@/lib/server/repo";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
-import { evidenceLogs } from "./data";
-import { RecordWorkspace } from "./workspace";
-import { classScope, clubScope } from "@/lib/domain/common-activity";
-import { seoulNow } from "@/lib/domain/night";
-import { commonActivityRows } from "@/lib/server/common-activity";
-import { ClassMaterials } from "@/components/writing/class-materials";
-import { lessonView } from "@/lib/server/lessons";
 
 export const metadata = { title: "AI 기록 쓰기 · 속초고등학교 학생관리시스템" };
 /** 반 전체 글 쓰기 (N42) */
 export const maxDuration = 60;
 
-type Props = { searchParams: Promise<{ area?: string; club?: string; student?: string; check?: string }> };
+type Props = { searchParams: Promise<Record<string, string | undefined>> };
 
 type Counts = { total: number; 확정: number; "작성 중": number; 미작성: number };
 type Space = { key: string; title: string; sub: string; href: string; limit: string; counts: Counts };
@@ -61,7 +55,7 @@ async function spacesFor(v: Viewer): Promise<Space[]> {
         c[statusLabel(latest.get(s.id))]++;
       }
     }
-    out.push({ key: "setuk", title: "교과 세특", sub: myCourses.map((x) => x.subject).join("·"), href: "/teacher/setuk", limit: limitLabel(NEIS_MAX_BYTES["세특"]), counts: c });
+    out.push({ key: "setuk", title: "교과 세특", sub: myCourses.map((x) => x.subject).join("·"), href: "/teacher/setuk/compose", limit: limitLabel(NEIS_MAX_BYTES["세특"]), counts: c });
   }
 
   // 동아리 특기사항: 내가 지도하는 동아리마다
@@ -70,7 +64,7 @@ async function spacesFor(v: Viewer): Promise<Space[]> {
     const members = all.filter((s) => ids.has(s.id));
     out.push({
       key: `club-${club.id}`, title: RECORD_LABEL.동아리, sub: club.name,
-      href: `/teacher/write?area=${encodeURIComponent("동아리")}&club=${club.id}`, limit: limitLabel(RECORD_MAX_BYTES.동아리), counts: await recordCounts("동아리", members),
+      href: `/teacher/club/compose?club=${club.id}`, limit: limitLabel(RECORD_MAX_BYTES.동아리), counts: await recordCounts("동아리", members),
     });
   }
 
@@ -80,9 +74,9 @@ async function spacesFor(v: Viewer): Promise<Space[]> {
     const kids = homeroomStudents(v, all);
     const cls = `${h.grade}학년 ${h.classNo}반`;
     for (const area of ["자율·자치", "진로"] as const) {
-      out.push({ key: area, title: RECORD_LABEL[area], sub: cls, href: `/teacher/write?area=${encodeURIComponent(area)}`, limit: limitLabel(RECORD_MAX_BYTES[area]), counts: await recordCounts(area, kids) });
+      out.push({ key: area, title: RECORD_LABEL[area], sub: cls, href: `/homeroom/compose?tab=${area === "진로" ? "career" : "autonomy"}`, limit: limitLabel(RECORD_MAX_BYTES[area]), counts: await recordCounts(area, kids) });
     }
-    out.push({ key: "행발", title: RECORD_LABEL.행발, sub: cls, href: "/homeroom/behavior", limit: limitLabel(RECORD_MAX_BYTES.행발), counts: await recordCounts("행발", kids) });
+    out.push({ key: "행발", title: RECORD_LABEL.행발, sub: cls, href: "/homeroom/compose?tab=behavior", limit: limitLabel(RECORD_MAX_BYTES.행발), counts: await recordCounts("행발", kids) });
   }
   return out;
 }
@@ -90,8 +84,9 @@ async function spacesFor(v: Viewer): Promise<Space[]> {
 export default async function WritePage({ searchParams }: Props) {
   const v = await requireCan("record.write");
   const q = await searchParams;
-  if (q.area === "행발") redirect("/homeroom/behavior");
-  if (isRecordArea(q.area) && q.area !== "행발") return <AreaWorkspace v={v} area={q.area} clubId={q.club} studentId={q.student} openCheck={q.check === "1"} />;
+  // N52: 영역 작업 화면은 글 짓기로 넘긴다 (쿼리 그대로) — 동아리 → /teacher/club/compose · 자율·자치 · 진로 · 행발 → /homeroom/compose?tab=
+  const to = writeRedirect(q);
+  if (to) redirect(to);
 
   const spaces = await spacesFor(v);
   const sum = spaces.reduce((a, s) => ({ 확정: a.확정 + s.counts.확정, "작성 중": a["작성 중"] + s.counts["작성 중"], 미작성: a.미작성 + s.counts.미작성 }), { 확정: 0, "작성 중": 0, 미작성: 0 });
@@ -142,97 +137,6 @@ export default async function WritePage({ searchParams }: Props) {
               );
             })}
           </div>
-        )}
-      </PageBody>
-    </>
-  );
-}
-
-/** 창체 특기사항 작업 화면: 동아리(내 동아리 부원) · 자율·자치/진로(우리 반) */
-async function AreaWorkspace({ v, area, clubId, studentId, openCheck }: { v: Viewer; area: Exclude<RecordArea, "행발">; clubId?: string; studentId?: string; openCheck?: boolean }) {
-  const areas = areasFor(v);
-  if (!areas.includes(area)) redirect("/teacher/write");
-  const myClubs = (await repo.listClubs(schoolYear())).filter((c) => c.advisorId === v.accountId);
-  const club = area === "동아리" ? myClubs.find((c) => c.id === clubId) ?? myClubs[0] : undefined;
-
-  const all = await repo.listStudents();
-  let students: Student[] = [];
-  if (area === "동아리" && club) {
-    const ids = new Set(await repo.listClubMembers(club.id));
-    students = all.filter((s) => ids.has(s.id)).sort((a, b) => a.grade - b.grade || a.classNo - b.classNo || a.number - b.number);
-  } else if (area !== "동아리") {
-    students = homeroomStudents(v, all);
-  }
-  const ids = students.map((s) => s.id);
-  const [drafts, memos, logs] = await Promise.all([
-    repo.listRecordDrafts({ area, year: schoolYear(), studentIds: ids }),
-    repo.listRecordMemos(area, ids),
-    evidenceLogs(area, ids, club?.id),
-  ]);
-  const latest = latestRecordByStudent(drafts);
-  const counts = { 확정: 0, "작성 중": 0, 미작성: 0 };
-  for (const s of students) counts[recordStatus(latest.get(s.id))]++;
-  const base = `/teacher/write?area=${encodeURIComponent(area)}${club ? `&club=${club.id}` : ""}`;
-  const writable = areas.filter((a) => a !== "동아리" || myClubs.length);
-  // 공통 활동 (Figma N26): 동아리는 그 동아리, 자율·자치·진로는 담임 반
-  const h = v.kind === "teacher" ? v.teacher.homeroom : null;
-  const commonKey = area === "동아리" ? (club ? clubScope(club.id) : null) : h ? classScope(area, h.grade, h.classNo) : null;
-  const commonRows = commonKey && students.length ? await commonActivityRows(commonKey, ids) : [];
-  // 차시별 활동 메뉴 (N43 ②): 동아리 · 담임 반(자율·자치 · 진로)
-  const lesson = commonKey ? await lessonView(commonKey, students, club ? club.name : `${h?.grade}학년 ${h?.classNo}반 ${area}`) : undefined;
-
-  return (
-    <>
-      <PageHeader
-        title={RECORD_LABEL[area]}
-        actions={
-          <>
-            <ButtonLink href="/teacher/write" kind="outline" size="sm">기록 쓰기</ButtonLink>
-            {/* 일반 a 태그: 미리 불러오기로 내보내기가 실행되지 않게 */}
-            <a
-              href={`/teacher/write/export?area=${encodeURIComponent(area)}${club ? `&club=${club.id}` : ""}`}
-              download
-              aria-disabled={counts.확정 === 0}
-              className={cx("inline-flex items-center gap-1.5 rounded-control px-3.5 py-2 text-[13px] font-medium", counts.확정 ? "border border-hair bg-white text-ink hover:bg-soft" : "pointer-events-none border border-hair bg-white text-faint")}
-            >
-              <Download size={14} /> 나이스로 내보내기
-            </a>
-          </>
-        }
-      />
-      <PageBody>
-        {writable.length > 1 && (
-          <Segmented active={writable.indexOf(area)} items={writable.map((a) => ({ label: a, href: `/teacher/write?area=${encodeURIComponent(a)}` }))} />
-        )}
-        {area === "동아리" && myClubs.length > 1 && club && (
-          <Segmented active={myClubs.indexOf(club)} items={myClubs.map((c) => ({ label: c.name, href: `/teacher/write?area=${encodeURIComponent("동아리")}&club=${c.id}` }))} />
-        )}
-        <StatTiles items={[["학생", `${students.length}명`], ["확정", `${counts.확정}명`], ["작성 중", `${counts["작성 중"]}명`], ["미작성", `${counts.미작성}명`]]} />
-        {/* N48: 차시별 활동 · 공통 활동은 한 줄 머리로 접어 둔다. AI 안내 줄은 ② 단계 안내로 옮겼다 */}
-        <ClassMaterials year={schoolYear()} lesson={lesson}
-          common={commonKey && students.length > 0 ? { scope: commonKey, rows: commonRows, detailBase: "/teacher/write/activity", today: seoulNow().date } : undefined} />
-        {area === "동아리" && !club ? (
-          <Card>
-            <div className="flex flex-col items-center gap-3 py-8 text-center">
-              <p className="font-bold">지도하는 동아리가 없어요</p>
-              <ButtonLink href="/teacher/club">동아리 만들기</ButtonLink>
-            </div>
-          </Card>
-        ) : (
-          <RecordWorkspace
-            area={area}
-            listTitle={club ? `${club.name} ${students.length}` : `우리 반 ${students.length}`}
-            students={students}
-            selectedId={studentId}
-            drafts={drafts}
-            memos={memos}
-            logs={logs}
-            clubId={club?.id}
-            barTitle={club ? club.name : h ? `${h.grade}학년 ${h.classNo}반 ${area === "자율·자치" ? "자율" : area}` : undefined}
-            href={(id) => `${base}&student=${id}`}
-            openCheck={openCheck}
-            lesson={lesson}
-          />
         )}
       </PageBody>
     </>

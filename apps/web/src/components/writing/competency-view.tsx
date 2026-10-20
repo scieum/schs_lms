@@ -22,16 +22,22 @@ type Focus = { competency: Competency; sub?: string } | null;
  * bare: 바깥 상자 없이 (Figma N32 ③ 본문 — 흰 면 위에 바로, 회색 안 회색 금지). toggle=false 면 역량 보기 스위치를 숨긴다(글이 없을 때).
  * title 이 글자가 아니면(단계 머리 등) 그대로 그린다.
  */
-export function BodyCard({ text, tag, children, title = "본문", editable = true, className, bare = false, toggle = true, extra }: {
+export function BodyCard({ text, tag, children, title = "본문", editable = true, className, bare = false, toggle = true, extra, view, head = true }: {
   text: string; tag: (text: string) => Promise<TagResult>; children: React.ReactNode; title?: React.ReactNode; editable?: boolean; className?: string; bare?: boolean; toggle?: boolean;
   /** 머리 오른쪽, 역량 보기 앞 (N34 "다른 버전") */
   extra?: React.ReactNode;
+  /** 역량 보기 켜짐을 밖에서 쥔다 (Figma N52 글 짓기: 스위치는 "더보기" 줄에) */
+  view?: { on: boolean; set: (on: boolean) => void };
+  /** false = 머리 줄을 그리지 않는다 (N52 — 제목 · 스위치는 글 칸 밖에) */
+  head?: boolean;
 }) {
-  const [state, setOn] = useState(false);
+  const [own, setOwn] = useState(false);
+  const state = view ? view.on : own;
+  const setOn = view ? view.set : setOwn;
   const on = state && toggle;
   return (
     <section className={cx("@container flex flex-col gap-3", className ?? (bare ? "" : "rounded-inner bg-white p-4"))}>
-      <div className="flex items-center gap-2">
+      {head && <div className="flex items-center gap-2">
         {typeof title === "string" ? <span className="min-w-0 flex-1 truncate text-[14px] font-bold">{title}</span> : <div className="min-w-0 flex-1">{title}</div>}
         {on && editable && (
           <button type="button" onClick={() => setOn(false)} className="hidden items-center gap-1 rounded-control border border-hair bg-[#fff] px-2.5 py-1 text-[12px] font-medium md:flex">
@@ -46,12 +52,12 @@ export function BodyCard({ text, tag, children, title = "본문", editable = tru
             <span className={cx("absolute top-0.5 size-4 rounded-full bg-[#fff] transition-all", on ? "left-[18px]" : "left-0.5")} />
           </span>
         </label>}
-      </div>
+      </div>}
       {/* 편집기는 늘 그려 두고(폼 제출용) 역량 보기일 때만 숨긴다 */}
       <div className={cx(on && "hidden")}>{children}</div>
       {on && <CompetencyView text={text} tag={tag} />}
       {on && editable && (
-        <button type="button" onClick={() => setOn(false)} className="flex h-10 items-center justify-center gap-1 rounded-control border border-hair bg-[#fff] text-[13px] font-medium md:hidden">
+        <button type="button" onClick={() => setOn(false)} className={cx("flex h-10 items-center justify-center gap-1 rounded-control border border-hair bg-[#fff] text-[13px] font-medium", head && "md:hidden")}>
           <Pencil size={13} /> 수정하기
         </button>
       )}

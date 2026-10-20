@@ -137,7 +137,7 @@ export async function saveRecord(_: RecordState, form: FormData): Promise<Record
   // 확정: 수정 비율을 아는 글은 숫자만 남긴다 (글 · 까닭 · 이름 · 학번 없음)
   if (intent === "confirmed" && pv.ratio != null) await repo.audit(v.accountId, "record.confirm", confirmAudit(area, r.id, pv));
   else await repo.audit(v.accountId, intent === "confirmed" ? "record.confirm" : "record.save", `${area} ${t.student.pseudonymId}`);
-  revalidatePath(area === "행발" ? "/homeroom/behavior" : "/teacher/write");
+  revalidatePath(area === "동아리" ? "/teacher/club/compose" : "/homeroom/compose");
   return { saved: intent, at: r.createdAt };
 }
 
@@ -344,10 +344,10 @@ export async function classCheckRecords(input: { area: string; clubId?: string |
     if (!club || club.advisorId !== v.accountId) return { ok: false, error: "내 동아리만 검사할 수 있어요" };
     const ids = new Set(await repo.listClubMembers(club.id));
     students = all.filter((s) => ids.has(s.id)).sort((a, b) => a.grade - b.grade || a.classNo - b.classNo || a.number - b.number);
-    base = `/teacher/write?area=${encodeURIComponent(area)}&club=${club.id}&`;
+    base = `/teacher/club/compose?club=${club.id}&`;
   } else {
     students = homeroomStudents(v, all);
-    base = area === "행발" ? "/homeroom/behavior?" : `/teacher/write?area=${encodeURIComponent(area)}&`;
+    base = `/homeroom/compose?tab=${area === "행발" ? "behavior" : area === "진로" ? "career" : "autonomy"}&`;
   }
   if (!students.length) return { ok: false, error: area === "동아리" ? "부원이 없어요" : "우리 반 학생만 검사할 수 있어요" };
   // 학생마다 쓸 수 있는지 한 번 더 (canWriteRecord)

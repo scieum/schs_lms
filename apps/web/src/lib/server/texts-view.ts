@@ -84,9 +84,10 @@ export function pickOption(opts: TextsOption[], q: { course?: string; section?: 
 
 /** 쓰러 가기 › (그 학생 편집기) */
 function editorHref(r: ResolvedScope, studentId: string): string {
-  if (r.kind === "setuk") return `/teacher/setuk?course=${r.course!.id}${r.section ? `&section=${encodeURIComponent(r.section)}` : ""}&student=${studentId}`;
-  if (r.areaKey === "행발") return `/homeroom/behavior?student=${studentId}`;
-  return `/teacher/write?area=${encodeURIComponent(r.areaKey)}${r.clubId ? `&club=${r.clubId}` : ""}&student=${studentId}`;
+  // N52: 묶음별 글 짓기
+  if (r.kind === "setuk") return `/teacher/setuk/compose?course=${r.course!.id}${r.section ? `&section=${encodeURIComponent(r.section)}` : ""}&student=${studentId}`;
+  if (r.areaKey === "동아리") return `/teacher/club/compose${r.clubId ? `?club=${r.clubId}&` : "?"}student=${studentId}`;
+  return `/homeroom/compose?tab=${r.areaKey === "행발" ? "behavior" : r.areaKey === "진로" ? "career" : "autonomy"}&student=${studentId}`;
 }
 
 export type TextsData = { scope: ResolvedScope; rows: (TextRow & { href: string })[] };

@@ -81,7 +81,7 @@ export async function saveSetuk(_: SetukState, form: FormData): Promise<SetukSta
   await repo.audit(v.accountId, intent === "confirmed" ? "setuk.confirm" : "setuk.save", `${course.subject} ${student.pseudonymId}`);
   // 수정 비율은 숫자만 (글 · 까닭 · 이름 · 학번 없음)
   if (intent === "confirmed" && pv.ratio != null) await repo.audit(v.accountId, "record.confirm", confirmAudit("setuk", r.id, pv));
-  revalidatePath("/teacher/setuk");
+  revalidatePath("/teacher/setuk/compose");
   return { saved: intent, at: r.createdAt };
 }
 
@@ -309,7 +309,7 @@ export async function classCheckSetuk(input: { courseId: string; section?: strin
       id: s.id, student: s, text, context: course.subject, locked: r?.status === "confirmed",
       ...classProv(o, r, text, settings),
       range: resolveLength("세특", { unit: r?.unit ?? "bytes", max: r?.max }),
-      href: `/teacher/setuk?course=${course.id}${sec}&student=${s.id}&check=1`,
+      href: `/teacher/setuk/compose?course=${course.id}${sec}&student=${s.id}&check=1`,
     };
   }), ignore);
   await repo.audit(v.accountId, "setuk.class_check", classAudit(`${course.subject}${section ? ` ${section}` : ""}`, view));

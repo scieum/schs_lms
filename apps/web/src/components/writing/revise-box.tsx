@@ -114,7 +114,7 @@ export function ReviseBox({ kind, text, unit, limit, band, run, onApply, small =
         <BeforeAfter before={result.before} after={result.text} beforeMeta={meta(result.before)} afterMeta={meta(result.text)} />
         <div className="flex flex-col gap-2 md:flex-row md:items-center">
           <span className="min-w-0 flex-1 text-[12px] text-mute">
-            바뀐 곳 {changes}{result.gate?.memos ? ` · 메모 반영 ${result.gate.memos.covered}/${result.gate.memos.picked}` : ""}
+            바뀐 곳 {changes}{result.gate?.memos ? ` · 조각 반영 ${result.gate.memos.covered}/${result.gate.memos.picked}` : ""}
           </span>
           <div className="flex gap-2">
             <button type="button" onClick={() => setResult(null)}

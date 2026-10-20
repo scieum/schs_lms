@@ -74,11 +74,11 @@ describe("③ 게이트 줄", () => {
 describe("쓴 뒤 줄", () => {
   it("서버가 거친 단계 그대로", () => {
     expect(traceLine(gate({ trace: { first: 1612, added: { before: 4, after: 5 }, fit: { from: 1612, to: 1480 } } }), "bytes"))
-      .toBe("첫 글 1,612B · 빠진 메모 넣기 4→5 · 분량 맞추기 1,612→1,480B");
+      .toBe("첫 글 1,612B · 빠진 조각 넣기 4→5 · 분량 맞추기 1,612→1,480B");
   });
   it("빠진 메모 없음 · 이미 맞음", () => {
     expect(traceLine(gate({ trace: { first: 1482 }, memos: { picked: 5, covered: 5, missing: [] } }), "bytes"))
-      .toBe("첫 글 1,482B · 메모 반영 5/5 · 1,482B · 맞음");
+      .toBe("첫 글 1,482B · 조각 반영 5/5 · 1,482B · 맞음");
   });
   it("trace 가 없으면 빈 글", () => {
     expect(traceLine(gate(), "bytes")).toBe("");

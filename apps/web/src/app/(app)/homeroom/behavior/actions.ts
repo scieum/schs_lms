@@ -38,7 +38,7 @@ export async function saveKeywordMenu(input: { menu: KeywordMenu }): Promise<{ o
   const custom = menu.groups.reduce((n, g) => n + g.items.filter((i) => i.custom).length, 0);
   const hidden = menu.groups.reduce((n, g) => n + g.items.filter((i) => i.hidden).length, 0);
   await repo.audit(v.accountId, "behavior.menu", `내 키워드 ${custom} · 숨김 ${hidden}`);
-  revalidatePath("/homeroom/behavior");
+  revalidatePath("/homeroom/compose");
   return { ok: true, menu };
 }
 
