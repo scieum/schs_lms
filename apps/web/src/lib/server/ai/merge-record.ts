@@ -17,6 +17,7 @@ import { joinSentences, SOURCED_RULES, SourcedOut, toKeys } from "./sourced";
 import { pieceKey } from "../provenance";
 import type { Level } from "@/lib/domain/achievement";
 import { evidenceAmount, praisePrompt } from "@/lib/domain/praise";
+import { closest, coverage, gateAim, gateBand, gateCheck, gateResult, GATE_ROUNDS, thinEvidence, type Gate } from "@/lib/domain/length-gate";
 
 // 합치기·맞추기·역량 보기 (Figma N11). 교사가 버튼을 눌렀을 때만, 결과는 돌려주기만 한다 (저장은 교사가).
 // AI에는 가명ID만 보낸다. 조각 속 이름·학번은 지운 뒤 보내고, 결과도 다시 지운다.
@@ -35,9 +36,10 @@ const MERGE_RULES = (range: LengthRange) => `
 - 조각 속 구체적인 사실(활동 이름, 과정, 수치, 개념, 결과, 변화)과 교사가 쓴 핵심 낱말은 빠짐없이 살린다. 조각에 없는 내용은 쓰지 않는다.
 - 다만 조각 문장을 그대로 옮겨 늘어놓지 않는다. 조각 하나가 문장 하나가 되면 글이 끊긴다. 같은 활동의 조각은 묶어 사실만 가져와 한두 문장으로 새로 짓고, 이어진 행동은 '~하고', '~하며', '~했으며', '특히'로 잇는다.
 - <조각>은 활동별로 묶어 보낸다. 활동 이름은 그 활동 첫 문장에만 '활동명에서'처럼 한 번 쓰고 이어지는 문장에는 다시 쓰지 않는다. 대괄호는 쓰지 않는다.
-- [핵심] 표시 조각은 교사가 꼭 넣으라고 고른 것이다. 반드시 살리고 앞쪽에 무게를 둔다. 분량이 넘치면 [참고] 조각부터 줄이거나 빼고, 그다음 표시 없는 조각을 줄인다.
+- [핵심] 표시 조각은 교사가 꼭 넣으라고 고른 것이다. 반드시 살리고 앞쪽에 무게를 둔다.
+- 고른 조각은 모두 글에 반영한다(조각마다 적어도 한 문장이 기댄다). 분량이 넘치면 조각을 빼지 말고 [참고] 조각부터 짧게 압축하고, 겹치는 말·꾸밈말을 줄인다.
 - 겹치는 내용은 한 번만 쓰고, 활동의 흐름(시간 순 또는 주제 순)이 자연스럽게 이어지도록 문장을 잇는다.
-- 분량: ${target(range)}. 넘치면 덜 중요한 꾸밈과 반복을 먼저 줄이고, 모자라면 조각 속 과정·이유·의미를 더 풀어 쓴다.
+- 분량: ${target(range)}. 넘치면 꾸밈과 반복을 먼저 줄이고, 모자라면 조각 속 과정·이유·의미를 더 풀어 쓴다.
 - 한 문단, draft 에 최종본만 넣는다.`;
 
 const FIT_RULES = (range: LengthRange) => `
@@ -88,7 +90,115 @@ const NO_NEW_PRAISE = `
  * tone: 성취수준 말투 한 줄 (achievement.levelPrompt) · level: 고른 수준 (N41, 없으면 사실 그대로)
  * keepOrder: 교사가 정한 순서(메모 모아 쓰기 N41) 그대로 — 아니면 날짜 순
  */
-export async function mergeRecord(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange; tone?: string; level?: Level | null; keepOrder?: boolean; background?: string[] }): Promise<WriteResult> {
+export async function mergeRecord(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange; tone?: string; level?: Level | null; keepOrder?: boolean; background?: string[]; gate?: Gate; limit?: number }): Promise<WriteResult> {
+  // N49: 목표 ± 오차 게이트 — 글을 쓴 뒤 ① 빠진 메모 넣기 ② 분량 맞추기 (넘쳐도 문장을 빼지 않고 압축)
+  const gate = input.gate ?? gateBand({ unit: input.range.unit, target: input.range.max, limit: input.range.max });
+  const range: LengthRange = { ...input.range, min: gate.lo, max: gate.hi };
+  const first = await mergeOnce({ ...input, range });
+  if (!first.text || first.sample) return first;
+  const pid = input.student.pseudonymId;
+  const picked = (input.keepOrder ? input.pieces : orderPieces(input.pieces)).map((p) => ({ ...p, text: scrubIdentity(p.text, input.student, pid).text.trim() })).filter((p) => p.text);
+  const memos = picked.filter((p) => p.source !== "본문");
+  const keyOf = new Map(memos.map((p) => [pieceKey(p), p.id]));
+  let r = first;
+  let cov = coverage(r.sentences, [...keyOf.keys()]);
+  let added: { before: number; after: number } | undefined;
+  if (cov.missing.length && r.sentences) {
+    const before = cov.covered.length;
+    const again = await addMissing({ ...input, range, pieces: picked, draft: r.text, missing: cov.missing });
+    if (again && !again.sample && again.text) {
+      const c2 = coverage(again.sentences, [...keyOf.keys()]);
+      if (c2.covered.length >= cov.covered.length) { r = again; cov = c2; }
+    }
+    added = { before, after: cov.covered.length };
+  }
+  const beforeFit = measure(r.text, gate.unit);
+  const fit = await fitToGate({ kind: input.kind, context: input.context, student: input.student, text: r.text, gate, limit: Math.max(input.limit ?? 0, input.range.max), evidence: memos.map((p) => p.text) });
+  return {
+    text: fit.text,
+    sample: false,
+    // 다시 맞추면 문장이 바뀌어 근거 표지는 규칙으로 다시 붙인다 (N38)
+    sentences: fit.rounds ? undefined : r.sentences,
+    notice: fit.notice,
+    gate: gateResult(fit.text, gate, fit.rounds, { thin: fit.thin, trace: { first: measure(first.text, gate.unit), added, fit: fit.rounds ? { from: beforeFit, to: measure(fit.text, gate.unit) } : undefined }, memos: r.sentences ? { picked: memos.length, covered: cov.covered.length, missing: cov.missing.map((k) => keyOf.get(k) ?? k) } : undefined }),
+  };
+}
+
+/** 빠진 메모 넣기 (N49 ①): 초안의 문장·사실은 그대로 두고 빠진 조각만 알맞은 자리에 넣는다 */
+async function addMissing(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange; tone?: string; level?: Level | null; draft: string; missing: string[] }): Promise<WriteResult | null> {
+  const labels = new Map(input.pieces.map((p, i) => [`S${i + 1}`, pieceKey(p)]));
+  const missingLabels = [...labels].filter(([, k]) => input.missing.includes(k)).map(([s]) => s);
+  if (!missingLabels.length) return null;
+  const content = [
+    `학생: ${input.student.pseudonymId}`,
+    `분량: ${target(input.range)}`,
+    "",
+    "<조각>",
+    ...input.pieces.map((p, i) => `  ${i + 1}. [S${i + 1}] ${p.weight === 3 ? "[핵심] " : p.weight === 1 ? "[참고] " : ""}(${p.source}${p.date ? ` ${p.date}` : ""}) ${stripActivity(p.text)}`),
+    "</조각>",
+    "",
+    "<초안>", input.draft, "</초안>",
+    "",
+    `초안에 빠진 조각: ${missingLabels.join(", ")}`,
+  ].join("\n");
+  const system = `
+빠진 조각 넣기 규칙:
+- <초안>의 사실과 문장 흐름은 그대로 두고, 빠진 조각의 사실을 같은 활동 문장 곁이나 알맞은 자리에 한두 구절로 넣는다.
+- 빠진 조각을 넣느라 다른 조각의 사실을 빼지 않는다. 분량이 넘치면 겹치는 말·꾸밈말을 줄여 압축한다.
+- 조각에 없는 내용은 쓰지 않는다.
+- 분량: ${target(input.range)}. 한 문단, draft 에 최종본만 넣는다.`;
+  const guard = praisePrompt(input.level, evidenceAmount(input.pieces.filter((p) => p.source !== "본문").map((p) => p.text)));
+  return rewrite({ kind: input.kind, context: input.context, student: input.student, range: input.range, system, content, labels, guard, tone: input.tone, keepLong: true, fallback: () => input.draft });
+}
+
+/**
+ * 분량 게이트 맞추기 (N49 ②): 띠 밖이면 GATE_ROUNDS 번까지 다시 맞춘다.
+ * 줄이기는 문장·사실을 빼지 않고 압축, 늘리기는 근거 메모 속 과정·까닭을 풀어 쓴다(근거가 너무 적으면 늘리지 않음 — thin).
+ * 띠에 가장 가까운 글을 쓰고, 한도(limit)를 넘을 때만 마지막 수단으로 끝 문장을 뺀다.
+ */
+async function fitToGate(input: { kind: WriteKind; context?: string; student: Student; text: string; gate: Gate; limit: number; evidence: string[] }): Promise<{ text: string; rounds: number; thin: boolean; notice?: string }> {
+  const { gate, student } = input;
+  const range: LengthRange = { unit: gate.unit, min: gate.lo, max: gate.hi, capped: false };
+  const thin = thinEvidence(input.evidence, gate);
+  const evidence = input.evidence.map((t) => scrubIdentity(t, student, student.pseudonymId).text.trim()).filter(Boolean);
+  const tried = [input.text];
+  let text = input.text;
+  let rounds = 0;
+  for (let i = 0; i < GATE_ROUNDS && aiEnabled(); i++) {
+    const c = gateCheck(text, gate);
+    if (c.pass || (c.dir === "늘리기" && thin)) break;
+    rounds++;
+    const u = UNIT_LABEL[gate.unit];
+    const aim = gateAim(gate);
+    const chars = gate.unit === "bytes" ? ` (공백 포함 약 ${fitGoal({ unit: "bytes", min: aim, max: aim }, text).chars}자)` : "";
+    const note = c.dir === "줄이기"
+      ? `지금 ${c.value.toLocaleString()}${u} → 약 ${aim.toLocaleString()}${u}${chars}로 약 ${c.by.toLocaleString()}${u} 줄인다. 문장과 사실은 하나도 빼지 않는다. 겹치는 말·꾸밈말을 덜고, 이어지는 두 문장은 한 문장으로 묶어 압축한다.`
+      : `지금 ${c.value.toLocaleString()}${u} → 약 ${aim.toLocaleString()}${u}${chars}로 약 ${c.by.toLocaleString()}${u} 늘린다. <근거 메모>에 있는 과정·까닭·결과·배운 점을 문장 안에서 더 풀어 쓴다. 근거에 없는 활동·수치·평가는 만들지 않는다.`;
+    const content = [`학생: ${student.pseudonymId}`, `분량: ${target(range)}`, note, "", "<본문>", scrubIdentity(text, student, student.pseudonymId).text, "</본문>",
+      ...(c.dir === "늘리기" && evidence.length ? ["", "<근거 메모>", ...evidence.map((e) => `- ${e}`), "</근거 메모>"] : [])].join("\n");
+    const again = await rewrite({ kind: input.kind, context: input.context, student, range, system: GATE_FIT_RULES(range), content, fallback: () => text, keepLong: true });
+    if (again.sample || !again.text) break;
+    text = again.text;
+    tried.push(text);
+  }
+  const best = closest(tried, gate);
+  const capped = fitToMax(best, { unit: gate.unit, max: input.limit });
+  const end = gateCheck(capped, gate);
+  const notice = capped !== best ? "한도를 넘어 마지막 문장을 뺐어요"
+    : !end.pass && end.dir === "늘리기" && thin ? "메모가 적어 목표보다 짧아요. 없는 내용은 만들지 않았어요"
+    : undefined;
+  return { text: capped, rounds, thin, notice };
+}
+
+const GATE_FIT_RULES = (range: LengthRange) => `
+분량 맞추기 규칙:
+- 주어진 본문의 사실·활동·문장 순서를 지키고 분량만 ${target(range)} 에 맞춘다.
+- 줄일 때 문장이나 활동을 통째로 빼지 않는다. 겹치는 말, 꾸밈말, 같은 뜻의 되풀이를 덜고 이어지는 문장을 묶어 압축한다.
+- 늘릴 때는 본문과 근거 메모에 이미 있는 활동의 과정·까닭·결과를 풀어 쓴다. 새 활동·수치·평가는 만들지 않는다.
+- 문장을 쪼개 짧은 문장을 늘어놓지 않는다.
+- 한 문단, draft 에 최종본만 넣는다.`;
+
+async function mergeOnce(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange; tone?: string; level?: Level | null; keepOrder?: boolean; background?: string[] }): Promise<WriteResult> {
   const { student } = input;
   const pid = student.pseudonymId;
   const pieces = (input.keepOrder ? input.pieces : orderPieces(input.pieces)).map((p) => ({ ...p, text: scrubIdentity(p.text, student, pid).text.trim() })).filter((p) => p.text);
@@ -114,13 +224,54 @@ export async function mergeRecord(input: { kind: WriteKind; context?: string; st
   const labels = new Map(pieces.map((p, i) => [`S${i + 1}`, pieceKey(p)]));
   // 근거 양: 지금 글(본문)은 빼고 센다 — 메모 한두 개면 총평·최상급 칭찬을 막는다
   const guard = praisePrompt(input.level, evidenceAmount(pieces.filter((p) => p.source !== "본문").map((p) => p.text)));
-  return rewrite({ ...input, system: MERGE_RULES(input.range), content, labels, guard, fallback: () => mergeByRules(input.pieces.map((p) => ({ ...p, text: scrubIdentity(p.text, student).text })), input.range) });
+  return rewrite({ ...input, system: MERGE_RULES(input.range), content, labels, guard, keepLong: true, fallback: () => mergeByRules(input.pieces.map((p) => ({ ...p, text: scrubIdentity(p.text, student).text })), input.range) });
 }
 
-export async function fitRecord(input: { kind: WriteKind; context?: string; student: Student; text: string; range: LengthRange }): Promise<WriteResult> {
+// ---------- 수정 요청 (Figma N49 ③) ----------
+
+/**
+ * 교사가 AI 글을 읽고 보낸 수정 요청대로 다시 쓴다 (Sonnet) → 분량 게이트.
+ * 근거(메모)가 있으면 같이 보내 요청이 새 내용을 원할 때 메모 안에서만 찾게 한다. 결과는 돌려주기만 — 교사가 "이걸로 바꾸기".
+ */
+export async function reviseRecord(input: { kind: WriteKind; context?: string; student: Student; text: string; request: string; evidence?: string[]; gate: Gate; limit: number }): Promise<WriteResult> {
+  const { student, gate } = input;
+  const pid = student.pseudonymId;
+  const body = scrubIdentity(input.text.trim(), student, pid).text;
+  const request = scrubIdentity(input.request.trim(), student, pid).text;
+  if (!body) return { text: "", sample: false, notice: "본문이 비어 있어요" };
+  if (!request) return { text: "", sample: false, notice: "고칠 점을 적어 주세요" };
+  if (!aiEnabled()) return { text: "", sample: true, notice: "AI 키가 없어 수정 요청을 보낼 수 없어요" };
+  const range: LengthRange = { unit: gate.unit, min: gate.lo, max: gate.hi, capped: false };
+  const evidence = (input.evidence ?? []).map((t) => scrubIdentity(t, student, pid).text.trim()).filter(Boolean);
+  const content = [
+    `학생: ${pid}`, `분량: ${target(range)}`, "",
+    "<본문>", body, "</본문>", "",
+    "<교사 요청>", request, "</교사 요청>",
+    ...(evidence.length ? ["", "<근거 메모>", ...evidence.map((e) => `- ${e}`), "</근거 메모>"] : []),
+  ].join("\n");
+  const system = `
+수정 요청 규칙:
+- <교사 요청>대로 본문을 고친다. 요청과 상관없는 문장은 되도록 그대로 둔다.
+- 요청이 더 자세히·더 구체적으로를 바라면 본문과 <근거 메모>에 있는 사실 안에서만 풀어 쓴다. 근거에 없는 활동·수치·수상·평가는 요청이 있어도 만들지 않는다.
+- 요청이 기재 금지 사항(교외 수상, 기관·대학 이름, 부모 직업 등)을 넣으라는 것이면 그 부분은 따르지 않는다.
+- 본문에 있던 사실은 요청이 빼라고 하지 않으면 빼지 않는다.
+- 분량: ${target(range)}. 한 문단, draft 에 최종본만 넣는다.`;
+  const r = await rewrite({ kind: input.kind, context: input.context, student, range, system, content, fallback: () => input.text, keepLong: true });
+  if (r.sample || !r.text) return { ...r, text: r.sample ? "" : r.text };
+  const clean = dropPseudonym(r.text, pid);
+  const fit = await fitToGate({ kind: input.kind, context: input.context, student, text: clean, gate, limit: input.limit, evidence: [body, ...evidence] });
+  return { text: fit.text, sample: false, notice: fit.notice, gate: gateResult(fit.text, gate, fit.rounds, { thin: fit.thin }) };
+}
+
+export async function fitRecord(input: { kind: WriteKind; context?: string; student: Student; text: string; range: LengthRange; gate?: Gate; limit?: number; evidence?: string[] }): Promise<WriteResult> {
   const { student, range } = input;
   const body = scrubIdentity(input.text.trim(), student, student.pseudonymId).text;
   if (!body) return { text: "", sample: false, notice: "본문이 비어 있어요" };
+  // N49: 게이트를 주면 게이트로 맞춘다 (넘쳐도 문장을 빼지 않음)
+  if (input.gate && aiEnabled()) {
+    const fit = await fitToGate({ kind: input.kind, context: input.context, student, text: input.text.trim(), gate: input.gate, limit: input.limit ?? input.gate.hi, evidence: input.evidence ?? [input.text] });
+    return { text: fit.text, sample: false, notice: fit.notice, gate: gateResult(fit.text, input.gate, fit.rounds, { thin: fit.thin }) };
+  }
   const goal = fitGoal(range, body);
   const aim = `분량: ${target(range)} · 겨냥: 약 ${goal.value.toLocaleString()}${UNIT_LABEL[range.unit]}${range.unit === "bytes" ? ` (공백 포함 약 ${goal.chars}자)` : ""} · 지금 ${measure(body, range.unit).toLocaleString()}${UNIT_LABEL[range.unit]}`;
   const content = [`학생: ${student.pseudonymId}`, aim, "", "<본문>", body, "</본문>"].join("\n");
@@ -258,7 +409,7 @@ const BEHAVIOR_RULES = (range: LengthRange) => `
  * 행발 키워드 초안 (Sonnet): 고른 키워드 + 에피소드 메모 + (켜면) 누가기록. 메모·누가기록은 이름·학번을 가명ID로 바꿔 보낸다.
  * 결과는 돌려주기만 한다 — 교사가 본문에 넣고 저장·확정한다.
  */
-export async function behaviorDraft(input: { student: Student; keywords: string[]; memo: string; logs: { date: string; content: string; key?: string }[]; range: LengthRange; memoKey?: string }): Promise<WriteResult> {
+export async function behaviorDraft(input: { student: Student; keywords: string[]; memo: string; logs: { date: string; content: string; key?: string }[]; range: LengthRange; memoKey?: string; gate?: Gate }): Promise<WriteResult> {
   const { student } = input;
   const pid = student.pseudonymId;
   const memo = scrubIdentity(input.memo.trim(), student, pid).text;
@@ -280,7 +431,13 @@ export async function behaviorDraft(input: { student: Student; keywords: string[
   // 근거 표지 [S1] 메모 · [S2…] 누가기록 ↔ key (서버에만)
   const labels = new Map<string, string>([["S1", input.memoKey ?? ""] as [string, string], ...logs.map((l, i): [string, string] => [`S${i + 2}`, l.key ?? ""])].filter(([, k]) => !!k));
   const guard = praisePrompt(null, evidenceAmount([memo, ...logs.map((l) => l.content)]));
-  return rewrite({ kind: "행발", student, range: input.range, system: BEHAVIOR_RULES(input.range), content, labels, guard, fallback: () => mergeByRules(pieces, input.range) });
+  // N49: 행발도 목표 ± 오차 게이트 (넘쳐도 문장을 빼지 않고 압축)
+  const gate = input.gate ?? gateBand({ unit: input.range.unit, target: input.range.max, limit: input.range.max });
+  const range: LengthRange = { ...input.range, min: gate.lo, max: gate.hi };
+  const r = await rewrite({ kind: "행발", student, range, system: BEHAVIOR_RULES(range), content, labels, guard, keepLong: true, fallback: () => mergeByRules(pieces, input.range) });
+  if (!r.text || r.sample) return { ...r, text: r.sample ? fitToMax(r.text, input.range) : r.text };
+  const fit = await fitToGate({ kind: "행발", student, text: r.text, gate, limit: input.range.max, evidence: [memo, ...logs.map((l) => l.content)] });
+  return { text: fit.text, sample: false, notice: fit.notice, sentences: fit.rounds ? undefined : r.sentences, gate: gateResult(fit.text, gate, fit.rounds, { thin: fit.thin }) };
 }
 
 const TagOut = z.object({ tags: z.array(z.object({ index: z.number().int(), competency: z.string().nullable(), sub: z.string().nullable() })) });

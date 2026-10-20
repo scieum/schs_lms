@@ -14,7 +14,9 @@ import { PiecesCard } from "@/components/writing/pieces-card";
 import { StepHead } from "@/components/writing/step-head";
 import { ConfirmedLine, PrevButton, StepNav, StepperContext, useWriteStep, writeStepItems, WriteStepper } from "@/components/writing/write-steps";
 import { defaultWriteStep } from "@/lib/domain/write-step";
-import { addSetukPiece, aiFixSetuk, aiSetukDraft, summarizeSetukFile, fitSetuk, listSetukPieces, mergeSetuk, saveSetuk, tagSetuk, variantsSetuk, type SetukState } from "./actions";
+import { addSetukPiece, aiFixSetuk, aiSetukDraft, summarizeSetukFile, fitSetuk, listSetukPieces, mergeSetuk, reviseSetuk, saveSetuk, tagSetuk, variantsSetuk, type SetukState } from "./actions";
+import { useAiGate } from "@/components/writing/use-ai-gate";
+import { ReviseBox } from "@/components/writing/revise-box";
 import { OverApproval } from "@/components/writing/over-approval";
 import { LevelPicker, useLevels } from "@/components/writing/level-picker";
 import { LibraryToggle, useBodyLibrary } from "@/components/writing/library-save";
@@ -27,6 +29,7 @@ import type { LessonView } from "@/lib/domain/lesson-plan";
 // 세특 쓰기 (Figma N48 → N40 · N32 구조): 단계 표시 · ① 활동 메모 → ② AI로 쓰기 → ③ 글 확인 · 확정 — 지금 단계만 보여 준다.
 // 숨긴 단계도 그려 둔 채(메모 · 활동명 · 글 · 폼 상태 유지) CSS 로만 숨긴다. 처음 단계는 defaultWriteStep (메모 없음 ① · 메모만 ② · 글 있음 ③).
 // 활동명은 ①의 칸 하나를 ②가 같이 쓴다. AI 결과는 ③ 글에 채우기만 하고(되돌리기 있음) 저장은 교사가 누른다.
+// N49: ③ 글 위 게이트 줄(분량 · 메모 반영 · 다시 맞추기) · 글 아래 "AI에게 고쳐 달라고 하기"(이걸로 바꾸기를 눌러야 바뀜).
 export function SetukEditor({
   courseId,
   studentId,
@@ -127,6 +130,16 @@ export function SetukEditor({
   const lm = useLessonMenu(lesson, studentId);
 
   const memoN = pieces?.length ?? memoCount ?? null;
+  // N49 게이트: 나이스 한도(공통과목은 남은 만큼) · 마지막 AI 결과
+  const limitNow = Math.min(neisMax("세특", range.unit), capMax);
+  const [aiBusy, setAiBusy] = useState(false);
+  const gate = useAiGate({
+    text, unit: range.unit, limit: limitNow, target: range.max, scope: "세특",
+    fit: (t, max, tol) => fitSetuk({ courseId, studentId, text: t, unit: range.unit, max, tol }),
+    merge: (ps, max, tol) => mergeSetuk({ courseId, studentId, pieces: ps, unit: range.unit, max, level, keepOrder: true, tol }),
+    apply: (t, r) => { bc.replace(t, "다시 맞췄어요"); pv.adopt(r); },
+    onMoreMemos: () => ws.go(1),
+  });
   const items = writeStepItems({ memos: memoN, text, unit: range.unit, max: range.max, check: bc.check, confirmedNow, hasBody });
   const u = range.unit === "bytes" ? "B" : UNIT_LABEL[range.unit];
 
@@ -154,9 +167,11 @@ export function SetukEditor({
             pieces,
             body: text,
             neisMax: Math.min(neisMax("세특", range.unit), capMax),
-            run: (ps, max) => mergeSetuk({ courseId, studentId, pieces: ps, unit: range.unit, max, level, keepOrder: true }),
+            run: gate.track((ps, max, tol) => mergeSetuk({ courseId, studentId, pieces: ps, unit: range.unit, max, level, keepOrder: true, tol })),
           }}
-          onApply={(t, r) => { setText(t); pv.adopt(r); }}
+          gateScope="세특"
+          onBusy={setAiBusy}
+          onApply={(t, r) => { setText(t); pv.adopt(r); gate.remember(t, r?.ok ? r.gate : undefined); }}
           what="세특 글"
           done={hasBody}
           levelValue={level}
@@ -172,6 +187,7 @@ export function SetukEditor({
         {pv.inputs()}
         <BodyCard bare title="세특 글" toggle={hasBody} text={text} tag={(t) => tagSetuk({ courseId, studentId, text: t })}
           extra={<><BodyViewSwitch {...pv.switchProps} className="hidden @lg:inline-flex" /><LibraryToggle />{hasBody && !reading && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}</>}>
+          {!reading && gate.chips}
           <BodyViewSwitch {...pv.switchProps} full className="mb-2 @lg:hidden" />
           {pv.body(<HighlightTextarea
             ref={body}
@@ -192,6 +208,12 @@ export function SetukEditor({
           {lib.mobileSave && <div className="mt-2">{lib.mobileSave}</div>}
         </BodyCard>
         <div className={reading ? "hidden" : "contents"}>
+        {hasBody && (
+          <ReviseBox kind="record" text={text} unit={range.unit} limit={limitNow} band={gate.bandLabel}
+            disabled={aiOn ? undefined : "AI가 꺼져 있어 수정 요청을 보낼 수 없어요. 직접 고쳐 주세요"}
+            run={(request) => reviseSetuk({ courseId, studentId, text, request, unit: range.unit, max: gate.band.target, tol: gate.band.tol })}
+            onApply={(t, g) => { bc.replace(t, "고친 글로 바꿨어요"); gate.remember(t, g, null); }} />
+        )}
         <SimilarNotice state={sim} onOpen={() => setCompare(true)} />
         {variants && hasBody && (
           <VariantsPanel unit={range.unit} max={range.max} onClose={() => setVariants(false)}
@@ -207,7 +229,7 @@ export function SetukEditor({
           onReplaceAll={bc.onReplaceAll} spellAi={pv.spellLine} renderOpen={pv.renderOpen}
           aiFix={{ run: (t) => aiFixSetuk({ courseId, studentId, text: t, unit: range.unit, max: range.max, praise }), onApply: (t) => bc.replace(t, "고친 글을 넣었어요") }}
           length={{ unit: len.unit, max: len.max, limit: neisMax("세특", len.unit), onChange: setLen }}
-          fit={{ run: () => fitSetuk({ courseId, studentId, text, unit: range.unit, max: range.max }), onApply: setText }} />
+          fit={{ run: () => fitSetuk({ courseId, studentId, text, unit: range.unit, max: range.max }), onApply: (t) => { setText(t); gate.remember(t); } }} />
 
         {over && <OverApproval value={length.value} max={range.max} unit={UNIT_LABEL[range.unit]} checked={allowOver} onChange={setAllowOver} />}
         {state.error && <p className="text-sm text-bad" role="alert">{state.error}</p>}
@@ -233,7 +255,7 @@ export function SetukEditor({
           hint={memoN ? `메모 ${memoN}개를 모았어요 · 다음에서 AI로 써요` : "메모를 하나 남기면 AI로 쓸 수 있어요"} />
       )}
       {step === 2 && (
-        <StepNav onPrev={() => ws.go(1)} onNext={() => ws.go(3)} next="다음 · 글 확인" primary={hasBody}
+        <StepNav dim={aiBusy} onPrev={() => ws.go(1)} onNext={() => ws.go(3)} next="다음 · 글 확인" primary={hasBody}
           hint={hasBody ? "AI가 쓴 글을 ③에서 확인하고 확정해요" : aiOn ? "고른 메모로 글을 쓰면 ③에 들어가요" : "AI가 꺼져 있어 예시 글로 써요"} />
       )}
       {step === 3 && reading && <StepNav onPrev={() => ws.go(2)} />}

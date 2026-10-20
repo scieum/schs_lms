@@ -4,7 +4,7 @@ import { z } from "zod";
 import { schoolYear } from "@/lib/domain/curriculum";
 import { checkLength, UNIT_LABEL } from "@/lib/domain/length";
 import type { Student, Viewer } from "@/lib/domain/types";
-import { canWriteRecord, findIdentity, isRecordArea, latestMemoByStudent, RECORD_LABEL, resolveRecordLength, type AiDraftResult, type RecordArea } from "@/lib/domain/writing";
+import { canWriteRecord, findIdentity, isRecordArea, latestMemoByStudent, RECORD_LABEL, recordMax, resolveRecordLength, type AiDraftResult, type RecordArea } from "@/lib/domain/writing";
 import { writeRecord } from "@/lib/server/ai/write-record";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
@@ -12,7 +12,8 @@ import { evidenceLogs } from "./data";
 import { lessonBackgroundFor } from "@/lib/server/lessons";
 import { forbiddenBlock } from "@/lib/domain/forbidden";
 import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence";
-import { fitRecord, fixRecord, mergeRecord, tagCompetency, variantsRecord } from "@/lib/server/ai/merge-record";
+import { fitRecord, fixRecord, mergeRecord, reviseRecord, tagCompetency, variantsRecord } from "@/lib/server/ai/merge-record";
+import { gateBand, type GateResult } from "@/lib/domain/length-gate";
 import { softenMemo } from "@/lib/server/ai/teacher-ai";
 import { measure } from "@/lib/domain/length";
 import { scrubIdentity } from "@/lib/domain/writing";
@@ -162,12 +163,17 @@ const MergeSchema = z.object({
   max: z.number().int().min(1),
   /** 메모 모아 쓰기 (N41): 교사가 정한 순서 그대로 */
   keepOrder: z.boolean().optional(),
+  /** 분량 게이트 오차 (N49) — 목표(max) ± tol */
+  tol: z.number().int().min(0).max(300).optional(),
 });
-const FitSchema = z.object({ text: z.string().min(1, "본문이 비어 있어요").max(6000), unit: z.enum(["bytes", "chars"]), max: z.number().int().min(1) });
+const FitSchema = z.object({ text: z.string().min(1, "본문이 비어 있어요").max(6000), unit: z.enum(["bytes", "chars"]), max: z.number().int().min(1), tol: z.number().int().min(0).max(300).optional() });
+/** 수정 요청 (N49): 교사가 AI 글에 보낸 한두 줄 */
+const ReviseSchema = FitSchema.extend({ request: z.string().trim().min(1, "고칠 점을 적어 주세요").max(300, "요청은 300자까지예요") });
+const recordGate = (area: RecordArea, d: { unit: "bytes" | "chars"; max: number; tol?: number }) => gateBand({ unit: d.unit, target: d.max, tol: d.tol, limit: recordMax(area, d.unit) });
 /** N41: 화면 자동 검사와 같은 "근거보다 높은 평가" 행을 같이 고친다 (창체·행발은 성취수준이 없다 → null) */
 const FixSchema = FitSchema.extend({ praise: z.object({ evidence: z.string().max(40000) }).optional() });
-const toDraft = (r: { text: string; sample: boolean; notice?: string }): AiDraftResult =>
-  r.text ? { ok: true, text: r.text, sample: r.sample, notice: r.notice } : { ok: false, error: r.notice ?? "만들지 못했어요. 직접 고쳐 주세요" };
+const toDraft = (r: { text: string; sample: boolean; notice?: string; gate?: GateResult }): AiDraftResult =>
+  r.text ? { ok: true, text: r.text, sample: r.sample, notice: r.notice, gate: r.gate } : { ok: false, error: r.notice ?? "만들지 못했어요. 직접 고쳐 주세요" };
 
 async function recordTarget(area: string, studentId: string, clubId?: string | null) {
   const v = await requireCan("record.write");
@@ -226,7 +232,7 @@ export async function mergeRecordAction(input: { area: string; studentId: string
   // 차시 메모(N43)가 있으면 그 차시 활동 내용을 배경으로 (학생 행동 아님)
   const lessonLogs = t.area !== "행발" && p.data.pieces.some((x) => x.source === "차시") ? await evidenceLogs(t.area, [t.student.id], input.clubId) : [];
   const background = await lessonBackgroundFor(lessonLogs.map((l) => l.lessonItemId), p.data.pieces.filter((x) => x.source === "차시").map((x) => x.text), t.student);
-  const r = await mergeRecord({ kind: t.area, context: t.clubName, student: t.student, pieces: p.data.pieces, range, level: null, keepOrder: p.data.keepOrder, background });
+  const r = await mergeRecord({ kind: t.area, context: t.clubName, student: t.student, pieces: p.data.pieces, range, level: null, keepOrder: p.data.keepOrder, background, gate: recordGate(t.area, p.data), limit: recordMax(t.area, p.data.unit) });
   await repo.audit(t.v.accountId, "record.ai_merge", `${t.area} ${t.student.pseudonymId} ${p.data.pieces.length}조각`);
   const d = toDraft(r);
   if (!d.ok) return d;
@@ -252,8 +258,21 @@ export async function fitRecordAction(input: { area: string; studentId: string; 
   const p = FitSchema.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
   const range = fitRange(resolveRecordLength(t.area, { unit: p.data.unit, max: p.data.max }));
-  const r = await fitRecord({ kind: t.area, context: t.clubName, student: t.student, text: p.data.text, range });
+  const evidence = (await recordPool(t.area, t.student.id, input.clubId)).map((x) => x.text);
+  const r = await fitRecord({ kind: t.area, context: t.clubName, student: t.student, text: p.data.text, range, gate: recordGate(t.area, p.data), limit: recordMax(t.area, p.data.unit), evidence: [p.data.text, ...evidence] });
   await repo.audit(t.v.accountId, "record.ai_fit", `${t.area} ${t.student.pseudonymId}`);
+  return toDraft(r);
+}
+
+/** 수정 요청 (N49): AI 글을 교사 요청대로 다시 쓴 제안 → 분량 게이트 (저장하지 않음) */
+export async function reviseRecordAction(input: { area: string; studentId: string; clubId?: string | null } & z.input<typeof ReviseSchema>): Promise<AiDraftResult> {
+  const t = await recordTarget(input.area, input.studentId, input.clubId);
+  if ("error" in t) return { ok: false, error: t.error };
+  const p = ReviseSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
+  const evidence = (await recordPool(t.area, t.student.id, input.clubId)).map((x) => x.text);
+  const r = await reviseRecord({ kind: t.area, context: t.clubName, student: t.student, text: p.data.text, request: p.data.request, evidence, gate: recordGate(t.area, p.data), limit: recordMax(t.area, p.data.unit) });
+  await repo.audit(t.v.accountId, "record.ai_revise", `${t.area} ${t.student.pseudonymId}`);
   return toDraft(r);
 }
 

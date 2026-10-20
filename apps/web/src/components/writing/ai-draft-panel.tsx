@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { ArrowLeft, Check, ChevronDown, Layers, Plus, RotateCcw, Sparkles, Undo2, X } from "lucide-react";
 import { Button, Tag, cx } from "@/components/ui";
 import { measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
@@ -9,6 +9,10 @@ import { cleanActivity } from "@/lib/domain/activity-name";
 import { composeKeywordMemo, parseKeywordMemo, type AiDraftResult, type KeywordBlock } from "@/lib/domain/writing";
 import { StepHead } from "./step-head";
 import { SaveBookmark } from "./library-save";
+import { gateBand } from "@/lib/domain/length-gate";
+import { bandText, parseTol, tolKey, traceLine } from "@/lib/domain/memo-gate";
+import { TargetPicker, TolPicker } from "./gate-pickers";
+import { GateProgress } from "./gate-progress";
 
 const EMPTY: KeywordBlock = { topic: "", activity: "", keywords: "" };
 const FIELD = "w-full rounded-field bg-[#fff] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-key";
@@ -18,6 +22,9 @@ type Mode = "merge" | "memo" | "keywords";
 // 순서(위/아래, 그 순서 그대로 AI에 보낸다) · 고른 양 ↔ 목표 · 성취수준(안 고르면 사실 그대로) → 주 버튼 "고른 메모 n개로 글 쓰기".
 // 결과는 ③ 글에 바로 들어가고(지난 글은 "되돌리기") 쓴 뒤 줄이 남는다. 다른 방법(메모 한 번에 적기 · 키워드로)은 작은 글 링크.
 // 활동명은 ① 칸 하나를 같이 쓴다 — 다른 방법에서만 칩으로 보여 주고 "바꾸기"는 ① 칸으로 보낸다.
+// N49 메모 묶어 쓰기: 목표 · 오차(±30 · ±50 · ±100, 이 기기 · 영역별 기억) → 맞출 범위 줄. 쓰는 동안 칸 자리에 게이트 진행 세 줄
+// (서버는 한 번에 돌아오므로 ①만 "지금"), 쓴 뒤 줄에 서버가 실제로 거친 단계(첫 글 · 빠진 메모 넣기 · 분량 맞추기)를 보여 준다.
+const noSub = () => () => {};
 export function AiDraftPanel({
   initialMemo = "",
   placeholder,
@@ -34,6 +41,8 @@ export function AiDraftPanel({
   keywordPane,
   defaultMode,
   what = "글",
+  gateScope = "기록",
+  onBusy,
 }: {
   initialMemo?: string;
   placeholder: string;
@@ -45,7 +54,11 @@ export function AiDraftPanel({
   onEditActivity: () => void;
   generate: (memo: string, activity: string, max: number) => Promise<AiDraftResult>;
   /** 활동 메모로: ①에서 불러온 메모(null = 불러오는 중) · 지금 글 · NEIS 최대 · 쓰기 */
-  merge: { pieces: MergePiece[] | null; body: string; neisMax: number; run: (pieces: MergePiece[], max: number) => Promise<AiDraftResult> };
+  merge: { pieces: MergePiece[] | null; body: string; neisMax: number; run: (pieces: MergePiece[], max: number, tol: number) => Promise<AiDraftResult> };
+  /** 오차를 기억할 영역 이름 (N49, 예: "세특" · "동아리") */
+  gateScope?: string;
+  /** AI가 쓰는 중인지 (N49: 쓰는 동안 아래 이동 줄을 흐리게) */
+  onBusy?: (busy: boolean) => void;
   onApply: (text: string, result?: AiDraftResult) => void;
   done?: boolean;
   /** 성취수준 칸 (N35 ③, 세특): 목표 옆 */
@@ -70,6 +83,17 @@ export function AiDraftPanel({
   const [target, setTarget] = useState(merge.neisMax);
   const max = Math.min(merge.neisMax, Math.max(1, target || merge.neisMax));
   const u = unit === "bytes" ? "B" : UNIT_LABEL[unit];
+  // N49 오차: 이 기기에 영역별로 기억 (서버 그림에서는 기본값)
+  const key = tolKey(gateScope, unit);
+  const storedTol = useSyncExternalStore(noSub, () => { try { return localStorage.getItem(key); } catch { return null; } }, () => null);
+  const [ownTol, setOwnTol] = useState<number | null>(null);
+  const tol = ownTol ?? parseTol(storedTol, unit);
+  const pickTol = (t: number) => {
+    setOwnTol(t);
+    try { localStorage.setItem(key, String(t)); } catch { /* 기억 못 해도 이번에는 쓴다 */ }
+  };
+  const band = gateBand({ unit, target: max, tol, limit: merge.neisMax });
+  const bandLabel = bandText(band, unit);
 
   // 쓰기에서 뺀 메모 (새로 남긴 메모는 저절로 들어간다)
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
@@ -112,10 +136,16 @@ export function AiDraftPanel({
   const input = mode === "keywords" ? composeKeywordMemo(blocks) : memo;
   const setBlock = (i: number, k: keyof KeywordBlock, v: string) => setBlocks((bs) => bs.map((b, j) => (j === i ? { ...b, [k]: v } : b)));
   // 쓴 뒤: ③에 넣은 글 · 그 전 글(되돌리기) · 쓴 메모 수
-  const [wrote, setWrote] = useState<{ text: string; prev: string; count: number; mode: Mode; notice?: string; sample?: boolean } | null>(null);
+  const [wrote, setWrote] = useState<{ text: string; prev: string; count: number; mode: Mode; notice?: string; sample?: boolean; trace?: string } | null>(null);
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   const req = useRef(0);
+  // 그만 쓰기: 요청은 버리고(돌아와도 글은 그대로) 칸을 바로 되돌린다
+  const [stopped, setStopped] = useState(false);
+  const busy = pending && !stopped;
+  const [running, setRunning] = useState<{ mode: Mode; count: number }>({ mode: "merge", count: 0 });
+  useEffect(() => { onBusy?.(busy); }, [busy, onBusy]);
+  const stop = () => { req.current++; setStopped(true); setError(""); };
   const name = cleanActivity(activity);
 
   function run() {
@@ -123,6 +153,8 @@ export function AiDraftPanel({
     setError("");
     const m = mode;
     const prev = merge.body;
+    setStopped(false);
+    setRunning({ mode: m, count: m === "merge" ? allPieces.filter((x) => selected.has(x.id) && x.id !== "body").length : 0 });
     start(async () => {
       let r: AiDraftResult;
       let count = 0;
@@ -130,7 +162,7 @@ export function AiDraftPanel({
         if (m === "merge") {
           const chosen = allPieces.filter((x) => selected.has(x.id));
           count = chosen.filter((x) => x.id !== "body").length;
-          r = chosen.length ? await merge.run(chosen, max) : { ok: false, error: "쓸 메모를 골라 주세요" };
+          r = chosen.length ? await merge.run(chosen, max, tol) : { ok: false, error: "쓸 메모를 골라 주세요" };
         } else {
           r = await generate(input, activity, max);
         }
@@ -143,7 +175,7 @@ export function AiDraftPanel({
         return;
       }
       onApply(r.text, r);
-      setWrote({ text: r.text, prev, count, mode: m, notice: r.notice, sample: r.sample });
+      setWrote({ text: r.text, prev, count, mode: m, notice: r.notice, sample: r.sample, trace: traceLine(r.gate, unit) || undefined });
     });
   }
 
@@ -210,7 +242,7 @@ export function AiDraftPanel({
     <section aria-label="AI로 쓰기" className="flex flex-col gap-3">
       <StepHead n={2} title="AI로 쓰기" meta={meta} done={done} />
 
-      {wrote && !pending && (
+      {wrote && !busy && (
         <div className="flex flex-col gap-2.5 rounded-inner bg-ok-soft px-3.5 py-3">
           <div className="flex min-w-0 flex-col break-keep">
             <span className="flex items-center gap-1.5 text-[14px] font-bold text-[#00A05D]">
@@ -222,6 +254,7 @@ export function AiDraftPanel({
               {canUndo ? " · 지난 글은 되돌리기로 살릴 수 있어요" : ""}
               {wrote.notice ? ` · ${wrote.notice.replace(/조각을/g, "메모를").replace(/조각/g, "메모")}` : ""}
             </span>
+            {wrote.trace && <span className="text-[12px] font-medium tabular-nums text-sub break-keep">{wrote.trace}</span>}
           </div>
           <div className="flex items-center gap-1.5 [&>button]:h-10 md:[&>button]:h-[34px]">
             {canUndo && <Button type="button" kind="outline" size="sm" onClick={undo} className="max-md:flex-1"><Undo2 size={13} /> 되돌리기</Button>}
@@ -232,7 +265,15 @@ export function AiDraftPanel({
         </div>
       )}
 
-      <div className={cx("flex flex-col gap-3 rounded-inner bg-bg px-3.5 py-3.5 md:px-4", wrote && !pending && "hidden")}>
+      {busy && running.mode === "merge" && (
+        <GateProgress title="AI가 쓰는 중" onStop={stop} line={`고른 메모 ${running.count}개 · ${bandLabel} 안에 맞춰요`}
+          steps={[
+            { name: "① 메모 모아 쓰기", value: "쓰는 중", state: "current" },
+            { name: "② 빠진 메모 넣기", value: `메모 ${running.count}개`, state: "todo" },
+            { name: "③ 분량 맞추기", value: bandLabel, state: "todo" },
+          ]} />
+      )}
+      <div className={cx("flex flex-col gap-3 rounded-inner bg-bg px-3.5 py-3.5 md:px-4", ((wrote && !busy) || (busy && running.mode === "merge")) && "hidden")}>
         {head}
 
         {custom ? keywordPane : mode === "merge" ? collect : mode === "memo" ? (
@@ -277,13 +318,8 @@ export function AiDraftPanel({
           <>
             {/* 목표 · 성취수준: 흰 작은 칸 (Figma N40) */}
             <div className="flex flex-wrap items-center gap-2">
-              <label className="flex h-9 items-center gap-1.5 rounded-field border border-line bg-[#fff] px-2.5 focus-within:ring-2 focus-within:ring-key">
-                <span className="shrink-0 text-[12px] text-mute">목표</span>
-                <input inputMode="numeric" value={target ? target.toLocaleString() : ""} aria-label="목표 분량"
-                  onChange={(e) => setTarget(Math.min(merge.neisMax, Number(e.target.value.replace(/[^\d]/g, "")) || 0))}
-                  className="w-14 min-w-0 bg-transparent text-right text-[13px] font-bold tabular-nums outline-none" />
-                <span className="shrink-0 text-[13px] font-bold">{u}</span>
-              </label>
+              <TargetPicker unit={unit} target={max} limit={merge.neisMax} onChange={setTarget} />
+              {mode === "merge" && <TolPicker unit={unit} target={max} tol={tol} limit={merge.neisMax} onChange={pickTol} />}
               {levelBox && (
                 <button type="button" onClick={() => setLevelOpen(!levelOpen)} aria-expanded={levelOpen}
                   className="flex h-9 items-center gap-1 rounded-field border border-line bg-[#fff] px-2.5 text-[13px] font-bold text-ink">
@@ -297,15 +333,21 @@ export function AiDraftPanel({
               )}
             </div>
             {levelOpen && levelBox}
+            {mode === "merge" && (
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="inline-flex h-6 items-center whitespace-nowrap rounded-chip bg-key-soft px-2 text-[12px] font-bold tabular-nums text-key-strong">{bandLabel} 안에 맞춰요</span>
+                <span className="text-[12px] font-medium text-sub break-keep">넘치면 메모를 빼지 않고 줄여 담아요</span>
+              </p>
+            )}
             <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:gap-3">
               <div className="md:min-w-0 md:flex-1">{others}</div>
-              {pending ? (
+              {busy ? (
                 <div className="flex items-center gap-2">
                   <div className="h-1.5 w-24 flex-1 overflow-hidden rounded-full bg-line md:flex-none" aria-hidden>
                     <div className="h-full w-1/3 animate-pulse rounded-full bg-key" />
                   </div>
                   <span className="whitespace-nowrap text-[13px] text-sub" role="status">쓰는 중이에요</span>
-                  <Button type="button" kind="ghost" size="sm" onClick={() => { req.current++; setError(""); }}>취소</Button>
+                  <Button type="button" kind="ghost" size="sm" onClick={stop}>취소</Button>
                 </div>
               ) : (
                 <Button type="button" onClick={run} disabled={!canRun}
@@ -318,7 +360,7 @@ export function AiDraftPanel({
         )}
         {custom && <div className="border-t border-line pt-2.5">{others}</div>}
         {error && !custom && <p className="text-[13px] text-bad" role="alert">{error}</p>}
-        {!custom && !bodyEmpty && !pending && <p className="-mt-1 text-[12px] text-mute break-keep">쓰면 ③ 글이 바뀌어요 · 지난 글은 되돌리기로 살릴 수 있어요</p>}
+        {!custom && !bodyEmpty && !busy && <p className="-mt-1 text-[12px] text-mute break-keep">쓰면 ③ 글이 바뀌어요 · 지난 글은 되돌리기로 살릴 수 있어요</p>}
       </div>
     </section>
   );

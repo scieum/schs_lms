@@ -4,7 +4,7 @@ import { z } from "zod";
 import { canLog, homeroomStudents, isAreaOf } from "@/lib/domain/activity";
 import { maskIdentity } from "@/lib/domain/program";
 import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
-import { polishLog, polishStudentLog, softenMemo } from "@/lib/server/ai/teacher-ai";
+import { polishLog, polishStudentLog, reviseLog, softenMemo } from "@/lib/server/ai/teacher-ai";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { readEvidence } from "@/lib/server/ai/read-evidence";
@@ -130,6 +130,28 @@ export async function polishLogMemo(input: { area: string; clubId?: string; text
   if (r.label === "AI") await repo.audit(v.accountId, "logs.ai.polish", input.area);
   if (!r.data) return { ok: false, error: "다듬을 내용을 찾지 못했어요. 직접 써 주세요" };
   return { ok: true, text: r.data, label: r.label, notice: r.error ? `AI 대신 규칙으로 다듬었어요 (${r.error})` : masked !== text ? "이름·학번은 가린 뒤 다듬었어요" : undefined };
+}
+
+/**
+ * 수정 요청 (Figma N49 ⑤): 다듬은 누가기록을 교사 요청대로 고친 제안 (저장 안 함 — 교사가 "이걸로 바꾸기").
+ * 글과 요청 모두 이 화면 학생들의 이름·학번을 가린 뒤 보낸다. [활동명] 머리말은 떼고 보낸 뒤 다시 붙인다.
+ */
+export async function reviseLogMemo(input: { area: string; clubId?: string; text: string; request: string }): Promise<PolishResult> {
+  const v = await requireCan("logs.write");
+  if (!isAreaOf(input.area)) return { ok: false, error: "영역을 골라 주세요" };
+  const raw = String(input.text ?? "").trim();
+  const head = raw.match(/^\[[^\]]*\]\s*/)?.[0] ?? "";
+  const text = raw.slice(head.length);
+  const request = String(input.request ?? "").trim();
+  if (text.length < 2) return { ok: false, error: "고칠 글이 없어요" };
+  if (!request) return { ok: false, error: "고칠 점을 적어 주세요" };
+  if (text.length > 1000 || request.length > 300) return { ok: false, error: "글은 1000자, 요청은 300자까지예요" };
+  const people = await boardPeople(v, input.area, input.clubId);
+  const r = await reviseLog(maskIdentity(text, people), maskIdentity(request, people), input.area);
+  if (!r) return { ok: false, error: "AI가 꺼져 있어 요청을 보낼 수 없어요. 직접 고쳐 주세요" };
+  if (r.error || !r.data) return { ok: false, error: r.error ?? "고치지 못했어요. 다시 보내 주세요" };
+  await repo.audit(v.accountId, "logs.ai.revise", input.area);
+  return { ok: true, text: head + r.data, label: "AI" };
 }
 
 /**

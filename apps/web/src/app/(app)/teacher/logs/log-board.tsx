@@ -7,7 +7,8 @@ import { ACTIVITY_MAX, cleanActivity, withActivity } from "@/lib/domain/activity
 import { chipDate, chipOf, shortMd, type DateChip } from "@/lib/domain/log-date";
 import { Button, Card, Tag, cx } from "@/components/ui";
 import { neisBytes } from "@/lib/domain/length";
-import { addLogs, polishLogMemo, readLogFile, softenLogMemo, type LogState, type PolishResult } from "./actions";
+import { addLogs, polishLogMemo, readLogFile, reviseLogMemo, softenLogMemo, type LogState, type PolishResult } from "./actions";
+import { ReviseBox } from "@/components/writing/revise-box";
 import { bluntWords } from "@/lib/domain/soften";
 import { HighlightTextarea } from "@/components/writing/highlight-textarea";
 import { useGuideMarks, useGuideTarget } from "@/components/writing/guide-store";
@@ -24,6 +25,7 @@ type L = { id: string; studentId: string; date: string; content: string };
 
 // 누가기록 (Figma N48 f·g·h): 기록 쓰기 카드 하나에 단계 표시 ① 학생 고르기 → ② 기록 쓰기 → ③ 확인 · 남기기 — 지금 단계만 보여 준다.
 // "한 명씩 | 한꺼번에"(N28)는 카드 머리 그대로, 한꺼번에는 ② 공통 내용 · 특징 → ③ 미리보기 · 추가. 최근 기록은 PC 오른쪽 칸(모바일은 아래).
+// N49 (e): 한 명씩 ③ 미리보기 아래 작은 "AI에게 고쳐 달라고 하기" — [이걸로 바꾸기]를 눌러야 남길 글이 바뀐다. AI로 다듬은 글이면 머리 끝에 " · AI로 다듬음".
 const chipCls = (on: boolean) => cx("flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-field px-3.5 text-[14px]", on ? "bg-key-soft font-bold text-key-strong" : "bg-soft font-medium text-sub");
 export function LogBoard({ area, clubId, students, logs, today, aiOn = false }: { area: string; clubId?: string; students: S[]; logs: L[]; today: string; aiOn?: boolean }) {
   const [text, setText] = useState("");
@@ -46,6 +48,8 @@ export function LogBoard({ area, clubId, students, logs, today, aiOn = false }: 
   const [mode, setMode] = useState<"one" | "batch">("one");
   const [batchAdded, setBatchAdded] = useState(0);
   const [polish, setPolish] = useState<PolishResult | null>(null);
+  // AI로 다듬은 글 (넣은 그대로일 때만 "AI로 다듬음")
+  const [polished, setPolished] = useState("");
   const [polishing, startPolish] = useTransition();
   const runPolish = () => startPolish(async () => {
     try {
@@ -237,7 +241,7 @@ export function LogBoard({ area, clubId, students, logs, today, aiOn = false }: 
                 {polish.notice && <p className="text-[12px] text-mute">{polish.notice}</p>}
                 <div className="flex justify-end gap-2">
                   <Button type="button" kind="ghost" size="sm" onClick={() => setPolish(null)}>그대로 두기</Button>
-                  <Button type="button" kind="outline" size="sm" onClick={() => { setText(polish.text); setPolish(null); }}>확인 후 넣기</Button>
+                  <Button type="button" kind="outline" size="sm" onClick={() => { setText(polish.text); setPolished(polish.text); setPolish(null); }}>확인 후 넣기</Button>
                 </div>
               </div>
             )}
@@ -267,10 +271,16 @@ export function LogBoard({ area, clubId, students, logs, today, aiOn = false }: 
                 </div>
               ) : (
                 <div className="flex flex-col gap-1.5 rounded-inner bg-bg px-4 py-3.5">
-                  <span className="text-[12px] text-mute">{shortMd(date)} · 고른 {picked.size}명 모두에게 같은 글</span>
+                  <span className="text-[12px] text-mute">{shortMd(date)} · {area} · 고른 {picked.size}명 모두에게 같은 글{polished && text === polished ? " · AI로 다듬음" : ""}</span>
                   <p className={cx("break-keep text-[15px] leading-7", !text.trim() && "text-mute")}>{text.trim() ? full : "② 기록 쓰기에서 본 것을 적어 주세요"}</p>
                   <span className="text-[12px] text-mute">{full.length}자 · {neisBytes(full).toLocaleString()}B{blunt.length ? ` · 순화할 말 ${blunt.length}개` : ""}</span>
                 </div>
+              )}
+              {!added && text.trim().length >= 2 && (
+                <ReviseBox kind="log" small text={text} unit="bytes" limit={3000}
+                  disabled={aiOn ? undefined : "AI가 꺼져 있어 수정 요청을 보낼 수 없어요. 직접 고쳐 주세요"}
+                  run={(request) => reviseLogMemo({ area, clubId, text, request })}
+                  onApply={(t) => { setText(t); setPolished(t); }} />
               )}
               {state.error && <p className="text-[13px] text-bad" role="alert">{state.error}</p>}
               {!added && (

@@ -86,5 +86,5 @@ export async function draftBehavior(input: z.input<typeof DraftSchema>): Promise
   // AI 원안 (N38): 근거 = 에피소드 메모 + 행발 누가기록
   const pool = [...(memo ? [{ type: "piece" as const, ref: "pick", key: memoKey, kind: "조각", where: "에피소드 메모", chip: "조각 · 에피소드 메모", text: memo }] : []), ...piecesPool(logPieces(raw))];
   const o = await saveOriginal({ kind: "behavior_keyword", studentId: t.student.id, scope: "행발", text: r.text, aiSentences: r.sentences, pool, model: r.sample ? "sample" : "write" });
-  return { ok: true, text: r.text, sample: r.sample, notice: r.notice, ...(o ?? {}) };
+  return { ok: true, text: r.text, sample: r.sample, notice: r.notice, gate: r.gate, ...(o ?? {}) };
 }

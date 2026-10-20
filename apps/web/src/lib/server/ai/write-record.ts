@@ -10,6 +10,7 @@ import { evidenceAmount, praisePrompt } from "@/lib/domain/praise";
 import { aiEnabled, aiJson } from "./claude";
 import { recordSystemPrompt } from "./record-prompts";
 import { joinSentences, SOURCED_RULES, SourcedOut, toKeys, type SourcedSentence } from "./sourced";
+import type { GateResult } from "@/lib/domain/length-gate";
 
 // 생기부 기록 초안: 교과 세특 · 창체 특기사항(자율·자치/동아리/진로) · 행발.
 // - 교사가 "AI 초안"을 눌렀을 때만 부른다. 결과는 편집기에 채우기만 하고 저장은 교사가 한다.
@@ -38,7 +39,8 @@ export interface WriteInput {
 }
 
 /** sentences: AI가 쓴 문장과 기댄 근거 key (N38). 예시 초안·실패면 없음 → 규칙으로 근거를 붙인다 */
-export type WriteResult = { text: string; sample: boolean; notice?: string; sentences?: SourcedSentence[] };
+/** gate (N49): 목표 ± 오차 게이트 결과 — 메모로 쓰기 · 맞추기 · 수정 요청 */
+export type WriteResult = { text: string; sample: boolean; notice?: string; sentences?: SourcedSentence[]; gate?: GateResult };
 
 // 문체·구성 규칙은 속초고 세특 프롬프트(노션)를 옮긴 record-prompts.ts 를 따른다
 const APP_RULES = `

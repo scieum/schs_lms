@@ -1,7 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { checkLength, resolveLength, UNIT_LABEL } from "@/lib/domain/length";
+import { checkLength, neisMax, resolveLength, UNIT_LABEL } from "@/lib/domain/length";
+import { gateBand, type GateResult } from "@/lib/domain/length-gate";
 import { studentsInCourse } from "@/lib/domain/setuk";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
@@ -9,7 +10,7 @@ import { writeRecord } from "@/lib/server/ai/write-record";
 import { findIdentity, latestMemoByStudent, scrubIdentity, type AiDraftResult } from "@/lib/domain/writing";
 import { forbiddenBlock } from "@/lib/domain/forbidden";
 import { readEvidence, type EvidenceResult } from "@/lib/server/ai/read-evidence";
-import { fitRecord, fixRecord, mergeRecord, tagCompetency, variantsRecord } from "@/lib/server/ai/merge-record";
+import { fitRecord, fixRecord, mergeRecord, reviseRecord, tagCompetency, variantsRecord } from "@/lib/server/ai/merge-record";
 import { measure } from "@/lib/domain/length";
 import type { AiFixResult, VariantsActionResult } from "@/lib/domain/variants";
 import { listMemosWithPieces, memoPieces } from "@/lib/server/merge-pieces";
@@ -151,10 +152,15 @@ const MergeSchema = z.object({
   level: z.string().nullish(),
   /** 메모 모아 쓰기 (N41): 교사가 정한 순서 그대로 */
   keepOrder: z.boolean().optional(),
+  /** 분량 게이트 오차 (N49) — 목표(max) ± tol */
+  tol: z.number().int().min(0).max(300).optional(),
 });
-const FitSchema = z.object({ text: z.string().min(1, "본문이 비어 있어요").max(6000), unit: z.enum(["bytes", "chars"]), max: z.number().int().min(1) });
-const toDraft = (r: { text: string; sample: boolean; notice?: string }): AiDraftResult =>
-  r.text ? { ok: true, text: r.text, sample: r.sample, notice: r.notice } : { ok: false, error: r.notice ?? "만들지 못했어요. 직접 고쳐 주세요" };
+const FitSchema = z.object({ text: z.string().min(1, "본문이 비어 있어요").max(6000), unit: z.enum(["bytes", "chars"]), max: z.number().int().min(1), tol: z.number().int().min(0).max(300).optional() });
+/** 수정 요청 (N49): 교사가 AI 글에 보낸 한두 줄 */
+const ReviseSchema = FitSchema.extend({ request: z.string().trim().min(1, "고칠 점을 적어 주세요").max(300, "요청은 300자까지예요") });
+const setukGate = (d: { unit: "bytes" | "chars"; max: number; tol?: number }) => gateBand({ unit: d.unit, target: d.max, tol: d.tol, limit: neisMax("세특", d.unit) });
+const toDraft = (r: { text: string; sample: boolean; notice?: string; gate?: GateResult }): AiDraftResult =>
+  r.text ? { ok: true, text: r.text, sample: r.sample, notice: r.notice, gate: r.gate } : { ok: false, error: r.notice ?? "만들지 못했어요. 직접 고쳐 주세요" };
 
 /** 내 담당 과목·반 학생인지 서버에서 다시 확인 */
 async function setukTarget(courseId: string, studentId: string) {
@@ -196,7 +202,7 @@ export async function mergeSetuk(input: { courseId: string; studentId: string } 
   // 차시 메모(N43)가 있으면 그 차시 활동 내용을 배경으로 (학생 행동 아님)
   const lessonMemos = p.data.pieces.some((x) => x.source === "차시") ? await repo.listRecordMemos(lessonScope(`세특:${input.courseId}`), [t.student.id]) : [];
   const background = await lessonBackgroundFor(lessonMemos.map((m) => m.lessonItemId), p.data.pieces.filter((x) => x.source === "차시").map((x) => x.text), t.student);
-  const r = await mergeRecord({ kind: "세특", context: t.course.subject, student: t.student, pieces: p.data.pieces, range, tone: await toneFor(p.data.level), level: await levelFor(p.data.level), keepOrder: p.data.keepOrder, background });
+  const r = await mergeRecord({ kind: "세특", context: t.course.subject, student: t.student, pieces: p.data.pieces, range, tone: await toneFor(p.data.level), level: await levelFor(p.data.level), keepOrder: p.data.keepOrder, background, gate: setukGate(p.data), limit: neisMax("세특", p.data.unit) });
   await repo.audit(t.v.accountId, "setuk.ai_merge", `${t.course.subject} ${t.student.pseudonymId} ${p.data.pieces.length}조각`);
   if (!r.text) return toDraft(r);
   // AI 원안 (N38): 근거 표는 서버가 다시 읽은 조각으로 (지금 본문 조각은 교사 글)
@@ -212,8 +218,22 @@ export async function fitSetuk(input: { courseId: string; studentId: string } & 
   const p = FitSchema.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
   const range = fitRange(resolveLength("세특", { unit: p.data.unit, max: p.data.max }));
-  const r = await fitRecord({ kind: "세특", context: t.course.subject, student: t.student, text: p.data.text, range });
+  const evidence = (await listSetukPieces(input)).map((x) => x.text);
+  const r = await fitRecord({ kind: "세특", context: t.course.subject, student: t.student, text: p.data.text, range, gate: setukGate(p.data), limit: neisMax("세특", p.data.unit), evidence: [p.data.text, ...evidence] });
   await repo.audit(t.v.accountId, "setuk.ai_fit", `${t.course.subject} ${t.student.pseudonymId}`);
+  return toDraft(r);
+}
+
+/** 수정 요청 (N49): AI 글을 교사 요청대로 다시 쓴 제안 → 분량 게이트 (저장하지 않음 — 교사가 "이걸로 바꾸기") */
+export async function reviseSetuk(input: { courseId: string; studentId: string } & z.input<typeof ReviseSchema>): Promise<AiDraftResult> {
+  const t = await setukTarget(input.courseId, input.studentId);
+  if (!t) return { ok: false, error: "내 담당 과목·반 학생만 쓸 수 있어요" };
+  const p = ReviseSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "입력을 확인해 주세요" };
+  const evidence = (await listSetukPieces(input)).map((x) => x.text);
+  const r = await reviseRecord({ kind: "세특", context: t.course.subject, student: t.student, text: p.data.text, request: p.data.request, evidence, gate: setukGate(p.data), limit: neisMax("세특", p.data.unit) });
+  // 감사 기록: 요청 글은 남기지 않는다 (이름이 들어 있을 수 있음)
+  await repo.audit(t.v.accountId, "setuk.ai_revise", `${t.course.subject} ${t.student.pseudonymId}`);
   return toDraft(r);
 }
 

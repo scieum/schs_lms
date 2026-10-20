@@ -136,11 +136,13 @@ function StepDot({ n, state }: { n: number; state: "current" | "done" | "todo" }
  * 맨 아래 이전 · 다음 (Figma N48 538:725). PC 는 카드 안 줄(위 1px 선), 모바일은 화면 아래 탭 막대 위에 붙는다.
  * 다음은 soft 인디고, 그 단계 일이 끝나면(primary) 인디고 — 화면의 인디고 버튼은 하나.
  */
-export function StepNav({ onPrev, onNext, next, hint, primary = false, nextDisabled = false }: {
+export function StepNav({ onPrev, onNext, next, hint, primary = false, nextDisabled = false, dim = false }: {
   onPrev?: () => void; onNext?: () => void; next?: string; hint?: ReactNode; primary?: boolean; nextDisabled?: boolean;
+  /** AI가 쓰는 동안 (N49): 흐리게 · 누르지 못함 */
+  dim?: boolean;
 }) {
   return (
-    <div data-sticky-cta className="z-10 flex items-center gap-2 border-t border-line bg-[#fff] pt-4 max-md:sticky max-md:bottom-[calc(env(safe-area-inset-bottom)+66px)] max-md:-mx-5 max-md:px-5 max-md:pb-3 max-md:pt-3 md:gap-3">
+    <div data-sticky-cta aria-disabled={dim || undefined} className={cx(dim && "pointer-events-none opacity-45", "z-10 flex items-center gap-2 border-t border-line bg-[#fff] pt-4 max-md:sticky max-md:bottom-[calc(env(safe-area-inset-bottom)+66px)] max-md:-mx-5 max-md:px-5 max-md:pb-3 max-md:pt-3 md:gap-3")}>
       {onPrev && (
         <button type="button" onClick={onPrev} className="inline-flex h-11 shrink-0 items-center justify-center gap-1 rounded-control border border-hair bg-[#fff] pl-3 pr-4 text-[14px] font-bold hover:bg-soft md:h-10">
           <ChevronLeft size={16} aria-hidden /> 이전

@@ -2,6 +2,7 @@
 // 순수 규칙만 둔다 — 분량, 실명·학번 가리기, NEIS 어미 검사, 키 없을 때 쓰는 예시 초안.
 import { checkLength, measure, MIN_RATIO, type LengthRange, type LengthSetting, type LengthUnit } from "./length";
 import { canLog, type ActivityArea } from "./activity";
+import type { GateResult } from "./length-gate";
 import type { Student, Viewer } from "./types";
 import { linkSentences } from "./sentence-flow";
 import type { OriginalView, RecordProv, SourceItem } from "./provenance";
@@ -308,7 +309,8 @@ export function semesterOf(now = new Date()): 1 | 2 {
 
 /** "AI 초안" 버튼 결과 (세특·특기사항·행발 공통) */
 /** original: AI 원안 (N38 — 본문에 넣으면 문장 근거 · 수정 비율의 기준), sources: 원안이 쓰는 근거 카드 */
-export type AiDraftResult = { ok: true; text: string; sample: boolean; notice?: string; original?: OriginalView; sources?: SourceItem[] } | { ok: false; error: string };
+/** gate (N49): 목표 ± 오차 게이트 결과 */
+export type AiDraftResult = { ok: true; text: string; sample: boolean; notice?: string; original?: OriginalView; sources?: SourceItem[]; gate?: GateResult } | { ok: false; error: string };
 
 // ---------- 키워드로 쓰기: 속초고 세특 프롬프트 입력 형식 ----------
 

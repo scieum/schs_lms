@@ -6,7 +6,9 @@ import { checkLength, measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/
 import type { MergePiece } from "@/lib/domain/merge";
 import { recordMax, resolveRecordLength, type RecordArea } from "@/lib/domain/writing";
 import { BodyCard } from "./competency-view";
-import { addRecordPiece, aiFixRecordAction, aiRecordDraft, fitRecordAction, listRecordPieces, mergeRecordAction, saveRecord, softenRecordMemo, summarizeRecordFile, tagRecord, variantsRecordAction, type RecordState } from "@/app/(app)/teacher/write/actions";
+import { addRecordPiece, aiFixRecordAction, aiRecordDraft, fitRecordAction, listRecordPieces, mergeRecordAction, reviseRecordAction, saveRecord, softenRecordMemo, summarizeRecordFile, tagRecord, variantsRecordAction, type RecordState } from "@/app/(app)/teacher/write/actions";
+import { useAiGate } from "./use-ai-gate";
+import { ReviseBox } from "./revise-box";
 import { AiDraftPanel } from "./ai-draft-panel";
 import { PiecesCard } from "./pieces-card";
 import { checkMeta, RecordChecks, useBodyChecks, type Who } from "./record-checks";
@@ -43,6 +45,7 @@ const PIECE_HINT: Record<RecordArea, string> = {
 // 특기사항·행발 쓰기 (Figma N48 → N40, 세특과 같은 3단계): 단계 표시 · ① 활동 메모 → ② AI로 쓰기 → ③ 글 확인 · 확정 (새 버전) — 지금 단계만 보여 준다.
 // 행발(키워드 메뉴판)은 글이 없으면 ②부터.
 // 자율·자치·동아리·진로의 활동 메모(코드 이름 조각)는 누가기록으로 쌓인다.
+// N49: ③ 글 위 게이트 줄 · 글 아래 "AI에게 고쳐 달라고 하기"(행발은 빠른 요청 "생활 장면 더"). 담임 행발(BehaviorEditor)도 이 편집기.
 export function RecordEditor({
   area,
   studentId,
@@ -120,7 +123,17 @@ export function RecordEditor({
   const marks = useMemo(() => (gm.marks.length ? [...bc.marks, ...gm.marks] : bc.marks), [bc.marks, gm.marks]);
   const { needFromServer } = pv;
   useEffect(() => { needFromServer(state.needReason); }, [state.needReason, needFromServer]);
-  const apply = (t: string, r?: AiDraftResult) => { setText(t); pv.adopt(r); };
+  // N49 게이트: 나이스 한도 · 마지막 AI 결과
+  const limitNow = recordMax(area, range.unit);
+  const [aiBusy, setAiBusy] = useState(false);
+  const gate = useAiGate({
+    text, unit: range.unit, limit: limitNow, target: range.max, scope: area,
+    fit: (t, max, tol) => fitRecordAction({ area, studentId, clubId, text: t, unit: range.unit, max, tol }),
+    merge: (ps, max, tol) => mergeRecordAction({ area, studentId, clubId, pieces: ps, unit: range.unit, max, keepOrder: true, tol }),
+    apply: (t, r) => { bc.replace(t, "다시 맞췄어요"); pv.adopt(r); },
+    onMoreMemos: () => ws.go(1),
+  });
+  const apply = (t: string, r?: AiDraftResult) => { setText(t); pv.adopt(r); gate.remember(t, r?.ok ? r.gate : undefined); };
   const [piecesKey, setPiecesKey] = useState(0);
   const lib = useBodyLibrary({
     text, body, area: libraryAreaOf(area), onInsert: (next) => { bc.replace(next, "넣었어요"); ws.go(3, { scroll: false }); },
@@ -158,8 +171,10 @@ export function RecordEditor({
             pieces,
             body: text,
             neisMax: recordMax(area, range.unit),
-            run: (ps, max) => mergeRecordAction({ area, studentId, clubId, pieces: ps, unit: range.unit, max, keepOrder: true }),
+            run: gate.track((ps, max, tol) => mergeRecordAction({ area, studentId, clubId, pieces: ps, unit: range.unit, max, keepOrder: true, tol })),
           }}
+          gateScope={area}
+          onBusy={setAiBusy}
           onApply={apply}
           what={`${area} 글`}
           done={hasBody}
@@ -177,6 +192,7 @@ export function RecordEditor({
         {pv.inputs()}
         <BodyCard bare title={`${area} 글`} toggle={hasBody} text={text} tag={(t) => tagRecord({ area, studentId, clubId, text: t })}
           extra={<><BodyViewSwitch {...pv.switchProps} className="hidden @lg:inline-flex" /><LibraryToggle />{hasBody && !reading && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}</>}>
+          {!reading && gate.chips}
           <BodyViewSwitch {...pv.switchProps} full className="mb-2 @lg:hidden" />
           {pv.body(<HighlightTextarea
             ref={body}
@@ -197,6 +213,12 @@ export function RecordEditor({
           {lib.mobileSave && <div className="mt-2">{lib.mobileSave}</div>}
         </BodyCard>
         <div className={reading ? "hidden" : "contents"}>
+        {hasBody && (
+          <ReviseBox kind={area === "행발" ? "behavior" : "record"} text={text} unit={range.unit} limit={limitNow} band={gate.bandLabel}
+            disabled={aiOn ? undefined : "AI가 꺼져 있어 수정 요청을 보낼 수 없어요. 직접 고쳐 주세요"}
+            run={(request) => reviseRecordAction({ area, studentId, clubId, text, request, unit: range.unit, max: gate.band.target, tol: gate.band.tol })}
+            onApply={(t, g) => { bc.replace(t, "고친 글로 바꿨어요"); gate.remember(t, g, null); }} />
+        )}
         {variants && hasBody && (
           <VariantsPanel unit={range.unit} max={range.max} onClose={() => setVariants(false)}
             run={(mode) => variantsRecordAction({ area, studentId, clubId, text, mode, unit: range.unit, max: range.max })}
@@ -206,7 +228,7 @@ export function RecordEditor({
           onReplaceAll={bc.onReplaceAll} spellAi={pv.spellLine} renderOpen={pv.renderOpen}
           aiFix={{ run: (t) => aiFixRecordAction({ area, studentId, clubId, text: t, unit: range.unit, max: range.max, praise: { evidence } }), onApply: (t) => bc.replace(t, "고친 글을 넣었어요") }}
           length={{ unit: len.unit, max: len.max, limit: recordMax(area, len.unit), onChange: setLen }}
-          fit={{ run: () => fitRecordAction({ area, studentId, clubId, text, unit: range.unit, max: range.max }), onApply: setText }} />
+          fit={{ run: () => fitRecordAction({ area, studentId, clubId, text, unit: range.unit, max: range.max }), onApply: (t) => { setText(t); gate.remember(t); } }} />
 
         {over && <OverApproval value={length.value} max={range.max} unit={UNIT_LABEL[range.unit]} checked={allowOver} onChange={setAllowOver} />}
         {state.error && <p className="text-sm text-bad" role="alert">{state.error}</p>}
@@ -233,7 +255,7 @@ export function RecordEditor({
           hint={pieces?.length ? `메모 ${pieces.length}개를 모았어요 · 다음에서 AI로 써요` : "메모를 하나 남기면 AI로 쓸 수 있어요"} />
       )}
       {step === 2 && (
-        <StepNav onPrev={() => ws.go(1)} onNext={() => ws.go(3)} next="다음 · 글 확인" primary={hasBody}
+        <StepNav dim={aiBusy} onPrev={() => ws.go(1)} onNext={() => ws.go(3)} next="다음 · 글 확인" primary={hasBody}
           hint={hasBody ? "AI가 쓴 글을 ③에서 확인하고 확정해요" : keywordPane ? "키워드를 고르고 AI로 글 쓰기를 누르면 ③에 들어가요" : aiOn ? "고른 메모로 글을 쓰면 ③에 들어가요" : "AI가 꺼져 있어 예시 글로 써요"} />
       )}
       {step === 3 && reading && <StepNav onPrev={() => ws.go(2)} />}

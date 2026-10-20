@@ -5,11 +5,13 @@ import { cx } from "@/components/ui";
 import { measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import { budgetStatus, IMPORTANCE_LABEL, nextImportance, type Importance, type MergePiece } from "@/lib/domain/merge";
 import { FEW_COUNT } from "@/lib/domain/praise";
+import { activeQuick, QUICK_LABEL, quickPick } from "@/lib/domain/memo-gate";
 import { PieceChip } from "./piece-chip";
 
 // 메모 모아 쓰기 (Figma N41 492:824): ② AI로 쓰기의 기본 칸 — 늘 펼쳐 둔다.
 // 체크(넣을 메모) · 중요도 칩(꼭 넣기/보통/참고, 누르면 바뀜) · 순서(위/아래) · 고른 양 ↔ 목표.
 // "어떻게 쓰나요" 세 단계를 칸 안에 한 줄로 보여 준다.
+// N49: 목록 위 빠르게 고르기 칩(모두 · 꼭 넣기만 · 최근 3개) — 체크만 그 묶음으로 바꾼다(순서 · 중요도는 그대로).
 
 const WEIGHT_CHIP: Record<Importance, string> = {
   3: "bg-key font-bold text-white",
@@ -39,6 +41,7 @@ export function MemoCollect({ pieces, selected, setSelected, onWeight, onMove, u
   const status = budgetStatus(total, target);
   const pct = target ? Math.min(100, (total / (target * 1.5)) * 100) : 0;
   const few = memos > 0 && memos <= FEW_COUNT;
+  const quick = activeQuick(pieces, selected);
 
   return (
     <div className="flex flex-col gap-3">
@@ -54,6 +57,15 @@ export function MemoCollect({ pieces, selected, setSelected, onWeight, onMove, u
         <span className="font-bold text-key-strong">어떻게 쓰나요</span>
         <span>① 넣을 메모 고르기</span><span>② 중요한 건 ‘꼭’</span><span>③ 모아 쓰기</span>
       </p>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="빠르게 고르기">
+        {(["all", "must", "recent"] as const).map((k) => (
+          <button key={k} type="button" aria-pressed={quick === k} onClick={() => setSelected(quickPick(pieces, k))}
+            className={cx("inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-chip border px-2.5 text-[12px]",
+              quick === k ? "border-key bg-key-soft font-bold text-key-strong" : "border-hair bg-[#fff] font-medium text-sub hover:bg-soft")}>
+            {QUICK_LABEL[k]}
+          </button>
+        ))}
+      </div>
       <ul className="flex flex-col overflow-hidden rounded-control bg-[#fff]" aria-label="모을 메모">
         {shown.map((p, i) => {
           const on = selected.has(p.id);

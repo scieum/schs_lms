@@ -58,6 +58,30 @@ export async function polishLog(masked: string, area: string): Promise<Assisted<
 }
 
 /**
+ * 누가기록 수정 요청 (Figma N49 ⑤): 다듬은 글 + 교사 요청 → 고친 1~2문장 (Haiku). 이미 가린 글만 받는다.
+ * AI가 꺼져 있으면 null (화면은 요청 칸을 숨긴다).
+ */
+export async function reviseLog(masked: string, request: string, area: string): Promise<Assisted<string> | null> {
+  if (!aiEnabled()) return null;
+  const r = await aiJson(z.object({ text: z.string() }), {
+    model: "fast",
+    system: `너는 고등학교 교사의 누가기록(${area}) 정리 도우미다. 다듬은 누가기록을 교사 요청대로 고친다.
+- 요청과 상관없는 사실은 그대로 둔다. 글에 없는 활동·도구·재료·장면·수치·평가·칭찬은 요청이 있어도 지어내지 않는다
+- "더 구체적으로" 같은 요청은 글에 이미 있는 사실을 더 분명한 말로 바꾸는 것까지만 한다. 글에 없는 세부를 보태야만 할 수 있으면 글을 그대로 둔다
+- 1~2문장, 200자 이내. 종결은 "~함." "~임." 같은 명사형
+- 학생 이름이나 "○○" 같은 자리를 만들지 않는다`,
+    content: `누가기록:
+${masked}
+
+교사 요청:
+${request}`,
+  });
+  if (!r.ok) return { data: "", label: "AI", error: r.error };
+  const t = r.data.text.replace(/\s+/g, " ").trim();
+  return { data: t.slice(0, 1000), label: "AI" };
+}
+
+/**
  * 순화하기 (Figma N34 ③): 이미 가린 메모 → 생기부에 쓸 수 있는 말투 1~2문장 (Haiku).
  * AI가 꺼져 있으면 순화하지 않는다 (화면은 순화 버튼을 숨긴다).
  */
