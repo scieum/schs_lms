@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
-import { ArrowLeft, Check, ChevronDown, Layers, Plus, RotateCcw, Sparkles, Undo2, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Layers, Lock, Plus, RotateCcw, Sparkles, Undo2, X } from "lucide-react";
 import { Button, Tag, cx } from "@/components/ui";
 import { measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
 import { MemoCollect } from "./memo-collect";
@@ -9,7 +9,8 @@ import { cleanActivity } from "@/lib/domain/activity-name";
 import { composeKeywordMemo, parseKeywordMemo, type AiDraftResult, type KeywordBlock } from "@/lib/domain/writing";
 import { StepHead } from "./step-head";
 import { SaveBookmark } from "./library-save";
-import { gateBand } from "@/lib/domain/length-gate";
+import { appendBand, gateBand } from "@/lib/domain/length-gate";
+import type { MergeOpts } from "./use-ai-gate";
 import { bandText, parseTol, tolKey, traceLine } from "@/lib/domain/memo-gate";
 import { TargetPicker, TolPicker } from "./gate-pickers";
 import { GateProgress } from "./gate-progress";
@@ -54,7 +55,7 @@ export function AiDraftPanel({
   onEditActivity: () => void;
   generate: (memo: string, activity: string, max: number) => Promise<AiDraftResult>;
   /** 활동 메모로: ①에서 불러온 메모(null = 불러오는 중) · 지금 글 · NEIS 최대 · 쓰기 */
-  merge: { pieces: MergePiece[] | null; body: string; neisMax: number; run: (pieces: MergePiece[], max: number, tol: number) => Promise<AiDraftResult> };
+  merge: { pieces: MergePiece[] | null; body: string; neisMax: number; run: (pieces: MergePiece[], max: number, tol: number, opts?: MergeOpts) => Promise<AiDraftResult> };
   /** 오차를 기억할 영역 이름 (N49, 예: "세특" · "동아리") */
   gateScope?: string;
   /** AI가 쓰는 중인지 (N49: 쓰는 동안 아래 이동 줄을 흐리게) */
@@ -129,6 +130,13 @@ export function AiDraftPanel({
     [ids[i], ids[j]] = [ids[j], ids[i]];
     setOrder(ids);
   };
+  // 지금 글에 더하기 (Figma N49b): 지금 글은 한 글자도 안 바꾸고, 고른 메모로 남은 분량만 이어 쓴다
+  const [appendOn, setAppendOn] = useState(false);
+  const canAppend = bodyPiece.length > 0;
+  const appending = appendOn && canAppend && mode === "merge";
+  const kept = canAppend ? measure(bodyPiece[0].text, unit) : 0;
+  const room = appending ? appendBand(band, kept) : null;
+  const listPieces = appending ? allPieces.filter((p) => p.id !== "body") : allPieces;
   const selected = new Set(allPieces.filter((p) => !excluded.has(p.id)).map((p) => p.id));
   const setSelected = (s: Set<string>) => setExcluded(new Set(allPieces.filter((p) => !s.has(p.id)).map((p) => p.id)));
   const memoPicked = (merge.pieces ?? []).filter((p) => selected.has(p.id)).length;
@@ -160,9 +168,10 @@ export function AiDraftPanel({
       let count = 0;
       try {
         if (m === "merge") {
-          const chosen = allPieces.filter((x) => selected.has(x.id));
-          count = chosen.filter((x) => x.id !== "body").length;
-          r = chosen.length ? await merge.run(chosen, max, tol) : { ok: false, error: "쓸 메모를 골라 주세요" };
+          const memos = allPieces.filter((x) => selected.has(x.id) && x.id !== "body");
+          const chosen = appending ? [...bodyPiece, ...memos] : allPieces.filter((x) => selected.has(x.id));
+          count = memos.length;
+          r = (appending ? memos.length : chosen.length) ? await merge.run(chosen, max, tol, appending ? { append: true } : undefined) : { ok: false, error: "쓸 메모를 골라 주세요" };
         } else {
           r = await generate(input, activity, max);
         }
@@ -201,7 +210,7 @@ export function AiDraftPanel({
     </span>
   );
   const custom = mode === "keywords" && !!keywordPane;
-  const canRun = mode === "merge" ? selected.size > 0 && merge.pieces !== null && pieceCount > 0 : !!name && !!input.trim();
+  const canRun = mode === "merge" ? (appending ? !!room && memoPicked > 0 : selected.size > 0) && merge.pieces !== null && pieceCount > 0 : !!name && !!input.trim();
   const choose = (m: Mode) => { setPicked(m); setError(""); };
 
   // 첫 줄: 다른 방법일 때만 (메모 모아 쓰기는 칸 안에 제목이 있다)
@@ -225,7 +234,30 @@ export function AiDraftPanel({
       </div>
     </div>
   ) : (
-    <MemoCollect pieces={allPieces} selected={selected} setSelected={setSelected} onWeight={setWeight} onMove={move} unit={unit} target={max} />
+    <MemoCollect pieces={listPieces} selected={selected} setSelected={setSelected} onWeight={setWeight} onMove={move} unit={unit}
+      target={appending ? (room?.target ?? 0) : max} append={appending}
+      top={canAppend ? (
+        <>
+          <div role="radiogroup" aria-label="쓰는 방법" className="grid w-full grid-cols-2 gap-0 rounded-control border border-line bg-[#fff] p-[3px] md:w-[360px]">
+            {([false, true] as const).map((on) => (
+              <button key={String(on)} type="button" role="radio" aria-checked={appendOn === on} onClick={() => setAppendOn(on)}
+                className={cx("h-8 whitespace-nowrap rounded-[6px] text-[13px]", appendOn === on ? "bg-key-soft font-bold text-key-strong" : "font-medium text-sub")}>
+                {on ? "지금 글에 더하기" : "새로 쓰기"}
+              </button>
+            ))}
+          </div>
+          {appending && (
+            <div className="flex flex-col gap-1 rounded-control border border-line bg-soft px-3.5 py-3">
+              <span className="flex items-center gap-1.5">
+                <Lock size={14} className="shrink-0 text-sub" aria-hidden />
+                <span className="min-w-0 flex-1 text-[13px] font-bold">지금 글 · 그대로 둬요</span>
+                <span className="shrink-0 text-[12px] tabular-nums text-mute">{kept.toLocaleString()}{u}</span>
+              </span>
+              <span className="line-clamp-2 text-[13px] text-sub break-keep">{bodyPiece[0].text}</span>
+            </div>
+          )}
+        </>
+      ) : undefined} />
   );
 
   const others = (
@@ -333,7 +365,18 @@ export function AiDraftPanel({
               )}
             </div>
             {levelOpen && levelBox}
-            {mode === "merge" && (
+            {appending && !room && (
+              <p className="rounded-control bg-[#FFF1EA] px-3 py-2 text-[12px] font-bold text-[#E8622C] break-keep" role="status">
+                지금 글이 이미 {kept.toLocaleString()}{u}예요 · 더할 자리가 없어요
+              </p>
+            )}
+            {appending && room && (
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-medium text-sub break-keep">
+                <span>지금 글 <b className="tabular-nums text-ink">{kept.toLocaleString()}{u}</b> 그대로 + 고른 메모로 약 <b className="tabular-nums text-ink">{room.target.toLocaleString()}{u}</b> 더 써요</span>
+                <span className="inline-flex h-6 items-center whitespace-nowrap rounded-chip bg-key-soft px-2 font-bold tabular-nums text-key-strong">→ {bandLabel}</span>
+              </p>
+            )}
+            {mode === "merge" && !appending && (
               <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="inline-flex h-6 items-center whitespace-nowrap rounded-chip bg-key-soft px-2 text-[12px] font-bold tabular-nums text-key-strong">{bandLabel} 안에 맞춰요</span>
                 <span className="text-[12px] font-medium text-sub break-keep">넘치면 메모를 빼지 않고 줄여 담아요</span>
@@ -352,7 +395,7 @@ export function AiDraftPanel({
               ) : (
                 <Button type="button" onClick={run} disabled={!canRun}
                   className="h-12 w-full text-[15px] disabled:bg-line disabled:text-mute md:h-10 md:w-auto md:px-4 md:text-[14px]">
-                  <Sparkles size={15} /> {mode === "merge" ? (memoPicked ? `고른 메모 ${memoPicked}개로 글 쓰기` : "고른 메모로 글 쓰기") : "AI로 글 쓰기"}
+                  <Sparkles size={15} /> {mode === "merge" ? (memoPicked ? `고른 메모 ${memoPicked}개로 ${appending ? "이어 쓰기" : "글 쓰기"}` : `고른 메모로 ${appending ? "이어 쓰기" : "글 쓰기"}`) : "AI로 글 쓰기"}
                 </Button>
               )}
             </div>

@@ -167,7 +167,7 @@ export function SetukEditor({
             pieces,
             body: text,
             neisMax: Math.min(neisMax("세특", range.unit), capMax),
-            run: gate.track((ps, max, tol) => mergeSetuk({ courseId, studentId, pieces: ps, unit: range.unit, max, level, keepOrder: true, tol })),
+            run: gate.track((ps, max, tol, opts) => mergeSetuk({ courseId, studentId, pieces: ps, unit: range.unit, max, level, keepOrder: true, tol, append: opts?.append })),
           }}
           gateScope="세특"
           onBusy={setAiBusy}

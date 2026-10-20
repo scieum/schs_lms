@@ -57,6 +57,8 @@ export type GateRow = {
   memos?: GateResult["memos"];
   /** 근거가 적음 — 짧음 칩 끝에 "근거가 적어요" */
   thin: boolean;
+  /** 지금 글에 더하기 (N49b, AI 결과 그대로일 때만): 지금 글 · 더한 글 분량 */
+  append?: GateResult["append"];
 };
 
 /**
@@ -68,7 +70,7 @@ export function gateRow(input: { text: string; gate: GateResult; gateText: strin
   const same = input.text === input.gateText;
   const u = unitMark(unit);
   const value = measure(input.text, unit);
-  const base = { value, lo: gate.lo, hi: gate.hi, memos: same ? gate.memos : undefined };
+  const base = { value, lo: gate.lo, hi: gate.hi, memos: same ? gate.memos : undefined, append: same ? gate.append : undefined };
   if (value > limit) return { ...base, tone: "over", thin: false, label: `${n(value)}${u} · 나이스 한도보다 ${n(value - limit)}${u} 넘어요` };
   if (value >= gate.lo && value <= gate.hi) return { ...base, tone: "pass", thin: false, label: `${n(value)} / ${n(gate.target)}${u} · 게이트 통과` };
   if (value > gate.hi) return { ...base, tone: "long", thin: false, label: `${n(value)}${u} · 목표보다 ${n(value - gate.hi)}${u} 길어요` };

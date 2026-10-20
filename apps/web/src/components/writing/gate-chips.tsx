@@ -53,6 +53,12 @@ export function GateChips({ row, unit, missing, onRefit, refitting = false, onAd
 
   return (
     <div className="mb-2.5 flex flex-col gap-2" aria-label="분량 게이트">
+      {row.append && (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className={cx(CHIP, "bg-key-soft text-key-strong")}>더한 글 {row.append.added.toLocaleString()}{unit === "bytes" ? "B" : "자"}</span>
+          <span className="text-[12px] text-mute">지금 글 {row.append.kept.toLocaleString()}{unit === "bytes" ? "B" : "자"}는 그대로예요</span>
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-1.5">
         <GateChip row={row} prefix="분량 " />
         {m && m.picked > 0 && (gap > 0 ? (

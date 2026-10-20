@@ -3,6 +3,8 @@ import { useRef, useState, useSyncExternalStore } from "react";
 import type { LengthUnit } from "@/lib/domain/length";
 import { gateBand, type GateResult } from "@/lib/domain/length-gate";
 import type { MergePiece } from "@/lib/domain/merge";
+/** 지금 글에 더하기 (N49b) */
+export type MergeOpts = { append?: boolean };
 import { bandText, gateRow, missingPieces, parseTol, tolKey } from "@/lib/domain/memo-gate";
 import type { AiDraftResult } from "@/lib/domain/writing";
 import { GateChips } from "./gate-chips";
@@ -35,9 +37,9 @@ export function useAiGate({ text, unit, limit, target, scope, fit, merge, apply,
   const storedTol = useSyncExternalStore(noSub, () => { try { return localStorage.getItem(tolKey(scope, unit)); } catch { return null; } }, () => null);
 
   /** ② 모아 쓰기에 보낸 메모를 기억해 두는 감싸개 */
-  const track = (run: (ps: MergePiece[], max: number, tol: number) => Promise<AiDraftResult>) => (ps: MergePiece[], max: number, tol: number) => {
+  const track = (run: (ps: MergePiece[], max: number, tol: number, opts?: MergeOpts) => Promise<AiDraftResult>) => (ps: MergePiece[], max: number, tol: number, opts?: MergeOpts) => {
     sent.current = ps;
-    return run(ps, max, tol);
+    return run(ps, max, tol, opts);
   };
   /** AI 결과가 ③에 들어갔을 때 (게이트가 없으면 줄을 지운다) */
   const remember = (t: string, gate?: GateResult, picked?: MergePiece[] | null) => {

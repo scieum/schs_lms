@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Check, ChevronDown, ChevronUp, Star } from "lucide-react";
 import { cx } from "@/components/ui";
 import { measure, UNIT_LABEL, type LengthUnit } from "@/lib/domain/length";
@@ -21,7 +21,7 @@ const WEIGHT_CHIP: Record<Importance, string> = {
 const SHOWN = 6;
 const md = (d: string | null) => (d ? `${+d.slice(5, 7)}.${+d.slice(8, 10)}` : "지금");
 
-export function MemoCollect({ pieces, selected, setSelected, onWeight, onMove, unit, target }: {
+export function MemoCollect({ pieces, selected, setSelected, onWeight, onMove, unit, target, append = false, top }: {
   /** 교사가 정한 순서 그대로 */
   pieces: MergePiece[];
   selected: Set<string>;
@@ -30,6 +30,10 @@ export function MemoCollect({ pieces, selected, setSelected, onWeight, onMove, u
   onMove: (id: string, dir: -1 | 1) => void;
   unit: LengthUnit;
   target: number;
+  /** 지금 글에 더하기 (N49b): target = 더할 글 분량 */
+  append?: boolean;
+  /** 제목 아래 (새로 쓰기 | 지금 글에 더하기 · 지금 글 칸) */
+  top?: ReactNode;
 }) {
   const [all, setAll] = useState(false);
   const shown = all ? pieces : pieces.slice(0, SHOWN);
@@ -53,9 +57,10 @@ export function MemoCollect({ pieces, selected, setSelected, onWeight, onMove, u
           {pieces.length && picked.length === pieces.length ? "전체 해제" : "전체 선택"}
         </button>
       </div>
+      {top}
       <p className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 rounded-control bg-[#fff] px-3 py-2 text-[12px] font-medium text-sub break-keep" aria-label="어떻게 쓰나요">
         <span className="font-bold text-key-strong">어떻게 쓰나요</span>
-        <span>① 넣을 메모 고르기</span><span>② 중요한 건 ‘꼭’</span><span>③ 모아 쓰기</span>
+        <span>{append ? "① 더할 메모 고르기" : "① 넣을 메모 고르기"}</span><span>② 중요한 건 ‘꼭’</span><span>{append ? "③ 이어 쓰기" : "③ 모아 쓰기"}</span>
       </p>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="빠르게 고르기">
         {(["all", "must", "recent"] as const).map((k) => (
@@ -113,7 +118,7 @@ export function MemoCollect({ pieces, selected, setSelected, onWeight, onMove, u
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
           <span className="min-w-0 flex-1 text-[13px] text-sub">
-            고른 메모 <b className="tabular-nums text-ink">{total.toLocaleString()}{u}</b> → 목표 {target.toLocaleString()}{u} 글
+            고른 메모 <b className="tabular-nums text-ink">{total.toLocaleString()}{u}</b> → {append ? `더할 글 약 ${target.toLocaleString()}${u}` : `목표 ${target.toLocaleString()}${u} 글`}
           </span>
           <span className={cx("shrink-0 rounded-chip px-2 py-0.5 text-[12px] font-bold",
             status === "부족" ? "bg-wait-soft text-[#9A6400]" : status === "맞음" ? "bg-ok-soft text-ok" : "bg-[#FFF1EA] text-[#FF7A45]")}>
@@ -124,7 +129,7 @@ export function MemoCollect({ pieces, selected, setSelected, onWeight, onMove, u
           <div className={cx("h-full rounded-full", status === "부족" ? "bg-wait" : "bg-key")} style={{ width: `${pct}%` }} />
         </div>
         {(status === "부족" || few) && (
-          <p className="text-[12px] text-mute break-keep">메모가 적으면 글도 짧게 써요 · 메모에 없는 활동과 평가는 만들지 않아요</p>
+          <p className="text-[12px] text-mute break-keep">메모가 적어도 목표 분량까지 메모 속 과정·까닭을 풀어 써요 · 없는 활동은 만들지 않아요</p>
         )}
       </div>
     </div>

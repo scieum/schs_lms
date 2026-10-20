@@ -171,7 +171,7 @@ export function RecordEditor({
             pieces,
             body: text,
             neisMax: recordMax(area, range.unit),
-            run: gate.track((ps, max, tol) => mergeRecordAction({ area, studentId, clubId, pieces: ps, unit: range.unit, max, keepOrder: true, tol })),
+            run: gate.track((ps, max, tol, opts) => mergeRecordAction({ area, studentId, clubId, pieces: ps, unit: range.unit, max, keepOrder: true, tol, append: opts?.append })),
           }}
           gateScope={area}
           onBusy={setAiBusy}
