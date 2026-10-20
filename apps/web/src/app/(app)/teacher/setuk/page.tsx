@@ -187,7 +187,8 @@ export default async function SetukPage({ searchParams }: Props) {
                         studentId={selected.id}
                         initial={cur?.content ?? ""}
                         unit={cur?.unit ?? "bytes"}
-                        max={cur?.max ?? neisMax("세특", "bytes")}
+                        /* 2026-10-20 사용자: "교과세특 1500바이트야" — 지난번 저장한 최대가 아니라 늘 나이스 한도에서 시작 */
+                        max={neisMax("세특", cur?.unit ?? "bytes")}
                         confirmed={cur?.status === "confirmed"}
                         who={{ name: selected.name, studentNo: selected.studentNo, grade: selected.grade, classNo: selected.classNo, number: selected.number }}
                         memo={memo?.content ?? ""}

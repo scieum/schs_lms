@@ -97,7 +97,8 @@ export async function RecordWorkspace({
   const [pv, pool, settings] = await Promise.all([provView(cur), recordSourcePool(area, selected.id, clubId), repo.getProvenanceSettings()]);
   const editorProps = {
     studentId: selected.id, clubId, who, initial: cur?.content ?? "", memo: m?.content ?? "", unit: cur?.unit ?? ("bytes" as const),
-    max: cur?.max ?? recordMax(area, "bytes"), confirmed: cur?.status === "confirmed", aiOn: aiEnabled(), openCheck,
+    // 늘 나이스 한도에서 시작 (2026-10-20 사용자: 지난번 저장한 최대를 이어 쓰지 않음)
+    max: recordMax(area, cur?.unit ?? "bytes"), confirmed: cur?.status === "confirmed", aiOn: aiEnabled(), openCheck,
     prov: { original: pv.original, pins: pv.pins, pool, editRatioMin: settings.editRatioMin, who: selected.name },
     lesson,
     // N48: 누가기록이 있으면 처음 단계를 바로 ②로

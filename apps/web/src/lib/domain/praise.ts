@@ -67,7 +67,7 @@ export function praisePrompt(level: Level | null | undefined, amount: EvidenceAm
   if (isFewEvidence(amount)) {
     lines.push(
       `- 근거 자료가 ${amount.count}개로 적음. 관찰된 장면만 쓰고, 이 한두 장면으로 학생 전체를 단정하는 총평('~한 학생임', '~능력이 뛰어남', '~역량이 돋보이는 학생임')을 쓰지 않음. LV3 서술어도 쓰지 않음.`,
-      "- 분량이 모자라도 없는 활동, 성과, 평가로 채우지 않음. 짧으면 짧은 대로 둠.",
+      "- 분량은 근거 자료 속 활동의 목적·방법·과정·까닭·배운 점을 풀어 채움. 없는 활동, 성과, 수치, 수상, 평가로 채우지 않음.",
     );
   }
   lines.push("- 모범 구성의 총평은 근거 자료에 여러 장면이 쌓여 있을 때만 쓰고, 쓸 때도 근거에 적힌 행동으로 맺음.");

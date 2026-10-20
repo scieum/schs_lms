@@ -165,7 +165,11 @@ const MergeSchema = z.object({
   keepOrder: z.boolean().optional(),
   /** 분량 게이트 오차 (N49) — 목표(max) ± tol */
   tol: z.number().int().min(0).max(300).optional(),
+  /** 지금 글에 더하기 (N49b): 지금 글(id "body")은 그대로 두고 고른 메모로 이어 쓴다 */
+  append: z.boolean().optional(),
 });
+/** 더하기면 지금 글 (없으면 새로 쓰기) */
+const keepText = (d: { append?: boolean; pieces: { id: string; text: string }[] }) => (d.append ? d.pieces.find((x) => x.id === "body")?.text.trim() || undefined : undefined);
 const FitSchema = z.object({ text: z.string().min(1, "본문이 비어 있어요").max(6000), unit: z.enum(["bytes", "chars"]), max: z.number().int().min(1), tol: z.number().int().min(0).max(300).optional() });
 /** 수정 요청 (N49): 교사가 AI 글에 보낸 한두 줄 */
 const ReviseSchema = FitSchema.extend({ request: z.string().trim().min(1, "고칠 점을 적어 주세요").max(300, "요청은 300자까지예요") });
@@ -232,7 +236,7 @@ export async function mergeRecordAction(input: { area: string; studentId: string
   // 차시 메모(N43)가 있으면 그 차시 활동 내용을 배경으로 (학생 행동 아님)
   const lessonLogs = t.area !== "행발" && p.data.pieces.some((x) => x.source === "차시") ? await evidenceLogs(t.area, [t.student.id], input.clubId) : [];
   const background = await lessonBackgroundFor(lessonLogs.map((l) => l.lessonItemId), p.data.pieces.filter((x) => x.source === "차시").map((x) => x.text), t.student);
-  const r = await mergeRecord({ kind: t.area, context: t.clubName, student: t.student, pieces: p.data.pieces, range, level: null, keepOrder: p.data.keepOrder, background, gate: recordGate(t.area, p.data), limit: recordMax(t.area, p.data.unit) });
+  const r = await mergeRecord({ kind: t.area, context: t.clubName, student: t.student, pieces: p.data.pieces, range, level: null, keepOrder: p.data.keepOrder, background, gate: recordGate(t.area, p.data), limit: recordMax(t.area, p.data.unit), keep: keepText(p.data) });
   await repo.audit(t.v.accountId, "record.ai_merge", `${t.area} ${t.student.pseudonymId} ${p.data.pieces.length}조각`);
   const d = toDraft(r);
   if (!d.ok) return d;

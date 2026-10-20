@@ -17,7 +17,7 @@ import { joinSentences, SOURCED_RULES, SourcedOut, toKeys } from "./sourced";
 import { pieceKey } from "../provenance";
 import type { Level } from "@/lib/domain/achievement";
 import { evidenceAmount, praisePrompt } from "@/lib/domain/praise";
-import { closest, coverage, gateAim, gateBand, gateCheck, gateResult, GATE_ROUNDS, thinEvidence, type Gate } from "@/lib/domain/length-gate";
+import { appendBand, closest, coverage, gateAim, gateBand, gateCheck, gateResult, GATE_ROUNDS, thinEvidence, type Gate } from "@/lib/domain/length-gate";
 
 // 합치기·맞추기·역량 보기 (Figma N11). 교사가 버튼을 눌렀을 때만, 결과는 돌려주기만 한다 (저장은 교사가).
 // AI에는 가명ID만 보낸다. 조각 속 이름·학번은 지운 뒤 보내고, 결과도 다시 지운다.
@@ -90,14 +90,22 @@ const NO_NEW_PRAISE = `
  * tone: 성취수준 말투 한 줄 (achievement.levelPrompt) · level: 고른 수준 (N41, 없으면 사실 그대로)
  * keepOrder: 교사가 정한 순서(메모 모아 쓰기 N41) 그대로 — 아니면 날짜 순
  */
-export async function mergeRecord(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange; tone?: string; level?: Level | null; keepOrder?: boolean; background?: string[]; gate?: Gate; limit?: number }): Promise<WriteResult> {
+export async function mergeRecord(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange; tone?: string; level?: Level | null; keepOrder?: boolean; background?: string[]; gate?: Gate; limit?: number; keep?: string }): Promise<WriteResult> {
   // N49: 목표 ± 오차 게이트 — 글을 쓴 뒤 ① 빠진 메모 넣기 ② 분량 맞추기 (넘쳐도 문장을 빼지 않고 압축)
-  const gate = input.gate ?? gateBand({ unit: input.range.unit, target: input.range.max, limit: input.range.max });
+  const whole = input.gate ?? gateBand({ unit: input.range.unit, target: input.range.max, limit: input.range.max });
+  // N49b 지금 글에 더하기: 지금 글은 한 글자도 안 바꾸고, 남은 띠만큼 새 글을 써서 뒤에 붙인다
+  const keep = input.keep?.trim() ?? "";
+  const keptLen = keep ? measure(keep, whole.unit) : 0;
+  const gate = keep ? appendBand(whole, keptLen) : whole;
+  if (!gate) return { text: "", sample: false, notice: "지금 글이 이미 목표 범위에 닿아 더할 자리가 없어요" };
+  const limit = Math.max(input.limit ?? 0, input.range.max) - (keep ? keptLen + 1 : 0);
+  const join = (part: string) => (keep ? `${keep} ${part.trim()}` : part);
   const range: LengthRange = { ...input.range, min: gate.lo, max: gate.hi };
-  const first = await mergeOnce({ ...input, range });
-  if (!first.text || first.sample) return first;
+  const first = await mergeOnce({ ...input, pieces: keep ? input.pieces.filter((p) => p.source !== "본문") : input.pieces, range, keep: keep || undefined });
+  if (first.sample) return { ...first, text: first.text ? join(fitToMax(first.text, { unit: gate.unit, max: limit })) : "" };
+  if (!first.text) return first;
   const pid = input.student.pseudonymId;
-  const picked = (input.keepOrder ? input.pieces : orderPieces(input.pieces)).map((p) => ({ ...p, text: scrubIdentity(p.text, input.student, pid).text.trim() })).filter((p) => p.text);
+  const picked = (input.keepOrder ? input.pieces : orderPieces(input.pieces)).filter((p) => !keep || p.source !== "본문").map((p) => ({ ...p, text: scrubIdentity(p.text, input.student, pid).text.trim() })).filter((p) => p.text);
   const memos = picked.filter((p) => p.source !== "본문");
   const keyOf = new Map(memos.map((p) => [pieceKey(p), p.id]));
   let r = first;
@@ -105,7 +113,7 @@ export async function mergeRecord(input: { kind: WriteKind; context?: string; st
   let added: { before: number; after: number } | undefined;
   if (cov.missing.length && r.sentences) {
     const before = cov.covered.length;
-    const again = await addMissing({ ...input, range, pieces: picked, draft: r.text, missing: cov.missing });
+    const again = keep ? null : await addMissing({ ...input, range, pieces: picked, draft: r.text, missing: cov.missing });
     if (again && !again.sample && again.text) {
       const c2 = coverage(again.sentences, [...keyOf.keys()]);
       if (c2.covered.length >= cov.covered.length) { r = again; cov = c2; }
@@ -113,14 +121,15 @@ export async function mergeRecord(input: { kind: WriteKind; context?: string; st
     added = { before, after: cov.covered.length };
   }
   const beforeFit = measure(r.text, gate.unit);
-  const fit = await fitToGate({ kind: input.kind, context: input.context, student: input.student, text: r.text, gate, limit: Math.max(input.limit ?? 0, input.range.max), evidence: memos.map((p) => p.text) });
+  const fit = await fitToGate({ kind: input.kind, context: input.context, student: input.student, text: r.text, gate, limit, evidence: memos.map((p) => p.text), keep: keep || undefined });
+  const text = join(fit.text);
   return {
-    text: fit.text,
+    text,
     sample: false,
     // 다시 맞추면 문장이 바뀌어 근거 표지는 규칙으로 다시 붙인다 (N38)
     sentences: fit.rounds ? undefined : r.sentences,
     notice: fit.notice,
-    gate: gateResult(fit.text, gate, fit.rounds, { thin: fit.thin, trace: { first: measure(first.text, gate.unit), added, fit: fit.rounds ? { from: beforeFit, to: measure(fit.text, gate.unit) } : undefined }, memos: r.sentences ? { picked: memos.length, covered: cov.covered.length, missing: cov.missing.map((k) => keyOf.get(k) ?? k) } : undefined }),
+    gate: gateResult(text, whole, fit.rounds, { thin: fit.thin, append: keep ? { kept: keptLen, added: measure(fit.text, whole.unit) } : undefined, trace: { first: measure(first.text, gate.unit), added, fit: fit.rounds ? { from: beforeFit, to: measure(fit.text, gate.unit) } : undefined }, memos: r.sentences ? { picked: memos.length, covered: cov.covered.length, missing: cov.missing.map((k) => keyOf.get(k) ?? k) } : undefined }),
   };
 }
 
@@ -156,7 +165,7 @@ async function addMissing(input: { kind: WriteKind; context?: string; student: S
  * 줄이기는 문장·사실을 빼지 않고 압축, 늘리기는 근거 메모 속 과정·까닭을 풀어 쓴다(근거가 너무 적으면 늘리지 않음 — thin).
  * 띠에 가장 가까운 글을 쓰고, 한도(limit)를 넘을 때만 마지막 수단으로 끝 문장을 뺀다.
  */
-async function fitToGate(input: { kind: WriteKind; context?: string; student: Student; text: string; gate: Gate; limit: number; evidence: string[] }): Promise<{ text: string; rounds: number; thin: boolean; notice?: string }> {
+async function fitToGate(input: { kind: WriteKind; context?: string; student: Student; text: string; gate: Gate; limit: number; evidence: string[]; keep?: string }): Promise<{ text: string; rounds: number; thin: boolean; notice?: string }> {
   const { gate, student } = input;
   const range: LengthRange = { unit: gate.unit, min: gate.lo, max: gate.hi, capped: false };
   const thin = thinEvidence(input.evidence, gate);
@@ -173,9 +182,11 @@ async function fitToGate(input: { kind: WriteKind; context?: string; student: St
     const chars = gate.unit === "bytes" ? ` (공백 포함 약 ${fitGoal({ unit: "bytes", min: aim, max: aim }, text).chars}자)` : "";
     const note = c.dir === "줄이기"
       ? `지금 ${c.value.toLocaleString()}${u} → 약 ${aim.toLocaleString()}${u}${chars}로 약 ${c.by.toLocaleString()}${u} 줄인다. 문장과 사실은 하나도 빼지 않는다. 겹치는 말·꾸밈말을 덜고, 이어지는 두 문장은 한 문장으로 묶어 압축한다.`
-      : `지금 ${c.value.toLocaleString()}${u} → 약 ${aim.toLocaleString()}${u}${chars}로 약 ${c.by.toLocaleString()}${u} 늘린다. <근거 메모>에 있는 과정·까닭·결과·배운 점을 문장 안에서 더 풀어 쓴다. 근거에 없는 활동·수치·평가는 만들지 않는다.`;
+      : `지금 ${c.value.toLocaleString()}${u} → 약 ${aim.toLocaleString()}${u}${chars}로 약 ${c.by.toLocaleString()}${u} 늘린다. <근거 메모>에 있는 활동마다 목적(왜 했는지), 방법·과정(어떻게 했는지), 그 과정에서 쓴 개념, 결과, 배운 점·다음 탐구를 문장 안에서 풀어 쓴다. 세특이면 <성취기준>과 이어지는 학습 의미를 붙여도 된다. 근거에 없는 활동·수치·수상·평가는 만들지 않는다.`;
     const content = [`학생: ${student.pseudonymId}`, `분량: ${target(range)}`, note, "", "<본문>", scrubIdentity(text, student, student.pseudonymId).text, "</본문>",
-      ...(c.dir === "늘리기" && evidence.length ? ["", "<근거 메모>", ...evidence.map((e) => `- ${e}`), "</근거 메모>"] : [])].join("\n");
+      ...(c.dir === "늘리기" && evidence.length ? ["", "<근거 메모>", ...evidence.map((e) => `- ${e}`), "</근거 메모>"] : []),
+      ...(c.dir === "늘리기" && input.kind === "세특" ? [subjectStandards(input.context, evidence.join(" ")) || ""] : []),
+      ...(input.keep ? ["", "<본문>은 아래 <지금 글> 뒤에 붙는 글이다. <지금 글>은 고치지 말고, 그 내용을 <본문>에 되풀이하지 않는다.", "<지금 글>", scrubIdentity(input.keep, student, student.pseudonymId).text, "</지금 글>"] : [])].join("\n");
     const again = await rewrite({ kind: input.kind, context: input.context, student, range, system: GATE_FIT_RULES(range), content, fallback: () => text, keepLong: true });
     if (again.sample || !again.text) break;
     text = again.text;
@@ -190,6 +201,13 @@ async function fitToGate(input: { kind: WriteKind; context?: string; student: St
   return { text: capped, rounds, thin, notice };
 }
 
+/** 지금 글에 더하기 (N49b) */
+const APPEND_RULES = `
+이어 쓰기 규칙:
+- <지금 글>은 교사가 이미 쓴 글이다. 고치거나 되풀이하지 않는다.
+- <조각>으로 <지금 글> 바로 뒤에 이어 붙일 새 문장만 쓴다. 첫 문장은 '또한', '이후', '이와 함께'처럼 자연스럽게 이어지게 시작한다.
+- <지금 글>에 이미 있는 사실은 다시 쓰지 않는다. 분량은 새로 쓸 글만 센다.`;
+
 const GATE_FIT_RULES = (range: LengthRange) => `
 분량 맞추기 규칙:
 - 주어진 본문의 사실·활동·문장 순서를 지키고 분량만 ${target(range)} 에 맞춘다.
@@ -198,7 +216,7 @@ const GATE_FIT_RULES = (range: LengthRange) => `
 - 문장을 쪼개 짧은 문장을 늘어놓지 않는다.
 - 한 문단, draft 에 최종본만 넣는다.`;
 
-async function mergeOnce(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange; tone?: string; level?: Level | null; keepOrder?: boolean; background?: string[] }): Promise<WriteResult> {
+async function mergeOnce(input: { kind: WriteKind; context?: string; student: Student; pieces: MergePiece[]; range: LengthRange; tone?: string; level?: Level | null; keepOrder?: boolean; background?: string[]; keep?: string }): Promise<WriteResult> {
   const { student } = input;
   const pid = student.pseudonymId;
   const pieces = (input.keepOrder ? input.pieces : orderPieces(input.pieces)).map((p) => ({ ...p, text: scrubIdentity(p.text, student, pid).text.trim() })).filter((p) => p.text);
@@ -206,8 +224,9 @@ async function mergeOnce(input: { kind: WriteKind; context?: string; student: St
   const content = [
     `학생: ${pid}`,
     input.context ? `${input.kind === "세특" ? "과목" : "동아리"}: ${input.context}` : null,
-    `분량: ${target(input.range)}`,
+    `분량: ${target(input.range)}${input.keep ? " (새로 쓸 글만 — 지금 글은 세지 않음)" : ""}`,
     "",
+    ...(input.keep ? ["<지금 글>", scrubIdentity(input.keep, student, pid).text, "</지금 글>", ""] : []),
     "<조각>",
     // 같은 활동명([활동명])의 조각을 한데 묶어 보낸다 — 조각마다 활동명이 붙어 있으면 AI가 문장마다 활동명을 되풀이한다
     ...groupByActivity(pieces).flatMap((g) => [
@@ -224,7 +243,7 @@ async function mergeOnce(input: { kind: WriteKind; context?: string; student: St
   const labels = new Map(pieces.map((p, i) => [`S${i + 1}`, pieceKey(p)]));
   // 근거 양: 지금 글(본문)은 빼고 센다 — 메모 한두 개면 총평·최상급 칭찬을 막는다
   const guard = praisePrompt(input.level, evidenceAmount(pieces.filter((p) => p.source !== "본문").map((p) => p.text)));
-  return rewrite({ ...input, system: MERGE_RULES(input.range), content, labels, guard, keepLong: true, fallback: () => mergeByRules(input.pieces.map((p) => ({ ...p, text: scrubIdentity(p.text, student).text })), input.range) });
+  return rewrite({ ...input, system: MERGE_RULES(input.range) + (input.keep ? APPEND_RULES : ""), content, labels, guard, keepLong: true, fallback: () => mergeByRules(input.pieces.map((p) => ({ ...p, text: scrubIdentity(p.text, student).text })), input.range) });
 }
 
 // ---------- 수정 요청 (Figma N49 ③) ----------

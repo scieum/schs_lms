@@ -32,6 +32,13 @@ export function gateCheck(text: string, g: Gate): GateCheck {
   return { value, pass: true, dir: null, by: 0 };
 }
 
+/** 지금 글에 더하기 (N49b): 지금 글(+ 띄어쓰기 1)을 뺀 나머지 띠 — 지금 글이 이미 띠 아래쪽에 닿으면 null */
+export function appendBand(g: Gate, kept: number): Gate | null {
+  const k = kept + 1;
+  if (k >= g.lo) return null;
+  return { ...g, target: Math.max(1, g.target - k), lo: Math.max(1, g.lo - k), hi: Math.max(1, g.hi - k) };
+}
+
 /** 셋 중 띠에 가장 가까운 글 (다시 맞추다 멀어지면 앞 글을 쓴다) */
 export function closest(texts: string[], g: Gate): string {
   const off = (t: string) => { const c = gateCheck(t, g); return c.pass ? 0 : c.dir === "늘리기" ? g.lo - c.value : c.value - g.hi; };
@@ -61,9 +68,11 @@ export type GateResult = {
   thin?: boolean;
   /** 거친 단계 (N49 ② 쓰는 중 → 끝난 뒤 보여 줌): 첫 글 분량 · 빠진 메모 넣기 전후 반영 수 · 맞추기 전후 분량 */
   trace?: { first: number; added?: { before: number; after: number }; fit?: { from: number; to: number } };
+  /** 지금 글에 더하기 (N49b): 지금 글 분량 · 새로 더한 글 분량 (지금 글은 한 글자도 안 바꿈) */
+  append?: { kept: number; added: number };
 };
 
-export function gateResult(text: string, g: Gate, rounds: number, extra?: Pick<GateResult, "memos" | "thin" | "trace">): GateResult {
+export function gateResult(text: string, g: Gate, rounds: number, extra?: Pick<GateResult, "memos" | "thin" | "trace" | "append">): GateResult {
   const c = gateCheck(text, g);
   return { target: g.target, tol: g.tol, lo: g.lo, hi: g.hi, value: c.value, pass: c.pass, rounds, ...extra };
 }
@@ -77,8 +86,11 @@ export function gateLabel(r: Pick<GateResult, "value" | "target" | "lo" | "hi" |
   return `${n(r.value)}${u} · 목표보다 ${n(r.value - r.hi)}${u} 길어요`;
 }
 
-/** 근거(고른 메모 글)가 목표 띠 아래쪽의 몇 분의 일도 안 되면 억지로 늘리지 않는다 */
-export const THIN_RATIO = 0.25;
+/**
+ * 근거(고른 메모 글)가 거의 없으면(띠 아래쪽의 8% 미만 — 1,500B 기준 약 40자) 늘리지 않는다.
+ * 2026-10-20 사용자: "1500으로 하고 싶은데 왜 계속 700으로 줄이는거야" — 메모 몇 개여도 목표까지 풀어 쓴다.
+ */
+export const THIN_RATIO = 0.08;
 export function thinEvidence(evidence: string[], g: Gate): boolean {
   const total = evidence.reduce((n, t) => n + measure(t, g.unit), 0);
   return total < g.lo * THIN_RATIO;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { closest, coverage, gateAim, gateBand, gateCheck, gateLabel, gateResult, thinEvidence } from "./length-gate";
+import { appendBand, closest, coverage, gateAim, gateBand, gateCheck, gateLabel, gateResult, thinEvidence } from "./length-gate";
 
 const ko = (n: number) => "가".repeat(n); // 한글 1자 = 3B
 
@@ -56,10 +56,16 @@ describe("gateLabel · gateResult", () => {
   it("김", () => expect(gateLabel(gateResult(ko(510), g, 3), "bytes")).toBe("1,530B · 목표보다 30B 길어요"));
 });
 
+describe("appendBand", () => {
+  const g = gateBand({ unit: "bytes", target: 1500, tol: 50, limit: 1500 });
+  it("지금 글을 뺀 나머지", () => expect(appendBand(g, 819)).toMatchObject({ target: 680, lo: 630, hi: 680 }));
+  it("이미 띠에 닿으면 null", () => expect(appendBand(g, 1449)).toBeNull());
+});
+
 describe("thinEvidence", () => {
   const g = gateBand({ unit: "bytes", target: 1500, tol: 50, limit: 1500 });
-  it("메모가 띠 아래쪽의 1/4 도 안 되면 얇음", () => {
-    expect(thinEvidence([ko(50), ko(40)], g)).toBe(true); // 270B < 362
-    expect(thinEvidence([ko(130)], g)).toBe(false); // 390B
+  it("메모가 거의 없을 때만 얇음", () => {
+    expect(thinEvidence([ko(20), ko(10)], g)).toBe(true); // 90B < 116
+    expect(thinEvidence([ko(50), ko(40)], g)).toBe(false); // 270B — 메모 몇 개면 목표까지 풀어 쓴다
   });
 });
