@@ -19,6 +19,10 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  // 사용 매뉴얼은 public/manual/index.html (로그인 없이 열림)
+  async redirects() {
+    return [{ source: "/manual", destination: "/manual/index.html", permanent: false }];
+  },
   async headers() {
     return [
       {

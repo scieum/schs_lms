@@ -11,6 +11,10 @@ import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 import { listMemosWithPieces, memoPieces } from "@/lib/server/merge-pieces";
 import { CollectBoard } from "@/components/writing/collect-board";
+import { setukScope } from "@/lib/domain/common-activity";
+import { commonActivityRows } from "@/lib/server/common-activity";
+import { lessonView } from "@/lib/server/lessons";
+import { ClassMaterials } from "@/components/writing/class-materials";
 
 export const metadata = { title: "세특 조각 모으기 · 속초고등학교 학생관리시스템" };
 
@@ -64,6 +68,9 @@ export default async function SetukCollectPage({ searchParams }: Props) {
   const compose = `/teacher/setuk/compose?course=${course.id}${sec(tab)}`;
   const nameOf = new Map(students.map((s) => [s.id, s.name]));
   const today = seoulNow().date;
+  // 공통 활동 · 차시별 활동 (N26 · N43): 다 같이 한 활동은 여기서 등록 → 학생 자료를 한꺼번에 올려 조각으로 (글 짓기 아래와 같은 카드)
+  const scopeKey = setukScope(course.id, tab.section);
+  const [commonRows, lesson] = await Promise.all([commonActivityRows(scopeKey, ids), lessonView(scopeKey, students, tab.section ? `${course.subject} ${tab.section}` : course.subject)]);
 
   return (
     <>
@@ -84,6 +91,7 @@ export default async function SetukCollectPage({ searchParams }: Props) {
             })}
           </nav>
         )}
+        <ClassMaterials year={schoolYear()} lesson={lesson} common={{ scope: scopeKey, rows: commonRows, detailBase: "/teacher/setuk/activity", today }} />
         <CollectBoard
           key={`${course.id}-${tab.section ?? ""}`}
           target={{ kind: "setuk", courseId: course.id }}

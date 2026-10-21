@@ -10,6 +10,10 @@ import { repo } from "@/lib/server/repo";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 import { CollectBoard } from "@/components/writing/collect-board";
+import { clubScope } from "@/lib/domain/common-activity";
+import { commonActivityRows } from "@/lib/server/common-activity";
+import { lessonView } from "@/lib/server/lessons";
+import { ClassMaterials } from "@/components/writing/class-materials";
 
 export const metadata = { title: "동아리 조각 모으기 · 속초고등학교 학생관리시스템" };
 
@@ -46,6 +50,9 @@ export default async function ClubCollectPage({ searchParams }: Props) {
   const logs = (await repo.listActivityLogs("동아리", students.map((s) => s.id))).filter((l) => l.clubId === club.id);
   const nameOf = new Map(students.map((s) => [s.id, s.name]));
   const compose = `/teacher/club/compose?club=${club.id}`;
+  // 공통 활동 · 차시별 활동 (N26 · N43): 글 짓기 아래와 같은 카드
+  const commonKey = clubScope(club.id);
+  const [commonRows, lesson] = await Promise.all([commonActivityRows(commonKey, students.map((s) => s.id)), lessonView(commonKey, students, club.name)]);
 
   return (
     <>
@@ -69,6 +76,7 @@ export default async function ClubCollectPage({ searchParams }: Props) {
             })}
           </nav>
         )}
+        <ClassMaterials year={schoolYear()} lesson={lesson} common={{ scope: commonKey, rows: commonRows, detailBase: "/teacher/write/activity", today: today() }} />
         <CollectBoard
           key={club.id}
           target={{ kind: "log", area: "동아리", clubId: club.id }}

@@ -9,6 +9,11 @@ import { repo } from "@/lib/server/repo";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 import { CollectBoard } from "@/components/writing/collect-board";
+import { classScope } from "@/lib/domain/common-activity";
+import { schoolYear } from "@/lib/domain/curriculum";
+import { commonActivityRows } from "@/lib/server/common-activity";
+import { lessonView } from "@/lib/server/lessons";
+import { ClassMaterials } from "@/components/writing/class-materials";
 
 export const metadata = { title: "누가기록 · 속초고등학교 학생관리시스템" };
 
@@ -28,6 +33,10 @@ export default async function HomeroomLogsPage({ searchParams }: Props) {
   const nameOf = new Map(students.map((s) => [s.id, s.name]));
   const first = AREAS.find((a) => a.value === q.area) ?? AREAS[0];
   const areas = [first, ...AREAS.filter((a) => a !== first)];
+  // 공통 활동 · 차시별 활동 (N26 · N43): 주소의 영역(처음은 자율·자치) 반 단위 카드 — 글 짓기 아래와 같은 카드
+  const h = v.teacher.homeroom;
+  const commonKey = classScope(first.value as "자율·자치" | "진로", h.grade, h.classNo);
+  const [commonRows, lesson] = await Promise.all([commonActivityRows(commonKey, ids), lessonView(commonKey, students, `${h.grade}학년 ${h.classNo}반 ${first.value}`)]);
 
   return (
     <>
@@ -36,6 +45,7 @@ export default async function HomeroomLogsPage({ searchParams }: Props) {
         <ButtonLink href={q.student ? `/homeroom/compose?student=${q.student}` : "/homeroom/compose"} kind="outline" size="sm"><PencilLine size={14} /> 글 짓기</ButtonLink>
       </>} />
       <PageBody>
+        <ClassMaterials year={schoolYear()} lesson={lesson} common={{ scope: commonKey, rows: commonRows, detailBase: "/teacher/write/activity", today: today() }} />
         <CollectBoard
           target={{ kind: "log", area: first.value }}
           areas={areas}

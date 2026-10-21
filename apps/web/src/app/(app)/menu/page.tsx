@@ -41,6 +41,9 @@ export default async function MenuPage() {
           <ChevronRight size={14} className="text-sub" />
         </Link>
       )}
+      <a href="/manual/index.html" target="_blank" rel="noopener" className="flex items-center justify-center gap-1 py-1 text-[13px] font-bold text-key-strong">
+        사용 매뉴얼 보기 <ChevronRight size={14} />
+      </a>
       <form action={logout}>
         <Button kind="outline" className="w-full"><LogOut size={18} /> 로그아웃</Button>
       </form>

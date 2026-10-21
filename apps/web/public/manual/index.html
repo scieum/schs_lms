@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCHS 사용 매뉴얼</title>
+<meta name="description" content="속초고등학교 학생관리시스템 사용 매뉴얼 — 교사 · 담임 · 관리자 · 학생">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{
+  --key:#536DFE;--key-strong:#3D56E0;--key-soft:#EEF0FF;--navy:#1C2033;--navy-2:#2B3152;
+  --ink:#191F28;--sub:#4E5968;--mute:#8B95A1;--faint:#C4CAD1;--hair:#D9DDE3;--line:#E5E8EB;--soft:#F2F4F6;--bg:#F5F6F8;--white:#fff;
+  --ok:#00B86B;--ok-soft:#E3F8EE;--warn:#F5A524;--warn-soft:#FFF5E0;--bad:#F04452;--bad-soft:#FEECEE;--new:#0BB4D9;--new-soft:#E2F7FC;--acc:#FF7A45;--acc-soft:#FFF1EA;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:24px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;line-height:1.7;word-break:keep-all}
+a{color:var(--key-strong);text-decoration:none}
+a:hover{text-decoration:underline}
+.layout{display:grid;grid-template-columns:272px minmax(0,1fr);min-height:100vh}
+/* 사이드 목차 */
+nav.toc{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--white);border-right:1px solid var(--line);padding:24px 16px 40px}
+.brand{display:flex;flex-direction:column;gap:2px;padding:0 8px 18px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.brand b{font-size:17px}
+.brand span{font-size:12px;color:var(--mute)}
+.search{width:100%;height:40px;border:0;border-radius:8px;background:var(--soft);padding:0 12px;font:inherit;font-size:14px;outline:none;margin-bottom:12px}
+.search:focus{box-shadow:0 0 0 2px var(--key)}
+.toc h4{margin:16px 8px 4px;font-size:12px;font-weight:700;color:var(--mute)}
+.toc a{display:block;padding:6px 10px;border-radius:8px;color:var(--sub);font-size:14px;font-weight:500}
+.toc a:hover{background:var(--soft);text-decoration:none}
+.toc a.on{background:var(--key-soft);color:var(--key-strong);font-weight:700}
+/* 본문 */
+main{padding:0 56px 96px;min-width:0}
+main>section,main>footer,main>#empty{max-width:1000px}
+.hero>*{max-width:1000px}
+.hero{margin:0 -56px 40px;padding:56px 56px 48px;background:var(--navy);color:#fff;position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;right:-120px;top:-160px;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(83,109,254,.45),rgba(83,109,254,0) 65%)}
+.hero small{color:#9EAAFF;font-weight:700;font-size:13px}
+.hero h1{font-size:34px;line-height:1.35;margin:8px 0 12px}
+.hero p{color:#C2CAFF;max-width:640px;margin:0}
+.roles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:28px;position:relative;z-index:1}
+.roles a{background:var(--navy-2);border-radius:12px;padding:14px 16px;color:#fff}
+.roles a:hover{text-decoration:none;background:#343b63}
+.roles b{display:block;font-size:15px}
+.roles span{font-size:12px;color:#9EAAFF}
+section{margin-bottom:56px}
+h2{font-size:26px;line-height:1.4;margin:0 0 6px;display:flex;align-items:center;gap:10px}
+h2 .tag{font-size:12px}
+.lead{color:var(--sub);margin:0 0 20px}
+h3{font-size:18px;margin:28px 0 10px}
+.card{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:22px 24px;margin-bottom:14px}
+.card h3{margin-top:0}
+.card ul,.card ol{margin:0;padding-left:20px}
+.card li{margin:4px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.tag{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap}
+.t-key{background:var(--key-soft);color:var(--key-strong)}
+.t-ok{background:var(--ok-soft);color:var(--ok)}
+.t-warn{background:var(--warn-soft);color:#9a6400}
+.t-bad{background:var(--bad-soft);color:var(--bad)}
+.t-new{background:var(--new-soft);color:#0789a6}
+.btn{display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:6px;border:1px solid var(--hair);background:var(--white);font-size:13px;font-weight:700;color:var(--ink);white-space:nowrap;vertical-align:1px}
+.btn.p{background:var(--key);border-color:var(--key);color:#fff}
+.path{font-size:13px;color:var(--mute);font-weight:500}
+.shot{margin:16px 0 4px;border-radius:12px;border:1px solid var(--line);overflow:hidden;background:var(--white)}
+.shot img{display:block;width:100%;height:auto}
+.shot figcaption{font-size:13px;color:var(--mute);padding:10px 14px;border-top:1px solid var(--line)}
+.steps{counter-reset:s;list-style:none;padding:0 !important;margin:0}
+.steps li{counter-increment:s;position:relative;padding:10px 0 10px 40px !important;border-top:1px solid var(--soft);margin:0 !important}
+.steps li:first-child{border-top:0}
+.steps li:before{content:counter(s);position:absolute;left:0;top:10px;width:26px;height:26px;border-radius:50%;background:var(--key);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.tip,.warn{border-radius:10px;padding:14px 16px;font-size:14px;margin:12px 0}
+.tip{background:var(--key-soft);color:var(--navy)}
+.warn{background:var(--acc-soft);color:#8a3a16}
+.tip b,.warn b{margin-right:4px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:10px 12px;border-top:1px solid var(--line);vertical-align:top}
+th{background:var(--soft);font-weight:700;color:var(--sub);border-top:0}
+.flow{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px}
+.flow span{background:var(--white);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:14px;font-weight:700}
+.flow i{font-style:normal;color:var(--faint);align-self:center}
+details{background:var(--white);border:1px solid var(--line);border-radius:12px;margin-bottom:10px}
+summary{cursor:pointer;padding:16px 20px;font-weight:700;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary:after{content:"＋";float:right;color:var(--mute)}
+details[open] summary:after{content:"－"}
+details p{margin:0;padding:0 20px 18px;color:var(--sub)}
+footer{color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding-top:20px}
+.hidden{display:none !important}
+.menu-btn{display:none}
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr}
+  nav.toc{position:fixed;inset:0 30% 0 0;z-index:30;transform:translateX(-100%);transition:transform .2s;box-shadow:none}
+  nav.toc.open{transform:none;border-right:1px solid var(--line)}
+  .menu-btn{display:flex;position:fixed;right:16px;bottom:16px;z-index:40;height:48px;padding:0 18px;border:0;border-radius:24px;background:var(--key);color:#fff;font:inherit;font-weight:700;align-items:center}
+  main{padding:0 16px 80px}
+  .hero{margin:0 -16px 28px;padding:36px 16px 28px}
+  .hero h1{font-size:26px}
+  .roles,.grid2,.grid3{grid-template-columns:1fr 1fr}
+  h2{font-size:22px}
+  .card{padding:18px 16px}
+  table{display:block;overflow-x:auto}
+}
+@media (max-width:520px){.roles,.grid2,.grid3{grid-template-columns:1fr}}
+@media print{nav.toc,.menu-btn{display:none}.layout{display:block}.hero{background:#fff;color:#000}.hero p{color:#333}.roles{display:none}section{break-inside:avoid-page}}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" id="toc" aria-label="목차">
+  <div class="brand"><b>SCHS 사용 매뉴얼</b><span>속초고등학교 학생관리시스템 · 2026. 10.</span></div>
+  <input class="search" id="q" type="search" placeholder="기능 찾기 (예: 나이스, PDF, 바이트)" aria-label="매뉴얼에서 찾기">
+  <h4>시작하기</h4>
+  <a href="#start">처음 들어가기</a>
+  <a href="#screen">화면 둘러보기</a>
+  <a href="#privacy">개인정보 · AI 원칙</a>
+  <h4>교과 교사 · 세특</h4>
+  <a href="#flow">기록이 만들어지는 흐름</a>
+  <a href="#subjects">내 수업</a>
+  <a href="#collect">조각 모으기</a>
+  <a href="#assess">수행평가</a>
+  <a href="#compose">글 짓기</a>
+  <a href="#texts">글 모아 보기</a>
+  <a href="#neis">나이스 입력</a>
+  <h4>업무</h4>
+  <a href="#work">학사일정 · 학생 · 상담</a>
+  <a href="#reports">학생 리포트</a>
+  <a href="#library">문장 보관함 · 생기부 팁</a>
+  <h4>동아리 · 특색활동</h4>
+  <a href="#club">동아리</a>
+  <a href="#programs">특색활동 프로그램</a>
+  <a href="#service">봉사 확인서</a>
+  <h4>담임</h4>
+  <a href="#homeroom">우리 반 · 누가기록 · 행발</a>
+  <a href="#homeroom-work">담임 업무</a>
+  <h4>관리자</h4>
+  <a href="#admin">관리 메뉴</a>
+  <h4>학생</h4>
+  <a href="#student">학생 화면</a>
+  <h4>도움</h4>
+  <a href="#common">영랑이 · 메뉴 · 내 정보</a>
+  <a href="#faq">자주 묻는 질문</a>
+</nav>
+
+<main>
+<header class="hero" data-k="intro">
+  <small>사용 매뉴얼</small>
+  <h1>속초고등학교 학생관리시스템<br>이렇게 써요</h1>
+  <p>수업에서 본 것을 조각으로 모으고, 조각으로 생기부 글을 짓고, 나이스에 한 번에 넣는 데까지. 역할별로 필요한 부분만 골라 읽으세요.</p>
+  <div class="roles">
+    <a href="#flow"><b>교과 교사</b><span>세특 · 수행평가 · 나이스</span></a>
+    <a href="#homeroom"><b>담임</b><span>누가기록 · 행발 · 받은 초안</span></a>
+    <a href="#programs"><b>특색활동 담당</b><span>설문 → AI 초안 → 검토</span></a>
+    <a href="#student"><b>학생</b><span>설문 · 서류 · 신청</span></a>
+  </div>
+</header>
+
+<section id="start" data-k="로그인 비밀번호 인증코드 처음 계정">
+  <h2>처음 들어가기</h2>
+  <p class="lead">계정은 관리자가 만들어 드려요. 처음 받은 인증코드로 들어가면 비밀번호부터 바꿔요.</p>
+  <div class="card">
+    <ol class="steps">
+      <li>관리자에게 받은 아이디와 <b>초기 인증코드</b>로 로그인해요.</li>
+      <li>비밀번호를 8자 이상으로 바꿔요. 바꾸기 전에는 다른 화면에 들어갈 수 없어요.</li>
+      <li>교사는 <b>홈</b>, 담임만 맡은 선생님은 <b>우리 반 홈</b>, 학생은 <b>학생 홈</b>이 첫 화면이에요.</li>
+      <li>교과를 맡았다면 먼저 <a href="#subjects">내 수업</a>에서 담당 과목과 반을 정해요. 그래야 세특 메뉴에 학생이 나와요.</li>
+    </ol>
+  </div>
+  <div class="tip"><b>PC · 모바일 모두 돼요.</b>나이스 입력만 PC 크롬에서 해요. 나머지는 휴대폰에서도 같은 기능을 써요.</div>
+</section>
+
+<section id="screen" data-k="화면 사이드바 메뉴 홈 모바일 탭">
+  <h2>화면 둘러보기</h2>
+  <p class="lead">왼쪽 사이드바는 묶음으로 나뉘어 있어요. 맡은 역할에 따라 보이는 묶음이 달라요.</p>
+  <table>
+    <tr><th style="width:120px">묶음</th><th>메뉴</th><th style="width:150px">보이는 사람</th></tr>
+    <tr><td><b>업무</b></td><td>학사일정 · 나이스 입력 · 담당 학생 · 학생 리포트 · 상담 기록 · 학생 등록 · 문장 보관함 · 생기부 팁</td><td>교사 모두</td></tr>
+    <tr><td><b>세특</b></td><td>내 수업 · 조각 모으기 · 수행평가 · 글 짓기 · 글 모아 보기</td><td>교과 교사</td></tr>
+    <tr><td><b>동아리</b></td><td>내 동아리 · 조각 모으기 · 글 짓기 · 글 모아 보기</td><td>교사 모두</td></tr>
+    <tr><td><b>특색활동</b></td><td>내 프로그램 · 새 프로그램 · 초안 검토 · 프로그램 일정 · 봉사 확인서</td><td>교사 모두</td></tr>
+    <tr><td><b>담임</b></td><td>우리 반 홈 · 누가기록 · 글 짓기 · 받은 초안 · 글 모아 보기 (+ 업무 끝에 학생 기록 · 봉사 받은함 · 성적 업로드 · 수능 최저 · 야간 자율학습)</td><td>담임</td></tr>
+    <tr><td><b>관리</b></td><td>관리 현황 · 오류 처리 · 초안 생성 현황 · 학생부 점검 · 자료 보존 · 계정 관리 · 과목 개설 · 편제표 · 감사 로그</td><td>관리자</td></tr>
+  </table>
+  <figure class="shot"><img src="home.webp" alt="교사 홈 화면" loading="lazy"><figcaption>교사 홈 — 오늘 할 일과 학사일정, 바로 가기가 모여 있어요</figcaption></figure>
+  <div class="tip"><b>메뉴 순서는 바꿀 수 있어요.</b>사이드바 아래 <span class="btn">⠿ 메뉴 순서 바꾸기</span>를 누르고 끌어서 옮겨요. 자세한 건 <a href="#common">메뉴 순서</a>를 보세요.</div>
+</section>
+
+<section id="privacy" data-k="개인정보 가명 AI 실명 파일 저장 추가만 확정">
+  <h2>개인정보 · AI 원칙</h2>
+  <p class="lead">AI를 많이 쓰지만, 학생 정보는 이렇게 지켜요.</p>
+  <div class="grid2">
+    <div class="card"><h3>AI에는 가명만</h3><p>이름 · 학번 대신 가명ID(S001…)를 보내요. 올린 파일 속 이름 · 학번도 가린 뒤 보내요.</p></div>
+    <div class="card"><h3>파일은 남기지 않아요</h3><p>조각 · 수행평가 자료 파일은 AI가 읽은 <b>요약만</b> 남기고 파일은 저장하지 않아요. 학생 제출 원본은 보존 기간이 지나면 지워져요.</p></div>
+    <div class="card"><h3>기록은 추가만</h3><p>확정본 · 상담 · 조각 · 누가기록은 지우지 않고 <b>새 버전</b>으로 쌓여요. AI 원안도 따로 보관해 비교할 수 있어요.</p></div>
+    <div class="card"><h3>확정은 선생님이</h3><p>AI가 쓴 글은 언제나 초안이에요. 반 전체 글 쓰기도 <b>임시 저장만</b> 하고, 확정 · 나이스 저장은 선생님이 직접 눌러요.</p></div>
+  </div>
+  <div class="warn"><b>주의</b>엑셀 · 시트로 받은 파일에는 실명이 들어 있어요. 학교 밖으로 보내지 마세요. 주소창(URL)에는 이름 · 학번이 들어가지 않아요.</div>
+</section>
+
+<section id="flow" data-k="흐름 조각 글 짓기 확정 나이스 세특 순서">
+  <h2>기록이 만들어지는 흐름</h2>
+  <p class="lead">세특 · 동아리 · 담임 기록 모두 같은 순서로 만들어요.</p>
+  <div class="flow"><span>① 조각 모으기</span><i>→</i><span>② 글 짓기</span><i>→</i><span>③ 확정</span><i>→</i><span>④ 글 모아 보기</span><i>→</i><span>⑤ 나이스 입력</span></div>
+  <div class="card" style="margin-top:14px">
+    <ul>
+      <li><b>조각</b> = 수업에서 본 한두 줄 메모, 활동 자료 요약, 수행평가 요약, 차시 메모. 학기 내내 쌓아요.</li>
+      <li><b>글 짓기</b>에서 조각을 골라 AI가 목표 바이트에 맞춰 글을 써요. 선생님은 고치고 검사한 뒤 확정해요.</li>
+      <li>확정한 글만 <b>나이스 입력</b>으로 보내요.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="subjects" data-k="내 수업 담당 과목 이동반 분반 명단 공동교육과정 학기">
+  <h2>내 수업 <span class="tag t-key">세특</span></h2>
+  <p class="lead">세특을 쓰기 전에 한 번만 정해 두면 돼요.</p>
+  <figure class="shot"><img src="subjects.webp" alt="내 수업 화면" loading="lazy"><figcaption>내 수업 — 학기 탭과 담당 과목</figcaption></figure>
+  <div class="grid2">
+    <div class="card"><h3>담당 과목 정하기</h3>
+      <ol class="steps">
+        <li>위의 학기 탭 <span class="btn">2학기 · 지금</span> <span class="btn">1학기</span>에서 학기를 골라요. 지금 학기가 먼저 열려요.</li>
+        <li>편제표 과목을 체크하고 <b>고정반 | 이동반</b>을 정해요.</li>
+        <li>고정반은 반 칩을 고르고, 이동반은 <span class="btn">+ 분반</span>으로 분반을 만들어요.</li>
+      </ol>
+    </div>
+    <div class="card"><h3>이동반 분반 명단</h3>
+      <ul>
+        <li><span class="btn">명단 올리기</span> → <b>엑셀로</b>(명단_양식.xlsx) 또는 <b>직접 고르기</b>.</li>
+        <li>직접 고르기: 학년 · 반 칩으로 찾아 체크 → <span class="btn">n명 저장</span>.</li>
+        <li>다른 분반에 있던 학생을 고르면 "2분반 → 옮김"으로 보이고 저장할 때 옮겨져요.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card"><h3>공동교육과정</h3>
+    <ul>
+      <li>담당 과목 칸 맨 아래 <span class="btn">＋ 공동교육과정 수업 추가</span> → 종류(학교 간 | 온라인) · 과목 · 학년 · 학기.</li>
+      <li><b>우리 학교 | 다른 학교</b> 탭. 다른 학교 학생은 <span class="btn">한 명 추가</span>하거나 엑셀에서 붙여 넣어요.</li>
+      <li>다른 학교 학생은 로그인하지 않고 명단에만 있어요. 나이스 입력은 그 학생의 학교가 해요.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="collect" data-k="조각 모으기 메모 자료 업로드 활동명 다듬기 남기기 공통 활동 차시">
+  <h2>조각 모으기 <span class="tag t-key">세특 · 동아리 · 담임</span></h2>
+  <p class="lead">수업 중 본 것을 여러 학생에게 한 번에 남겨요. 바이트는 신경 쓰지 않아도 돼요.</p>
+  <figure class="shot"><img src="collect.webp" alt="조각 모으기 화면" loading="lazy"><figcaption>조각 모으기 — 받는 학생 · 활동명 · [메모 | 자료] · 최근 조각 · 학생별 조각</figcaption></figure>
+  <div class="card">
+    <ol class="steps">
+      <li>위 탭에서 반(분반)을 골라요.</li>
+      <li><b>받는 학생</b>을 체크해요. <span class="btn">모두</span> <span class="btn">비우기</span>도 있어요. 칸의 숫자는 그 학생의 조각 수예요.</li>
+      <li><b>활동명</b>을 적어요(꼭 필요해요). 예: 빗면 실험.</li>
+      <li><b>메모</b> 탭: 본 것을 한두 줄로 적어요. <span class="btn">AI 다듬기</span>를 누르면 전 · 후를 보여 주고 <span class="btn">이걸로 바꾸기</span>를 눌러야 바뀌어요.</li>
+      <li><b>자료</b> 탭: 활동지 · 보고서 · 사진(PDF · 이미지 · hwpx · txt)을 올리고 <span class="btn">읽기</span> → 요약이 메모 칸에 들어가요. 고쳐 써도 돼요.</li>
+      <li><span class="btn p">n명에게 남기기</span>. 활동명과 학생은 그대로 남아 이어서 남길 수 있어요.</li>
+    </ol>
+  </div>
+  <div class="card"><h3>공통 활동 · 차시별 활동</h3>
+    <ul>
+      <li>받는 학생 위 <b>공통 활동</b> 카드 → <span class="btn">＋ 공통 활동</span>: 반 전체가 같이 한 활동(예: 체육대회 준비, 실험 보고서)을 활동명 · 날짜 · 설명으로 등록해요.</li>
+      <li>활동을 누르면 학생 자료를 <b>한꺼번에 올려</b>요. 파일 이름의 학번 · 이름으로 학생을 맞추고, 모르는 파일은 학생을 골라 줘요.</li>
+      <li><span class="btn p">✦ 조각 한꺼번에 만들기</span> → 학생마다 "[활동명] …" 조각이 <span class="tag t-key">공통 활동</span> 칩으로 들어가요.</li>
+      <li><b>차시별 활동</b>: 수업 계획을 올리면 메모 칸에서 차시를 눌러 활동명 · 날짜를 채워요.</li>
+    </ul>
+  </div>
+  <div class="tip"><b>조각이 적은 학생부터.</b>오른쪽 <b>학생별 조각</b>은 적은 순이에요. <span class="btn">글 짓기 ›</span>로 바로 넘어가요.</div>
+</section>
+
+<section id="assess" data-k="수행평가 합본 PDF 나누기 번호순 페이지 지정 보고서">
+  <h2>수행평가 <span class="tag t-key">세특</span> <span class="tag t-new">NEW</span></h2>
+  <p class="lead">수행평가를 등록하고 학생 자료를 올리면 AI가 학생마다 읽어 요약을 조각으로 넣어 줘요.</p>
+  <figure class="shot"><img src="assess.webp" alt="수행평가 화면" loading="lazy"><figcaption>수행평가 — 자료 진행 막대 · 합본 PDF 나누기 · 학생 칸 · AI 요약</figcaption></figure>
+  <div class="grid2">
+    <div class="card"><h3>등록</h3>
+      <ol class="steps">
+        <li><span class="btn p">＋ 수행평가 등록</span>을 눌러요.</li>
+        <li>이름(40자) · 날짜 · 평가 내용 · 기준(500자, 선택)을 적어요. 평가 기준은 AI가 자료를 읽을 때 참고해요.</li>
+      </ol>
+    </div>
+    <div class="card"><h3>학생 자료 올리기</h3>
+      <ul>
+        <li><span class="btn">학생 자료 한 명씩</span>: 학생을 고르고 파일 하나 → <span class="btn">올리고 읽기</span>.</li>
+        <li>학생 칸의 <span class="tag t-key">올리기</span>를 눌러도 그 학생으로 바로 열려요.</li>
+        <li><span class="tag t-ok">✓ 자료</span> 칸을 누르면 아래에 AI 요약이 보여요.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card"><h3>합본 PDF 나누기</h3>
+    <p>반 전체 보고서를 한 PDF로 스캔했다면, 브라우저에서 학생별로 나눠요. 큰 파일도 돼요.</p>
+    <table>
+      <tr><th style="width:130px">방식</th><th>쓰는 법</th></tr>
+      <tr><td><b>번호순</b></td><td>한 사람 몇 쪽인지 ＋/− 로 정하면 명렬표 번호순으로 나눠요. "13명 = 26쪽 딱 맞음"처럼 맞는지 알려 줘요.</td></tr>
+      <tr><td><b>페이지 지정</b></td><td>시작 쪽 – 끝 쪽 – 학생을 한 줄씩 적어요. <span class="btn">＋ 구간 추가</span>. 겹치거나 범위를 벗어나면 막아요. 결석생은 빼면 돼요.</td></tr>
+    </table>
+    <p style="margin-top:10px">→ <span class="btn p">n명 자료 만들기</span>를 누르면 "3 / 13명 읽는 중"처럼 차례로 읽어요.</p>
+  </div>
+  <div class="tip"><b>글 짓기에 바로 들어가요.</b>요약은 <span class="tag t-warn">수행평가</span> 조각으로 글 짓기 왼쪽 칸에 나와요. 수행평가를 지워도 요약 조각은 남아요.</div>
+</section>
+
+<section id="compose" data-k="글 짓기 목표 바이트 오차 게이트 내 스타일 역량 문단 수정 요청 자동 검사 도구 근거 다른 버전 성취수준 기재요령 반 전체 확정 임시 저장">
+  <h2>글 짓기 <span class="tag t-key">세특 · 동아리 · 담임</span></h2>
+  <p class="lead">한 학생씩, 조각을 골라 AI로 쓰고 고친 뒤 확정해요.</p>
+  <figure class="shot"><img src="compose.webp" alt="글 짓기 화면" loading="lazy"><figcaption>글 짓기 — 왼쪽 조각 칸 · 오른쪽 글 칸 · 아래 줄</figcaption></figure>
+  <div class="card"><h3>기본 순서</h3>
+    <ol class="steps">
+      <li>위 줄에서 반과 학생을 골라요. ‹ › 로 넘기고, 상태 칩(미작성 · 작성 중 · 확정)이 보여요.</li>
+      <li><b>왼쪽 조각 칸</b>에서 넣을 조각을 체크해요. <span class="btn">꼭 넣기만</span> <span class="btn">최근 3개</span> · 기간 고르기 · <span class="btn">★ 꼭</span>.</li>
+      <li><b>목표</b>(예: 1,500B)와 <b>오차</b>(±30 · ±50 · ±100)를 정해요. 한글 1자 = 3바이트, 나이스 한도를 넘지 않아요.</li>
+      <li><span class="btn p">고른 조각 n개로 글 쓰기</span>. AI가 첫 글 → 빠진 조각 넣기 → 분량 맞추기 순서로 써요.</li>
+      <li><b>게이트</b> 칩을 확인해요. <span class="tag t-ok">✓ 분량 1,482 / 1,500B · 게이트 통과</span> 실패하면 <span class="btn">다시 맞추기</span>.</li>
+      <li>고치고 검사한 뒤 아래 <span class="btn">임시 저장</span> 또는 <span class="btn p">✓ 확정</span>.</li>
+    </ol>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>새로 쓰기 | 지금 글에 더하기</h3><p>더하기는 지금 글을 그대로 잠가 두고, 새로 고른 조각으로 뒤에 이어 써요. 남은 바이트만큼만 써요.</p></div>
+    <div class="card"><h3>내 스타일</h3><p><span class="btn">만들기 ›</span>에서 영역(세특 · 창체 · 행발)마다 내 프롬프트(2,000자)와 레퍼런스 생기부(최대 3개)를 넣어요. 구조 · 문장 길이 · 서술어만 본뜨고 내용은 가져오지 않아요.</p></div>
+  </div>
+  <div class="card"><h3>도구 줄 <span class="tag t-new">NEW</span></h3>
+    <p>주 버튼 아래에 늘 보여요(예전 "더보기").</p>
+    <table>
+      <tr><th style="width:130px">도구</th><th>하는 일</th></tr>
+      <tr><td>근거 보기</td><td>문장마다 어떤 조각에서 왔는지 보여 줘요.</td></tr>
+      <tr><td>다른 버전</td><td>뜻 그대로 / 새롭게 다시 쓴 글을 나란히 보고 골라요.</td></tr>
+      <tr><td>보관함</td><td>문장 보관함의 좋은 문장을 찾아 넣어요.</td></tr>
+      <tr><td>성취수준</td><td>학생 성취수준(A~E 또는 상 · 중 · 하)을 정하면 글의 평가 수준이 맞춰져요.</td></tr>
+      <tr><td>키워드 메뉴판</td><td>행발에서 생활 키워드 다섯 묶음을 골라 써요.</td></tr>
+      <tr><td>기재요령</td><td>학교생활기록부 기재요령 원문을 쪽수와 함께 찾아봐요.</td></tr>
+    </table>
+  </div>
+  <div class="grid3">
+    <div class="card"><h3>역량 확인</h3><p>글 아래에 학업 · 진로 · 공동체 문장 수와 빠진 평가항목이 바로 보여요. <span class="btn">문장 색으로 보기 ›</span>는 결과를 저장해 같은 글이면 AI를 다시 부르지 않아요.</p></div>
+    <div class="card"><h3>수정 요청</h3><p>"더 구체적으로" · "진로와 잇기" · "줄여서 핵심만" 칩이나 200자 요청 → 전 · 후 비교 → <span class="btn">이걸로 바꾸기</span>.</p></div>
+    <div class="card"><h3>자동 검사</h3><p>바이트 · 이름 · 학번 · 금칙어 · 맞춤법 · 반복 · 근거보다 높은 평가를 봐요. 금칙어 · 실명 · 한도 초과는 확정이 안 돼요.</p></div>
+  </div>
+  <div class="card"><h3>문단 나누기 · 반 전체</h3>
+    <ul>
+      <li><b>문단 나누기</b> 켬/끔: 읽기 편하게 보기만 나눠요. 저장 · 바이트 · 나이스에는 한 문단으로 들어가요.</li>
+      <li>머리의 <span class="btn">반 전체 ⌄</span> → <b>반 전체 글 쓰기</b>(조각은 있고 글은 없는 학생을 AI가 쓰고 임시 저장만) · <b>반 전체 검사</b> · <b>시트용 복사</b> · <b>엑셀로 받기</b>.</li>
+      <li>공통과목은 1 · 2학기 합산 500자 안내가 나와요. 한도: 세특 · 창체 1,500B, 행발 900B.</li>
+    </ul>
+  </div>
+  <div class="tip"><b>넘어가기 전에</b>저장하지 않은 글이 있으면 "임시 저장하고 넘어갈까요?"를 물어요.</div>
+</section>
+
+<section id="texts" data-k="글 모아 보기 복사 엑셀 확정">
+  <h2>글 모아 보기</h2>
+  <p class="lead">세특 · 창체 · 행발 · 누가기록을 한 표로 봐요.</p>
+  <div class="card"><ul>
+    <li>과목 · 분반을 고르고 <b>확정만 | 전체</b>로 걸러요(처음엔 확정만).</li>
+    <li>줄마다 복사, 또는 <span class="btn">모두 복사</span> · <span class="btn">엑셀로 받기</span>.</li>
+    <li>내가 맡은 학생 글만 보여요.</li>
+  </ul></div>
+</section>
+
+<section id="neis" data-k="나이스 입력 북마클릿 복사 붙여넣기 대조 이동반 엑셀">
+  <h2>나이스 입력</h2>
+  <p class="lead">확정한 글을 나이스 화면에 한 번에 채워요. 설치는 북마크 하나면 돼요(PC 크롬).</p>
+  <figure class="shot"><img src="neis.webp" alt="나이스 입력 화면" loading="lazy"><figcaption>나이스 입력 — 세 단계 카드와 보낼 기록</figcaption></figure>
+  <div class="card">
+    <ol class="steps">
+      <li><b>버튼 달기(처음 한 번):</b> <span class="btn p">나이스 입력</span> 버튼을 크롬 북마크바로 끌어다 놓아요. 안 되면 <span class="btn">다는 방법</span> → 주소 복사 → 새 북마크 주소에 붙여 넣기. 버전이 바뀌면 다시 달아요.</li>
+      <li><b>복사:</b> 보낼 기록에서 과목마다 <span class="btn p">복사</span>. 확정한 글만 들어가요. 이동반은 분반을 합쳐 <b>과목 한 줄</b>로 복사돼요.</li>
+      <li><b>채우기:</b> 나이스 화면에서 북마크 버튼 → Ctrl+V → 반 고르기 · 덮어쓰기/이어쓰기 → <span class="btn">한 번에 채우기</span>.</li>
+      <li><b>대조:</b> 채운 뒤 자동으로 일치 · 다름 · 못 찾음을 보여 줘요. 다르면 <span class="btn">다른 것만 다시 채우기</span>.</li>
+      <li><b>저장은 선생님이</b> 나이스에서 직접 눌러요. 끝나면 <span class="btn">흔적 지우기</span>로 클립보드를 비워요.</li>
+    </ol>
+  </div>
+  <div class="tip"><b>⋯ 더보기</b>시트용 복사 · 엑셀로 받기(AI 원안과 최종 글을 나란히) · 파일로 받기.</div>
+</section>
+
+<section id="work" data-k="학사일정 담당 학생 상담 기록 학생 등록 엑셀 노션">
+  <h2>업무 — 학사일정 · 학생 · 상담</h2>
+  <div class="grid2">
+    <div class="card"><h3>학사일정</h3><ul>
+      <li><b>목록 | 이번 주 | 이번 달</b>로 바꿔 봐요. 온라인 교무실(노션) 일정은 <span class="tag t-key">노션</span> 태그로 자동으로 들어와요.</li>
+      <li><span class="btn">＋ 일정 추가</span>: 이름 · 날짜 · 대상 학년 · 메모. 올린 사람만 고치고 지워요.</li>
+    </ul></div>
+    <div class="card"><h3>담당 학생</h3><ul>
+      <li>이름 · 학번으로 찾거나 "2학년 3반 여학생"처럼 말로 찾아요(<span class="btn">AI로 찾기</span>).</li>
+      <li>학생을 누르면 기록 · 역량 보기를 한곳에서 봐요.</li>
+    </ul></div>
+    <div class="card"><h3>상담 기록</h3><ul>
+      <li>학생을 찾고 <span class="btn">상담 기록 시작</span>. <b>질문 추천</b>으로 물어볼 질문 3개를 받아요.</li>
+      <li>교과 교사는 본인 기록만, 담임은 반 학생 전체를 봐요. 학생은 볼 수 없어요.</li>
+    </ul></div>
+    <div class="card"><h3>학생 등록</h3><ul>
+      <li><span class="btn">양식 받기</span> → 학번 · 학년 · 반 · 번호 · 이름 · 성별 · 계열 → <span class="btn">명단 업로드</span> → 등록 요약 → <span class="btn p">등록하기</span>.</li>
+      <li>1행 제목이 양식과 같아야 읽어요.</li>
+    </ul></div>
+  </div>
+  <figure class="shot"><img src="schedule.webp" alt="학사일정 화면" loading="lazy"><figcaption>학사일정 — 목록 · 이번 주 · 이번 달</figcaption></figure>
+</section>
+
+<section id="reports" data-k="학생 리포트 PDF 인쇄 한눈에 상담">
+  <h2>학생 리포트</h2>
+  <p class="lead">우리 반 · 내 분반 · 내 동아리 학생 기록을 학생마다 A4 한 장으로 뽑아요.</p>
+  <figure class="shot"><img src="reports.webp" alt="학생 리포트 화면" loading="lazy"><figcaption>학생 리포트 — 대상 · 기간 · 넣을 것</figcaption></figure>
+  <div class="card"><ol class="steps">
+    <li>대상(우리 반 / 내 분반 / 내 동아리)과 기간(1학기 · 2학기 · 1년)을 골라요.</li>
+    <li>넣을 것: 교과 세특 · 창체 · 행발 · 누가기록 · 특색활동 · 봉사 · 상담(처음엔 꺼짐) · AI 한눈에 보기.</li>
+    <li><span class="btn">한눈에 보기 만들기</span>로 강점 · 자란 점 · 다음에를 정리하고 "선생님 한마디"를 적어요.</li>
+    <li><span class="btn p">n명 PDF로 저장</span> 또는 인쇄. 한마디 · AI 결과는 저장하지 않아요. 상담 글은 AI에 보내지 않아요.</li>
+  </ol></div>
+</section>
+
+<section id="library" data-k="문장 보관함 생기부 팁 게시판 DDAR 서술어">
+  <h2>문장 보관함 · 생기부 팁</h2>
+  <div class="grid2">
+    <div class="card"><h3>문장 보관함</h3><ul>
+      <li>글에서 문장을 골라 <span class="btn">보관</span> → 영역 · 태그.</li>
+      <li>글 짓기 도구 줄의 <b>보관함</b>에서 찾아 넣어요. 이름 · 학번은 빼고 저장돼요.</li>
+    </ul></div>
+    <div class="card"><h3>생기부 팁</h3><ul>
+      <li>DDAR 구조 · 증거어 · 서술어 LV1~3 · AI 티 줄이기 · 체크리스트 등 처음 글 11개가 있어요.</li>
+      <li>분류 칩과 찾기, <span class="btn">내용 복사</span>.</li>
+      <li><span class="btn">＋ 팁 올리기</span>로 선생님 누구나 올려요. 학생 이름 · 학번이 있으면 올라가지 않아요.</li>
+    </ul></div>
+  </div>
+  <figure class="shot"><img src="tips.webp" alt="생기부 팁 게시판" loading="lazy"><figcaption>생기부 팁 — 분류 · 목록 · 글</figcaption></figure>
+</section>
+
+<section id="club" data-k="동아리 부원 누가기록 조각 글 짓기">
+  <h2>동아리</h2>
+  <div class="card"><ul>
+    <li><b>내 동아리</b>: <span class="btn">동아리 만들기</span>, 부원은 명단 양식 엑셀로 넣어요.</li>
+    <li><b>조각 모으기</b>: 세특과 같은 화면이에요. 남긴 조각은 <b>동아리 누가기록</b>이 돼요. [메모 | 자료]도 돼요.</li>
+    <li><b>글 짓기</b> · <b>글 모아 보기</b>: 세특과 같은 순서로 동아리 특기사항을 써요.</li>
+  </ul></div>
+</section>
+
+<section id="programs" data-k="특색활동 프로그램 설문 서류 AI 초안 검토 확정 담임 전달 명단 PDF 나누기 계획서">
+  <h2>특색활동 프로그램</h2>
+  <p class="lead">설문 · 서류를 받으면 AI가 학생별 초안을 만들고, 담당 교사가 검토 · 확정하면 담임에게 전달돼요.</p>
+  <div class="flow"><span>① 받는 중</span><i>→</i><span>② 마감</span><i>→</i><span>③ 초안 만들기</span><i>→</i><span>④ 검토 · 확정</span><i>→</i><span>⑤ 담임 전달</span></div>
+  <figure class="shot"><img src="programs.webp" alt="내 프로그램 화면" loading="lazy"><figcaption>내 프로그램 — 카드마다 단계와 다음 할 일 버튼</figcaption></figure>
+  <div class="card"><h3>새 프로그램 만들기</h3>
+    <ol class="steps">
+      <li><b>기본 정보</b>: "계획서로 채우기"(PDF · HWPX · 이미지)로 자동 입력하거나 직접 적어요. 기록 영역 · 분량 · 기간.</li>
+      <li><b>근거 자료</b>: 설문 / 서류 / 둘 다 / 외부 글.</li>
+      <li><b>설문 문항</b>: 기본 4문항 + 추가 3개까지, <span class="btn">추천받기</span>.</li>
+      <li><b>대상 학생</b>: 반 칩 · 검색 · 엑셀.</li>
+      <li><b>확인</b> → <span class="btn p">등록하기</span>.</li>
+    </ol>
+  </div>
+  <table>
+    <tr><th style="width:140px">단계</th><th>누를 버튼</th></tr>
+    <tr><td>① 받는 중</td><td><span class="btn">미응답 n명에게 알리기</span> · <span class="btn">지금 마감</span></td></tr>
+    <tr><td>② 마감</td><td><span class="btn p">초안 만들기 n명</span></td></tr>
+    <tr><td>③ 초안 만들기</td><td><span class="btn">검토하러 가기</span> · <span class="btn">실패 k건 다시 만들기</span></td></tr>
+    <tr><td>④ 검토 · 확정</td><td>자동 검사 · 근거 · 원안 비교를 보고 확정 → 담임 <b>받은 초안</b>으로 자동 전달</td></tr>
+  </table>
+  <div class="grid2" style="margin-top:14px">
+    <div class="card"><h3>학생 메모 · 다시 쓰기</h3><p>학생 줄을 눌러 교사 메모를 적고 <span class="btn">메모 반영해 다시 쓰기</span>. 외부 기관 글은 <span class="btn">직접 넣기</span>로 AI 없이 넣어요.</p></div>
+    <div class="card"><h3>명단 · 합본 PDF</h3><p>학생별 현황에서 명단 양식 업로드. 자료 관리 → <span class="btn">합본 PDF 나누기</span>(구간 지정 / 몇 쪽씩, <span class="btn">제안 받기</span>로 첫 쪽 이름을 찾아 줘요).</p></div>
+  </div>
+  <div class="tip"><b>초안 검토 메뉴</b>검토가 남은 첫 프로그램의 초안 검토 탭으로 바로 가요. 배지 숫자가 남은 건수예요.</div>
+</section>
+
+<section id="service" data-k="봉사 확인서 50자 담임 확인">
+  <h2>봉사 확인서</h2>
+  <div class="card"><ol class="steps">
+    <li><span class="btn">확인서 올리기</span>(여러 장) → <span class="btn">읽고 학생 매칭</span>.</li>
+    <li>기관 · 시간 · 활동내용을 확인해요. 활동내용은 50자(150B) 검사, 넘으면 <span class="btn">줄이기</span>.</li>
+    <li><span class="btn p">이 줄 보내기</span> → 담임 <b>봉사 받은함</b>의 확인 대기로 가요.</li>
+  </ol></div>
+</section>
+
+<section id="homeroom" data-k="담임 우리 반 누가기록 행발 행동특성 받은 초안 자율 진로">
+  <h2>담임 — 우리 반 · 누가기록 · 행발</h2>
+  <figure class="shot"><img src="homeroom.webp" alt="우리 반 홈" loading="lazy"><figcaption>우리 반 홈 — 브리핑 · 먼저 볼 학생 · 오늘 야자 · 받은 초안</figcaption></figure>
+  <div class="grid2">
+    <div class="card"><h3>누가기록</h3><p>담임의 조각 모으기예요. 받는 학생은 우리 반, 영역(자율 · 자치 | 진로)을 고르고 날짜와 함께 남겨요. [메모 | 자료] 모두 돼요.</p></div>
+    <div class="card"><h3>글 짓기</h3><p>탭 <b>행발 | 자율 · 자치 | 진로</b>. 누가기록과 받은 특색활동 초안이 조각으로 들어와요. 행발 목표는 900B, 도구 줄의 <b>키워드 메뉴판</b>을 써요.</p></div>
+    <div class="card"><h3>받은 초안</h3><p>프로그램 선생님이 확정한 특색활동 초안이 학생별로 모여요. 담임에게 오는 건 특색활동 초안과 봉사뿐이에요.</p></div>
+    <div class="card"><h3>학생 기록</h3><p>학생마다 초안 · 상담 · 야자 · 누가기록 · 봉사 탭과 역량 보기를 한곳에서 봐요.</p></div>
+  </div>
+  <figure class="shot"><img src="logs.webp" alt="누가기록 화면" loading="lazy"><figcaption>누가기록 — 영역 · 날짜 · 메모</figcaption></figure>
+</section>
+
+<section id="homeroom-work" data-k="봉사 받은함 성적 업로드 수능 최저 야간 자율학습 야자 출석">
+  <h2>담임 업무</h2>
+  <div class="grid2">
+    <div class="card"><h3>봉사 받은함</h3><p>확인 대기 → <span class="btn">확인</span>. 활동내용을 고치면 <span class="btn">바꾸고 확인</span>(원문은 남아요). 학생별 누적 · 반 총 시간.</p></div>
+    <div class="card"><h3>성적 업로드</h3><p>엑셀이나 성적표 사진 · PDF를 올려요. AI는 열 제목이나 번호 · 등급만 읽어요. 검증(명단에 없음 · 번호 중복 · 범위) 뒤 <span class="btn p">반영</span>.</p></div>
+    <div class="card"><h3>수능 최저</h3><p>대학별 기준을 넣고(모집요강 문구로 <span class="btn">기준 채우기</span>) 충족 · 근접 · 미충족을 판정 → <span class="btn">상담 명단 만들기</span>.</p></div>
+    <div class="card"><h3>야간 자율학습</h3><p>학생 신청을 승인하고 <span class="btn">출석 체크</span>. 출결 살펴보기와 확인 메시지 초안 → <span class="btn">확인 후 보내기</span>.</p></div>
+  </div>
+</section>
+
+<section id="admin" data-k="관리자 계정 오류 학생부 점검 자료 보존 과목 개설 편제표 감사 로그 성취수준">
+  <h2>관리 메뉴 <span class="tag t-bad">관리자</span></h2>
+  <p class="lead">관리자는 모든 권한을 가진 교사예요. 사이드바 맨 아래 <b>관리</b> 묶음(처음엔 접힘)에 있어요.</p>
+  <figure class="shot"><img src="admin.webp" alt="관리 현황" loading="lazy"><figcaption>관리 현황</figcaption></figure>
+  <table>
+    <tr><th style="width:140px">메뉴</th><th>하는 일</th></tr>
+    <tr><td>관리 현황</td><td>오늘 접속 · 계정 대기 · 오류 · 최근 활동. 학교 설정에서 성취수준 단계(A~E / 상 · 중 · 하).</td></tr>
+    <tr><td>오류 처리</td><td>초안 생성 실패 → <span class="btn">모두 다시 시도</span> / <span class="btn">수동 작성 요청</span>.</td></tr>
+    <tr><td>초안 생성 현황</td><td>프로그램별 생성 · 실패 건수와 원인.</td></tr>
+    <tr><td>학생부 점검</td><td>학년 · 영역별 확정 · 작성 중 · 미작성 · 확인 필요 건수. 인쇄용 보고서(결재란) · 엑셀. 글과 이름은 보이지 않아요.</td></tr>
+    <tr><td>자료 보존</td><td>학생 원본 파일 · 읽은 글의 보존 기간, 파기 예정 목록, 한 번 미루기(30일). 지운 파일은 되살릴 수 없어요.</td></tr>
+    <tr><td>계정 관리</td><td>교사 한 명 또는 교사명부 엑셀로 여러 명 추가.</td></tr>
+    <tr><td>과목 개설 · 편제표</td><td>학생 과목 신청용 과목 열기, 학년 · 학기별 편제표와 담당 교사 없는 과목.</td></tr>
+    <tr><td>감사 로그</td><td>누가 무엇을 했는지 기간별로. 이름 대신 가명ID와 건수만 남아요.</td></tr>
+  </table>
+</section>
+
+<section id="student" data-k="학생 설문 서류 제출 성적 생활기록부 추천 야자 신청 과목 신청">
+  <h2>학생 화면</h2>
+  <p class="lead">학생에게 안내할 때 보세요. 학생 하단 탭: 제출 · 성적 · 홈 · 생기부 · 메뉴.</p>
+  <div class="grid2">
+    <figure class="shot" style="margin:0"><img src="student.webp" alt="학생 홈" loading="lazy"><figcaption>학생 홈 — 오늘 할 일 · 할 일 정리</figcaption></figure>
+    <figure class="shot" style="margin:0"><img src="submit.webp" alt="설문 · 서류 제출" loading="lazy"><figcaption>설문 · 서류 제출</figcaption></figure>
+  </div>
+  <div class="grid3" style="margin-top:14px">
+    <div class="card"><h3>설문 · 서류 제출</h3><p>프로그램 설문에 답하고 서류(PDF · HWPX · JPG · PNG, 20MB)를 올려 <span class="btn p">제출하기</span>. <span class="btn">힌트 보기</span>는 질문으로만 도와요.</p></div>
+    <div class="card"><h3>성적 · 최저</h3><p>내신 · 모의고사 추이, 목표 대학 최저 충족 여부와 공부 계획.</p></div>
+    <div class="card"><h3>생활기록부</h3><p>확정된 지난 학년도 기록만 보여요. 올해 쓰는 중인 글은 보이지 않아요.</p></div>
+    <div class="card"><h3>추천 활동</h3><p>희망 진로에 맞는 도서 · 대회 · 특강 · 활동을 <span class="btn">추천 받기</span> → 담기.</p></div>
+    <div class="card"><h3>야자 신청</h3><p>요일 · 시간을 골라 <span class="btn">신청</span> → 담임 승인. 이번 주 출석을 봐요.</p></div>
+    <div class="card"><h3>과목 신청</h3><p>과목을 담고 <span class="btn">점검하기</span>로 학점 · 조합을 확인한 뒤 <span class="btn p">신청하기</span>.</p></div>
+  </div>
+</section>
+
+<section id="common" data-k="영랑이 AI 도우미 메뉴 순서 내 정보 비밀번호 사진 모바일">
+  <h2>영랑이 · 메뉴 · 내 정보</h2>
+  <div class="grid3">
+    <div class="card"><h3>영랑이</h3><p>오른쪽 아래 캐릭터 버튼이에요. <b>사용법 문의</b>와 <b>AI로 만들기</b>(안내 문자 · 가정통신문 · 상담 요약 · 회의 메모 정리). 결과는 초안으로만 보여 주고 보내지 않아요.</p></div>
+    <div class="card"><h3>메뉴 순서</h3><p><span class="btn">⠿ 메뉴 순서 바꾸기</span> → 묶음 사이 · 묶음 안으로 끌어서 옮기기 → <span class="btn">완료</span>. <span class="btn">처음대로</span>로 되돌려요. 내 정보에서 메뉴 숨기기도 돼요.</p></div>
+    <div class="card"><h3>내 정보</h3><p>사진 바꾸기 · 비밀번호 바꾸기(8자 이상) · 메뉴 보이기 · 순서 · 로그아웃. 휴대폰은 하단 <b>메뉴</b> 탭에서 들어가요.</p></div>
+  </div>
+  <div class="tip"><b>휴대폰 하단 탭(교사)</b>조각 · 글 짓기 · 홈 · 특색(또는 담임 · 관리) · 메뉴. 조각 · 글 짓기는 마지막에 쓴 묶음(세특 · 동아리 · 담임)으로 가요. 메뉴 화면 위의 <b>메뉴 찾기</b>로 "세특", "바이트"처럼 찾아요.</div>
+</section>
+
+<section id="faq" data-k="자주 묻는 질문 FAQ">
+  <h2>자주 묻는 질문</h2>
+  <details><summary>세특 메뉴에 학생이 안 나와요.</summary><p>내 수업에서 담당 과목과 반(이동반은 분반 명단)을 정했는지 확인하세요. 학기 탭이 맞는지도 보세요.</p></details>
+  <details><summary>나이스 입력에서 [복사]가 회색이에요.</summary><p>확정한 학생이 없어서예요. 글 짓기에서 확정하거나, 글 모아 보기에서 확정 여부를 확인하세요.</p></details>
+  <details><summary>이동반이 1분반 · 2분반으로 따로 나와요.</summary><p>지금은 같은 과목 분반을 한 줄로 합쳐 복사해요. 나이스 입력 버튼(북마크)이 옛 버전이면 지우고 다시 달아 주세요.</p></details>
+  <details><summary>AI가 쓴 글이 목표 바이트보다 짧아요.</summary><p>게이트 칩의 <b>다시 맞추기</b>를 누르거나 조각을 더 골라 다시 쓰세요. 조각이 적으면 분량을 채우려고 내용을 지어내지 않아요.</p></details>
+  <details><summary>올린 자료 파일은 어디에 저장돼요?</summary><p>조각 · 수행평가 자료는 저장하지 않아요. AI가 읽은 요약만 조각으로 남아요. 원본은 선생님 컴퓨터에 보관하세요.</p></details>
+  <details><summary>확정한 글을 고치고 싶어요.</summary><p>글 짓기에서 고친 뒤 <b>다시 확정</b>하면 새 버전으로 남아요. 예전 버전은 지워지지 않아요.</p></details>
+  <details><summary>합본 PDF 쪽수가 학생 수와 안 맞아요.</summary><p>번호순 대신 <b>페이지 지정</b>으로 학생마다 쪽 구간을 적으세요. 비어 있는 학생은 빼면 돼요.</p></details>
+  <details><summary>AI가 꺼져 있다고 나와요.</summary><p>관리자가 AI를 끈 상태예요. 메모 · 확정 · 나이스 입력은 그대로 되고, 글 파일(hwpx · txt)은 앞부분을 그대로 넣어요.</p></details>
+</section>
+
+<p class="hidden" id="empty" style="color:var(--mute)">찾는 말이 있는 부분이 없어요. 다른 낱말로 찾아 보세요.</p>
+<footer>© 2026 속초고등학교 교육과정부 · 화면은 데모 자료(가짜 학생)로 찍었어요.</footer>
+</main>
+</div>
+<button class="menu-btn" id="menuBtn" aria-controls="toc" aria-expanded="false">목차</button>
+<script>
+(function(){
+  var toc=document.getElementById('toc'),btn=document.getElementById('menuBtn');
+  btn.addEventListener('click',function(){var o=toc.classList.toggle('open');btn.setAttribute('aria-expanded',o);btn.textContent=o?'닫기':'목차';});
+  toc.addEventListener('click',function(e){if(e.target.tagName==='A'&&toc.classList.contains('open')){toc.classList.remove('open');btn.textContent='목차';}});
+  var links=[].slice.call(toc.querySelectorAll('a'));
+  var secs=links.map(function(a){return document.querySelector(a.getAttribute('href'));});
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){links.forEach(function(a){a.classList.toggle('on',a.getAttribute('href')==='#'+e.target.id);});}});},{rootMargin:'-20% 0px -70% 0px'});
+  secs.forEach(function(s){if(s)io.observe(s);});
+  var q=document.getElementById('q'),all=[].slice.call(document.querySelectorAll('main section')),empty=document.getElementById('empty');
+  q.addEventListener('input',function(){
+    var v=q.value.trim().toLowerCase(),n=0;
+    all.forEach(function(s){var hit=!v||(s.dataset.k+' '+s.textContent).toLowerCase().indexOf(v)>=0;s.classList.toggle('hidden',!hit);if(hit)n++;});
+    links.forEach(function(a,i){a.classList.toggle('hidden',!!secs[i]&&secs[i].classList.contains('hidden'));});
+    empty.classList.toggle('hidden',n>0);
+  });
+})();
+</script>
+</body>
+</html>

@@ -49,6 +49,7 @@ export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
             <div className="text-[14px] font-bold">사용 가이드</div>
             <div className="mt-0.5 text-[12px] text-mute">{viewer.kind === "student" ? "처음 쓰는 학생을 위한 안내" : "처음 쓰는 선생님을 위한 안내"}</div>
             <GuideButton />
+            <a href="/manual/index.html" target="_blank" rel="noopener" className="mt-2 block text-center text-[12px] font-bold text-key-strong hover:underline">사용 매뉴얼 보기 ↗</a>
           </div>
           <div className="hidden group-data-[mini=true]/side:block"><GuideButton mini /></div>
           <form action={logout} className="pt-2">
