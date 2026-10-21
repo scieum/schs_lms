@@ -11,7 +11,7 @@ export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) 
   const rows = (await repo.listStudents())
     .filter((s) => set.has(s.id))
     .sort((a, b) => a.grade - b.grade || a.classNo - b.classNo || a.number - b.number)
-    .map((s) => [s.studentNo, String(s.grade), String(s.classNo), String(s.number), s.name, ""]);
+    .map((s) => [s.studentNo, s.name, ""]);
   await repo.audit(v.accountId, "program.external_template", `${program.id} n=${rows.length}`);
   return templateResponse("external", { rows });
 }

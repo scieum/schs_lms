@@ -82,7 +82,7 @@ describe("로그인 잠금", () => {
 
 describe("학생 등록 — 엑셀", () => {
   it("1행 제목이 양식과 같을 때만 읽는다 (앞뒤 공백·오른쪽 빈 칸은 괜찮음)", () => {
-    const cols = TEMPLATES.register.columns;
+    const cols = TEMPLATES.register.legacy!;
     expect(sameHeader([" 학번", ...cols.slice(1), ""], cols)).toBe(true);
     expect(sameHeader(["학년", "학급", "번호", "성명", "남녀"], cols)).toBe(false);
     expect(sameHeader([...cols.slice(0, 4), "성명", ...cols.slice(5)], cols)).toBe(false);
@@ -92,7 +92,7 @@ describe("학생 등록 — 엑셀", () => {
   });
   it("양식 줄 → 학생 행 (빈 줄은 건너뛰고 엑셀 행 번호 유지), 학번은 학년·반·번호와 같아야", () => {
     const body = readTemplate([
-      [...TEMPLATES.register.columns],
+      [...TEMPLATES.register.legacy!],
       ["20301", "2", "3", "1", "김하늘", "여", ""],
       [],
       ["", "2", "3", "2", "최지호", "남", "1"],

@@ -1,7 +1,7 @@
 "use server";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { checkOne, checkRows, myeongnyeolRows, nextPseudonymIds, readMyeongnyeol, registerRows, summarize, type CheckedRow, type RawStudent } from "@/lib/domain/roster";
+import { checkOne, checkRows, myeongnyeolRows, nextPseudonymIds, readMyeongnyeol, readNoNameRoster, registerRows, summarize, type CheckedRow, type RawStudent } from "@/lib/domain/roster";
 import { parseStudentQuery, type StudentFilter } from "@/lib/domain/teacher-assist";
 import { parseStudentSearch } from "@/lib/server/ai/teacher-ai";
 import { env } from "@/lib/server/env";
@@ -17,8 +17,8 @@ export type PreviewState =
       fileName: string;
       rows: CheckedRow[];
       summary: ReturnType<typeof summarize>;
-      /** 학교 명렬표에서 읽음: 성별 칸이 없어 화면에서 고른다 */
-      myeongnyeol?: { grade: number; classNo: number };
+      /** 학교 명렬표 · 학번 · 이름 명단에서 읽음: 성별 칸이 없으면 화면에서 고른다 (label: "3학년 1반" · "1~3학년 600명") */
+      myeongnyeol?: { label: string };
     }
   | { kind: "done"; count: number; firstId: string; lastId: string };
 
@@ -30,11 +30,18 @@ export async function previewRoster(_: PreviewState, form: FormData): Promise<Pr
   const r = await readTemplateFile(file, "register");
   if ("error" in r) {
     // 양식이 아니면 학교 명렬표(나이스 "학생명렬표" xlsx · csv)인지 본다
-    const grid = await readGrid(file);
+    const grid = await readGrid(file, 3000);
     const m = grid && readMyeongnyeol(grid);
-    if (!m) return { kind: "error", message: `${r.error} · 학교 명렬표(학생명렬표 엑셀 · CSV)도 읽어요`, fileName };
-    const checked = checkRows(myeongnyeolRows(m), await repo.existingStudentNos());
-    return { kind: "preview", fileName: fileName ?? "", rows: checked, summary: summarize(checked), myeongnyeol: { grade: m.grade, classNo: m.classNo } };
+    if (m) {
+      const checked = checkRows(myeongnyeolRows(m), await repo.existingStudentNos());
+      return { kind: "preview", fileName: fileName ?? "", rows: checked, summary: summarize(checked), myeongnyeol: { label: `학교 명렬표 · ${m.grade}학년 ${m.classNo}반` } };
+    }
+    // 학번 · 이름 명단 (반 코드 같은 다른 열은 무시)
+    const nn = grid && readNoNameRoster(grid);
+    if (!nn) return { kind: "error", message: `${r.error} · 학교 명렬표나 학번 · 이름 명단(엑셀 · CSV)도 읽어요`, fileName };
+    if (nn.rows.length > 1500) return { kind: "error", message: "한 번에 1,500명까지 올릴 수 있어요", fileName };
+    const checked = checkRows(nn.rows, await repo.existingStudentNos());
+    return { kind: "preview", fileName: fileName ?? "", rows: checked, summary: summarize(checked), myeongnyeol: { label: `학번 · 이름 명단 · ${nn.grades.join("·")}학년 ${nn.rows.length}명` } };
   }
   if (!r.body.length) return { kind: "error", message: "학생 행이 없어요. 2행부터 적어 주세요", fileName };
   const checked = checkRows(registerRows(r.body), await repo.existingStudentNos());
@@ -71,7 +78,7 @@ export async function registerRoster(_: PreviewState, form: FormData): Promise<P
   let raws: RawStudent[];
   try {
     raws = JSON.parse(String(form.get("rows") ?? "[]"));
-    if (!Array.isArray(raws) || raws.length > 600) throw new Error();
+    if (!Array.isArray(raws) || raws.length > 1500) throw new Error();
   } catch {
     return { kind: "error", message: "등록할 학생 정보를 읽지 못했어요. 다시 올려 주세요" };
   }

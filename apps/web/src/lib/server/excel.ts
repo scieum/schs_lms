@@ -88,7 +88,8 @@ export async function readTemplateFile(f: unknown, kind: TemplateKind): Promise<
   }
   const ws = wb.worksheets[0];
   if (!ws) return { error: TEMPLATE_ERROR };
-  const width = TEMPLATES[kind].columns.length;
+  // 예전 양식(학번 · 학년 · 반 · 번호 …)도 읽도록 더 넓은 쪽까지
+  const width = Math.max(TEMPLATES[kind].columns.length, TEMPLATES[kind].legacy?.length ?? 0);
   const rows: string[][] = [];
   // 오른쪽 빈 칸 한 칸까지 읽어 제목 뒤에 다른 열이 붙었는지도 본다
   for (let r = 1; r <= Math.min(ws.rowCount, TEMPLATE_MAX_ROWS + 1); r++) {

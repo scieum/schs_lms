@@ -8,7 +8,7 @@ import type { Student } from "./types";
 const st = (id: string, grade: number, classNo: number, number: number, name: string) =>
   ({ id, pseudonymId: id, studentNo: `${grade}${String(classNo).padStart(2, "0")}${String(number).padStart(2, "0")}`, grade, classNo, number, name, gender: "남", track: 1, careerGoal: null }) as Student;
 const students = [st("a", 2, 3, 1, "학생A"), st("b", 2, 3, 2, "학생B"), st("c", 2, 3, 3, "학생C"), st("d", 2, 3, 4, "학생D"), st("h", 2, 1, 8, "학생H")];
-const head = [...TEMPLATES.external.columns];
+const head = [...TEMPLATES.external.legacy!];
 
 describe("외부 글 양식 (N46)", () => {
   it("1행 제목이 양식과 같을 때만 읽는다 (N25)", () => {

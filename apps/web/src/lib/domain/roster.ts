@@ -119,6 +119,12 @@ export function checkRows(rows: (RawStudent & { line?: number })[], existingStud
         problems.push("이미 등록된 학생");
       }
       seen.set(studentNo, line);
+    } else if (problems.length === 1 && problems[0] === "성별이 비어 있어요" && input.grade && input.classNo && input.number
+      && existingStudentNos.has(makeStudentNo(input.grade, input.classNo, input.number))) {
+      // 명렬표처럼 성별만 빈 줄도 이미 등록된 학생이면 중복으로 (성별을 고르게 하지 않음)
+      studentNo = makeStudentNo(input.grade, input.classNo, input.number);
+      status = "duplicate";
+      problems.splice(0, 1, "이미 등록된 학생");
     }
     return { line, input: { ...input, raw }, status, problems, studentNo };
   });
@@ -167,4 +173,23 @@ export function readMyeongnyeol(rows: readonly (readonly unknown[])[]): { grade:
 /** 명렬표 → 학생 등록 입력 칸 (성별은 비워 두고 화면에서 채운다) */
 export function myeongnyeolRows(m: NonNullable<ReturnType<typeof readMyeongnyeol>>): (RawStudent & { line: number })[] {
   return m.students.map((s) => ({ line: s.line, studentNo: makeStudentNo(m.grade, m.classNo, s.number), grade: String(m.grade), classNo: String(m.classNo), number: String(s.number), name: s.name, gender: "", track: "" }));
+}
+
+// ---------- 학번 · 이름 명단 (2026-10-22): 1행 어딘가에 "학번" · "이름" 제목, 아래로 학번 5자리와 이름. 다른 열(반 코드 등)은 무시 ----------
+
+/** 학번 · 이름 표 → 학생 등록 입력 칸 (성별 열이 있으면 쓰고, 없으면 비워 화면에서 고른다). 모양이 아니면 null */
+export function readNoNameRoster(rows: readonly (readonly unknown[])[]): { rows: (RawStudent & { line: number })[]; grades: number[] } | null {
+  const head = rows.slice(0, 10).findIndex((r) => r.some((c) => clean(c) === "학번") && r.some((c) => clean(c).replace(/\s/g, "") === "이름"));
+  if (head < 0) return null;
+  const h = rows[head].map((c) => clean(c).replace(/\s/g, ""));
+  const noCol = h.indexOf("학번"), nameCol = h.indexOf("이름"), gCol = h.indexOf("성별");
+  const out: (RawStudent & { line: number })[] = [];
+  rows.slice(head + 1).forEach((r, i) => {
+    const no = clean(r[noCol]).replace(/\s/g, "");
+    const name = clean(r[nameCol]);
+    const m = no.match(/^([1-3])(\d{2})(\d{2})$/);
+    if (!m || !name) return;
+    out.push({ line: head + i + 2, studentNo: no, grade: m[1], classNo: String(Number(m[2])), number: String(Number(m[3])), name, gender: gCol >= 0 ? clean(r[gCol]) : "", track: "" });
+  });
+  return out.length ? { rows: out, grades: [...new Set(out.map((r) => Number(r.grade)))].sort() } : null;
 }

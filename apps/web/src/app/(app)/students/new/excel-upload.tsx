@@ -8,7 +8,7 @@ import { previewRoster, registerRoster, type PreviewState } from "../actions";
 
 // 학생 등록 · 엑셀로 여러 명 (Figma N25 342:8001 · 모바일 오류 342:8392):
 // 카드 "명단 파일"(버튼 줄 + 양식 그림) | 오른쪽 "등록 요약". 학생등록_양식.xlsx 와 학교 명렬표(학생명렬표 xlsx · csv)를 읽는다 (AI·열 맞추기 없음).
-// 명렬표는 성별 칸이 없어 "모두 남 · 모두 여" 또는 학생마다 눌러 고른다 — 성별만 빈 줄은 고르면 새로 추가가 된다.
+// 명렬표 · 학번 · 이름 명단은 성별 칸이 없어 "모두 남 · 모두 여" 또는 학생마다 눌러 고른다 — 성별만 빈 줄은 고르면 새로 추가가 된다.
 
 const STATUS_LABEL = { new: "새로 추가", duplicate: "중복", invalid: "확인 필요" } as const;
 const REGISTER_FORM = "register-roster";
@@ -100,7 +100,7 @@ export function ExcelUpload() {
           <Card title="확인할 학생" action={<span className="text-[13px] text-sub">{p.summary.total}명</span>}>
             {p.myeongnyeol && need.length > 0 && (
               <div className="mb-3 flex flex-wrap items-center gap-2 rounded-inner bg-key-soft px-3.5 py-2.5">
-                <span className="min-w-0 flex-1 text-[13px] font-medium text-key-strong">학교 명렬표 · {p.myeongnyeol.grade}학년 {p.myeongnyeol.classNo}반 · 성별 칸이 없어요 — 고른 뒤 학생을 누르면 바뀌어요</span>
+                <span className="min-w-0 flex-1 text-[13px] font-medium text-key-strong">{p.myeongnyeol.label} · 성별 칸이 없어요 — 고른 뒤 학생을 누르면 바뀌어요</span>
                 {(["남", "여"] as const).map((x) => (
                   <button key={x} type="button" onClick={() => setAll(x)} aria-pressed={g.all === x}
                     className={cx("h-8 rounded-control px-3 text-[13px] font-bold", g.all === x ? "bg-key text-white" : "bg-[#fff] text-key-strong")}>모두 {x}</button>

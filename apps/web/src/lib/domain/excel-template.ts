@@ -15,22 +15,29 @@ export interface TemplateSpec {
   examples: readonly (readonly string[])[];
   /** 작성 방법 시트 */
   guide: readonly string[];
+  /**
+   * 예전 양식 1행 (2026-10-22 학번 하나로 합치기 전: 학번 · 학년 · 반 · 번호 …). 이미 받아 둔 예전 양식도 그대로 읽는다.
+   * 새 양식으로 읽은 줄은 이 열 순서로 펼쳐서 돌려준다 (학년 · 반 · 번호 = 학번에서) — 읽는 쪽은 예전 칸 순서를 그대로 쓴다.
+   */
+  legacy?: readonly string[];
 }
 
 export const TEMPLATES: Record<TemplateKind, TemplateSpec> = {
   register: {
     file: "학생등록_양식.xlsx",
-    columns: ["학번", "학년", "반", "번호", "이름", "성별", "계열"],
-    widths: [64, 44, 40, 44, 64, 44, 48],
-    examples: [["20101", "2", "1", "1", "학생A", "여", "1"], ["20102", "2", "1", "2", "학생B", "남", "2"]],
-    guide: ["학년 1~3, 반·번호는 숫자만", "학번은 비워도 돼요 (학년·반·번호로 만들어요)", "성별은 남·여, 계열은 비우면 1"],
+    columns: ["학번", "이름", "성별", "계열"],
+    widths: [64, 72, 44, 48],
+    examples: [["20101", "학생A", "여", "1"], ["20102", "학생B", "남", "2"]],
+    guide: ["학번은 5자리 (학년 1 + 반 2 + 번호 2, 예: 2학년 1반 1번 → 20101)", "성별은 남·여, 계열은 비우면 1"],
+    legacy: ["학번", "학년", "반", "번호", "이름", "성별", "계열"],
   },
   list: {
     file: "명단_양식.xlsx",
-    columns: ["학번", "학년", "반", "번호", "이름"],
-    widths: [64, 44, 40, 44, 64],
-    examples: [["20101", "2", "1", "1", "학생A"], ["20102", "2", "1", "2", "학생B"]],
-    guide: ["학번 또는 학년·반·번호 중 하나만 있어도 돼요", "이름이 등록된 이름과 다르면 그 줄은 못 찾음으로 나와요"],
+    columns: ["학번", "이름"],
+    widths: [64, 72],
+    examples: [["20101", "학생A"], ["20102", "학생B"]],
+    guide: ["학번은 5자리 (예: 2학년 1반 1번 → 20101)", "이름이 등록된 이름과 다르면 그 줄은 못 찾음으로 나와요"],
+    legacy: ["학번", "학년", "반", "번호", "이름"],
   },
   teacher: {
     file: "교사명부_양식.xlsx",
@@ -50,9 +57,10 @@ export const TEMPLATES: Record<TemplateKind, TemplateSpec> = {
   // 외부 생기부 글 (Figma N46): 프로그램 대상 학생이 채워진 양식에 기관이 보낸 글을 붙여 넣는다. AI 없음
   external: {
     file: "외부글_양식.xlsx",
-    columns: ["학번", "학년", "반", "번호", "이름", "생기부 글"],
-    widths: [64, 44, 40, 44, 64, 254],
-    examples: [["20301", "2", "3", "1", "학생A", "지역 대학 연계 '해양 생태 탐구 캠프'(3일)에 참여하여 …"], ["20302", "2", "3", "2", "학생B", ""]],
+    columns: ["학번", "이름", "생기부 글"],
+    widths: [64, 72, 300],
+    examples: [["20301", "학생A", "지역 대학 연계 '해양 생태 탐구 캠프'(3일)에 참여하여 …"], ["20302", "학생B", ""]],
+    legacy: ["학번", "학년", "반", "번호", "이름", "생기부 글"],
     guide: ["학번·이름은 대상 학생으로 채워져 있어요 · 바꾸지 마세요", "'생기부 글' 칸에 받은 글을 그대로 붙여 넣어요 · 한 칸에 한 학생", "글이 빈 줄은 건너뛰어요 · 대학명 같은 금칙어는 올린 뒤 검사에서 알려 줘요"],
   },
   // 갖고 있던 생기부 글 올리기 (N66, 글 모아 보기): 그 반 학생이 채워진 양식에 선생님이 써 둔 글을 붙여 넣는다. AI 없음
@@ -84,12 +92,31 @@ export function sameHeader(row: readonly unknown[], columns: readonly string[]):
  * 제목이 양식과 다르면 null (부르는 쪽이 TEMPLATE_ERROR 를 보여 준다).
  */
 export function readTemplate(rows: readonly (readonly unknown[])[], kind: TemplateKind): { line: number; cells: string[] }[] | null {
-  const { columns } = TEMPLATES[kind];
-  if (!rows.length || !sameHeader(rows[0], columns)) return null;
+  const { columns, legacy } = TEMPLATES[kind];
+  if (!rows.length) return null;
+  const isNew = sameHeader(rows[0], columns);
+  const isOld = !isNew && !!legacy && sameHeader(rows[0], legacy);
+  if (!isNew && !isOld) return null;
+  const head = isOld ? legacy! : columns;
   const out: { line: number; cells: string[] }[] = [];
   rows.slice(1).forEach((r, i) => {
-    const cells = columns.map((_, c) => cell(r[c]));
-    if (cells.some(Boolean)) out.push({ line: i + 2, cells });
+    const cells = head.map((_, c) => cell(r[c]));
+    if (!cells.some(Boolean)) return;
+    out.push({ line: i + 2, cells: isNew && legacy ? expandLegacy(cells, columns, legacy) : cells });
   });
   return out;
+}
+
+/** 학번 5자리 → 학년 · 반 · 번호 (모양이 아니면 빈칸 — 검사에서 걸린다) */
+export function splitStudentNo(no: string): { grade: string; classNo: string; number: string } {
+  const m = no.replace(/\s/g, "").match(/^([1-3])(\d{2})(\d{2})$/);
+  return m ? { grade: m[1], classNo: String(Number(m[2])), number: String(Number(m[3])) } : { grade: "", classNo: "", number: "" };
+}
+
+/** 새 양식 줄 → 예전 열 순서 (학년 · 반 · 번호는 학번에서) */
+function expandLegacy(cells: string[], columns: readonly string[], legacy: readonly string[]): string[] {
+  const by = new Map(columns.map((c, i) => [c, cells[i]]));
+  const parts = splitStudentNo(by.get("학번") ?? "");
+  const derived: Record<string, string> = { 학년: parts.grade, 반: parts.classNo, 번호: parts.number };
+  return legacy.map((c) => by.get(c) ?? derived[c] ?? "");
 }

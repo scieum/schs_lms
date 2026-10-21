@@ -7,7 +7,7 @@ const st = (id: string, grade: number, classNo: number, number: number, name: st
   ({ id, pseudonymId: id, studentNo: `${grade}${String(classNo).padStart(2, "0")}${String(number).padStart(2, "0")}`, grade, classNo, number, name, gender: "남", track: 1, careerGoal: null }) as Student;
 
 const students = [st("a", 2, 1, 3, "김민준"), st("b", 2, 4, 12, "이서연"), st("c", 2, 6, 5, "박지훈"), st("d", 3, 1, 3, "김민준")];
-const HEAD = [...TEMPLATES.list.columns];
+const HEAD = [...TEMPLATES.list.legacy!];
 /** 명단 양식 표 → 명단 줄 (양식이 아니면 null) */
 const read = (rows: string[][]) => {
   const body = readTemplate(rows, "list");
@@ -59,5 +59,14 @@ describe("명단 양식 읽기", () => {
     const lines = read([HEAD, ["20103", "", "", "", "김민준(공동)"], ["20412", "", "", "", "이서연 [전입]"]])!;
     expect(lines.map((l) => l.name)).toEqual(["김민준", "이서연"]);
     expect(matchRoster(lines, students, 2).matched.map((s) => s.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("명단 양식 — 학번 하나로 (2026-10-22)", () => {
+  it("새 양식(학번 · 이름)은 학년 · 반 · 번호를 학번에서 펼친다", () => {
+    const body = readTemplate([[...TEMPLATES.list.columns], ["20103", "김민준"], ["30103", "김민준"]], "list")!;
+    expect(body[0].cells).toEqual(["20103", "2", "1", "3", "김민준"]);
+    const r = matchRoster(listLines(body), students, 2);
+    expect(r.matched.map((s) => s.id)).toEqual(["a", "d"]);
   });
 });
