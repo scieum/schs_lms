@@ -38,7 +38,7 @@ import { ClassActionsBar } from "./class-actions-bar";
 import { useWorkspace } from "./workspace";
 
 // 글 짓기 (Figma N52 (b)(c)(d)(e)(g1)): 한 학생씩 — 머리 "글 짓기" ↔ [반 전체] [조각 모으기] · (담임) 탭 · 학생 넘기기 ·
-// 왼쪽 380 조각 칸 | 오른쪽 글 칸(새로 쓰기 | 지금 글에 더하기 · 목표 · 오차 · 주 버튼 · 게이트 · 글 · 수정 요청 · 자동 검사 · 더보기) · 아래 줄.
+// 왼쪽 380 조각 칸 | 오른쪽 글 칸(새로 쓰기 | 지금 글에 더하기 · 목표 · 오차 · 주 버튼 · 도구 줄 · 게이트 · 글 · 수정 요청 · 자동 검사) · 아래 줄.
 // 세특 · 동아리 · 담임(행발 · 자율·자치 · 진로)이 같은 틀을 쓰고, 영역마다 다른 것은 ComposeAdapter 하나로 받는다.
 // 동작은 옛 편집기(N40 ~ N49b) 그대로: 저장 · 확정(새 버전 · 적게 고친 확인 · 한도 초과 확인) · 모아 쓰기 + 게이트 · 더하기(append) · 맞추기 · 수정 요청 · 근거 · AI 원안.
 // N48 단계 표시는 쓰지 않는다(고르기와 글이 나란히). 고른 조각 · 순서는 이 탭 sessionStorage, 꼭(중요도)은 이 기기 localStorage(N20 그대로).
@@ -124,7 +124,7 @@ export function ComposeWorkspace({
   similar?: { self: SimilarSelf; peers: SimilarPeer[]; ignore: string[] };
   /** 공통과목 1·2 합산 */
   shared?: { other: 1 | 2; bytes: number; capMax: number };
-  /** 행발 키워드 메뉴판 (N35 ④) — 더보기 안 접힌 칸 */
+  /** 행발 키워드 메뉴판 (N35 ④) — 도구 줄에서 여는 칸 */
   keywordBoard?: (ctx: { onApply: (t: string, r?: AiDraftResult) => void; bodyEmpty: boolean }) => ReactNode;
   /** 맨 아래 (차시별 활동 · 공통 활동 접힌 머리) */
   after?: ReactNode;
@@ -287,8 +287,7 @@ export function ComposeWorkspace({
   };
   const stop = () => { req.current++; setBusy(false); };
 
-  // ---------- 더보기 (근거 · 다른 버전 · 역량 보기 · 기재요령 · 보관함 · 성취수준 · 키워드 메뉴판) ----------
-  const [moreOpen, setMoreOpen] = useState(false);
+  // ---------- 도구 줄 (근거 · 다른 버전 · 역량 보기 · 기재요령 · 보관함 · 성취수준 · 키워드 메뉴판) ----------
   const [competency, setCompetency] = useState(false);
   const [variants, setVariants] = useState(false);
   const [levelOpen, setLevelOpen] = useState(false);
@@ -424,6 +423,38 @@ export function ComposeWorkspace({
       <form id={formId} ref={formRef} action={action} onSubmit={() => setSubmitted(text)} className={cx("flex flex-col gap-3.5 md:gap-4", mode === "append" && "hidden")}>
         {Object.entries(adapter.hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
         {pv.inputs()}
+        {/* 도구 줄 (N61, 예전 더보기를 글 칸 위로 꺼냄): 근거 N38 · 다른 버전 N34 · 기재요령 N43 — 역량은 N56 역량 확인 칸으로 나옴 · 보관함 · 성취수준 N35 · 행발 키워드 메뉴판 N35) */}
+        <div className="flex flex-col gap-3">
+          <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:overflow-visible md:px-0">
+            <div className="flex w-max items-center gap-1.5 rounded-control bg-bg px-2 py-1 md:w-auto md:flex-wrap">
+              <span className="shrink-0 px-1 text-[12px] font-bold text-mute">도구</span>
+              <BodyViewSwitch {...pv.switchProps} />
+              {hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}
+              <LibraryToggle />
+              {lv && adapter.group === "setuk" && (
+                <button type="button" onClick={() => setLevelOpen(!levelOpen)} aria-expanded={levelOpen}
+                  className={cx("inline-flex h-[30px] shrink-0 items-center gap-1 whitespace-nowrap rounded-chip px-2 text-[13px] font-medium", levelOpen ? "bg-key-soft text-key-strong" : "text-sub hover:bg-soft")}>
+                  성취수준 <b className="font-bold">{level ?? "안 고름"}</b>
+                </button>
+              )}
+              {keywordBoard && (
+                <button type="button" onClick={() => setKeywords(!keywords)} aria-expanded={keywords}
+                  className={cx("inline-flex h-[30px] shrink-0 items-center gap-1 whitespace-nowrap rounded-chip px-2 text-[13px] font-medium", keywords ? "bg-key-soft text-key-strong" : "text-sub hover:bg-soft")}>
+                  키워드 메뉴판
+                </button>
+              )}
+              <GuideBookButton area={adapter.guideArea} />
+            </div>
+          </div>
+          {levelOpen && lv && <LevelPicker scale={lv.scale} value={level} onChange={(l) => { void lv.set([{ studentId: current, level: l }]); }} />}
+          {variants && hasBody && (
+            <VariantsPanel unit={unit} max={range.max} onClose={() => setVariants(false)}
+              run={(m) => adapter.variants(text, m, unit, range.max)}
+              onPick={(t) => { setVariants(false); bc.replace(t, "본문을 바꿨어요"); }} />
+          )}
+          {keywords && keywordBoard?.({ onApply: applyDraft, bodyEmpty: !hasBody })}
+        </div>
+
         {hasBody && <div aria-hidden className="h-px bg-line" />}
         <div>
           {hasBody && gate.chips}
@@ -483,45 +514,6 @@ export function ComposeWorkspace({
             aiFix={{ run: (t) => adapter.aiFix(t, unit, range.max, praise), onApply: (t) => bc.replace(t, "고친 글을 넣었어요") }}
             length={{ unit: len.unit, max: len.max, limit: adapter.neisLimit(len.unit), onChange: setLen }}
             fit={{ run: () => adapter.fit(text, unit, range.max), onApply: (t) => { setText(t); gate.remember(t); } }} />
-        </div>
-
-        {/* 더보기: 옛 편집기 기능 그대로 (근거 N38 · 다른 버전 N34 · 기재요령 N43 — 역량은 N56 역량 확인 칸으로 나옴 · 보관함 · 성취수준 N35 · 행발 키워드 메뉴판 N35) */}
-        <div className="flex flex-col gap-3 border-t border-line pt-3">
-          <button type="button" onClick={() => setMoreOpen(!moreOpen)} aria-expanded={moreOpen}
-            className="flex h-8 items-center gap-1 self-start whitespace-nowrap text-[13px] font-medium text-sub hover:text-ink">
-            더보기 <ChevronDown size={14} className={cx(moreOpen && "rotate-180")} aria-hidden />
-          </button>
-          {moreOpen && (
-            <div className="flex flex-col gap-3">
-              <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:overflow-visible md:px-0">
-                <div className="flex w-max items-center gap-1.5 md:w-auto md:flex-wrap">
-                  <BodyViewSwitch {...pv.switchProps} />
-                  {hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}
-                  <LibraryToggle />
-                  {lv && adapter.group === "setuk" && (
-                    <button type="button" onClick={() => setLevelOpen(!levelOpen)} aria-expanded={levelOpen}
-                      className={cx("inline-flex h-[30px] shrink-0 items-center gap-1 whitespace-nowrap rounded-chip px-2 text-[13px] font-medium", levelOpen ? "bg-key-soft text-key-strong" : "text-sub hover:bg-soft")}>
-                      성취수준 <b className="font-bold">{level ?? "안 고름"}</b>
-                    </button>
-                  )}
-                  {keywordBoard && (
-                    <button type="button" onClick={() => setKeywords(!keywords)} aria-expanded={keywords}
-                      className={cx("inline-flex h-[30px] shrink-0 items-center gap-1 whitespace-nowrap rounded-chip px-2 text-[13px] font-medium", keywords ? "bg-key-soft text-key-strong" : "text-sub hover:bg-soft")}>
-                      키워드 메뉴판
-                    </button>
-                  )}
-                  <GuideBookButton area={adapter.guideArea} />
-                </div>
-              </div>
-              {levelOpen && lv && <LevelPicker scale={lv.scale} value={level} onChange={(l) => { void lv.set([{ studentId: current, level: l }]); }} />}
-              {variants && hasBody && (
-                <VariantsPanel unit={unit} max={range.max} onClose={() => setVariants(false)}
-                  run={(m) => adapter.variants(text, m, unit, range.max)}
-                  onPick={(t) => { setVariants(false); bc.replace(t, "본문을 바꿨어요"); }} />
-              )}
-              {keywords && keywordBoard?.({ onApply: applyDraft, bodyEmpty: !hasBody })}
-            </div>
-          )}
         </div>
 
         {over && <OverApproval value={length.value} max={range.max} unit={UNIT_LABEL[unit]} checked={allowOver} onChange={setAllowOver} />}

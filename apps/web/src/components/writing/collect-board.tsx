@@ -2,18 +2,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { CalendarDays, Check, ChevronDown, ChevronRight } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronRight, FileUp, X } from "lucide-react";
 import { cx } from "@/components/ui";
 import { ACTIVITY_MAX, cleanActivity } from "@/lib/domain/activity-name";
 import { shortMd } from "@/lib/domain/log-date";
 import { sortStudents, todayCount, type CollectStudent, type RecentPiece } from "@/lib/domain/collect";
-import { addSetukPieces, polishSetukMemo } from "@/app/(app)/teacher/setuk/actions";
-import { addLogs, polishLogMemo } from "@/app/(app)/teacher/logs/actions";
+import { prepareUpload } from "@/lib/client/shrink-upload";
+import { ACCEPT } from "./evidence-files";
+import { addSetukPieces, polishSetukMemo, readSetukCollectFile } from "@/app/(app)/teacher/setuk/actions";
+import { addLogs, polishLogMemo, readLogFile } from "@/app/(app)/teacher/logs/actions";
 
 // 조각 모으기 (Figma N52 a 599:17196 · g2 599:17565 · 모바일 600:10311): 조각만 남기는 곳 — 바이트 이야기는 없다.
 // 받는 학생(여러 명, 학생마다 조각 수) → 활동명 · 날짜 · 메모 → [AI 다듬기](전 · 후 → 이걸로 바꾸기) → "n명에게 남기기".
 // 남기면 메모 칸만 비우고 받는 학생 · 활동명 · 날짜는 그대로 둔다(이어서 남기기). 오른쪽: 최근 조각 · 학생별 조각(적은 순).
 // 저장은 그대로: 세특 = 학생마다 조각 메모(addSetukPieces), 동아리 · 담임 = 누가기록(addLogs).
+// [메모 | 자료] (N60): 자료 = 활동지 · 보고서 · 사진 → AI가 읽은 요약이 메모 칸에 들어가고(고쳐 쓸 수 있음) 같은 버튼으로 남긴다. 세특은 "자료" 조각으로.
 
 export type CollectTarget =
   | { kind: "setuk"; courseId: string }
@@ -51,6 +54,10 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
   const [busy, start] = useTransition();
   const [sort, setSort] = useState<"few" | "no">("few");
   const [allRows, setAllRows] = useState(false);
+  const [mode, setMode] = useState<"memo" | "file">("memo");
+  const [file, setFile] = useState<File | null>(null);
+  const [fromFile, setFromFile] = useState(false);
+  const [drag, setDrag] = useState(false);
 
   const n = picked.size;
   const activityOk = !!cleanActivity(activity);
@@ -72,6 +79,27 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
   });
   const shownPolish = polish && polish.memo === memo ? polish : null;
 
+  const readFile = () => file && start(async () => {
+    setMsg(null);
+    try {
+      const texts: string[] = [];
+      for (const part of await prepareUpload(file)) {
+        const fd = new FormData();
+        fd.set("file", part);
+        if (target.kind === "setuk") fd.set("courseId", target.courseId);
+        else { fd.set("area", logArea); if (target.clubId) fd.set("clubId", target.clubId); }
+        const r = target.kind === "setuk" ? await readSetukCollectFile(fd) : await readLogFile(fd);
+        if (!r.ok) { setMsg({ ok: false, text: r.error }); return; }
+        texts.push(r.text);
+      }
+      setMemo([memo.trim(), texts.join(" ").trim()].filter(Boolean).join(" ").slice(0, 1000));
+      setFromFile(true);
+      setMsg({ ok: true, text: "자료를 읽었어요 · 요약을 고쳐 쓴 뒤 남겨요" });
+    } catch {
+      setMsg({ ok: false, text: "자료를 읽지 못했어요. 다시 해 주세요" });
+    }
+  });
+
   const submit = () => {
     setTouched(true);
     if (!ready || busy) return;
@@ -81,7 +109,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
       let added = 0;
       try {
         if (target.kind === "setuk") {
-          const r = await addSetukPieces({ courseId: target.courseId, studentIds: ids, text: memo, activity });
+          const r = await addSetukPieces({ courseId: target.courseId, studentIds: ids, text: memo, activity, kind: mode === "file" && fromFile ? "file" : "memo" });
           error = r.error; added = r.added ?? 0;
         } else {
           const fd = new FormData();
@@ -102,6 +130,8 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
       setMemo("");
       setPolish(null);
       setTouched(false);
+      setFile(null);
+      setFromFile(false);
       router.refresh();
     });
   };
@@ -190,8 +220,35 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
           )}
         </div>
 
+        <div className="flex gap-1 self-start rounded-inner bg-soft p-1" role="tablist" aria-label="남길 것">
+          {([["memo", "메모"], ["file", "자료"]] as const).map(([k, l]) => (
+            <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => { setMode(k); setMsg(null); }}
+              className={cx("h-8 rounded-control px-4 text-[14px]", mode === k ? "border border-line bg-[#fff] font-bold" : "font-medium text-mute")}>{l}</button>
+          ))}
+        </div>
+
+        {mode === "file" && (file ? (
+          <div className="flex items-center gap-2 rounded-control border border-hair bg-[#fff] px-3.5 py-2.5">
+            <FileUp size={16} className="shrink-0 text-key-strong" />
+            <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{file.name}</span>
+            <button type="button" onClick={readFile} disabled={busy}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50">
+              <span className="rounded-[6px] bg-new-soft px-1.5 py-0.5 text-[11px] font-bold text-new">{aiOn ? "AI" : "자동"}</span>{busy ? "읽는 중…" : fromFile ? "다시 읽기" : "읽기"}
+            </button>
+            <button type="button" aria-label="자료 빼기" onClick={() => { setFile(null); setFromFile(false); }} className="shrink-0 text-mute"><X size={15} /></button>
+          </div>
+        ) : (
+          <label onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
+            onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files?.[0]; if (f) setFile(f); }}
+            className={cx("flex cursor-pointer flex-col items-center gap-1 rounded-control border border-dashed px-4 py-5 text-center", drag ? "border-key bg-key-soft" : "border-faint bg-[#fff] hover:bg-soft")}>
+            <span className="flex items-center gap-1.5 text-[14px] font-bold text-key-strong"><FileUp size={16} /> 활동 자료 올리기</span>
+            <span className="text-[12px] text-mute">활동지 · 보고서 · 사진 (PDF · 이미지 · hwpx · txt) · AI가 읽어 요약만 남겨요 · 파일은 저장하지 않아요</span>
+            <input type="file" accept={ACCEPT} className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f); e.target.value = ""; }} />
+          </label>
+        ))}
+
         <div className="relative">
-          <textarea value={memo} onChange={(e) => { setMemo(e.target.value); setMsg(null); }} placeholder="본 것을 한두 줄로" maxLength={1000}
+          <textarea value={memo} onChange={(e) => { setMemo(e.target.value); setMsg(null); }} placeholder={mode === "file" ? "자료를 읽으면 요약이 여기 들어가요 · 고쳐 쓸 수 있어요" : "본 것을 한두 줄로"} maxLength={1000}
             className="block h-[132px] w-full resize-none rounded-control bg-soft px-3.5 py-3 text-[15px] leading-6 outline-none placeholder:text-faint md:h-[120px]" />
           <span className="pointer-events-none absolute bottom-2 right-3 text-[12px] text-mute">{memo.length}자</span>
         </div>

@@ -146,6 +146,21 @@ export async function summarizeSetukFile(form: FormData): Promise<EvidenceResult
   return r;
 }
 
+/** 조각 모으기 자료 (N60): 고른 학생 모두에게 같은 요약이 들어가므로 이 과목 학생 이름 · 학번을 모두 가린다. 저장하지 않음 */
+export async function readSetukCollectFile(form: FormData): Promise<EvidenceResult> {
+  const v = await requireCan("setuk.write");
+  const courseId = String(form.get("courseId") ?? "");
+  const [course, mine, roster, all] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getCourseRosters(v.accountId, courseId), repo.listStudents({ external: true })]);
+  const assignment = mine.find((a) => a.courseId === courseId);
+  if (!course || !assignment) return { ok: false, error: "내 담당 과목만 쓸 수 있어요" };
+  const file = await takeEvidenceFile(form);
+  if (typeof file === "string") return { ok: false, error: file };
+  const people = studentsInCourse(all, course, assignment, roster).map((s) => ({ name: s.name, studentNo: s.studentNo }));
+  const r = await readEvidence(file, { mode: "log", kind: `${course.subject} 교과 세특`, people });
+  await repo.audit(v.accountId, "setuk.ai_piece_file", `${course.subject} 조각 모으기`);
+  return r;
+}
+
 // ---------- 합치기 · 맞추기 · 역량 보기 (Figma N11) ----------
 
 const MergeSchema = z.object({
@@ -206,7 +221,7 @@ export async function addSetukPiece(input: { courseId: string; studentId: string
  * 조각 모으기 (Figma N52 a): 고른 학생 모두에게 같은 조각을 남긴다 (추가만, C4).
  * 학생마다 따로 권한을 본다 — 내 과목·반이 아닌 학생이 섞이면 아무것도 남기지 않는다.
  */
-export async function addSetukPieces(input: { courseId: string; studentIds: string[]; text: string; activity: string }): Promise<{ added?: number; error?: string }> {
+export async function addSetukPieces(input: { courseId: string; studentIds: string[]; text: string; activity: string; kind?: "memo" | "file" }): Promise<{ added?: number; error?: string }> {
   const ids = [...new Set(input.studentIds ?? [])];
   if (!ids.length) return { error: "받는 학생을 골라 주세요" };
   if (ids.length > 60) return { error: "한 번에 60명까지 남길 수 있어요" };
@@ -217,7 +232,7 @@ export async function addSetukPieces(input: { courseId: string; studentIds: stri
   for (const t of targets) {
     const text = withActivity(input.activity, scrubIdentity(String(input.text ?? ""), t!.student).text);
     if (text.length < PIECE_MIN || text.length > PIECE_MAX) return { error: `조각은 ${PIECE_MIN}~${PIECE_MAX.toLocaleString()}자로 써 주세요`, added };
-    await repo.addRecordMemo({ scope: pieceScopeOf(`세특:${input.courseId}`, "memo"), studentId: t!.student.id, authorId: t!.v.accountId, content: text });
+    await repo.addRecordMemo({ scope: pieceScopeOf(`세특:${input.courseId}`, input.kind === "file" ? "file" : "memo"), studentId: t!.student.id, authorId: t!.v.accountId, content: text });
     added++;
   }
   await repo.audit(targets[0]!.v.accountId, "record.piece", `세특 ${targets[0]!.course.subject} ${added}명`);
