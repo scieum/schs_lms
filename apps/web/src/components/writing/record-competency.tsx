@@ -10,6 +10,6 @@ import { BodyCard } from "./competency-view";
 export function RecordCompetency({ studentId, text, title, children, className, toggle }: {
   studentId: string; text: string; title: ReactNode; children: ReactNode; className?: string; toggle?: boolean;
 }) {
-  const tag = useCallback((t: string) => tagRecordText({ studentId, text: t }), [studentId]);
+  const tag = useCallback((t: string, force?: boolean) => tagRecordText({ studentId, text: t, force }), [studentId]);
   return <BodyCard text={text} tag={tag} title={title} editable={false} className={className ?? ""} toggle={toggle}>{children}</BodyCard>;
 }

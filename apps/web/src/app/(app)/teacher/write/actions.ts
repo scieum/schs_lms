@@ -323,10 +323,10 @@ export async function softenRecordMemo(input: { area: string; studentId: string;
   return { ok: true, text: r.data, label: "AI" };
 }
 
-export async function tagRecord(input: { area: string; studentId: string; clubId?: string | null; text: string }): Promise<{ tags: TaggedSentence[]; label: "AI" | "자동" } | { error: string }> {
+export async function tagRecord(input: { area: string; studentId: string; clubId?: string | null; text: string; force?: boolean }): Promise<{ tags: TaggedSentence[]; label: "AI" | "자동"; savedAt?: string; cached?: boolean } | { error: string }> {
   const t = await recordTarget(input.area, input.studentId, input.clubId);
   if ("error" in t) return { error: t.error };
-  return tagCompetency(String(input.text ?? "").slice(0, 6000), t.student);
+  return tagCompetency(String(input.text ?? "").slice(0, 6000), t.student, { force: !!input.force });
 }
 
 // ---------- 반 전체 검사 (Figma N35 ①) ----------

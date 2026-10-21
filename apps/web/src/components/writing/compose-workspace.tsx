@@ -23,7 +23,7 @@ import { ReviseBox } from "./revise-box";
 import { RecordChecks, useBodyChecks, type Who } from "./record-checks";
 import { HighlightTextarea, type Mark } from "./highlight-textarea";
 import { VariantsPanel, VariantsToggle } from "./variants-panel";
-import { BodyCard, CompetencyCheck, type TagResult } from "./competency-view";
+import { BodyCard, CompetencyCheck, type TagFn } from "./competency-view";
 import { paragraphCount, splitParagraphs } from "@/lib/domain/paragraphs";
 import { BodyViewSwitch, useProvenance, type ProvInit } from "./provenance";
 import { useGuideMarks, useGuideTarget } from "./guide-store";
@@ -71,7 +71,7 @@ export type ComposeAdapter = {
   revise: (text: string, request: string, unit: LengthUnit, max: number, tol: number) => Promise<AiDraftResult>;
   aiFix: (text: string, unit: LengthUnit, max: number, praise: Praise) => Promise<AiFixResult>;
   variants: (text: string, mode: VariantMode, unit: LengthUnit, max: number) => Promise<VariantsActionResult>;
-  tag: (text: string) => Promise<TagResult>;
+  tag: TagFn;
   addLibraryPiece?: (entryId: string) => Promise<{ error?: string }>;
 };
 

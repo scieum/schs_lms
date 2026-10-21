@@ -1,4 +1,7 @@
 import "server-only";
+import { createHash } from "node:crypto";
+import { joinParagraphs } from "@/lib/domain/paragraphs";
+import { repo } from "../repo";
 import { z } from "zod";
 import { applyTags, SUB_ITEMS, tagByRules, type TaggedSentence } from "@/lib/domain/competency";
 import { measure, UNIT_LABEL, type LengthRange } from "@/lib/domain/length";
@@ -469,13 +472,21 @@ const TAG_SYSTEM = `생기부 문장을 대입 학생부종합전형 평가 3대
 - 문장에 여러 역량이 섞이면 가장 두드러진 하나만.`;
 
 /** 역량 보기: 문장마다 역량. AI가 없거나 실패하면 낱말 규칙 */
-export async function tagCompetency(text: string, student: Student): Promise<{ tags: TaggedSentence[]; label: "AI" | "자동" }> {
+export async function tagCompetency(text: string, student: Student, opts: { force?: boolean } = {}): Promise<{ tags: TaggedSentence[]; label: "AI" | "자동"; savedAt?: string; cached?: boolean }> {
   const body = scrubIdentity(text, student, student.pseudonymId).text;
   const list = sentences(body);
   if (!list.length) return { tags: [], label: "자동" };
   if (!aiEnabled()) return { tags: tagByRules(text), label: "자동" };
+  // N56: 같은 학생 · 같은 글이면 저장된 AI 결과 (다시 나누기를 누르면 force)
+  const hash = createHash("sha256").update(joinParagraphs(text)).digest("hex");
+  if (!opts.force) {
+    const hit = await repo.getCompetencyTags(student.id, hash).catch(() => null);
+    if (hit) return { tags: hit.tags, label: "AI", savedAt: hit.savedAt, cached: true };
+  }
   const r = await aiJson(TagOut, { system: TAG_SYSTEM, content: list.map((s, i) => `${i}. ${s}`).join("\n"), model: "fast", maxTokens: 2000 });
   if (!r.ok) return { tags: tagByRules(text), label: "자동" };
   // 화면에는 원래 본문 문장을 보여 준다 (지운 이름 자리가 비지 않게)
-  return { tags: applyTags(text, r.data.tags), label: "AI" };
+  const tags = applyTags(text, r.data.tags);
+  const savedAt = await repo.saveCompetencyTags(student.id, hash, tags).catch(() => undefined);
+  return { tags, label: "AI", savedAt };
 }

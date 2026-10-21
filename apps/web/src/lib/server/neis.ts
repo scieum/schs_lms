@@ -10,7 +10,7 @@ import { repo } from "./repo";
 
 /**
  * 이 교사가 나이스로 보낼 수 있는 기록 묶음 (Figma N9).
- * 교과 세특은 과목(이동반이면 분반)마다, 동아리는 지도 동아리마다, 담임은 자율·자치·진로·행발.
+ * 교과 세특은 과목마다(이동반도 분반을 합쳐 한 묶음 — 나이스 화면이 과목 단위), 동아리는 지도 동아리마다, 담임은 자율·자치·진로·행발.
  */
 export async function neisSets(v: Viewer): Promise<NeisSet[]> {
   if (v.kind !== "teacher") return [];
@@ -24,18 +24,17 @@ export async function neisSets(v: Viewer): Promise<NeisSet[]> {
     const a = mine.find((x) => x.courseId === course.id)!;
     const rs = rosters.filter((r) => r.courseId === course.id);
     const latest = latestByStudent(await repo.listSetuk(course.id));
-    const sections: (string | null)[] = a.mode === "moving" && a.sections?.length ? a.sections : [null];
-    for (const sec of sections) {
-      const ids = studentsInCourse(all, course, a, rs, sec).map((s) => s.id);
-      const q = `course=${course.id}${sec ? `&section=${encodeURIComponent(sec)}` : ""}`;
-      out.push({
-        key: `setuk-${course.id}-${sec ?? ""}`, group: "교과 세특",
-        title: course.subject,
-        sub: [`${course.grade}학년 ${course.semester}학기`, sec ?? `${a.classes.join(", ")}반`].join(" · "),
-        exportHref: `/teacher/setuk/export?${q}`, editHref: `/teacher/setuk?${q}`,
-        maxBytes: NEIS_MAX_BYTES["세특"], ...countReady(ids, latest, NEIS_MAX_BYTES["세특"]),
-      });
-    }
+    // 이동반이라도 나이스 화면에는 과목 학생이 한 번에 있다 — 분반을 나누지 않고 한 묶음으로 (2026-10-21)
+    const ids = studentsInCourse(all, course, a, rs, null).map((s) => s.id);
+    const moving = a.mode === "moving" && !!a.sections?.length;
+    const q = `course=${course.id}`;
+    out.push({
+      key: `setuk-${course.id}`, group: "교과 세특",
+      title: course.subject,
+      sub: [`${course.grade}학년 ${course.semester}학기`, moving ? `${a.sections!.join(" · ")} 함께` : `${a.classes.join(", ")}반`].join(" · "),
+      exportHref: `/teacher/setuk/export?${q}`, editHref: `/teacher/setuk/compose?${q}`,
+      maxBytes: NEIS_MAX_BYTES["세특"], ...countReady(ids, latest, NEIS_MAX_BYTES["세특"]),
+    });
   }
 
   const record = async (area: RecordArea, ids: string[], extra: Partial<NeisSet> & Pick<NeisSet, "key" | "sub" | "exportHref" | "editHref">) => {

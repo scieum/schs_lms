@@ -48,7 +48,7 @@ export function SetukCompose({ courseId, subject, shared, ...rest }: Shared & {
     revise: (text, request, unit, max, tol) => reviseSetuk({ courseId, studentId, text, request, unit, max, tol }),
     aiFix: (text, unit, max, praise) => aiFixSetuk({ courseId, studentId, text, unit, max, praise }),
     variants: (text, mode, unit, max) => variantsSetuk({ courseId, studentId, text, mode, unit, max }),
-    tag: (text) => tagSetuk({ courseId, studentId, text }),
+    tag: (text, force) => tagSetuk({ courseId, studentId, text, force }),
     addLibraryPiece: async (id) => pieceFromLibrary({ id, target: { kind: "setuk", courseId, studentId } }),
   };
   const capMax = capOf("bytes", NEIS_MAX_BYTES["세특"]);
@@ -84,7 +84,7 @@ export function RecordCompose({ area, clubId, behavior, ...rest }: Omit<Shared, 
     revise: (text, request, unit, max, tol) => reviseRecordAction({ area, studentId, clubId, text, request, unit, max, tol }),
     aiFix: (text, unit, max, praise) => aiFixRecordAction({ area, studentId, clubId, text, unit, max, praise: { evidence: praise.evidence } }),
     variants: (text, mode, unit, max) => variantsRecordAction({ area, studentId, clubId, text, mode, unit, max }),
-    tag: (text) => tagRecord({ area, studentId, clubId, text }),
+    tag: (text, force) => tagRecord({ area, studentId, clubId, text, force }),
     addLibraryPiece: async (id) => pieceFromLibrary({ id, target: { kind: "record", area, studentId, clubId } }),
   };
   const keywordBoard = behavior

@@ -315,10 +315,10 @@ export async function variantsSetuk(input: { courseId: string; studentId: string
   return { ok: true, ...r };
 }
 
-export async function tagSetuk(input: { courseId: string; studentId: string; text: string }): Promise<{ tags: TaggedSentence[]; label: "AI" | "자동" } | { error: string }> {
+export async function tagSetuk(input: { courseId: string; studentId: string; text: string; force?: boolean }): Promise<{ tags: TaggedSentence[]; label: "AI" | "자동"; savedAt?: string; cached?: boolean } | { error: string }> {
   const t = await setukTarget(input.courseId, input.studentId);
   if (!t) return { error: "내 담당 과목·반 학생만 볼 수 있어요" };
-  return tagCompetency(String(input.text ?? "").slice(0, 6000), t.student);
+  return tagCompetency(String(input.text ?? "").slice(0, 6000), t.student, { force: !!input.force });
 }
 
 // ---------- 반 전체 검사 · 성취수준 (Figma N35 ①·③) ----------

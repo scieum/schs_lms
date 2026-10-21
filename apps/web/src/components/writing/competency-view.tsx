@@ -13,7 +13,9 @@ export const COMPETENCY_COLOR: Record<Competency, { tint: string; strong: string
   공동체: { tint: "#FFE6B0", strong: "#FFD27A", dot: "#F5A524" },
 };
 
-export type TagResult = { tags: TaggedSentence[]; label: "AI" | "자동" } | { error: string };
+/** savedAt · cached (N56): 저장된 AI 결과면 cached — 같은 글이라 AI를 다시 부르지 않았다 */
+export type TagResult = { tags: TaggedSentence[]; label: "AI" | "자동"; savedAt?: string; cached?: boolean } | { error: string };
+export type TagFn = (text: string, force?: boolean) => Promise<TagResult>;
 type Focus = { competency: Competency; sub?: string } | null;
 
 /**
@@ -23,7 +25,7 @@ type Focus = { competency: Competency; sub?: string } | null;
  * title 이 글자가 아니면(단계 머리 등) 그대로 그린다.
  */
 export function BodyCard({ text, tag, children, title = "본문", editable = true, className, bare = false, toggle = true, extra, view, head = true }: {
-  text: string; tag: (text: string) => Promise<TagResult>; children: React.ReactNode; title?: React.ReactNode; editable?: boolean; className?: string; bare?: boolean; toggle?: boolean;
+  text: string; tag: TagFn; children: React.ReactNode; title?: React.ReactNode; editable?: boolean; className?: string; bare?: boolean; toggle?: boolean;
   /** 머리 오른쪽, 역량 보기 앞 (N34 "다른 버전") */
   extra?: React.ReactNode;
   /** 역량 보기 켜짐을 밖에서 쥔다 (Figma N52 글 짓기: 스위치는 "더보기" 줄에) */
@@ -65,7 +67,7 @@ export function BodyCard({ text, tag, children, title = "본문", editable = tru
   );
 }
 
-function CompetencyView({ text, tag }: { text: string; tag: (text: string) => Promise<TagResult> }) {
+function CompetencyView({ text, tag }: { text: string; tag: TagFn }) {
   const [res, setRes] = useState<TagResult | null>(null);
   const [focus, setFocus] = useState<Focus>(null);
   const asked = useRef("");
@@ -77,6 +79,7 @@ function CompetencyView({ text, tag }: { text: string; tag: (text: string) => Pr
     return () => { alive = false; };
   }, [text, tag]);
 
+  const redo = () => { setRes(null); tag(text, true).then(setRes).catch(() => setRes({ error: "역량을 나누지 못했어요" })); };
   if (!res) return <p className="py-8 text-center text-[13px] text-mute" role="status">문장마다 역량을 나누는 중이에요</p>;
   if ("error" in res) return <p className="py-6 text-center text-[13px] text-bad" role="alert">{res.error}</p>;
 
@@ -86,8 +89,18 @@ function CompetencyView({ text, tag }: { text: string; tag: (text: string) => Pr
   const toggle = (f: NonNullable<Focus>) => setFocus((cur) => (cur && cur.competency === f.competency && cur.sub === f.sub ? null : f));
   const missing = sum.missingSubs.slice(0, 2).map((m) => subLabel(m.sub));
 
+  const when = "savedAt" in res && res.savedAt ? new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(res.savedAt)) : "";
   return (
     <div className="flex flex-col gap-3">
+      {res.label === "AI" && (
+        <div className="flex items-center gap-2 rounded-control bg-bg px-3 py-1.5">
+          <span className="rounded-chip bg-new-soft px-1.5 text-[11px] font-bold text-new">AI</span>
+          <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-sub">
+            {res.cached ? <>저장된 결과{when && ` · ${when}`}<span className="hidden md:inline"> · 같은 글이라 AI를 다시 부르지 않았어요</span></> : "새로 나눴어요 · 저장했어요"}
+          </span>
+          <button type="button" onClick={redo} className="shrink-0 whitespace-nowrap rounded-chip border border-hair bg-[#fff] px-2.5 py-1 text-[12px] font-bold">AI로 다시 나누기</button>
+        </div>
+      )}
       <div className="grid gap-4 @2xl:grid-cols-[1fr_264px]">
         <p className="text-[15px] leading-[30px]">
           {res.tags.map((t, i) => {
