@@ -132,3 +132,43 @@ export async function buildRecordsWorkbook(input: { sheets: { name: string; rows
   for (const r of input.summary.rows) sum.addRow(r);
   return (await wb.xlsx.writeBuffer()) as ArrayBuffer;
 }
+
+/** CSV 한 줄 → 칸 (큰따옴표 · 칸 안 쉼표 지원) */
+function csvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "", q = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (q) { if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { out.push(cur); cur = ""; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+/**
+ * 양식이 아닌 학교 파일(명렬표 등)을 표로 읽는다: .xlsx 첫 시트 또는 .csv(UTF-8 · 나이스 EUC-KR).
+ * 무엇인지 알아보는 건 부르는 쪽(lib/domain)이 한다.
+ */
+export async function readGrid(f: unknown, maxRows = 200): Promise<string[][] | null> {
+  if (!(f instanceof File) || f.size === 0 || f.size > MAX_UPLOAD_BYTES) return null;
+  const buf = await f.arrayBuffer();
+  if (/\.csv$/i.test(f.name)) {
+    let text = new TextDecoder("utf-8").decode(buf);
+    if (text.includes("\uFFFD")) text = new TextDecoder("euc-kr").decode(buf);
+    return text.replace(/^\uFEFF/, "").split(/\r?\n/).slice(0, maxRows).map(csvLine);
+  }
+  if (!/\.xlsx$/i.test(f.name)) return null;
+  const wb = new ExcelJS.Workbook();
+  try { await wb.xlsx.load(buf); } catch { return null; }
+  const ws = wb.worksheets[0];
+  if (!ws) return null;
+  const rows: string[][] = [];
+  for (let r = 1; r <= Math.min(ws.rowCount, maxRows); r++) {
+    const row = ws.getRow(r);
+    rows.push(Array.from({ length: Math.min(row.cellCount, 30) }, (_, i) => cellText(row.getCell(i + 1).value)));
+  }
+  return rows;
+}

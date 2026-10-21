@@ -25,7 +25,8 @@ function levels(): Map<string, Level> {
   if (!g.__schslevels) {
     // 물리학(c-4) 예시: 몇 명만 정해 둔다 (배지 · "성취수준 n / m명")
     const base = { courseId: "c-4", year: schoolYear(), semester: 1 };
-    g.__schslevels = new Map([[key(base, "s-2"), "B"], [key(base, "s-3"), "A"]]);
+    void base; // 공유용 깨끗한 데모: 성취수준은 비워 둔다
+    g.__schslevels = new Map();
   }
   return g.__schslevels;
 }

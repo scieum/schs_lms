@@ -132,10 +132,9 @@ function seedAdmin(): AdminStore {
     { actorId: "t-subject", action: "draft.reject", target: "1건", at: at(1, 16, 30) },
     { actorId: "t-admin", action: "offering.create", target: "2-2 미적분Ⅱ", at: at(3, 10, 2) },
   ].filter((e) => new Date(e.at).getTime() <= now.getTime());
-  s.audit.push(...samples.map((e) => ({ ...e, id: crypto.randomUUID() })));
-  s.audit.sort((a, b) => b.at.localeCompare(a.at));
-
-  return { lastLogin, rounds: [round], offerings, choices, extra };
+  // 공유용 깨끗한 데모 (2026-10-22): 과목 개설만 두고 학생 신청 · 감사 로그 · 접속 기록 예시는 넣지 않는다
+  void s; void samples; void choices; void extra; void lastLogin;
+  return { lastLogin: new Map(), rounds: [round], offerings, choices: [], extra: {} };
 }
 
 function ast(): AdminStore {

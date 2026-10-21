@@ -1,12 +1,14 @@
 "use client";
-import { startTransition, useActionState, useEffect, useSyncExternalStore } from "react";
+import { startTransition, useActionState, useEffect, useState, useSyncExternalStore } from "react";
 import { Check } from "lucide-react";
-import { Avatar, Button, ButtonLink, Card, Row, Tag } from "@/components/ui";
+import { Avatar, Button, ButtonLink, Card, Row, Tag, cx } from "@/components/ui";
+import type { CheckedRow, Gender } from "@/lib/domain/roster";
 import { ExcelButtons, TemplateSheet } from "@/components/excel-buttons";
 import { previewRoster, registerRoster, type PreviewState } from "../actions";
 
 // 학생 등록 · 엑셀로 여러 명 (Figma N25 342:8001 · 모바일 오류 342:8392):
-// 카드 "명단 파일"(버튼 줄 + 양식 그림) | 오른쪽 "등록 요약". 학생등록_양식.xlsx 만 읽는다 (AI·열 맞추기 없음).
+// 카드 "명단 파일"(버튼 줄 + 양식 그림) | 오른쪽 "등록 요약". 학생등록_양식.xlsx 와 학교 명렬표(학생명렬표 xlsx · csv)를 읽는다 (AI·열 맞추기 없음).
+// 명렬표는 성별 칸이 없어 "모두 남 · 모두 여" 또는 학생마다 눌러 고른다 — 성별만 빈 줄은 고르면 새로 추가가 된다.
 
 const STATUS_LABEL = { new: "새로 추가", duplicate: "중복", invalid: "확인 필요" } as const;
 const REGISTER_FORM = "register-roster";
@@ -47,10 +49,25 @@ export function ExcelUpload() {
   const p = preview.kind === "preview" ? preview : null;
   const failed = preview.kind === "error" ? preview : null;
 
+  // 명렬표 성별 (파일이 바뀌면 처음부터)
+  const fileKey = p ? `${p.fileName}|${p.summary.total}` : "";
+  const [pickG, setPickG] = useState<{ key: string; all: Gender | ""; per: Record<number, Gender> }>({ key: "", all: "", per: {} });
+  const g = pickG.key === fileKey ? pickG : { key: fileKey, all: "" as const, per: {} };
+  const onlyGender = (r: CheckedRow) => r.status === "invalid" && r.problems.length === 1 && r.problems[0] === "성별이 비어 있어요";
+  const rows: CheckedRow[] = !p ? [] : !p.myeongnyeol ? p.rows : p.rows.map((r) => {
+    const gender = g.per[r.line] ?? g.all;
+    return onlyGender(r) && gender ? { ...r, status: "new" as const, problems: [], input: { ...r.input, gender, raw: { ...r.input.raw, gender } } } : r;
+  });
+  const need = p?.myeongnyeol ? p.rows.filter(onlyGender) : [];
+  const summary = p ? { ...p.summary, ok: rows.filter((r) => r.status === "new").length, invalid: rows.filter((r) => r.status === "invalid").length } : null;
+  const setAll = (all: Gender) => setPickG({ key: fileKey, all, per: {} });
+  const flip = (line: number) => setPickG({ ...g, per: { ...g.per, [line]: (g.per[line] ?? g.all) === "남" ? "여" : "남" } });
+
+  const okCount = summary?.ok ?? 0;
   useEffect(() => {
-    setReady(p && !done && !registering ? p.summary.ok : 0);
+    setReady(!done && !registering ? okCount : 0);
     return () => setReady(0);
-  }, [p, done, registering]);
+  }, [okCount, done, registering]);
 
   const pick = (file: File) => {
     const fd = new FormData();
@@ -81,8 +98,17 @@ export function ExcelUpload() {
 
         {p && (
           <Card title="확인할 학생" action={<span className="text-[13px] text-sub">{p.summary.total}명</span>}>
+            {p.myeongnyeol && need.length > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-2 rounded-inner bg-key-soft px-3.5 py-2.5">
+                <span className="min-w-0 flex-1 text-[13px] font-medium text-key-strong">학교 명렬표 · {p.myeongnyeol.grade}학년 {p.myeongnyeol.classNo}반 · 성별 칸이 없어요 — 고른 뒤 학생을 누르면 바뀌어요</span>
+                {(["남", "여"] as const).map((x) => (
+                  <button key={x} type="button" onClick={() => setAll(x)} aria-pressed={g.all === x}
+                    className={cx("h-8 rounded-control px-3 text-[13px] font-bold", g.all === x ? "bg-key text-white" : "bg-[#fff] text-key-strong")}>모두 {x}</button>
+                ))}
+              </div>
+            )}
             <div className="max-h-[520px] overflow-y-auto">
-              {p.rows.map((r, i) => (
+              {rows.map((r, i) => (
                 <Row
                   key={r.line}
                   last={i === p.rows.length - 1}
@@ -93,7 +119,9 @@ export function ExcelUpload() {
                       ? `${r.input.grade}학년 ${r.input.classNo}반 ${r.input.number}번 · ${r.input.gender} · ${r.input.track}계열`
                       : `${r.line}행 · ${r.problems.join(" · ")}`
                   }
-                  right={<Tag>{STATUS_LABEL[r.status]}</Tag>}
+                  right={p.myeongnyeol && (onlyGender(r) || need.some((x) => x.line === r.line)) && (g.per[r.line] ?? g.all)
+                    ? <button type="button" onClick={() => flip(r.line)} className="rounded-chip bg-soft px-2 py-1 text-[12px] font-bold text-sub" aria-label={`${r.input.name} 성별 바꾸기`}>{g.per[r.line] ?? g.all} ⇄</button>
+                    : <Tag>{STATUS_LABEL[r.status]}</Tag>}
                 />
               ))}
             </div>
@@ -112,18 +140,18 @@ export function ExcelUpload() {
         <section className={p ? `${GRAY} md:self-start` : GRAY}>
           <h2 className="mb-4 text-[17px] font-bold md:text-lg">등록 요약</h2>
           <dl className="flex flex-col gap-2.5 text-sm">
-            {[["새 학생", p?.summary.ok], ["중복 (건너뜀)", p?.summary.duplicate], ["확인 필요", p?.summary.invalid]].map(([k, v]) => (
+            {[["새 학생", summary?.ok], ["중복 (건너뜀)", summary?.duplicate], ["확인 필요", summary?.invalid]].map(([k, v]) => (
               <div key={k} className="flex"><dt className="flex-1 text-sub">{k}</dt><dd className={v === undefined ? "text-faint" : "font-medium"}>{v === undefined ? "—" : `${v}명`}</dd></div>
             ))}
           </dl>
           <form id={REGISTER_FORM} action={registerAction} className="mt-4">
-            <input type="hidden" name="rows" value={JSON.stringify(p ? p.rows.filter((r) => r.status === "new").map((r) => r.input.raw) : [])} />
-            <Button className="w-full disabled:bg-key disabled:opacity-40" disabled={!p || registering || p.summary.ok === 0}>
-              {registering ? "등록하는 중…" : p && p.summary.ok ? `${p.summary.ok}명 등록하기` : "등록하기"}
+            <input type="hidden" name="rows" value={JSON.stringify(rows.filter((r) => r.status === "new").map((r) => r.input.raw))} />
+            <Button className="w-full disabled:bg-key disabled:opacity-40" disabled={!summary || registering || summary.ok === 0}>
+              {registering ? "등록하는 중…" : summary && summary.ok ? `${summary.ok}명 등록하기` : "등록하기"}
             </Button>
           </form>
           {result.kind === "error" && <p className="mt-3 text-sm text-bad" role="alert">{result.message}</p>}
-          {p && p.summary.invalid > 0 && <p className="mt-3 text-[13px] text-mute">확인 필요 행은 양식에서 고쳐 다시 올리면 돼요</p>}
+          {summary && summary.invalid > 0 && <p className="mt-3 text-[13px] text-mute">{need.length && !g.all ? "명렬표는 위에서 성별을 골라 주세요" : "확인 필요 행은 양식에서 고쳐 다시 올리면 돼요"}</p>}
         </section>
       )}
     </div>

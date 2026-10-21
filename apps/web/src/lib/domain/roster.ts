@@ -132,3 +132,39 @@ export function summarize(rows: CheckedRow[]) {
     invalid: rows.filter((r) => r.status === "invalid").length,
   };
 }
+
+// ---------- 학교 명렬표 (나이스에서 받은 "학생명렬표" 그대로) ----------
+// 모양: 어딘가에 "N학년 M반" · 제목 줄 "번호 | 이   름" · 아래로 번호와 이름. 이름이 빈 번호(전출 등)와 "26명" 같은 합계 줄은 건너뛴다.
+// 성별 칸이 없으므로 성별은 화면에서 고른다 (등록 전 확인).
+
+const clean = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim();
+
+/** 명렬표 표(행×칸) → 학년 · 반 · 학생(번호 · 이름). 명렬표가 아니면 null */
+export function readMyeongnyeol(rows: readonly (readonly unknown[])[]): { grade: number; classNo: number; students: { line: number; number: number; name: string }[] } | null {
+  let grade = 0, classNo = 0, head = -1, noCol = -1, nameCol = -1;
+  rows.slice(0, 15).forEach((r, i) => {
+    r.forEach((c, j) => {
+      const t = clean(c);
+      const m = t.match(/^([1-3])\s*학년\s*(\d{1,2})\s*반$/);
+      if (m && !grade) { grade = Number(m[1]); classNo = Number(m[2]); }
+      if (head < 0 && t === "번호") {
+        const k = r.findIndex((x, q) => q > j && clean(x).replace(/\s/g, "") === "이름");
+        if (k > 0) { head = i; noCol = j; nameCol = k; }
+      }
+    });
+  });
+  if (!grade || head < 0) return null;
+  const students: { line: number; number: number; name: string }[] = [];
+  rows.slice(head + 1).forEach((r, i) => {
+    const no = clean(r[noCol]);
+    const name = clean(r[nameCol]).replace(/\s/g, "");
+    if (!/^\d{1,2}$/.test(no) || !name) return;
+    students.push({ line: head + i + 2, number: Number(no), name });
+  });
+  return students.length ? { grade, classNo, students } : null;
+}
+
+/** 명렬표 → 학생 등록 입력 칸 (성별은 비워 두고 화면에서 채운다) */
+export function myeongnyeolRows(m: NonNullable<ReturnType<typeof readMyeongnyeol>>): (RawStudent & { line: number })[] {
+  return m.students.map((s) => ({ line: s.line, studentNo: makeStudentNo(m.grade, m.classNo, s.number), grade: String(m.grade), classNo: String(m.classNo), number: String(s.number), name: s.name, gender: "", track: "" }));
+}

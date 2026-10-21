@@ -20,13 +20,8 @@ export interface CommonRepo {
 
 const g = globalThis as unknown as { __schscommon?: { activities: CommonActivity[]; pieces: CommonActivityPiece[] } };
 // 데모: 이서연 선생님 물리학 1분반 수행평가, 박지훈 선생님 2학년 3반 학급 자치
-const cs = () => (g.__schscommon ??= {
-  activities: [
-    { id: "ca-1", scope: "세특:c-4:1분반", name: "수행평가 · 빗면 실험", date: "2026-10-14", description: "경사각을 바꾸며 가속도 측정", authorId: "t-subject", createdAt: new Date(Date.now() - 4 * 86400000).toISOString() },
-    { id: "ca-2", scope: "자율·자치:2-3", name: "학급 자치 · 체육대회 준비", date: "2026-10-10", description: "", authorId: "t-homeroom", createdAt: new Date(Date.now() - 8 * 86400000).toISOString() },
-  ],
-  pieces: [],
-});
+// 공유용 깨끗한 데모 (2026-10-22): 공통 활동 없이 시작
+const cs = () => (g.__schscommon ??= { activities: [], pieces: [] });
 
 export const demoCommon: CommonRepo = {
   async listCommonActivities(scope) {

@@ -22,17 +22,9 @@ export interface LibraryRepo {
 type Row = LibraryEntry & { ownerId: string };
 const g = globalThis as unknown as { __schslib?: Row[] };
 
+/** 공유용 깨끗한 데모 (2026-10-22): 문장 보관함은 비어서 시작 */
 function seed(): Row[] {
-  const ago = (d: number) => new Date(Date.now() - d * 86400000).toISOString();
-  const r = (id: string, d: number, area: LibraryArea, subject: string | null, text: string, tags: string[], source: LibrarySource, useCount = 0): Row =>
-    ({ id, ownerId: "t-subject", area, subject, text, tags, source, useCount, createdAt: ago(d) });
-  return [
-    r("lib-1", 1, "세특", "물리학", "실험 오차의 원인을 변인별로 나누어 따져 보고 측정 순서를 스스로 바꿔 다시 확인함.", ["실험", "오차"], "variant", 2),
-    r("lib-2", 7, "세특", "통합사회", "토론에서 상대 의견의 근거를 먼저 정리한 뒤 자신의 주장을 덧붙이는 태도를 보임.", ["토론"], "body", 1),
-    r("lib-3", 17, "행발", null, "학급 행사 준비 과정에서 역할을 나누고 마감까지 일정을 꼼꼼히 챙김.", ["협력", "책임감"], "soften", 3),
-    r("lib-4", 20, "세특", "물리학", "가설을 세우고 측정 조건을 바꿔 가며 세 번에 걸쳐 검증하는 끈기를 보임.", ["실험", "진로"], "body"),
-    r("lib-5", 25, "창체", null, "학급 자치회의에서 규칙 개정안을 내고 투표 결과를 정리해 게시함.", ["자치"], "draft"),
-  ];
+  return [];
 }
 const rows = () => (g.__schslib ??= seed());
 const pub = (r: Row): LibraryEntry => ({ id: r.id, area: r.area, subject: r.subject, text: r.text, tags: [...r.tags], source: r.source, useCount: r.useCount, createdAt: r.createdAt });

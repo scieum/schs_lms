@@ -62,6 +62,17 @@ function seed(): Store {
     ["s-13", 2, 3, 14, "문태오", "남", false],
     ["s-14", 2, 3, 5, "배준혁", "남", false],
     ["s-15", 2, 3, 16, "송유나", "여", false],
+    // 3학년 (2026-10-22 추가, 지어낸 이름): 3학년 1반 · 2반
+    ["s-16", 3, 1, 1, "강도현", "남", false],
+    ["s-17", 3, 1, 2, "김서윤", "여", false],
+    ["s-18", 3, 1, 3, "박지안", "여", false],
+    ["s-19", 3, 1, 4, "이준서", "남", false],
+    ["s-20", 3, 1, 5, "조하린", "여", false],
+    ["s-21", 3, 1, 6, "한시우", "남", false],
+    ["s-22", 3, 2, 1, "권민서", "여", false],
+    ["s-23", 3, 2, 2, "남궁현", "남", false],
+    ["s-24", 3, 2, 3, "류채원", "여", false],
+    ["s-25", 3, 2, 4, "신우진", "남", false],
   ];
   S.forEach(([id, grade, classNo, number, name, gender, first], i) => {
     const studentNo = `${grade}${String(classNo).padStart(2, "0")}${String(number).padStart(2, "0")}`;
@@ -69,7 +80,7 @@ function seed(): Store {
     students.set(id, { id, pseudonymId: `S${String(i + 1).padStart(3, "0")}`, studentNo, grade, classNo, number, name, gender, track: 1, careerGoal: i === 0 ? "산업디자인" : null });
   });
 
-  // 편제표 예시 (올해): 1학년 공통과목, 2학년 선택과목
+  // 편제표 예시 (올해): 1학년 공통과목, 2학년 선택과목, 3학년 진로 선택
   const y = schoolYear();
   const C: [string, number, 1 | 2, string, SubjectGroup, Course["type"], number][] = [
     ["c-1", 1, 1, "통합과학1", "과학", "공통", 4],
@@ -80,6 +91,10 @@ function seed(): Store {
     ["c-6", 2, 2, "생명과학", "과학", "일반 선택", 4],
     ["c-7", 2, 1, "문학", "국어", "일반 선택", 4],
     ["c-8", 2, 1, "대수", "수학", "일반 선택", 4],
+    // 3학년 (2015 개정 진로 선택)
+    ["c-9", 3, 2, "물리학Ⅱ", "과학", "진로 선택", 4],
+    ["c-10", 3, 2, "화학Ⅱ", "과학", "진로 선택", 4],
+    ["c-11", 3, 2, "언어와 매체", "국어", "일반 선택", 4],
   ];
   const courses = C.map(([id, grade, semester, subject, group, type, credits]) => ({ id, year: y, grade, semester, subject, group, type, credits, active: true }));
   const teacherGroups = new Map<string, SubjectGroup[]>([["t-subject", ["과학"]], ["t-homeroom", ["국어"]]]);
@@ -87,24 +102,15 @@ function seed(): Store {
     { teacherId: "t-subject", courseId: "c-4", classes: [], mode: "moving", sections: ["1분반", "2분반"] },
     { teacherId: "t-subject", courseId: "c-5", classes: [3] },
     { teacherId: "t-homeroom", courseId: "c-7", classes: [3] },
+    { teacherId: "t-subject", courseId: "c-10", classes: [1, 2] },
   ];
-  const setuk: SetukRecord[] = [{
-    id: "r-1", courseId: "c-4", studentId: "s-2", authorId: "t-subject", unit: "bytes", max: 1500, status: "draft",
-    content: "운동 법칙 단원에서 마찰이 있는 빗면 실험을 설계하여 측정값과 이론값의 차이를 분석함.",
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-  }, {
-    id: "r-2", courseId: "c-4", studentId: "s-3", authorId: "t-subject", unit: "bytes", max: 1500, status: "confirmed",
-    content: "파동 단원에서 소리의 공명을 주제로 관 길이에 따른 공명 진동수를 측정하고, 오차 원인을 온도 변화로 설명하는 탐구 보고서를 작성함.",
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-  }];
+  // 공유용 깨끗한 데모 (2026-10-22): 학생 · 교사 · 편제표 · 수업 배정 · 동아리 명단만. 기록(세특 · 누가기록 · 봉사 · 프로그램 …)은 비워 둔다
+  const setuk: SetukRecord[] = [];
 
   // 동아리 예시: 이서연 선생님의 과학탐구반 (2학년 3명)
   const clubs = [{ id: "club-1", year: y, name: "과학탐구반", advisorId: "t-subject", active: true }];
   const clubMembers = new Map<string, string[]>([["club-1", ["s-2", "s-3", "s-4"]]]);
-  const logs: ActivityLog[] = [{
-    id: "l-1", area: "진로", studentId: "s-1", authorId: "t-homeroom", clubId: null, date: "2026-10-08",
-    content: "진로 탐색 주간에 산업디자이너 인터뷰 영상을 보고 관심 분야를 정리함.", createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-  }];
+  const logs: ActivityLog[] = [];
 
   return { accounts, teachers, students, audit: [], courses, teacherGroups, teacherCourses, setuk, clubs, clubMembers, logs, service: [], files: new Map() };
 }

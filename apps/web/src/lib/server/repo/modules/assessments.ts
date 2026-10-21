@@ -1,9 +1,6 @@
 import "server-only";
-import { assessScope, type Assessment } from "@/lib/domain/assessment";
-import { withActivity } from "@/lib/domain/activity-name";
-import { store } from "../demo";
+import type { Assessment } from "@/lib/domain/assessment";
 import { check, db, isUuid } from "../supabase";
-import { demoWriting } from "./writing";
 
 // 수행평가 (Figma N59): 교사 · 과목(분반)마다 등록. 학생 자료 요약은 record_memos(세특:<과목>#수행:<id>)에 쌓인다. 표 0033.
 // 적용 전 DB면 읽기는 빈 목록, 쓰기는 안내 문구로 실패.
@@ -18,20 +15,7 @@ export interface AssessmentsRepo {
 }
 
 const g = globalThis as unknown as { __schsassess?: Assessment[] };
-// 데모: 이서연 선생님 화학(3반) "반응 속도 실험 보고서" — 앞 번호 두 명은 자료 요약이 이미 들어가 있다
-const mem = () => {
-  if (!g.__schsassess) {
-    const a: Assessment = { id: "as-demo-1", courseId: "c-5", section: null, teacherId: "t-subject", title: "반응 속도 실험 보고서", date: "2026-10-14", description: "농도 · 온도에 따른 반응 속도 비교 실험 — 가설 · 변인 통제 · 오차 분석을 평가", createdAt: new Date().toISOString() };
-    g.__schsassess = [a];
-    const kids = [...store().students.values()].filter((x) => x.grade === 2 && x.classNo === 3).sort((x, y) => x.number - y.number).slice(0, 2);
-    const notes = [
-      "농도를 세 단계로 바꾸며 기체 발생 시간을 재고, 온도는 수조로 고정해 변인을 통제함. 그래프 기울기로 농도와 반응 속도의 비례 관계를 설명하고, 초시계 반응 시간을 오차 원인으로 짚어 센서 측정을 대안으로 제안함.",
-      "온도를 바꾼 조에서 10℃ 오를 때 반응 시간이 절반 가까이 줄어든 결과를 활성화 에너지와 충돌 횟수로 해석함. 반복 측정 평균을 내고 편차가 큰 회차를 따로 표시해 신뢰도를 따짐.",
-    ];
-    kids.forEach((k, i) => void demoWriting.addRecordMemo({ scope: assessScope(a.courseId, a.id), studentId: k.id, authorId: "t-subject", content: withActivity(a.title, notes[i]) }));
-  }
-  return g.__schsassess;
-};
+const mem = () => (g.__schsassess ??= []);
 
 export const demoAssessments: AssessmentsRepo = {
   async listAssessments(f) { return mem().filter((a) => (!f.courseId || a.courseId === f.courseId) && (!f.teacherId || a.teacherId === f.teacherId)).map((a) => ({ ...a })); },

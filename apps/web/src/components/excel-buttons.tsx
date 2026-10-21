@@ -53,7 +53,7 @@ export function ExcelButtons({ kind, onPick, busy, error, file, className, compa
           className={cx(btn, "bg-[#191F28] hover:bg-[#333D4B] disabled:cursor-wait disabled:opacity-60")}>
           <Upload size={16} aria-hidden /> {busy ? "읽는 중…" : uploadLabel ?? "명단 업로드"}
         </button>
-        <input ref={input} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" aria-label={kind === "external" ? "외부 글 엑셀 파일" : "명단 엑셀 파일"}
+        <input ref={input} type="file" accept={kind === "register" ? ".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" : ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"} className="hidden" aria-label={kind === "external" ? "외부 글 엑셀 파일" : "명단 엑셀 파일"}
           onChange={(e) => {
             const f = e.target.files?.[0];
             e.target.value = ""; // 같은 파일을 고쳐서 다시 올릴 수 있게
@@ -65,7 +65,7 @@ export function ExcelButtons({ kind, onPick, busy, error, file, className, compa
           <CircleAlert size={14} className="mt-px shrink-0" aria-hidden /> {error}
         </p>
       ) : (
-        <p className="text-[12px] text-mute">{TEMPLATE_HINT}</p>
+        <p className="text-[12px] text-mute">{kind === "register" ? "양식 엑셀 또는 학교 명렬표(학생명렬표 엑셀 · CSV)를 읽어요" : TEMPLATE_HINT}</p>
       )}
     </div>
   );

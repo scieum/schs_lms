@@ -92,7 +92,9 @@ function seed(): CounselStore {
   ];
   const recItems: RecItem[] = R.map(([kind, title, meta, careers, d], i) => ({ id: `rec-${i + 1}`, kind, title, meta, careers, createdBy: "t-admin", createdAt: at(d) }));
 
-  return { counsel, past, corrections: [], recItems, interests: [] };
+  // 공유용 깨끗한 데모 (2026-10-22): 상담 · 지난 학년도 기록은 비우고 추천 활동 목록만 둔다
+  void counsel; void past;
+  return { counsel: [], past: [], corrections: [], recItems, interests: [] };
 }
 
 function cs(): CounselStore {

@@ -299,7 +299,9 @@ function seedScores(): ScoresStore {
     { id: "nr-3", studentId: "s-15", dates: [addDays(nextMonday, 0), addDays(nextMonday, 2)], session: "2", place: "자습실 A", note: "2교시만 참여", status: "대기", createdAt: created(1) },
   ];
 
-  return { exams, mock, school, rules, targets, counsel: [], plans: [], signups, attendance, requests, closures: new Map(), notices: [], seq: 100 };
+  // 공유용 깨끗한 데모 (2026-10-22): 시험 목록 · 대학 기준만 두고 학생 점수 · 목표 · 야자 기록은 비운다
+  void mock; void school; void targets; void signups; void attendance; void requests;
+  return { exams, mock: [], school: [], rules, targets: [], counsel: [], plans: [], signups: new Map(), attendance: new Map(), requests: [], closures: new Map(), notices: [], seq: 100 };
 }
 
 function S(): ScoresStore {

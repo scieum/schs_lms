@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ChevronRight, ChevronUp, Copy, Download } from "lucide-react";
 import { cx } from "@/components/ui";
 import { ExcelExport } from "@/components/writing/excel-export";
+import { ImportButton } from "./import-dialog";
 import { useToast } from "@/components/writing/toast";
 import type { ScopeArg } from "@/app/(app)/teacher/class-actions";
 import {
@@ -48,6 +49,7 @@ export function TextsActions({ tab, rows, logs, excel, disabled, mobile }: {
       ) : (
         <button type="button" onClick={() => setOpen(true)} disabled={disabled || !excel} className={btn}><Download size={mobile ? 16 : 14} /> 엑셀로 받기</button>
       )}
+      {excel?.kind === "modal" && <ImportButton scope={excel.scope} mobile={mobile} className={cx("inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-control border border-hair bg-[#fff] font-medium text-ink hover:bg-soft", mobile ? "h-11 flex-1 text-[15px]" : "h-8 px-3 text-[13px]")} />}
       {excel?.kind === "modal" && <ExcelExport scope={excel.scope} open={open} onClose={() => setOpen(false)} defaultWho={excel.who} />}
       {toast.node}
     </div>

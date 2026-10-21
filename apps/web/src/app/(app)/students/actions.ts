@@ -1,11 +1,11 @@
 "use server";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { checkOne, checkRows, nextPseudonymIds, registerRows, summarize, type CheckedRow, type RawStudent } from "@/lib/domain/roster";
+import { checkOne, checkRows, myeongnyeolRows, nextPseudonymIds, readMyeongnyeol, registerRows, summarize, type CheckedRow, type RawStudent } from "@/lib/domain/roster";
 import { parseStudentQuery, type StudentFilter } from "@/lib/domain/teacher-assist";
 import { parseStudentSearch } from "@/lib/server/ai/teacher-ai";
 import { env } from "@/lib/server/env";
-import { readTemplateFile } from "@/lib/server/excel";
+import { readGrid, readTemplateFile } from "@/lib/server/excel";
 import { repo, type NewStudent } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 
@@ -17,6 +17,8 @@ export type PreviewState =
       fileName: string;
       rows: CheckedRow[];
       summary: ReturnType<typeof summarize>;
+      /** 학교 명렬표에서 읽음: 성별 칸이 없어 화면에서 고른다 */
+      myeongnyeol?: { grade: number; classNo: number };
     }
   | { kind: "done"; count: number; firstId: string; lastId: string };
 
@@ -26,7 +28,14 @@ export async function previewRoster(_: PreviewState, form: FormData): Promise<Pr
   const file = form.get("file");
   const fileName = file instanceof File ? file.name : undefined;
   const r = await readTemplateFile(file, "register");
-  if ("error" in r) return { kind: "error", message: r.error, fileName };
+  if ("error" in r) {
+    // 양식이 아니면 학교 명렬표(나이스 "학생명렬표" xlsx · csv)인지 본다
+    const grid = await readGrid(file);
+    const m = grid && readMyeongnyeol(grid);
+    if (!m) return { kind: "error", message: `${r.error} · 학교 명렬표(학생명렬표 엑셀 · CSV)도 읽어요`, fileName };
+    const checked = checkRows(myeongnyeolRows(m), await repo.existingStudentNos());
+    return { kind: "preview", fileName: fileName ?? "", rows: checked, summary: summarize(checked), myeongnyeol: { grade: m.grade, classNo: m.classNo } };
+  }
   if (!r.body.length) return { kind: "error", message: "학생 행이 없어요. 2행부터 적어 주세요", fileName };
   const checked = checkRows(registerRows(r.body), await repo.existingStudentNos());
   return { kind: "preview", fileName: fileName ?? "", rows: checked, summary: summarize(checked) };

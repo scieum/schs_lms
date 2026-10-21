@@ -1,6 +1,5 @@
 import "server-only";
-import { schoolYear } from "@/lib/domain/curriculum";
-import { addKeyword, DEFAULT_MENU, type KeywordMenu } from "@/lib/domain/behavior-keywords";
+import type { KeywordMenu } from "@/lib/domain/behavior-keywords";
 import { check, db, isUuid, selectIn } from "../supabase";
 
 // 행발 키워드 메뉴판 (Figma N35 ④): 교사 메뉴판(behavior_keywords) + 학생별 고른 키워드·에피소드 메모(behavior_picks). 0020.
@@ -21,20 +20,8 @@ export interface KeywordsRepo {
 const g = globalThis as unknown as { __schskw?: { menus: Map<string, KeywordMenu>; picks: Map<string, BehaviorPick> } };
 function st() {
   if (!g.__schskw) {
-    // 박지훈 선생님(2학년 3반 담임) 예시: 내 키워드 셋 + 김민준 고른 키워드 6개
-    let m = DEFAULT_MENU;
-    m = addKeyword(m, "attitude", "1인 1역 꾸준함").menu;
-    m = addKeyword(m, "community", "급식 도우미").menu;
-    m = addKeyword(m, "growth", "2학기에 달라짐").menu;
-    const y = schoolYear();
-    const at = new Date().toISOString();
-    g.__schskw = {
-      menus: new Map([["t-homeroom", m]]),
-      picks: new Map([
-        [`s-1|${y}`, { studentId: "s-1", year: y, keywords: ["성실함", "맡은 일 끝까지", "배려", "갈등 중재", "창의적 생각", "새로운 도전"], memo: "체육대회 때 망가진 반 응원 도구를 혼자 남아 고쳐 둠. 2학기 모둠 활동에서 의견이 갈린 두 친구 사이를 중재함.", useLogs: true, updatedAt: at }],
-        [`s-6|${y}`, { studentId: "s-6", year: y, keywords: ["성실함", "정리 정돈", "친구 도움", "독서"], memo: "", useLogs: true, updatedAt: at }],
-      ]),
-    };
+    // 공유용 깨끗한 데모 (2026-10-22): 기본 키워드판만, 학생 고른 키워드 없음
+    g.__schskw = { menus: new Map(), picks: new Map() };
   }
   return g.__schskw;
 }

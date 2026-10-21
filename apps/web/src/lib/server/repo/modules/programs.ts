@@ -205,7 +205,8 @@ export const DEMO_PROGRAM_IDS = {
   camp: "5c1e0a9e-1a2b-4c3d-8e4f-000000000005",
 };
 
-function seed(): ProgramStore {
+/** 예시 프로그램 데모 (지금은 공유용 깨끗한 데모라 쓰지 않음 — 시안 화면 찍을 때 ps() 에서 다시 부른다) */
+export function demoProgramsSeed(): ProgramStore {
   const s: ProgramStore = { programs: [], responses: [], materials: [], files: new Map(), missing: [], jobs: [], versions: [], reminders: [] };
   const P = DEMO_PROGRAM_IDS;
   const all = ["s-1", "s-2", "s-3", "s-4", "s-5", "s-6", "s-7", "s-8", "s-9", "s-10", "s-11", "s-12", "s-13", "s-14", "s-15"];
@@ -333,7 +334,8 @@ function seed(): ProgramStore {
 function ps(): ProgramStore {
   if (!g.__schsprograms) {
     store(); // 공용 데모 데이터(학생·교사)를 먼저 만든다
-    g.__schsprograms = seed();
+    // 공유용 깨끗한 데모 (2026-10-22): 프로그램 · 응답 · 초안 없이 시작 (예시가 필요하면 seed())
+    g.__schsprograms = { programs: [], responses: [], materials: [], files: new Map(), missing: [], jobs: [], versions: [], reminders: [] };
   }
   return g.__schsprograms;
 }

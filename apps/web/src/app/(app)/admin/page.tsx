@@ -14,6 +14,7 @@ import { actionLabel } from "./audit/labels";
 import { loadDailyCheck } from "./audit/load";
 import { loadPipeline } from "./pipeline/load";
 import { ScaleSetting } from "@/components/admin/scale-setting";
+import { dbStatus } from "@/lib/server/db-status";
 
 export const metadata = { title: "관리 홈 · 속초고 쌤기부" };
 
@@ -41,9 +42,9 @@ export default async function AdminHome() {
   const v = await requireCan("account.manage");
   const now = new Date();
   const year = schoolYear();
-  const [students, audit, accounts, jobs, programs, check, pipe, todayLog, rounds, scale] = await Promise.all([
+  const [students, audit, accounts, jobs, programs, check, pipe, todayLog, rounds, scale, db] = await Promise.all([
     repo.listStudents(), repo.listAudit(3), repo.adminListAccounts(), repo.listDraftJobs({}), repo.listPrograms(), loadDailyCheck(), loadPipeline(),
-    repo.adminListAuditSince(kstMidnightIso(now), 2000), Promise.all([1, 2, 3].map((g) => repo.offeringRound(year, g))), repo.getAchievementScale(),
+    repo.adminListAuditSince(kstMidnightIso(now), 2000), Promise.all([1, 2, 3].map((g) => repo.offeringRound(year, g))), repo.getAchievementScale(), dbStatus(),
   ]);
   const checkItems = dailyCheck(check);
   const errors = jobs.filter((j) => j.state === "ERROR");
@@ -117,6 +118,23 @@ export default async function AdminHome() {
         </div>
         <Card title="학교 설정">
           <ScaleSetting initial={scale} />
+        </Card>
+        {/* DB 업데이트 확인: 아직 SQL Editor 에 넣지 않은 supabase/migrations 번호 */}
+        <Card title="DB 업데이트 확인">
+          {db.demo ? (
+            <p className="text-[13px] text-sub">데모 모드예요 · DB가 연결되지 않았어요</p>
+          ) : db.missing.length === 0 ? (
+            <p className="text-[14px] font-medium text-ok">✓ SQL {db.total}개 모두 들어가 있어요</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <p className="text-[13px] text-sub">Supabase SQL Editor 에 아래 번호를 차례로 붙여 실행해 주세요 · <code>apps/web/supabase/migrations</code></p>
+              <ul className="flex flex-col gap-1.5">
+                {db.missing.map((m) => (
+                  <li key={m.no} className="flex items-center gap-2 text-[14px]"><Tag tone="bg-wait-soft text-[#9a6400]">{m.no}</Tag><span className="flex-1">{m.label}</span><span className="text-[12px] text-mute">{m.why}</span></li>
+                ))}
+              </ul>
+            </div>
+          )}
         </Card>
       </PageBody>
     </>
