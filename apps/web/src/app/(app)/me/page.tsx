@@ -1,3 +1,4 @@
+import { EMPTY_PREFS } from "@/lib/server/repo/modules/prefs";
 import { withoutLocked } from "@/lib/server/features";
 import { LogOut } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
@@ -7,18 +8,18 @@ import { roleLabel } from "@/lib/domain/policy";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireViewer } from "@/lib/server/viewer";
 import { repo } from "@/lib/server/repo";
-import { isLockedMenu, navFor } from "@/components/shell/nav";
-import { MenuToggles, ProfilePhoto } from "./settings";
+import { arrangeMenus, navFor, plainGroups } from "@/components/shell/nav";
+import { MenuSettings, ProfilePhoto } from "./settings";
 import { CareerForm, PasswordForm } from "./forms";
 
 export const metadata = { title: "내 정보 · 속초고등학교 학생관리시스템" };
 
-/** 내 정보 · 설정 (Figma N14, 학생·교사 공통): 프로필 사진, 이름·역할, 희망 진로(학생), 메뉴 보이기, 비밀번호, 로그아웃 */
+/** 내 정보 · 설정 (Figma N14, 학생·교사 공통): 프로필 사진, 이름·역할, 희망 진로(학생), 메뉴 보이기 · 순서, 비밀번호, 로그아웃 */
 export default async function MePage() {
   const v = await requireViewer();
   const name = v.kind === "student" ? v.student.name : `${v.teacher.name} 선생님`;
-  const prefs = await repo.getPrefs(v.accountId).catch(() => ({ avatar: null, hiddenMenus: [] as string[] }));
-  const menus = withoutLocked(navFor(v)).filter((g) => g.label).map((g) => ({ label: g.label, items: g.items.map((it) => ({ label: it.label, href: it.href, icon: it.icon, locked: isLockedMenu(it) })) }));
+  const prefs = await repo.getPrefs(v.accountId).catch(() => EMPTY_PREFS);
+  const base = withoutLocked(navFor(v));
 
   return (
     <>
@@ -56,8 +57,8 @@ export default async function MePage() {
             </form>
           </div>
           {v.kind === "teacher" && (
-            <Card title="메뉴 보이기">
-              <MenuToggles groups={menus} hidden={prefs.hiddenMenus} />
+            <Card title="메뉴 보이기 · 순서">
+              <MenuSettings groups={plainGroups(arrangeMenus(base, prefs.menuLayout))} base={plainGroups(base)} hidden={prefs.hiddenMenus} />
             </Card>
           )}
         </div>

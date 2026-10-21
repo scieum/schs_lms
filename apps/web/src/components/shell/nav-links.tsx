@@ -1,18 +1,15 @@
 "use client";
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
-import { usePathname } from "next/navigation";
-import { ChevronDown } from "lucide-react";
+import { useState, useSyncExternalStore, useTransition } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { ChevronDown, GripVertical, Lock } from "lucide-react";
 import { cx } from "@/components/ui";
+import { saveMenuLayout } from "@/app/(app)/me/actions";
 import { Icon } from "./icon";
-import type { NavGroup, NavItem } from "./nav";
+import { activeHref, layoutOf, withHidden, type ArrangeGroup, type NavGroup, type NavItem } from "./nav";
+import { useMenuDrag } from "./menu-arrange";
 
-function isActive(path: string, href: string) {
-  href = href.split("?")[0];
-  return path === href || (href !== "/" && path.startsWith(href + "/") && href.split("/").length > 2);
-}
-
-// 대분류(세특·동아리·담임·특색활동·업무·관리) 접고 펴기: 고른 것은 이 브라우저에 기억한다. 접은 묶음에 지금 화면이 있으면 점으로 알린다.
+// 대분류(업무·세특·동아리·특색활동·담임·관리) 접고 펴기: 고른 것은 이 브라우저에 기억한다. 접은 묶음에 지금 화면이 있으면 점으로 알린다.
 // 사이드바를 접은(mini) 상태에서는 묶음 머리가 선으로만 보이므로 늘 펼친다.
 const FOLD_KEY = "schs-nav-closed";
 const FOLD_EVENT = "schs-nav-fold";
@@ -27,8 +24,13 @@ function snapshot(): string | null {
   try { return localStorage.getItem(FOLD_KEY); } catch { return null; }
 }
 
-export function SidebarLinks({ groups }: { groups: NavGroup[] }) {
+/** 순서 바꾸기에 쓰는 것: 숨긴 메뉴까지 든 지금 순서 · 처음 순서 · 숨긴 메뉴 (교사만) */
+export type SidebarArrange = { all: ArrangeGroup[]; base: ArrangeGroup[]; hidden: string[] };
+
+export function SidebarLinks({ groups, arrange }: { groups: NavGroup[]; arrange?: SidebarArrange }) {
   const path = usePathname();
+  const search = useSearchParams();
+  const [editing, setEditing] = useState(false);
   const raw = useSyncExternalStore(subscribe, snapshot, () => null);
   let saved: string[];
   try { saved = raw ? (JSON.parse(raw) as string[]) : groups.filter((g) => g.fold).map((g) => g.label); } catch { saved = []; }
@@ -38,12 +40,14 @@ export function SidebarLinks({ groups }: { groups: NavGroup[] }) {
     try { localStorage.setItem(FOLD_KEY, JSON.stringify([...next])); } catch {}
     window.dispatchEvent(new Event(FOLD_EVENT));
   };
+  if (editing && arrange) return <SidebarArranger arrange={arrange} home={groups.find((g) => !g.label)?.items ?? []} onClose={() => setEditing(false)} />;
+  const active = activeHref(path, search, groups.flatMap((g) => g.items.map((it) => it.href)));
   return (
     <nav className="flex flex-col gap-0.5">
       {groups.map((g) => {
-        const inside = g.items.some((it) => isActive(path, it.href));
+        const inside = g.items.some((it) => it.href === active);
         const links = g.items.map((it) => {
-            const on = isActive(path, it.href);
+            const on = it.href === active;
             return (
               <Link
                 key={it.href}
@@ -78,7 +82,67 @@ export function SidebarLinks({ groups }: { groups: NavGroup[] }) {
           </div>
         );
       })}
+      {arrange && (
+        <button type="button" onClick={() => setEditing(true)}
+          className="mt-2 flex items-center gap-2 rounded-control px-3 py-2 text-left text-[13px] font-medium text-mute hover:bg-soft hover:text-sub group-data-[mini=true]/side:hidden">
+          <GripVertical size={16} /> 메뉴 순서 바꾸기
+        </button>
+      )}
     </nav>
+  );
+}
+
+/** 사이드바 순서 바꾸기 모드 (N53 a): ⠿ 를 끌어 묶음 안 · 묶음 사이로, 묶음 머리를 끌어 묶음 순서. [완료]에 저장 */
+function SidebarArranger({ arrange, home, onClose }: { arrange: SidebarArrange; home: NavItem[]; onClose: () => void }) {
+  const hide = (gs: ArrangeGroup[]) => gs.map((g) => ({ ...g, items: g.items.filter((it) => !arrange.hidden.includes(it.href)) }));
+  const [groups, setGroups] = useState(() => hide(arrange.all));
+  const [error, setError] = useState("");
+  const [pending, start] = useTransition();
+  const d = useMenuDrag(groups, setGroups);
+  const save = () => start(async () => {
+    const r = await saveMenuLayout(withHidden(layoutOf(groups), arrange.all, arrange.hidden));
+    if (!r.ok) return setError(r.error);
+    onClose();
+  });
+  const slot = <div {...d.slot} className="my-0.5 h-10 rounded-control border-[1.5px] border-dashed border-key bg-key-soft" />;
+  return (
+    <div className="flex flex-col gap-0.5 pt-2">
+      <div className="mb-2 flex items-center gap-2 rounded-inner bg-key-soft py-2 pl-3 pr-2">
+        <span className="flex-1 text-[14px] font-bold text-key-strong">메뉴 순서</span>
+        <button type="button" onClick={() => setGroups(hide(arrange.base))} disabled={pending} className="text-[13px] font-medium text-sub hover:text-ink">처음대로</button>
+        <button type="button" onClick={save} disabled={pending} className="rounded-chip bg-key px-3 py-1 text-[13px] font-bold text-white">{pending ? "저장 중…" : "완료"}</button>
+      </div>
+      {error && <p className="px-1 pb-1 text-[12px] text-bad" role="alert">{error}</p>}
+      {home.map((it) => (
+        <div key={it.href} className="flex items-center gap-2.5 px-3 py-2.5 text-[15px] text-mute">
+          <Icon name={it.icon} className="text-faint" /><span className="flex-1">{it.label}</span><Lock size={15} className="text-faint" aria-label="고정" />
+        </div>
+      ))}
+      {groups.map((g, gi) => (
+        <div key={g.label} {...d.group(g.label, gi, g.items.length)} className={cx(d.drag?.kind === "group" && d.drag.label === g.label && "opacity-40")}>
+          {d.over?.kind === "group" && d.over.index === gi && <div className="my-1 h-0.5 rounded-full bg-key" />}
+          <div {...d.head(g.label)} className="flex cursor-grab items-center gap-1.5 px-1 pb-1.5 pt-4 text-xs font-bold text-mute active:cursor-grabbing" title="끌어서 묶음 옮기기">
+            <GripVertical size={15} className="text-faint" />
+            <span className="flex-1">{g.label}</span>
+            <span className="pr-2 font-medium text-faint">{g.items.length}</span>
+          </div>
+          {g.items.map((it, i) => (
+            <div key={it.href}>
+              {d.over?.kind === "item" && d.over.label === g.label && d.over.index === i && slot}
+              <div {...d.item(g.label, it.href, i)}
+                className={cx("flex cursor-grab items-center gap-2.5 rounded-control py-2.5 pl-3 pr-2 text-[15px] text-sub hover:bg-soft active:cursor-grabbing", d.drag?.kind === "item" && d.drag.href === it.href && "opacity-40")}>
+                <Icon name={it.icon} className="text-mute" />
+                <span className="flex-1">{it.label}</span>
+                <GripVertical size={18} className="text-faint" />
+              </div>
+            </div>
+          ))}
+          {d.over?.kind === "item" && d.over.label === g.label && d.over.index === g.items.length && slot}
+          {!g.items.length && !(d.over?.kind === "item" && d.over.label === g.label) && <div className="mx-1 rounded-control border border-dashed border-line py-2 text-center text-[12px] text-faint">비었어요</div>}
+          {d.over?.kind === "group" && d.over.index === gi + 1 && gi === groups.length - 1 && <div className="my-1 h-0.5 rounded-full bg-key" />}
+        </div>
+      ))}
+    </div>
   );
 }
 

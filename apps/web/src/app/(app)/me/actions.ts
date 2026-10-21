@@ -9,7 +9,7 @@ import { careerKeywords } from "@/lib/server/ai/student-ai";
 import { env } from "@/lib/server/env";
 import { repo } from "@/lib/server/repo";
 import { requireCan, requireViewer } from "@/lib/server/viewer";
-import { isLockedMenu, navFor } from "@/components/shell/nav";
+import { cleanLayout, isLockedMenu, navFor, type MenuLayout } from "@/components/shell/nav";
 
 export type MeState = { error?: string; ok?: number };
 
@@ -56,7 +56,7 @@ export async function careerKeywordsAction(text: string): Promise<CareerKeywords
   return { ok: true, fields: r.fields, goal: r.goal, label: r.label, note: r.error ? "AI가 답하지 않아 규칙으로 정리했어요" : undefined };
 }
 
-// ---------- 설정 (Figma N14): 프로필 사진 · 메뉴 보이기 ----------
+// ---------- 설정 (Figma N14 · N53): 프로필 사진 · 메뉴 보이기 · 메뉴 순서 ----------
 
 export type PrefsResult = { ok: true } | { ok: false; error: string };
 
@@ -82,6 +82,19 @@ export async function saveHiddenMenus(hrefs: string[]): Promise<PrefsResult> {
   const clean = [...new Set(hrefs)].filter((h) => allowed.has(h)).slice(0, 100);
   try {
     await repo.setHiddenMenus(v.accountId, clean);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "저장하지 못했어요" };
+  }
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** 메뉴 순서 (N53): 내 사이드바에 있는 묶음 · 메뉴만 남긴다. null 이거나 처음 순서와 같으면 지운다(처음대로) */
+export async function saveMenuLayout(layout: MenuLayout | null): Promise<PrefsResult> {
+  const v = await requireViewer();
+  if (v.kind !== "teacher") return { ok: false, error: "선생님만 메뉴 순서를 바꿀 수 있어요" };
+  try {
+    await repo.setMenuLayout(v.accountId, cleanLayout(layout, withoutLocked(navFor(v))));
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "저장하지 못했어요" };
   }

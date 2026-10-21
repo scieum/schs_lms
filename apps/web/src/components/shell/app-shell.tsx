@@ -8,7 +8,8 @@ import type { Viewer } from "@/lib/domain/types";
 import { roleLabel } from "@/lib/domain/policy";
 import { logout } from "@/app/(auth)/actions";
 import { Avatar } from "@/components/ui";
-import { hideMenus, hideTabs, navFor, tabsFor, type NavBadges } from "./nav";
+import { arrangeMenus, hideMenus, hideTabs, navFor, plainGroups, tabsFor, type NavBadges } from "./nav";
+import type { AccountPrefs } from "@/lib/server/repo/modules/prefs";
 import { SidebarLinks, TabBar } from "./nav-links";
 import { SIDEBAR_COOKIE, SidebarFrame } from "./sidebar-frame";
 import { GuideButton, Yeongrang } from "./yeongrang";
@@ -17,9 +18,13 @@ import { GuidePanel } from "@/components/writing/guide-panel";
 // D2 벤토 그리드: 흰 사이드바 + 흰 본문. 모바일은 하단 탭바.
 export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
   viewer: Viewer; children: ReactNode; demo: boolean; badges?: NavBadges;
-  /** 프로필 사진·숨긴 메뉴 (레이아웃이 배지와 함께 읽어 넘긴다) */
-  prefs: { avatar: string | null; hiddenMenus: string[] };
+  /** 프로필 사진·숨긴 메뉴·메뉴 순서 (레이아웃이 배지와 함께 읽어 넘긴다) */
+  prefs: AccountPrefs;
 }) {
+  // 메뉴 = 내 역할 메뉴 → 내가 바꾼 순서(N53) → 숨긴 메뉴 빼기. 순서 바꾸기는 교사만
+  const base = withoutLocked(navFor(viewer, badges));
+  const all = arrangeMenus(base, prefs.menuLayout);
+  const arrange = viewer.kind === "teacher" ? { all: plainGroups(all), base: plainGroups(base), hidden: prefs.hiddenMenus } : undefined;
   const mini = (await cookies()).get(SIDEBAR_COOKIE)?.value === "mini";
   const name = viewer.kind === "student" ? viewer.student.name : `${viewer.teacher.name} 선생님`;
   return (
@@ -37,7 +42,7 @@ export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
             <div className="truncate text-xs text-mute">{roleLabel(viewer)}</div>
           </div>
         </div>
-        <SidebarLinks groups={hideMenus(withoutLocked(navFor(viewer, badges)), prefs.hiddenMenus)} />
+        <SidebarLinks groups={hideMenus(all, prefs.hiddenMenus)} arrange={arrange} />
         {/* 사용 가이드 (Figma 사이드바 아래 카드) → 영랑이 열기 */}
         <div className="mt-auto pt-6">
           <div className="rounded-inner bg-soft p-4 group-data-[mini=true]/side:hidden">

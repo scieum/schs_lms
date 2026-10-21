@@ -1,12 +1,13 @@
 "use client";
-import { useRef, useState, useTransition } from "react";
-import { Camera, Eye, Lock } from "lucide-react";
+import { Fragment, useRef, useState, useTransition } from "react";
+import { Camera, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import { Avatar, Button, cx } from "@/components/ui";
 import { Icon } from "@/components/shell/icon";
-import type { IconName } from "@/components/shell/nav";
-import { saveAvatar, saveHiddenMenus } from "./actions";
+import { layoutOf, rebuild, stepGroup, stepItem, type ArrangeGroup, type MenuLayout } from "@/components/shell/nav";
+import { useMenuDrag } from "@/components/shell/menu-arrange";
+import { saveAvatar, saveHiddenMenus, saveMenuLayout } from "./actions";
 
-// 내 정보 · 설정 (Figma N14): 프로필 사진 바꾸기(정사각으로 잘라 256px 로 줄여 저장) · 메뉴 보이기(숨긴 메뉴는 사이드바·탭바에서만 빠진다)
+// 내 정보 · 설정 (Figma N14 · N53): 프로필 사진 바꾸기(정사각으로 잘라 256px 로 줄여 저장) · 메뉴 보이기 · 순서(숨긴 메뉴는 사이드바·탭바에서만 빠진다)
 
 const SIZE = 256;
 
@@ -92,13 +93,15 @@ export function ProfilePhoto({ name, role, avatar }: { name: string; role: strin
   );
 }
 
-type Item = { label: string; href: string; icon: IconName; locked: boolean };
+const STEP_BTN = "flex size-6 shrink-0 items-center justify-center rounded-chip bg-soft text-mute hover:text-ink disabled:opacity-40";
 
-export function MenuToggles({ groups, hidden: initial }: { groups: { label: string; items: Item[] }[]; hidden: string[] }) {
-  const [hidden, setHidden] = useState(new Set(initial));
+/** 메뉴 보이기 · 순서 (N14 + N53 b · c): 행 = ⠿ · 아이콘 · 이름 · ↑ ↓ · 보이기 스위치. PC는 끌어 옮기기도 된다 */
+export function MenuSettings({ groups: initial, base, hidden: initialHidden }: { groups: ArrangeGroup[]; base: ArrangeGroup[]; hidden: string[] }) {
+  const [groups, setGroups] = useState(initial);
+  const [hidden, setHidden] = useState(new Set(initialHidden));
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
-  const commit = (next: Set<string>) => {
+  const commitHidden = (next: Set<string>) => {
     const prev = hidden;
     setHidden(next);
     setError("");
@@ -107,44 +110,75 @@ export function MenuToggles({ groups, hidden: initial }: { groups: { label: stri
       if (!r.ok) { setHidden(prev); setError(r.error); }
     });
   };
-  const toggle = (href: string) => { const n = new Set(hidden); if (n.has(href)) n.delete(href); else n.add(href); commit(n); };
+  const toggle = (href: string) => { const n = new Set(hidden); if (n.has(href)) n.delete(href); else n.add(href); commitHidden(n); };
+  const commitOrder = (next: ArrangeGroup[], save: MenuLayout | null = layoutOf(next)) => {
+    const prev = groups;
+    setGroups(next);
+    setError("");
+    start(async () => {
+      const r = await saveMenuLayout(save);
+      if (!r.ok) { setGroups(prev); setError(r.error); }
+    });
+  };
+  const step = (fn: (l: MenuLayout) => MenuLayout) => commitOrder(rebuild(groups, fn(layoutOf(groups))));
+  const d = useMenuDrag(groups, (next) => commitOrder(next));
+  const changed = JSON.stringify(layoutOf(groups)) !== JSON.stringify(layoutOf(base));
+  const slot = <li {...d.slot} className="h-11 border-[1.5px] border-dashed border-key bg-key-soft" />;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
         <span className="rounded-chip bg-soft px-2 py-0.5 text-[12px] font-bold text-sub">숨긴 메뉴 {hidden.size}</span>
         <span className="flex-1" />
-        {hidden.size > 0 && <button type="button" onClick={() => commit(new Set())} disabled={pending} className="text-[13px] font-bold text-key-strong">모두 보이기</button>}
+        {hidden.size > 0 && <button type="button" onClick={() => commitHidden(new Set())} disabled={pending} className="text-[13px] font-bold text-sub">모두 보이기</button>}
+        {changed && <button type="button" onClick={() => commitOrder(base, null)} disabled={pending} className="text-[13px] font-bold text-key-strong">처음대로</button>}
       </div>
-      <p className="flex items-center gap-2 rounded-control bg-bg px-3 py-2.5 text-[13px] text-sub"><Eye size={15} className="text-mute" />숨겨도 주소로는 들어갈 수 있어요</p>
+      <p className="flex items-center gap-2 rounded-control bg-bg px-3 py-2.5 text-[13px] text-sub">
+        <GripVertical size={15} className="text-mute" />
+        <span className="md:hidden">↑ ↓ 로 묶음 사이도 옮겨요</span>
+        <span className="hidden md:inline">끌거나 ↑ ↓ 로 옮겨요 · 묶음 사이도 돼요</span>
+      </p>
       <div className="grid items-start gap-4 lg:grid-cols-2">
-      {groups.map((g) => {
-        const n = g.items.filter((it) => hidden.has(it.href)).length;
-        return (
-        <section key={g.label}>
-          <h3 className="flex pb-1.5 text-[12px] font-bold text-mute"><span className="flex-1">{g.label}</span>{n > 0 && <span>숨김 {n}</span>}</h3>
-          <ul className="overflow-hidden rounded-inner border border-line">
-            {g.items.map((it) => {
-              const on = !hidden.has(it.href);
-              return (
-                <li key={it.href} className="flex h-11 items-center gap-3 border-t border-soft px-3.5 first:border-0">
-                  <Icon name={it.icon} size={18} className={on ? "text-sub" : "text-faint"} />
-                  <span className={cx("flex-1 text-[15px] font-medium", !on && "text-mute")}>{it.label}</span>
-                  {it.locked ? (
-                    <Lock size={15} className="text-faint" aria-label="늘 보여요" />
-                  ) : (
-                    <button type="button" role="switch" aria-checked={on} aria-label={`${it.label} 보이기`} onClick={() => toggle(it.href)}
-                      className={cx("relative h-5 w-9 shrink-0 rounded-full transition-colors", on ? "bg-key" : "bg-faint")}>
-                      <span className={cx("absolute top-0.5 size-4 rounded-full bg-[#fff] transition-all", on ? "left-[18px]" : "left-0.5")} />
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-        );
-      })}
+        {groups.map((g, gi) => {
+          const n = g.items.filter((it) => hidden.has(it.href)).length;
+          const overHere = d.over?.kind === "item" && d.over.label === g.label;
+          return (
+            <section key={g.label} {...d.group(g.label, gi, g.items.length)} className={cx(d.drag?.kind === "group" && d.drag.label === g.label && "opacity-40", d.over?.kind === "group" && d.over.index === gi && "rounded-inner outline-2 outline-offset-4 outline-key")}>
+              <h3 className="flex items-center gap-1.5 pb-1.5 text-[12px] font-bold text-mute">
+                <span {...d.head(g.label)} className="hidden cursor-grab md:inline" title="끌어서 묶음 옮기기"><GripVertical size={15} className="text-faint" /></span>
+                <span className="flex-1">{g.label}</span>
+                {n > 0 && <span>숨김 {n}</span>}
+                <button type="button" aria-label={`${g.label} 묶음 위로`} disabled={pending || gi === 0} onClick={() => step((l) => stepGroup(l, g.label, -1))} className={STEP_BTN}><ChevronUp size={14} /></button>
+                <button type="button" aria-label={`${g.label} 묶음 아래로`} disabled={pending || gi === groups.length - 1} onClick={() => step((l) => stepGroup(l, g.label, 1))} className={STEP_BTN}><ChevronDown size={14} /></button>
+              </h3>
+              <ul className="overflow-hidden rounded-inner border border-line">
+                {g.items.map((it, i) => {
+                  const on = !hidden.has(it.href);
+                  const first = gi === 0 && i === 0;
+                  const last = gi === groups.length - 1 && i === g.items.length - 1;
+                  return (
+                    <Fragment key={it.href}>
+                      {overHere && d.over?.kind === "item" && d.over.index === i && slot}
+                      <li {...d.item(g.label, it.href, i)} className={cx("flex h-11 items-center gap-2 border-t border-soft pl-2.5 pr-3 first:border-0 md:cursor-grab", d.drag?.kind === "item" && d.drag.href === it.href && "opacity-40")}>
+                        <GripVertical size={17} className="shrink-0 text-faint" />
+                        <Icon name={it.icon} size={18} className={on ? "text-sub" : "text-faint"} />
+                        <span className={cx("min-w-0 flex-1 truncate text-[15px] font-medium", !on && "text-mute")}>{it.label}</span>
+                        <button type="button" aria-label={`${it.label} 위로`} disabled={pending || first} onClick={() => step((l) => stepItem(l, it.href, -1))} className={STEP_BTN}><ChevronUp size={14} /></button>
+                        <button type="button" aria-label={`${it.label} 아래로`} disabled={pending || last} onClick={() => step((l) => stepItem(l, it.href, 1))} className={STEP_BTN}><ChevronDown size={14} /></button>
+                        <button type="button" role="switch" aria-checked={on} aria-label={`${it.label} 보이기`} onClick={() => toggle(it.href)}
+                          className={cx("relative ml-1 h-5 w-9 shrink-0 rounded-full transition-colors", on ? "bg-key" : "bg-faint")}>
+                          <span className={cx("absolute top-0.5 size-4 rounded-full bg-[#fff] transition-all", on ? "left-[18px]" : "left-0.5")} />
+                        </button>
+                      </li>
+                    </Fragment>
+                  );
+                })}
+                {overHere && d.over?.kind === "item" && d.over.index === g.items.length && slot}
+                {!g.items.length && !overHere && <li className="py-3 text-center text-[12px] text-faint">비었어요</li>}
+              </ul>
+            </section>
+          );
+        })}
       </div>
       {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
     </div>
