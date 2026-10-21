@@ -8,28 +8,27 @@ import { askYeongrang, makeWithYeongrang } from "./yeongrang-actions";
 // 영랑이: 오른쪽 아래 검정 원형 버튼 → 사용법 문의 / AI로 만들기 (Figma "영랑이 · AI 도우미" Y1~Y4).
 // 결과는 초안으로만 보여 주고 자동으로 보내지 않는다. 학생은 사용법 문의만 (대신 써 주지 않음).
 
-const OPEN_EVENT = "yeongrang:open";
 const KINDS = ["안내 문자", "가정통신문", "상담 요약", "회의 메모 정리"] as const;
 const QUICK_T = ["합본 PDF는 어떻게 나눠요?", "초안 분량은 어디서 정해요?", "나이스에는 어떻게 옮겨요?"];
 const QUICK_S = ["설문은 어디서 내요?", "비밀번호를 잊었어요", "생활기록부는 언제 볼 수 있어요?"];
 
 type Msg = { q: string; a: string; source: string | null; href: string | null; ai: boolean };
 
-/** 사이드바 "가이드 보기" → 영랑이 창 열기 */
-export function GuideButton({ mini = false }: { mini?: boolean }) {
-  const open = () => window.dispatchEvent(new Event(OPEN_EVENT));
+/** 사이드바 "사용 가이드" 카드: 사용 매뉴얼(/manual, 새 탭)을 연다 — 학생은 학생 화면 부분부터 */
+export function GuideButton({ mini = false, student = false }: { mini?: boolean; student?: boolean }) {
+  const href = `/manual/index.html${student ? "#student" : ""}`;
   // 접힌 사이드바: 아이콘 + 작은 글씨
   if (mini) {
     return (
-      <button onClick={open} className="flex w-full flex-col items-center gap-0.5 rounded-control px-1 py-2 text-[11px] text-mute hover:bg-soft">
+      <a href={href} target="_blank" rel="noopener" className="flex w-full flex-col items-center gap-0.5 rounded-control px-1 py-2 text-[11px] text-mute hover:bg-soft">
         <BookOpen size={18} strokeWidth={1.8} /> 가이드
-      </button>
+      </a>
     );
   }
   return (
-    <button onClick={open} className="mt-3 w-full rounded-control border border-hair bg-white py-2 text-[13px] font-medium hover:bg-soft">
+    <a href={href} target="_blank" rel="noopener" className="mt-3 block w-full rounded-control border border-hair bg-white py-2 text-center text-[13px] font-medium hover:bg-soft">
       가이드 보기
-    </button>
+    </a>
   );
 }
 
@@ -46,11 +45,6 @@ export function Yeongrang({ student = false }: { student?: boolean }) {
   const [pending, start] = useTransition();
   const end = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const on = () => setOpen(true);
-    window.addEventListener(OPEN_EVENT, on);
-    return () => window.removeEventListener(OPEN_EVENT, on);
-  }, []);
   useEffect(() => end.current?.scrollIntoView({ block: "end" }), [msgs, pending]);
 
   const ask = (q: string) => {

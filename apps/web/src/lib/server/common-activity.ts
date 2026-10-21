@@ -38,7 +38,7 @@ export async function resolveScope(v: Viewer, scope: string): Promise<ResolvedSc
       ref, students: studentsInCourse(all, course, a, rosters, ref.section),
       label: ref.section ? `${course.subject} ${ref.section}` : `${course.subject} ${a.classes.join("·")}반`,
       kind: `${course.subject} 교과 세특`,
-      backHref: `/teacher/setuk?course=${course.id}${sec}`, detailBase: "/teacher/setuk/activity",
+      backHref: `/teacher/setuk/collect?course=${course.id}${sec}`, detailBase: "/teacher/setuk/activity",
     };
   }
   if (ref.kind === "동아리") {
@@ -48,7 +48,7 @@ export async function resolveScope(v: Viewer, scope: string): Promise<ResolvedSc
     return {
       ref, label: club.name, kind: `${RECORD_LABEL.동아리} (${club.name})`,
       students: all.filter((s) => ids.has(s.id)).sort((x, y) => x.studentNo.localeCompare(y.studentNo)),
-      backHref: `/teacher/write?area=${encodeURIComponent("동아리")}&club=${club.id}`, detailBase: "/teacher/write/activity",
+      backHref: `/teacher/club/collect?club=${club.id}`, detailBase: "/teacher/write/activity",
     };
   }
   const h = v.teacher.homeroom;
@@ -56,7 +56,7 @@ export async function resolveScope(v: Viewer, scope: string): Promise<ResolvedSc
   return {
     ref, label: `${h.grade}학년 ${h.classNo}반`, kind: RECORD_LABEL[ref.kind],
     students: homeroomStudents(v, all),
-    backHref: ref.kind === "행발" ? "/homeroom/behavior" : `/teacher/write?area=${encodeURIComponent(ref.kind)}`, detailBase: "/teacher/write/activity",
+    backHref: ref.kind === "행발" ? "/homeroom/compose?tab=behavior" : `/homeroom/logs?area=${encodeURIComponent(ref.kind)}`, detailBase: "/teacher/write/activity",
   };
 }
 

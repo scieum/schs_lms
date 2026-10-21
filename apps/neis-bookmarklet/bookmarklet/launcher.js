@@ -6,7 +6,7 @@
 // 서버로 아무것도 보내지 않는다.
 (() => {
   // 같은 화면에서 예전 버전 북마클릿을 누른 적이 있으면 그 창을 지우고 새 버전으로 다시 만든다 (v0.2.7)
-  const VERSION = "0.2.8";
+  const VERSION = "0.2.9";
   if (window.__schsBm) {
     if (window.__schsBm.v === VERSION) return window.__schsBm.open();
     document.getElementById("schs-neis-bookmarklet")?.remove();
@@ -119,7 +119,8 @@
   let marked = [];
 
   const studentNo = (s) => `${s.grade}${String(s.classNo).padStart(2, "0")}${String(s.number).padStart(2, "0")}`;
-  const byClass = () => data.kind !== "창체-동아리"; // 동아리는 여러 반이 섞인 한 화면
+  // 동아리 · 이동반(분반 · 공동교육과정)은 여러 반이 섞인 한 화면 — 반을 고르지 않고 한 목록 (moving 은 0.2.9 부터, 옛 자료는 분반 이름으로)
+  const byClass = () => data.kind !== "창체-동아리" && !data.moving && !data.section;
   const noOf = (s) => (byClass() ? `${s.number}번` : studentNo(s));
   const maxBytes = () => Number(q(".max").value) || data.maxBytes;
   const mode = () => (q(".append").checked ? "append" : "replace");
@@ -159,7 +160,7 @@
     if (!data) return;
     q(".sub").textContent = data.subject;
     q(".chip").textContent = data.kind.replace(/^창체-/, "");
-    q(".meta").textContent = [byClass() ? `${data.grade}학년${data.semester ? ` ${data.semester}학기` : ""}` : null, data.section, `확정 ${data.students.length}명`].filter(Boolean).join(" · ");
+    q(".meta").textContent = [data.kind === "창체-동아리" ? null : `${data.grade}학년${data.semester ? ` ${data.semester}학기` : ""}`, data.section ?? (data.moving ? "이동반" : null), `확정 ${data.students.length}명`].filter(Boolean).join(" · ");
     const classes = [...new Set(data.students.map((s) => s.classNo))].sort((a, b) => a - b);
     const keep = q(".cls").value;
     q(".cls").replaceChildren(...classes.map((c) => new Option(`${c}반`, String(c))));

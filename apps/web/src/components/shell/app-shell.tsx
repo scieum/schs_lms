@@ -13,6 +13,7 @@ import type { AccountPrefs } from "@/lib/server/repo/modules/prefs";
 import { SidebarLinks, TabBar } from "./nav-links";
 import { SIDEBAR_COOKIE, SidebarFrame } from "./sidebar-frame";
 import { GuideButton, Yeongrang } from "./yeongrang";
+import { COPYRIGHT, MAKERS_LINE } from "@/lib/domain/credits";
 import { GuidePanel } from "@/components/writing/guide-panel";
 
 // D2 벤토 그리드: 흰 사이드바 + 흰 본문. 모바일은 하단 탭바.
@@ -43,15 +44,14 @@ export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
           </div>
         </div>
         <SidebarLinks groups={hideMenus(all, prefs.hiddenMenus)} arrange={arrange} />
-        {/* 사용 가이드 (Figma 사이드바 아래 카드) → 영랑이 열기 */}
+        {/* 사용 가이드 (Figma 사이드바 아래 카드) → 사용 매뉴얼(새 탭) */}
         <div className="mt-auto pt-6">
           <div className="rounded-inner bg-soft p-4 group-data-[mini=true]/side:hidden">
             <div className="text-[14px] font-bold">사용 가이드</div>
             <div className="mt-0.5 text-[12px] text-mute">{viewer.kind === "student" ? "처음 쓰는 학생을 위한 안내" : "처음 쓰는 선생님을 위한 안내"}</div>
-            <GuideButton />
-            <a href="/manual/index.html" target="_blank" rel="noopener" className="mt-2 block text-center text-[12px] font-bold text-key-strong hover:underline">사용 매뉴얼 보기 ↗</a>
+            <GuideButton student={viewer.kind === "student"} />
           </div>
-          <div className="hidden group-data-[mini=true]/side:block"><GuideButton mini /></div>
+          <div className="hidden group-data-[mini=true]/side:block"><GuideButton mini student={viewer.kind === "student"} /></div>
           <form action={logout} className="pt-2">
             <button className="flex w-full items-center gap-2.5 rounded-control px-3.5 py-2.5 text-[14px] text-mute hover:bg-soft group-data-[mini=true]/side:flex-col group-data-[mini=true]/side:gap-0.5 group-data-[mini=true]/side:px-1 group-data-[mini=true]/side:py-2 group-data-[mini=true]/side:text-[11px]">
               <LogOut size={18} strokeWidth={1.8} /> 로그아웃
@@ -66,6 +66,10 @@ export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
           </div>
         )}
         {children}
+        {/* 모든 화면 푸터 (2026-10-21) */}
+        <footer className="px-4 pb-6 pt-10 text-center text-[12px] text-mute md:px-10 md:pb-8 md:text-left">
+          {COPYRIGHT} <span className="whitespace-nowrap">{MAKERS_LINE}</span>
+        </footer>
       </div>
       <TabBar tabs={hideTabs(tabsWithoutLocked(tabsFor(viewer)), prefs.hiddenMenus)} />
       <Yeongrang student={viewer.kind === "student"} />

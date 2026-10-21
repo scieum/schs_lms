@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { COPYRIGHT, MAKERS_LINE } from "@/lib/domain/credits";
 import { MobileMenu } from "./landing-sections";
 
 // 상세페이지 껍데기: 위 메뉴(Nav) · 섹션 머리 · CTA + Footer. 상세페이지(/)와 기능 한눈에 보기(/features)가 같이 쓴다.
@@ -66,7 +67,7 @@ export function SiteFooter() {
             <Image src="/schs-long.png" alt="SOKCHO HIGH SCHOOL" width={480} height={68} className="h-7 w-auto md:h-[34px]" />
           </Link>
           <p className="mt-1.5 text-[13px] md:text-[14px]">속초고등학교 교육과정부 · 학생·교직원 전용</p>
-          <p>© 2026 속초고등학교 교육과정부</p>
+          <p>{COPYRIGHT} <span className="whitespace-nowrap">{MAKERS_LINE}</span></p>
         </div>
       </footer>
     </>

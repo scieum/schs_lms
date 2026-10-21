@@ -26,6 +26,8 @@ export async function GET(req: Request) {
     format: "schs-neis/1",
     kind: "교과세특",
     section: new URL(req.url).searchParams.get("section"),
+    // 이동반 · 공동교육과정: 나이스는 분반 학생을 한 화면에 — 버튼(0.2.9~)이 본반으로 나누지 않는다
+    moving: (assignment.mode === "moving" && !!assignment.sections?.length) || !!course.joint,
     subject: course.subject,
     year: course.year,
     grade: course.grade,

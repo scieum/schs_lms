@@ -10,17 +10,14 @@ import { similarPairs } from "@/lib/domain/similar";
 import { repo } from "@/lib/server/repo";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
-import { commonActivityRows } from "@/lib/server/common-activity";
 import { piecesPool, provView } from "@/lib/server/provenance";
 import { listMemosWithPieces, memoPieces } from "@/lib/server/merge-pieces";
-import { lessonView } from "@/lib/server/lessons";
 import { WorkspaceProvider } from "@/components/writing/workspace";
 import { ClassCheckPanel } from "@/components/writing/class-check-panel";
 import { ClassWritePanel } from "@/components/writing/class-write-panel";
 import { LibraryPanel } from "@/components/writing/library-panel";
 import { LibrarySaveProvider } from "@/components/writing/library-save";
 import { LevelsProvider } from "@/components/writing/level-picker";
-import { ClassMaterials } from "@/components/writing/class-materials";
 import { ComposePanels } from "@/components/writing/compose-workspace";
 import { SetukCompose } from "@/components/writing/compose-adapters";
 
@@ -105,7 +102,6 @@ export default async function SetukComposePage({ searchParams }: Props) {
   const shared = siblings.length ? { other: siblings[0].semester, bytes: otherBytes } : undefined;
   const cur = latest.get(selected.id);
   const scopeKey = setukScope(course.id, tab.section);
-  const commonRows = await commonActivityRows(scopeKey, students.map((s) => s.id));
   // 비슷한 문장 (N34 ④): 분반 학생 최신 세특끼리 (공통 활동 글은 세지 않음)
   const commonList = await repo.listCommonActivities(scopeKey);
   const commonPieces = commonList.length ? await repo.listCommonActivityPieces(commonList.map((a) => a.id)) : [];
@@ -120,7 +116,6 @@ export default async function SetukComposePage({ searchParams }: Props) {
   // N38: AI 원안 · 교사가 정한 문장 · 근거 표
   const [pv, myPieces, provSettings] = await Promise.all([provView(cur), listMemosWithPieces(`세특:${course.id}`, [selected.id]).then(memoPieces), repo.getProvenanceSettings()]);
   const pool = piecesPool(myPieces, course.subject);
-  const lesson = await lessonView(scopeKey, students, tab.section ? `${course.subject} ${tab.section}` : course.subject);
   const hrefOf = (id: string) => `${base}&student=${id}`;
 
   return (
@@ -155,7 +150,6 @@ export default async function SetukComposePage({ searchParams }: Props) {
                 peers: peers.map((p) => ({ id: p.id, name: p.name, no: p.studentNo, text: latest.get(p.id)?.content ?? "", href: hrefOf(p.id) })),
                 ignore,
               }}
-              after={<ClassMaterials year={schoolYear()} lesson={lesson} common={{ scope: scopeKey, rows: commonRows, detailBase: "/teacher/setuk/activity", today: seoulNow().date }} />}
             />
           </LibrarySaveProvider>
         </ComposePanels>

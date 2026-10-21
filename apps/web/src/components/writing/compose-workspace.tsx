@@ -218,7 +218,9 @@ export function ComposeWorkspace({
   const pickParas = (on: boolean) => { setOwnParas(on); try { localStorage.setItem(PARAS_KEY, on ? "on" : "off"); } catch { /* 이번에만 */ } };
   // 문단 보기에서 고친 글(줄바꿈 그대로) — 한 문단으로 붙인 것이 text 와 같을 때만 쓴다 (AI가 바꾼 글이면 새로 나눈다)
   const [view, setView] = useState<string | null>(null);
-  const shown = paras ? (view !== null && joinLight(view) === text ? view : splitParagraphs(text)) : text;
+  // 조각별로: 근거 보기의 문장마다 조각(첫 근거)을 넘긴다
+  const spans = useMemo(() => pv.aligned?.map((x) => ({ start: x.start, end: x.end, key: x.sources[0] ? `${x.sources[0].type}:${x.sources[0].ref}` : null })), [pv.aligned]);
+  const shown = paras ? (view !== null && joinLight(view) === text ? view : splitParagraphs(text, spans)) : text;
   const onBody = (v: string) => { if (paras) { setView(v); setText(joinLight(v)); } else setText(v); };
 
   // ---------- 목표 · 오차 (N49) ----------

@@ -5,6 +5,7 @@ import { ClipboardList, Lock, MessageCircle, Sparkles, type LucideIcon } from "l
 import { Yeongrang } from "@/components/shell/yeongrang";
 import { homePath } from "@/lib/domain/policy";
 import { getViewer } from "@/lib/server/viewer";
+import { COPYRIGHT, MAKERS_LINE } from "@/lib/domain/credits";
 import { LoginForm } from "./login-form";
 
 export const metadata = { title: "로그인 · 속초고등학교 학생관리시스템" };
@@ -37,7 +38,7 @@ export default async function LoginPage() {
           <div className="w-full max-w-[440px]">
             <LoginForm />
           </div>
-          <p className="text-xs text-mute">© 2026 속초고등학교 교육과정부</p>
+          <p className="text-center text-xs text-mute">{COPYRIGHT} <span className="whitespace-nowrap">{MAKERS_LINE}</span></p>
         </section>
 
         <aside className="hidden flex-col gap-8 bg-key-soft px-16 pb-16 pt-[72px] lg:flex" aria-label="서비스 소개">

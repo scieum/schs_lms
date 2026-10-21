@@ -9,12 +9,17 @@ const labels = (v: Viewer) => navFor(v).map((g) => g.label);
 const hrefs = (v: Viewer) => navFor(v).flatMap((g) => g.items.map((it) => it.href));
 
 describe("교사 사이드바 묶음 (N52 → N53)", () => {
-  it("교과 교사: 홈 · 업무 · 세특 · 동아리 · 특색활동", () => {
-    expect(labels(teacher(["subject", "program"]))).toEqual(["", "업무", "세특", "동아리", "특색활동"]);
+  it("교과 교사: 홈 · 업무 · 세특 · 동아리 · 특색활동 · 도구", () => {
+    expect(labels(teacher(["subject", "program"]))).toEqual(["", "업무", "세특", "동아리", "특색활동", "도구"]);
+  });
+  it("도구: 나이스 입력 · 학생 리포트 · 문장 보관함 · 생기부 팁 (업무에서 뺌)", () => {
+    const g = navFor(teacher(["subject"]));
+    expect(g.find((x) => x.label === "도구")!.items.map((it) => it.href)).toEqual(["/teacher/neis", "/teacher/reports", "/teacher/library", "/teacher/tips"]);
+    expect(g.find((x) => x.label === "업무")!.items.map((it) => it.href)).toEqual(["/schedule", "/students", "/teacher/counseling", "/students/new"]);
   });
   it("담임: 담임 묶음이 생기고 홈은 우리 반 홈", () => {
     const v = teacher(["subject", "homeroom"], { grade: 1, classNo: 2 });
-    expect(labels(v)).toEqual(["", "업무", "세특", "동아리", "특색활동", "담임"]);
+    expect(labels(v)).toEqual(["", "업무", "세특", "동아리", "특색활동", "도구", "담임"]);
     expect(navFor(v)[0].items[0].href).toBe("/homeroom");
     const hr = navFor(v).find((g) => g.label === "담임")!.items.map((it) => it.label);
     expect(hr).toEqual(["누가기록", "글 짓기", "받은 초안", "글 모아 보기"]);
@@ -70,28 +75,28 @@ describe("메뉴 순서 바꾸기 (N53)", () => {
   it("묶음 순서 · 묶음 사이로 옮긴 메뉴가 반영되고 홈은 맨 위", () => {
     const moved = moveItem(moveGroup(L, "특색활동", 0), "/teacher/library", "세특", 4);
     const out = arrangeMenus(base, moved);
-    expect(out.map((g) => g.label)).toEqual(["", "특색활동", "업무", "세특", "동아리"]);
+    expect(out.map((g) => g.label)).toEqual(["", "특색활동", "업무", "세특", "동아리", "도구"]);
     expect(out.find((g) => g.label === "세특")!.items.map((it) => it.label)).toEqual(["내 수업", "조각 모으기", "수행평가", "글 짓기", "문장 보관함", "글 모아 보기"]);
-    expect(out.find((g) => g.label === "업무")!.items.map((it) => it.href)).not.toContain("/teacher/library");
+    expect(out.find((g) => g.label === "도구")!.items.map((it) => it.href)).not.toContain("/teacher/library");
   });
   it("저장 뒤 새로 생긴 메뉴 · 묶음은 처음 자리에, 없어진 묶음 메뉴는 처음 묶음으로", () => {
     const saved = [{ label: "동아리", items: ["/teacher/club"] }, { label: "담임", items: ["/schedule"] }];
     const out = arrangeMenus(base, saved);
-    expect(out.map((g) => g.label)).toEqual(["", "동아리", "업무", "세특", "특색활동"]);
+    expect(out.map((g) => g.label)).toEqual(["", "동아리", "업무", "세특", "특색활동", "도구"]);
     expect(out.find((g) => g.label === "업무")!.items[0].href).toBe("/schedule");
     expect(out.find((g) => g.label === "동아리")!.items.length).toBe(4);
   });
   it("같은 묶음 안 옮기기 · 묶음 옮기기 자리 계산", () => {
-    expect(moveItem(L, "/schedule", "업무", 3).find((g) => g.label === "업무")!.items.slice(0, 3)).toEqual(["/teacher/neis", "/students", "/schedule"]);
-    expect(moveGroup(L, "업무", 4).map((g) => g.label)).toEqual(["세특", "동아리", "특색활동", "업무"]);
+    expect(moveItem(L, "/schedule", "업무", 3).find((g) => g.label === "업무")!.items.slice(0, 3)).toEqual(["/students", "/teacher/counseling", "/schedule"]);
+    expect(moveGroup(L, "업무", 4).map((g) => g.label)).toEqual(["세특", "동아리", "특색활동", "업무", "도구"]);
   });
   it("↑ ↓: 끝에서는 옆 묶음으로 넘어간다", () => {
     const up = stepItem(L, "/teacher/subjects", -1);
     expect(up.find((g) => g.label === "업무")!.items.at(-1)).toBe("/teacher/subjects");
-    const down = stepItem(L, "/teacher/tips", 1);
-    expect(down.find((g) => g.label === "세특")!.items[0]).toBe("/teacher/tips");
+    const down = stepItem(L, "/students/new", 1);
+    expect(down.find((g) => g.label === "세특")!.items[0]).toBe("/students/new");
     expect(stepItem(L, "/schedule", -1)).toBe(L);
-    expect(stepGroup(L, "세특", -1).map((g) => g.label)).toEqual(["세특", "업무", "동아리", "특색활동"]);
+    expect(stepGroup(L, "세특", -1).map((g) => g.label)).toEqual(["세특", "업무", "동아리", "특색활동", "도구"]);
   });
   it("저장 전 정리: 남의 메뉴 · 중복은 빼고, 처음과 같으면 null", () => {
     expect(cleanLayout(L, base)).toBeNull();

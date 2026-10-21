@@ -1,20 +1,16 @@
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { ButtonLink, Card } from "@/components/ui";
 import { schoolYear } from "@/lib/domain/curriculum";
-import { clubScope } from "@/lib/domain/common-activity";
 import { libraryAreaOf } from "@/lib/domain/library";
 import { seoulNow } from "@/lib/domain/night";
 import { repo } from "@/lib/server/repo";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
-import { commonActivityRows } from "@/lib/server/common-activity";
-import { lessonView } from "@/lib/server/lessons";
 import { WorkspaceProvider } from "@/components/writing/workspace";
 import { ClassCheckPanel } from "@/components/writing/class-check-panel";
 import { ClassWritePanel } from "@/components/writing/class-write-panel";
 import { LibraryPanel } from "@/components/writing/library-panel";
 import { LibrarySaveProvider } from "@/components/writing/library-save";
-import { ClassMaterials } from "@/components/writing/class-materials";
 import { ComposePanels } from "@/components/writing/compose-workspace";
 import { RecordCompose } from "@/components/writing/compose-adapters";
 import { recordComposeData } from "@/app/(app)/teacher/write/compose-data";
@@ -66,9 +62,6 @@ export default async function ClubComposePage({ searchParams }: Props) {
     );
   }
 
-  const commonKey = clubScope(club.id);
-  const commonRows = await commonActivityRows(commonKey, students.map((s) => s.id));
-  const lesson = await lessonView(commonKey, students, club.name);
   const sel = data.selected;
 
   return (
@@ -90,7 +83,6 @@ export default async function ClubComposePage({ searchParams }: Props) {
             openCheck={q.check === "1" && q.student === sel.id}
             startMode={q.mode === "append" ? "append" : "new"}
             today={seoulNow().date}
-            after={<ClassMaterials year={schoolYear()} lesson={lesson} common={{ scope: commonKey, rows: commonRows, detailBase: "/teacher/write/activity", today: seoulNow().date }} />}
           />
         </LibrarySaveProvider>
       </ComposePanels>

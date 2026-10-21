@@ -36,7 +36,7 @@ function baseNav(v: Viewer): NavGroup[] {
       ] },
     ];
   }
-  // 교사 사이드바 (Figma N52 → N53, 2026-10-21): 홈(묶음 밖) · 업무 · 세특 · 동아리 · 특색활동 · 담임 · 관리.
+  // 교사 사이드바 (Figma N52 → N53, 2026-10-21): 홈(묶음 밖) · 업무 · 세특 · 동아리 · 특색활동 · 도구 · 담임 · 관리.
   // 기록 묶음은 늘 "내 ~ · 조각 모으기 · 글 짓기 · 글 모아 보기". 특색활동은 내 프로그램 · 새 프로그램 · 초안 검토(배지) · 프로그램 일정 · 봉사 확인서.
   // 공동교육과정은 메뉴 대신 내 수업 안 카드(N54, /teacher/joint 는 운영 안내로 남김).
   // 세특은 교과 교사, 담임은 담임, 관리는 관리자만. 담임 전용 기능(학생 기록 · 봉사 받은함 · 성적 · 최저 · 야자)은 업무 끝에.
@@ -51,13 +51,9 @@ function baseNav(v: Viewer): NavGroup[] {
   const groups: NavGroup[] = [{ label: "", items: [I("홈", home, "home")] }];
   groups.push({ label: "업무", items: [
     I("학사일정", "/schedule", "calendar"),
-    I("나이스 입력", "/teacher/neis", "send"),
     I("담당 학생", "/students", "users"),
-    I("학생 리포트", "/teacher/reports", "file"),
     I("상담 기록", "/teacher/counseling", "chat"),
     I("학생 등록", "/students/new", "userPlus"),
-    I("문장 보관함", "/teacher/library", "bookmark"),
-    I("생기부 팁", "/teacher/tips", "book"),
     ...(homeroom ? [
       I("학생 기록", "/homeroom/students", "users"),
       I("봉사 받은함", "/homeroom/service", "shield"),
@@ -88,6 +84,13 @@ function baseNav(v: Viewer): NavGroup[] {
     I("초안 검토", "/teacher/drafts", "file"),
     I("프로그램 일정", "/teacher/programs?view=calendar", "calendar"),
     I("봉사 확인서", "/teacher/service", "shield"),
+  ] });
+  // 도구 (2026-10-21): 생기부를 쓰고 내보낼 때 곁에 두는 것 — 어느 기록 묶음에서든 쓴다
+  groups.push({ label: "도구", items: [
+    I("나이스 입력", "/teacher/neis", "send"),
+    I("학생 리포트", "/teacher/reports", "file"),
+    I("문장 보관함", "/teacher/library", "bookmark"),
+    I("생기부 팁", "/teacher/tips", "book"),
   ] });
   if (homeroom) {
     groups.push({ label: "담임", items: [

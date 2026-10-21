@@ -11,7 +11,6 @@ import { repo } from "@/lib/server/repo";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 import { commonActivityRows } from "@/lib/server/common-activity";
-import { lessonView } from "@/lib/server/lessons";
 import { WorkspaceProvider } from "@/components/writing/workspace";
 import { ClassCheckPanel } from "@/components/writing/class-check-panel";
 import { ClassWritePanel } from "@/components/writing/class-write-panel";
@@ -87,7 +86,6 @@ export default async function HomeroomComposePage({ searchParams }: Props) {
   const commonKey = classScope(area, h.grade, h.classNo);
   const commonRows = await commonActivityRows(commonKey, ids);
   // 차시별 활동 (N43): 자율·자치 · 진로만 (행발은 없음)
-  const lesson = area === "행발" ? undefined : await lessonView(commonKey, students, `${h.grade}학년 ${h.classNo}반 ${area}`);
 
   return (
     <WorkspaceProvider key={area} scope={{ kind: "record", area, clubId: null }}>
@@ -110,7 +108,8 @@ export default async function HomeroomComposePage({ searchParams }: Props) {
             openCheck={q.check === "1" && q.student === sel.id}
             startMode={q.mode === "append" ? "append" : "new"}
             today={seoulNow().date}
-            after={<ClassMaterials year={lesson ? schoolYear() : undefined} lesson={lesson} common={{ scope: commonKey, rows: commonRows, detailBase: "/teacher/write/activity", today: seoulNow().date }} />}
+            // 공통 활동 · 차시별 활동은 조각 모으기(누가기록)에 — 행발은 누가기록 영역이 없어 여기 공통 활동만 (N62)
+            after={area === "행발" ? <ClassMaterials common={{ scope: commonKey, rows: commonRows, detailBase: "/teacher/write/activity", today: seoulNow().date }} /> : undefined}
           />
         </LibrarySaveProvider>
       </ComposePanels>
