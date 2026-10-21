@@ -43,6 +43,8 @@ try {
   const mobile = width < 768;
   await send("Emulation.setDeviceMetricsOverride", { width, height: mobile ? 900 : 1000, deviceScaleFactor: 1, mobile });
   await send("Network.enable");
+  // SHOT_MEDIA=print: 인쇄 화면으로 찍기 (A4 인쇄 확인)
+  if (process.env.SHOT_MEDIA) await send("Emulation.setEmulatedMedia", { media: process.env.SHOT_MEDIA });
   if (account !== "none") {
     const token = await new SignJWT({}).setProtectedHeader({ alg: "HS256" }).setSubject(account).setIssuedAt().setExpirationTime("2h")
       .sign(new TextEncoder().encode(process.env.SHOT_SECRET || "demo-only-session-secret-change-me-please"));
