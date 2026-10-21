@@ -23,7 +23,8 @@ import { ReviseBox } from "./revise-box";
 import { RecordChecks, useBodyChecks, type Who } from "./record-checks";
 import { HighlightTextarea, type Mark } from "./highlight-textarea";
 import { VariantsPanel, VariantsToggle } from "./variants-panel";
-import { BodyCard, type TagResult } from "./competency-view";
+import { BodyCard, CompetencyCheck, type TagResult } from "./competency-view";
+import { paragraphCount, splitParagraphs } from "@/lib/domain/paragraphs";
 import { BodyViewSwitch, useProvenance, type ProvInit } from "./provenance";
 import { useGuideMarks, useGuideTarget } from "./guide-store";
 import { GuideBookButton } from "./guide-panel";
@@ -81,6 +82,10 @@ const noSub = () => () => {};
 const NO_PEERS: SimilarPeer[] = [];
 const NO_TEXT: string[] = [];
 const weightKey = (id: string) => `schs.piece-weight.${id}`;
+
+const PARAS_KEY = "schs-compose-paras";
+/** 문단 보기에서 고친 글 → 한 문단 (끝 띄어쓰기는 그대로 — 치는 중 공백이 사라지지 않게) */
+const joinLight = (v: string) => v.replace(/[ \t]*\n+[ \t]*/g, " ");
 
 export function ComposeWorkspace({
   adapter, word, students, current, hrefBase, classes, classLabel, tabs, collectHref, collectLabel = "조각 모으기",
@@ -203,6 +208,16 @@ export function ComposeWorkspace({
   const { needFromServer } = pv;
   useEffect(() => { needFromServer(state.needReason); }, [state.needReason, needFromServer]);
   const lib = useBodyLibrary({ text, body, area: adapter.libraryArea, subject: adapter.subject, onInsert: (next) => bc.replace(next, "넣었어요"), addPiece: adapter.addLibraryPiece });
+
+  // ---------- 문단 나누기 (N56): 보기만 나눈다. 저장 · 바이트 · 나이스는 늘 한 문단(text) ----------
+  const storedParas = useSyncExternalStore(noSub, () => { try { return localStorage.getItem(PARAS_KEY); } catch { return null; } }, () => null);
+  const [ownParas, setOwnParas] = useState<boolean | null>(null);
+  const paras = ownParas ?? storedParas === "on";
+  const pickParas = (on: boolean) => { setOwnParas(on); try { localStorage.setItem(PARAS_KEY, on ? "on" : "off"); } catch { /* 이번에만 */ } };
+  // 문단 보기에서 고친 글(줄바꿈 그대로) — 한 문단으로 붙인 것이 text 와 같을 때만 쓴다 (AI가 바꾼 글이면 새로 나눈다)
+  const [view, setView] = useState<string | null>(null);
+  const shown = paras ? (view !== null && joinLight(view) === text ? view : splitParagraphs(text)) : text;
+  const onBody = (v: string) => { if (paras) { setView(v); setText(joinLight(v)); } else setText(v); };
 
   // ---------- 목표 · 오차 (N49) ----------
   const [target, setTarget] = useState(limit);
@@ -406,13 +421,29 @@ export function ComposeWorkspace({
         <div>
           {hasBody && gate.chips}
           {gm.line}
+          {hasBody && (
+            <div className="flex items-center gap-2 pb-2 pt-1">
+              <label className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-[13px] font-medium text-sub">
+                문단 나누기
+                <input type="checkbox" role="switch" className="peer sr-only" checked={paras} onChange={(e) => pickParas(e.target.checked)} />
+                <span aria-hidden className={cx("relative h-5 w-9 rounded-full transition-colors", paras ? "bg-key" : "bg-faint")}>
+                  <span className={cx("absolute top-0.5 size-4 rounded-full bg-[#fff] transition-all", paras ? "left-[18px]" : "left-0.5")} />
+                </span>
+              </label>
+              {paras && <span className="text-[12px] font-bold text-key-strong">{paragraphCount(shown)}문단</span>}
+              <span className="flex-1" />
+              <span className="truncate text-[12px] text-mute">{paras ? <><span className="md:hidden">나이스엔 한 문단</span><span className="hidden md:inline">보기 편하게만 · 나이스에는 한 문단으로 들어가요</span></> : "한 문단"}</span>
+            </div>
+          )}
           <BodyCard bare head={false} toggle={hasBody} view={{ on: competency, set: setCompetency }} text={text} tag={adapter.tag}>
+            {/* 문단 보기일 때 보내는 글은 한 문단 (hidden content) */}
+            {paras && <input type="hidden" name="content" value={text} />}
             {pv.body(<HighlightTextarea
               ref={body}
-              name="content"
-              value={text}
-              onChange={setText}
-              marks={marks}
+              name={paras ? undefined : "content"}
+              value={shown}
+              onChange={onBody}
+              marks={paras ? [] : marks}
               onPickMark={bc.setOpen}
               focusKey={gm.focusKey ?? bc.open}
               maxLength={5000}
@@ -426,6 +457,7 @@ export function ComposeWorkspace({
             {lib.mobileSave && <div className="mt-2">{lib.mobileSave}</div>}
           </BodyCard>
         </div>
+        {hasBody && !competency && <CompetencyCheck text={text} onOpen={() => setCompetency(true)} />}
         {hasBody && (
           <ReviseBox kind={adapter.reviseKind} text={text} unit={unit} limit={limit} band={gate.bandLabel}
             disabled={aiOn ? undefined : "AI가 꺼져 있어 수정 요청을 보낼 수 없어요. 직접 고쳐 주세요"}
@@ -446,7 +478,7 @@ export function ComposeWorkspace({
             fit={{ run: () => adapter.fit(text, unit, range.max), onApply: (t) => { setText(t); gate.remember(t); } }} />
         </div>
 
-        {/* 더보기: 옛 편집기 기능 그대로 (근거 N38 · 다른 버전 N34 · 역량 보기 · 기재요령 N43 · 보관함 · 성취수준 N35 · 행발 키워드 메뉴판 N35) */}
+        {/* 더보기: 옛 편집기 기능 그대로 (근거 N38 · 다른 버전 N34 · 기재요령 N43 — 역량은 N56 역량 확인 칸으로 나옴 · 보관함 · 성취수준 N35 · 행발 키워드 메뉴판 N35) */}
         <div className="flex flex-col gap-3 border-t border-line pt-3">
           <button type="button" onClick={() => setMoreOpen(!moreOpen)} aria-expanded={moreOpen}
             className="flex h-8 items-center gap-1 self-start whitespace-nowrap text-[13px] font-medium text-sub hover:text-ink">
@@ -457,13 +489,6 @@ export function ComposeWorkspace({
               <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:overflow-visible md:px-0">
                 <div className="flex w-max items-center gap-1.5 md:w-auto md:flex-wrap">
                   <BodyViewSwitch {...pv.switchProps} />
-                  <label className={cx("flex h-[30px] shrink-0 items-center gap-2 whitespace-nowrap rounded-chip px-2 text-[13px] text-sub", hasBody ? "cursor-pointer hover:bg-soft" : "cursor-not-allowed opacity-50")}>
-                    역량 보기
-                    <input type="checkbox" role="switch" className="peer sr-only" checked={competency && hasBody} disabled={!hasBody} onChange={(e) => setCompetency(e.target.checked)} />
-                    <span aria-hidden className={cx("relative h-5 w-9 rounded-full transition-colors", competency && hasBody ? "bg-key" : "bg-faint")}>
-                      <span className={cx("absolute top-0.5 size-4 rounded-full bg-[#fff] transition-all", competency && hasBody ? "left-[18px]" : "left-0.5")} />
-                    </span>
-                  </label>
                   {hasBody && <VariantsToggle on={variants} onClick={() => setVariants(!variants)} />}
                   <LibraryToggle />
                   {lv && adapter.group === "setuk" && (

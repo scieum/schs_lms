@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pencil } from "lucide-react";
 import { Tag, cx } from "@/components/ui";
-import { COMPETENCIES, COMPETENCY_LABEL, competencySummary, SUB_ITEMS, subLabel, type Competency, type TaggedSentence } from "@/lib/domain/competency";
+import { COMPETENCIES, COMPETENCY_LABEL, competencySummary, SUB_ITEMS, subLabel, tagByRules, type Competency, type TaggedSentence } from "@/lib/domain/competency";
 
 // 역량 보기 (Figma N11 227:2502 · 228:2502 · 230:2515): 본문 문장을 대입 3대 역량 색으로 칠하고, 옆에서 평가항목 10개로 나눠 본다.
 // 색은 디자인 시스템 포인트 색의 파스텔 (2026-10-17 사용자: 인디고 톤은 눈에 안 띈다) — 학업 파랑 · 진로 초록 · 공동체 노랑.
@@ -150,5 +150,46 @@ function CompetencyView({ text, tag }: { text: string; tag: (text: string) => Pr
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * 역량 확인 (Figma N56): 글 칸에서 글 바로 아래, 글이 있으면 늘 보인다. 글을 고칠 때마다 규칙으로 바로 다시 센다(자동 · 서버 안 감).
+ * [문장 색으로 보기 ›] = 위 역량 보기(문장 색 · 평가항목 10개, AI가 켜져 있으면 AI로 나눔).
+ */
+export function CompetencyCheck({ text, onOpen }: { text: string; onOpen: () => void }) {
+  const tags = tagByRules(text);
+  const sum = competencySummary(tags);
+  const total = tags.filter((t) => t.competency).length;
+  const missing = sum.missingSubs.slice(0, 2).map((m) => subLabel(m.sub));
+  return (
+    <section className="flex flex-col gap-2.5 rounded-inner border border-line bg-[#fff] p-4" aria-label="역량 확인">
+      <div className="flex items-center gap-1.5">
+        <h3 className="text-[14px] font-bold">역량 확인</h3>
+        <span className="rounded-chip bg-soft px-1.5 py-px text-[11px] font-bold text-sub">자동</span>
+        <span className="flex-1" />
+        <button type="button" onClick={onOpen} className="whitespace-nowrap text-[13px] font-bold text-key-strong hover:underline">문장 색으로 보기 ›</button>
+      </div>
+      {COMPETENCIES.map((c) => {
+        const n = sum.counts[c];
+        return (
+          <div key={c} className="flex items-center gap-2.5">
+            <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: COMPETENCY_COLOR[c].dot }} />
+            <span className="w-16 shrink-0 text-[13px] font-bold md:w-[76px]">{COMPETENCY_LABEL[c]}</span>
+            <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-soft" aria-hidden>
+              <span className="block h-full rounded-full" style={{ width: `${total ? Math.max(n ? 4 : 0, (n / total) * 100) : 0}%`, background: COMPETENCY_COLOR[c].dot }} />
+            </span>
+            <span className="w-11 shrink-0 text-right text-[12px] font-medium tabular-nums text-sub">{n}문장</span>
+          </div>
+        );
+      })}
+      {missing.length > 0 && (
+        <p className="flex flex-wrap items-center gap-1.5 rounded-control bg-bg px-3 py-2 text-[12px]">
+          <span className="font-bold text-sub">빠진 항목</span>
+          {missing.map((m) => <span key={m} className="rounded-chip bg-wait-soft px-1.5 py-px font-bold text-[#9a6400]">{m}</span>)}
+          <span className="ml-auto hidden text-mute md:inline">조각에 있으면 다시 쓰기 때 넣어요</span>
+        </p>
+      )}
+    </section>
   );
 }
