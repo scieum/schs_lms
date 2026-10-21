@@ -4,7 +4,6 @@ import { neisBytes, neisMax } from "@/lib/domain/length";
 import { latestByStudent, statusLabel, studentsInCourse } from "@/lib/domain/setuk";
 import { commonSiblings, schoolYear, type Course } from "@/lib/domain/curriculum";
 import { firstStudent } from "@/lib/domain/compose";
-import { makeStudentNo } from "@/lib/domain/roster";
 import { setukScope } from "@/lib/domain/common-activity";
 import { seoulNow } from "@/lib/domain/night";
 import { similarPairs } from "@/lib/domain/similar";
@@ -38,7 +37,7 @@ const short = (c: Course) => `${c.subject} ${c.grade}-${c.semester}`;
 export default async function SetukComposePage({ searchParams }: Props) {
   const v = await requireCan("setuk.write");
   const q = await searchParams;
-  const [mine, offered, rosters] = await Promise.all([repo.listTeacherCourses(v.accountId), repo.listCourses(schoolYear()), repo.listCourseRosters(v.accountId)]);
+  const [mine, offered, rosters] = await Promise.all([repo.listTeacherCourses(v.accountId), repo.listCourses(schoolYear(), { joint: true }), repo.listCourseRosters(v.accountId)]);
   const myCourses = offered.filter((c) => mine.some((a) => a.courseId === c.id));
 
   if (myCourses.length === 0) {
@@ -58,13 +57,14 @@ export default async function SetukComposePage({ searchParams }: Props) {
     );
   }
 
-  const allStudents = await repo.listStudents();
+  // 공동교육과정 수업(N54)이면 다른 학교 학생도 명단에 든다
+  const allStudents = await repo.listStudents({ external: true });
   // 반 고르기: 고정반 과목은 과목 하나, 이동반 과목은 분반마다 하나 (Figma N4 · N52 [반 ▾])
   const tabs = myCourses.flatMap((c) => {
     const a = mine.find((x) => x.courseId === c.id)!;
     const rs = rosters.filter((r) => r.courseId === c.id);
     if (a.mode === "moving" && a.sections?.length) {
-      return a.sections.map((sec) => ({ course: c, section: sec as string | null, label: `${c.subject} ${sec} · ${studentsInCourse(allStudents, c, a, rs, sec).length}명` }));
+      return a.sections.map((sec) => ({ course: c, section: sec as string | null, label: `${c.joint ? `공동 · ${c.subject}` : `${c.subject} ${sec}`} · ${studentsInCourse(allStudents, c, a, rs, sec).length}명` }));
     }
     return [{ course: c, section: null as string | null, label: `${short(c)} · ${a.classes.join(", ")}반` }];
   });
@@ -74,7 +74,8 @@ export default async function SetukComposePage({ searchParams }: Props) {
   const records = await repo.listSetuk(course.id);
   const students = studentsInCourse(allStudents, course, assignment, rosters.filter((r) => r.courseId === course.id), tab.section);
   const latest = latestByStudent(records);
-  const list = students.map((s) => ({ id: s.id, no: makeStudentNo(s.grade, s.classNo, s.number), name: s.name, status: statusLabel(latest.get(s.id)) }));
+  // 다른 학교 학생(N54)은 칸이 좁아 번호 자리에 학교 이름만
+  const list = students.map((s) => ({ id: s.id, no: s.school ?? s.studentNo, name: s.name, status: statusLabel(latest.get(s.id)) }));
   const selected = students.find((s) => s.id === firstStudent(list, q.student)?.id);
   const sec = tab.section ? `&section=${encodeURIComponent(tab.section)}` : "";
   const base = `/teacher/setuk/compose?course=${course.id}${sec}`;
@@ -150,8 +151,8 @@ export default async function SetukComposePage({ searchParams }: Props) {
               startMode={q.mode === "append" ? "append" : "new"}
               today={seoulNow().date}
               similar={{
-                self: { id: selected.id, name: selected.name, no: makeStudentNo(selected.grade, selected.classNo, selected.number), href: hrefOf(selected.id) },
-                peers: peers.map((p) => ({ id: p.id, name: p.name, no: makeStudentNo(p.grade, p.classNo, p.number), text: latest.get(p.id)?.content ?? "", href: hrefOf(p.id) })),
+                self: { id: selected.id, name: selected.name, no: selected.studentNo, href: hrefOf(selected.id) },
+                peers: peers.map((p) => ({ id: p.id, name: p.name, no: p.studentNo, text: latest.get(p.id)?.content ?? "", href: hrefOf(p.id) })),
                 ignore,
               }}
               after={<ClassMaterials year={schoolYear()} lesson={lesson} common={{ scope: scopeKey, rows: commonRows, detailBase: "/teacher/setuk/activity", today: seoulNow().date }} />}

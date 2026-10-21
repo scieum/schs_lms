@@ -43,8 +43,9 @@ export function studentsInCourse(students: Student[], course: Course, assignment
     return students.filter((s) => ids.has(s.id)).sort((a, b) => a.studentNo.localeCompare(b.studentNo));
   }
   const classes = new Set(assignment?.classes ?? []);
+  // 고정반은 본교 반 그대로 (다른 학교 학생은 공동교육과정 명단에만)
   return students
-    .filter((s) => s.grade === course.grade && classes.has(s.classNo))
+    .filter((s) => !s.school && s.grade === course.grade && classes.has(s.classNo))
     .sort((a, b) => a.classNo - b.classNo || a.number - b.number);
 }
 

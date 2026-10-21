@@ -5,6 +5,7 @@ import type { ActivityLog, Club, ServiceRecord } from "@/lib/domain/activity";
 import type { SetukRecord } from "@/lib/domain/setuk";
 import type { Account, Student, Teacher } from "@/lib/domain/types";
 import { env } from "../env";
+import { externalNo } from "@/lib/domain/joint-curriculum";
 import type { NewServiceRecord, NewStudent, Repo } from "./types";
 import { insertWithProv, provFrom, type ProvRow } from "./modules/provenance";
 
@@ -18,21 +19,25 @@ export function db() {
 }
 
 type AccountRow = { id: string; kind: Account["kind"]; login_id: string; password_hash: string; must_change_password: boolean; failed_count: number; locked_until: string | null };
-type StudentRow = { id: string; pseudonym_id: string; student_no: string; grade: number; class_no: number; number: number; name: string; gender: Student["gender"]; track: number; career_goal: string | null };
+type StudentRow = { id: string; pseudonym_id: string; student_no: string; grade: number; class_no: number; number: number; name: string; gender: Student["gender"]; track: number; career_goal: string | null; school?: string | null };
 type TeacherRow = { id: string; name: string; roles: Teacher["roles"]; homeroom_grade: number | null; homeroom_class: number | null; dept: string | null };
 
 const toAccount = (r: AccountRow): Account => ({ id: r.id, kind: r.kind, loginId: r.login_id, passwordHash: r.password_hash, mustChangePassword: r.must_change_password, failedCount: r.failed_count, lockedUntil: r.locked_until });
-const toStudent = (r: StudentRow): Student => ({ id: r.id, pseudonymId: r.pseudonym_id, studentNo: r.student_no, grade: r.grade, classNo: r.class_no, number: r.number, name: r.name, gender: r.gender, track: r.track, careerGoal: r.career_goal });
+// 다른 학교 학생(N54)은 DB 학번 칸이 "joint:<id>" 라 화면에는 "학교 학년반번호"로 바꿔 보낸다
+const toStudent = (r: StudentRow): Student => ({
+  id: r.id, pseudonymId: r.pseudonym_id, studentNo: r.school ? externalNo({ school: r.school, grade: r.grade, classNo: r.class_no, number: r.number }) : r.student_no,
+  grade: r.grade, classNo: r.class_no, number: r.number, name: r.name, gender: r.gender, track: r.track, careerGoal: r.career_goal, ...(r.school ? { school: r.school } : {}),
+});
 const toTeacher = (r: TeacherRow): Teacher => ({ id: r.id, name: r.name, roles: r.roles, homeroom: r.homeroom_grade && r.homeroom_class ? { grade: r.homeroom_grade, classNo: r.homeroom_class } : null, dept: r.dept });
 
 // 다른 환경(데모)에서 만든 세션 쿠키처럼 UUID가 아닌 id는 조회하지 않고 "없음"으로 본다
 export const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
-type CourseRow = { id: string; year: number; grade: number; semester: 1 | 2; subject: string; subject_group: SubjectGroup; course_type: Course["type"]; credits: number };
+type CourseRow = { id: string; year: number; grade: number; semester: 1 | 2; subject: string; subject_group: SubjectGroup; course_type: Course["type"]; credits: number; joint?: Course["joint"]; owner_id?: string | null };
 type TeacherCourseRow = { teacher_id: string; course_id: string; classes: number[]; mode?: string | null; sections?: string[] | null };
 type SetukRow = { id: string; course_id: string; student_id: string; author_id: string; content: string; unit: SetukRecord["unit"]; max_len: number; status: SetukRecord["status"]; created_at: string } & ProvRow;
 
-const toCourse = (r: CourseRow): Course => ({ id: r.id, year: r.year, grade: r.grade, semester: r.semester, subject: r.subject, group: r.subject_group, type: r.course_type, credits: r.credits });
+const toCourse = (r: CourseRow): Course => ({ id: r.id, year: r.year, grade: r.grade, semester: r.semester, subject: r.subject, group: r.subject_group, type: r.course_type, credits: r.credits, ...(r.joint ? { joint: r.joint, ownerId: r.owner_id ?? null } : {}) });
 const toTeacherCourse = (r: TeacherCourseRow): TeacherCourse => ({
   teacherId: r.teacher_id, courseId: r.course_id, classes: r.classes ?? [],
   mode: r.mode === "moving" ? "moving" : "fixed", sections: r.sections ?? [],
@@ -104,9 +109,28 @@ export const supabaseRepo: Repo = {
     const r = check(await db().from("students").select("*").eq("id", id).maybeSingle());
     return r ? toStudent(r as StudentRow) : null;
   },
-  async listStudents() {
-    const r = check(await db().from("students").select("*").order("student_no"));
-    return (r as StudentRow[]).map(toStudent);
+  async listStudents(opts) {
+    let res = opts?.external
+      ? await db().from("students").select("*").order("student_no")
+      : await db().from("students").select("*").is("school", null).order("student_no");
+    // 0028 전 DB: school 칸이 없으면 모두 본교 학생
+    if (res.error && /school/.test(res.error.message)) res = await db().from("students").select("*").order("student_no");
+    return (check(res) as StudentRow[]).map(toStudent).sort((a, b) => a.studentNo.localeCompare(b.studentNo));
+  },
+  async createExternalStudents(rows) {
+    if (!rows.length) return [];
+    const ids = rows.map(() => crypto.randomUUID());
+    // 로그인 못 하는 계정: 비밀번호 칸은 bcrypt 해시가 아니고 잠금 기한이 끝없다
+    check(await db().from("accounts").insert(ids.map((id) => ({ id, kind: "student", login_id: `joint:${id}`, password_hash: "!", must_change_password: false, locked_until: "9999-12-31T00:00:00Z" }))));
+    const res = await db().from("students").insert(rows.map((r, i) => ({
+      id: ids[i], pseudonym_id: r.pseudonymId, student_no: `joint:${ids[i]}`, grade: r.grade, class_no: r.classNo, number: r.number, name: r.name.trim(), school: r.school.trim(),
+    }))).select("*");
+    if (res.error && /school/.test(res.error.message)) throw new Error("다른 학교 학생을 넣으려면 DB 업데이트(0028)가 필요해요. 관리자에게 알려 주세요");
+    return (check(res) as StudentRow[]).map(toStudent);
+  },
+  async updateExternalStudent(id, r) {
+    if (!isUuid(id)) return;
+    check(await db().from("students").update({ grade: r.grade, class_no: r.classNo, number: r.number, name: r.name.trim(), school: r.school.trim() }).eq("id", id).not("school", "is", null));
   },
   async existingStudentNos() {
     const r = check(await db().from("students").select("student_no"));
@@ -129,9 +153,9 @@ export const supabaseRepo: Repo = {
     const r = check(await db().from("teachers").select("*").order("name"));
     return (r as TeacherRow[]).map(toTeacher);
   },
-  async listCourses(year) {
+  async listCourses(year, opts) {
     const r = check(await db().from("school_courses").select("*").eq("year", year).eq("active", true).order("grade").order("semester").order("subject"));
-    return (r as CourseRow[]).map(toCourse);
+    return (r as CourseRow[]).map(toCourse).filter((c) => opts?.joint || !c.joint);
   },
   async getCourse(id) {
     if (!isUuid(id)) return null;
@@ -141,13 +165,21 @@ export const supabaseRepo: Repo = {
   async createCourse(c) {
     const res = await db().from("school_courses").insert({
       year: c.year, grade: c.grade, semester: c.semester, subject: c.subject, subject_group: c.group, course_type: c.type, credits: c.credits,
+      ...(c.joint ? { joint: c.joint, owner_id: c.ownerId } : {}),
     }).select("*").single();
+    if (res.error && /joint|owner_id/.test(res.error.message)) throw new Error("공동교육과정 수업을 만들려면 DB 업데이트(0028)가 필요해요. 관리자에게 알려 주세요");
     if (res.error?.code === "23505") throw new Error("이미 같은 학기에 있는 과목이에요");
     return toCourse(check(res) as CourseRow);
   },
   async archiveCourse(id) {
     if (!isUuid(id)) return;
     check(await db().from("school_courses").update({ active: false }).eq("id", id));
+  },
+  async updateCourse(id, patch) {
+    if (!isUuid(id)) return;
+    const res = await db().from("school_courses").update({ subject: patch.subject, grade: patch.grade, semester: patch.semester, joint: patch.joint }).eq("id", id).eq("active", true);
+    if (res.error?.code === "23505") throw new Error("같은 학기에 같은 이름의 공동교육과정 수업이 있어요");
+    check(res);
   },
   async getTeacherGroups(teacherId) {
     if (!isUuid(teacherId)) return [];

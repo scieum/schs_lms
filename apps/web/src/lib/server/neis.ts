@@ -16,7 +16,7 @@ export async function neisSets(v: Viewer): Promise<NeisSet[]> {
   if (v.kind !== "teacher") return [];
   const y = schoolYear();
   const [mine, offered, clubs, all, rosters] = await Promise.all([
-    repo.listTeacherCourses(v.accountId), repo.listCourses(y), repo.listClubs(y), repo.listStudents(), repo.listCourseRosters(v.accountId),
+    repo.listTeacherCourses(v.accountId), repo.listCourses(y, { joint: true }), repo.listClubs(y), repo.listStudents(), repo.listCourseRosters(v.accountId),
   ]);
   const out: NeisSet[] = [];
 

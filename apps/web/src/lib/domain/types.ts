@@ -36,6 +36,8 @@ export interface Student {
   /** 계열 번호 (속초고는 1로 통일) */
   track: number;
   careerGoal: string | null;
+  /** 다른 학교 학생 (공동교육과정 수강생, N54). 본교 학생은 없음. 학번 칸은 "학교 학년반번호"로 보인다 */
+  school?: string | null;
 }
 
 /** 로그인한 사람. 세션에서 다시 읽어 만든다. */

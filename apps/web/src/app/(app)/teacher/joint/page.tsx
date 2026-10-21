@@ -5,11 +5,11 @@ import { ButtonLink, Card, cx } from "@/components/ui";
 import { JOINT_DIFF, JOINT_FLOW, JOINT_LINKS, JOINT_RULES, JOINT_TABS, type JointKind } from "@/lib/domain/joint-curriculum";
 import { requireCan } from "@/lib/server/viewer";
 
-export const metadata = { title: "공동교육과정 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "공동교육과정 운영 안내 · 속초고등학교 학생관리시스템" };
 
 type Props = { searchParams: Promise<{ tab?: string }> };
 
-/** 공동교육과정 참고 (Figma N12 학교 간 PC·Mobile, 온라인 PC): 운영하는 선생님이 보는 흐름·성적 규칙·다른 점·확인할 곳 */
+/** 공동교육과정 운영 안내 (Figma N12): 흐름·성적 규칙·다른 점·확인할 곳. 메뉴에서는 빠지고(N54) 내 수업 · 공동교육과정 카드의 [운영 안내 ›]로 온다 */
 export default async function JointPage({ searchParams }: Props) {
   await requireCan("setuk.write");
   const tab: JointKind = (await searchParams).tab === "online" ? "online" : "school";
@@ -17,7 +17,7 @@ export default async function JointPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="공동교육과정" actions={<Tabs tab={tab} className="hidden md:flex" />} />
+      <PageHeader title="공동교육과정 운영 안내" actions={<div className="flex items-center gap-2"><Tabs tab={tab} className="hidden md:flex" /><ButtonLink href="/teacher/subjects" kind="outline" size="sm">내 수업</ButtonLink></div>} />
       <PageBody>
         <Tabs tab={tab} className="md:hidden" />
 
@@ -103,12 +103,12 @@ export default async function JointPage({ searchParams }: Props) {
         <section className="surface flex items-center gap-3 rounded-card px-4 py-3.5 md:gap-4 md:px-5 md:py-4">
           <span className="rounded-chip bg-new-soft px-2.5 py-1 text-xs font-bold text-new">AI</span>
           <div className="min-w-0 flex-1">
-            <p className="hidden text-[15px] font-bold md:block">공동교육과정 세특도 교과 세특에서 AI 초안·합치기로 써요</p>
+            <p className="hidden text-[15px] font-bold md:block">내 수업에서 등록한 공동교육과정 수업은 세특 글 짓기에서 AI로 써요</p>
             <p className="text-[15px] font-bold md:hidden">공동교육과정 세특도 AI로</p>
-            <p className="text-[13px] text-sub md:hidden">교과 세특 › AI 초안·합치기</p>
+            <p className="text-[13px] text-sub md:hidden">세특 › 글 짓기 › 공동 탭</p>
           </div>
-          <ButtonLink href="/teacher/setuk" kind="soft" size="sm" className="hidden md:inline-flex"><BookOpen size={14} /> 교과 세특</ButtonLink>
-          <Link href="/teacher/setuk" aria-label="교과 세특" className="text-faint md:hidden"><ChevronRight size={18} /></Link>
+          <ButtonLink href="/teacher/setuk/compose" kind="soft" size="sm" className="hidden md:inline-flex"><BookOpen size={14} /> 세특 글 짓기</ButtonLink>
+          <Link href="/teacher/setuk/compose" aria-label="세특 글 짓기" className="text-faint md:hidden"><ChevronRight size={18} /></Link>
         </section>
       </PageBody>
     </>

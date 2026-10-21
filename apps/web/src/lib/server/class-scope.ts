@@ -5,7 +5,6 @@ import { NEIS_MAX_BYTES } from "@/lib/domain/length";
 import { latestByStudent, studentsInCourse } from "@/lib/domain/setuk";
 import type { Student, Viewer } from "@/lib/domain/types";
 import { isRecordArea, latestRecordByStudent, RECORD_LABEL, RECORD_MAX_BYTES, type RecordArea } from "@/lib/domain/writing";
-import { makeStudentNo } from "@/lib/domain/roster";
 import type { Level } from "@/lib/domain/achievement";
 import { exportFileName, statusOf, type ExportRecord, type ExportStudent } from "@/lib/domain/records-export";
 import { memoPieces, listMemosWithPieces } from "./merge-pieces";
@@ -45,7 +44,8 @@ const byNo = (a: Student, b: Student) => a.grade - b.grade || a.classNo - b.clas
 
 export async function resolveScope(v: Viewer, input: ClassScopeInput): Promise<ResolvedScope | null> {
   if (v.kind !== "teacher") return null;
-  const all = await repo.listStudents();
+  // 세특(과목 명단)일 때만 공동교육과정 다른 학교 학생까지 (N54). 담임 · 동아리는 본교만
+  const all = await repo.listStudents({ external: input.kind === "setuk" });
   if (input.kind === "setuk") {
     const courseId = String(input.courseId ?? "");
     const section = input.section ? String(input.section) : null;
@@ -104,7 +104,7 @@ export async function mySetukScopes(v: Viewer): Promise<ClassScopeInput[]> {
 export const HOMEROOM_AREAS: RecordArea[] = ["자율·자치", "진로", "행발"];
 
 export const exportStudents = (r: ResolvedScope, levels?: Record<string, Level | null>): ExportStudent[] =>
-  r.students.map((s) => ({ id: s.id, no: makeStudentNo(s.grade, s.classNo, s.number), name: s.name, level: levels?.[s.id] ?? null }));
+  r.students.map((s) => ({ id: s.id, no: s.studentNo, name: s.name, level: levels?.[s.id] ?? null }));
 
 /** 세특 학생별 성취수준 (N35) */
 export async function scopeLevels(r: ResolvedScope): Promise<Record<string, Level | null>> {

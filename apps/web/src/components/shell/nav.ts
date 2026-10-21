@@ -38,6 +38,7 @@ function baseNav(v: Viewer): NavGroup[] {
   }
   // 교사 사이드바 (Figma N52 → N53, 2026-10-21): 홈(묶음 밖) · 업무 · 세특 · 동아리 · 특색활동 · 담임 · 관리.
   // 기록 묶음은 늘 "내 ~ · 조각 모으기 · 글 짓기 · 글 모아 보기". 특색활동은 내 프로그램 · 새 프로그램 · 초안 검토(배지) · 프로그램 일정 · 봉사 확인서.
+  // 공동교육과정은 메뉴 대신 내 수업 안 카드(N54, /teacher/joint 는 운영 안내로 남김).
   // 세특은 교과 교사, 담임은 담임, 관리는 관리자만. 담임 전용 기능(학생 기록 · 봉사 받은함 · 성적 · 최저 · 야자)은 업무 끝에.
   // 순서는 사람마다 바꿀 수 있다(arrangeMenus, N53). 여기 순서가 "처음대로".
   const r = v.teacher.roles;
@@ -54,7 +55,6 @@ function baseNav(v: Viewer): NavGroup[] {
     I("담당 학생", "/students", "users"),
     I("상담 기록", "/teacher/counseling", "chat"),
     I("학생 등록", "/students/new", "userPlus"),
-    I("공동교육과정", "/teacher/joint", "share"),
     I("문장 보관함", "/teacher/library", "bookmark"),
     ...(homeroom ? [
       I("학생 기록", "/homeroom/students", "users"),
@@ -338,8 +338,7 @@ export const MENU_KEYWORDS: Record<string, string[]> = {
   "/teacher/drafts": ["초안", "검토", "특색 활동 초안"],
   "/teacher/programs?view=calendar": ["캘린더", "달력", "일정"],
   "/teacher/service": ["봉사"],
-  "/teacher/subjects": ["편제표", "이동반", "분반", "과목"],
-  "/teacher/joint": ["학교 간", "온라인"],
+  "/teacher/subjects": ["편제표", "이동반", "분반", "과목", "공동교육과정", "다른 학교", "타교", "온라인 공동"],
   "/teacher/club": ["동아리 명단"],
   "/schedule": ["일정", "달력", "급식"],
   "/homeroom/scores": ["모의고사", "성적"],

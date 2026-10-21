@@ -4,7 +4,6 @@ import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { ButtonLink, Card, cx } from "@/components/ui";
 import { studentsInCourse } from "@/lib/domain/setuk";
 import { schoolYear, type Course } from "@/lib/domain/curriculum";
-import { makeStudentNo } from "@/lib/domain/roster";
 import { recentPieces } from "@/lib/domain/collect";
 import { seoulNow } from "@/lib/domain/night";
 import { repo } from "@/lib/server/repo";
@@ -25,7 +24,7 @@ const seoulDay = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { ti
 export default async function SetukCollectPage({ searchParams }: Props) {
   const v = await requireCan("setuk.write");
   const q = await searchParams;
-  const [mine, offered, rosters] = await Promise.all([repo.listTeacherCourses(v.accountId), repo.listCourses(schoolYear()), repo.listCourseRosters(v.accountId)]);
+  const [mine, offered, rosters] = await Promise.all([repo.listTeacherCourses(v.accountId), repo.listCourses(schoolYear(), { joint: true }), repo.listCourseRosters(v.accountId)]);
   const myCourses = offered.filter((c) => mine.some((a) => a.courseId === c.id));
 
   if (myCourses.length === 0) {
@@ -44,13 +43,14 @@ export default async function SetukCollectPage({ searchParams }: Props) {
     );
   }
 
-  const all = await repo.listStudents();
+  // 공동교육과정 수업(N54)이면 다른 학교 학생도 명단에 든다
+  const all = await repo.listStudents({ external: true });
   // 반 탭: 고정반 과목은 과목 하나, 이동반 과목은 분반마다 하나 (글 짓기와 같은 규칙)
   const tabs = myCourses.flatMap((c) => {
     const a = mine.find((x) => x.courseId === c.id)!;
     const rs = rosters.filter((r) => r.courseId === c.id);
     if (a.mode === "moving" && a.sections?.length) {
-      return a.sections.map((sec) => ({ course: c, section: sec as string | null, name: `${c.subject} ${sec}`, n: studentsInCourse(all, c, a, rs, sec).length }));
+      return a.sections.map((sec) => ({ course: c, section: sec as string | null, name: c.joint ? `공동 · ${c.subject}` : `${c.subject} ${sec}`, n: studentsInCourse(all, c, a, rs, sec).length }));
     }
     return [{ course: c, section: null as string | null, name: `${short(c)} · ${a.classes.join(", ")}반`, n: studentsInCourse(all, c, a, rs).length }];
   });
@@ -87,7 +87,8 @@ export default async function SetukCollectPage({ searchParams }: Props) {
         <CollectBoard
           key={`${course.id}-${tab.section ?? ""}`}
           target={{ kind: "setuk", courseId: course.id }}
-          students={students.map((s) => ({ id: s.id, no: makeStudentNo(s.grade, s.classNo, s.number), name: s.name, count: memoPieces(memos.filter((m) => m.studentId === s.id)).length }))}
+          // 다른 학교 학생(N54)은 칸이 좁아 번호 자리에 학교 이름만
+          students={students.map((s) => ({ id: s.id, no: s.school ?? s.studentNo, name: s.name, count: memoPieces(memos.filter((m) => m.studentId === s.id)).length }))}
           recent={recentPieces(memos.filter((m) => m.authorId === v.accountId).map((m) => ({ studentId: m.studentId, date: m.date ?? seoulDay(m.createdAt), content: m.content })), (id) => nameOf.get(id))}
           composeHref={compose}
           today={today}

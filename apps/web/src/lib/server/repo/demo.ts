@@ -4,6 +4,7 @@ import { schoolYear, type Course, type SubjectGroup, type TeacherCourse } from "
 import type { ActivityLog, Club, ServiceRecord } from "@/lib/domain/activity";
 import type { SetukRecord } from "@/lib/domain/setuk";
 import type { Account, AuditEntry, Student, Teacher } from "@/lib/domain/types";
+import { externalNo } from "@/lib/domain/joint-curriculum";
 import type { NewServiceRecord, NewStudent, Repo } from "./types";
 
 // 데모 저장소: 서버 메모리에만 있다. 서버를 다시 켜면 처음 상태로 돌아간다.
@@ -133,8 +134,24 @@ export const demoRepo: Repo = {
   async getStudent(id) {
     return store().students.get(id) ?? null;
   },
-  async listStudents() {
-    return [...store().students.values()].sort((a, b) => a.studentNo.localeCompare(b.studentNo));
+  async listStudents(opts) {
+    return [...store().students.values()].filter((x) => opts?.external || !x.school).sort((a, b) => a.studentNo.localeCompare(b.studentNo));
+  },
+  async createExternalStudents(rows) {
+    const s = store();
+    return rows.map((r) => {
+      const id = crypto.randomUUID();
+      // 로그인 못 하는 계정 (비밀번호 해시가 아님 + 잠금)
+      s.accounts.set(id, { id, kind: "student", loginId: `joint:${id}`, passwordHash: "!", mustChangePassword: false, failedCount: 0, lockedUntil: "9999-12-31T00:00:00.000Z" });
+      const st: Student = { id, pseudonymId: r.pseudonymId, studentNo: externalNo(r), grade: r.grade, classNo: r.classNo, number: r.number, name: r.name.trim(), gender: "남", track: 1, careerGoal: null, school: r.school.trim() };
+      s.students.set(id, st);
+      return st;
+    });
+  },
+  async updateExternalStudent(id, r) {
+    const st = store().students.get(id);
+    if (!st?.school) return;
+    Object.assign(st, { school: r.school.trim(), grade: r.grade, classNo: r.classNo, number: r.number, name: r.name.trim(), studentNo: externalNo(r) });
   },
   async existingStudentNos() {
     return new Set([...store().students.values()].map((s) => s.studentNo));
@@ -157,8 +174,8 @@ export const demoRepo: Repo = {
   async listTeachers() {
     return [...store().teachers.values()].sort((a, b) => a.name.localeCompare(b.name, "ko"));
   },
-  async listCourses(year) {
-    return store().courses.filter((c) => c.active && c.year === year).map(({ active: _a, ...c }) => c);
+  async listCourses(year, opts) {
+    return store().courses.filter((c) => c.active && c.year === year && (opts?.joint || !c.joint)).map(({ active: _a, ...c }) => c);
   },
   async getCourse(id) {
     const c = store().courses.find((x) => x.id === id && x.active);
@@ -168,7 +185,7 @@ export const demoRepo: Repo = {
   },
   async createCourse(c) {
     const s = store();
-    if (s.courses.some((x) => x.active && x.year === c.year && x.grade === c.grade && x.semester === c.semester && x.subject === c.subject)) {
+    if (s.courses.some((x) => x.active && x.year === c.year && x.grade === c.grade && x.semester === c.semester && x.subject === c.subject && (x.ownerId ?? null) === (c.ownerId ?? null))) {
       throw new Error("이미 같은 학기에 있는 과목이에요");
     }
     const row = { ...c, id: crypto.randomUUID(), active: true };
@@ -179,6 +196,10 @@ export const demoRepo: Repo = {
   async archiveCourse(id) {
     const c = store().courses.find((x) => x.id === id);
     if (c) c.active = false;
+  },
+  async updateCourse(id, patch) {
+    const c = store().courses.find((x) => x.id === id && x.active);
+    if (c) Object.assign(c, patch);
   },
   async getTeacherGroups(teacherId) {
     return store().teacherGroups.get(teacherId) ?? [];

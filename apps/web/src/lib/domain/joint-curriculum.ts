@@ -46,3 +46,45 @@ export const JOINT_LINKS: { label: string; href: string | null; note: string }[]
   { label: "교육청 공문", href: null, note: "운영 계획 · 신청 일정" },
   { label: "학생부 종합지원포털", href: "https://star.moe.go.kr/web/contents/m21100.do", note: "star.moe.go.kr" },
 ];
+
+// ---------- 공동교육과정 수업 등록 (Figma N54) ----------
+// 내 수업에서 공동교육과정 수업을 만들고 우리 학교 학생 · 다른 학교 학생을 함께 명단에 넣는다.
+// 수업은 편제표 밖 과목(joint), 명단은 이동반 명단과 같은 틀(분반 JOINT_SECTION 하나)이라 세특 조각 모으기 · 글 짓기에 그대로 나온다.
+
+export const JOINT_SECTION = "공동";
+export const JOINT_KIND_LABEL: Record<JointKind, string> = { school: "학교 간", online: "온라인" };
+
+/** 다른 학교 학생 한 명 (id 가 있으면 이미 등록된 학생) */
+export type ExternalInput = { id?: string; school: string; grade: number; classNo: number; number: number; name: string };
+
+/** 다른 학교 학생의 학번 칸: "강릉고 20307" */
+export const externalNo = (s: Pick<ExternalInput, "school" | "grade" | "classNo" | "number">) =>
+  `${s.school} ${s.grade}${String(s.classNo).padStart(2, "0")}${String(s.number).padStart(2, "0")}`;
+
+/** 한 명 검사. 문제 없으면 null */
+export function checkExternal(r: ExternalInput): string | null {
+  if (!r.school.trim() || r.school.trim().length > 20) return "학교 이름을 써 주세요";
+  if (!(r.grade >= 1 && r.grade <= 3)) return "학년은 1~3이에요";
+  if (!(r.classNo >= 1 && r.classNo <= 20)) return "반은 1~20이에요";
+  if (!(r.number >= 1 && r.number <= 60)) return "번호는 1~60이에요";
+  if (!r.name.trim() || r.name.trim().length > 20) return "이름을 써 주세요";
+  return null;
+}
+
+/** 엑셀에서 붙여 넣은 줄 → 학생. 칸은 탭 · 쉼표 · 공백 2칸 이상으로 나눈다(학교 · 학년 · 반 · 번호 · 이름). 머리 줄 · 빈 줄은 건너뛴다 */
+export function parseExternalPaste(text: string, defaults: { school?: string; grade?: number } = {}): { rows: ExternalInput[]; bad: number } {
+  const rows: ExternalInput[] = [];
+  let bad = 0;
+  for (const line of text.split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t || /학교|이름/.test(t) && /번호/.test(t)) continue;
+    let cells = t.split(/\t|,|\s{2,}/).map((c) => c.trim()).filter(Boolean);
+    if (cells.length < 4) cells = t.split(/\s+/);
+    // 학교를 빼고 넣은 줄(학년 반 번호 이름)은 기본 학교로
+    if (cells.length === 4 && /^\d+$/.test(cells[0]) && defaults.school) cells = [defaults.school, ...cells];
+    const [school, g, c, n, ...rest] = cells;
+    const r: ExternalInput = { school: (school ?? "").replace(/등학교$/, "").trim(), grade: Number(String(g).replace(/학년$/, "")), classNo: Number(String(c).replace(/반$/, "")), number: Number(String(n).replace(/번$/, "")), name: rest.join(" ").trim() };
+    if (checkExternal(r)) bad++; else rows.push(r);
+  }
+  return { rows, bad };
+}

@@ -140,7 +140,7 @@ export async function summarizeSetukFile(form: FormData): Promise<EvidenceResult
   if (!t) return { ok: false, error: "내 담당 과목·반 학생만 쓸 수 있어요" };
   const file = await takeEvidenceFile(form);
   if (typeof file === "string") return { ok: false, error: file };
-  const r = await readEvidence(file, { mode: "log", kind: `${t.course.subject} 교과 세특`, people: peopleAround(t.student, await repo.listStudents()) });
+  const r = await readEvidence(file, { mode: "log", kind: `${t.course.subject} 교과 세특`, people: peopleAround(t.student, await repo.listStudents({ external: true })) });
   await repo.audit(t.v.accountId, "setuk.ai_piece_file", `${t.course.subject} ${t.student.pseudonymId}`);
   return r;
 }
@@ -228,7 +228,7 @@ export async function polishSetukMemo(input: { courseId: string; text: string })
   const text = String(input.text ?? "").trim();
   if (text.length < 2) return { ok: false, error: "메모를 먼저 적어 주세요" };
   if (text.length > 1000) return { ok: false, error: "1000자까지 다듬을 수 있어요" };
-  const [course, mine, all, roster] = await Promise.all([repo.getCourse(input.courseId), repo.listTeacherCourses(v.accountId), repo.listStudents(), repo.getCourseRosters(v.accountId, input.courseId)]);
+  const [course, mine, all, roster] = await Promise.all([repo.getCourse(input.courseId), repo.listTeacherCourses(v.accountId), repo.listStudents({ external: true }), repo.getCourseRosters(v.accountId, input.courseId)]);
   const assignment = mine.find((a) => a.courseId === input.courseId);
   if (!course || !assignment) return { ok: false, error: "내 담당 과목만 쓸 수 있어요" };
   const masked = maskIdentity(text, studentsInCourse(all, course, assignment, roster));
@@ -328,7 +328,7 @@ export async function classCheckSetuk(input: { courseId: string; section?: strin
   const v = await requireCan("setuk.write");
   const courseId = String(input?.courseId ?? "");
   const section = input?.section ? String(input.section) : null;
-  const [course, mine, roster, all] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getCourseRosters(v.accountId, courseId), repo.listStudents()]);
+  const [course, mine, roster, all] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getCourseRosters(v.accountId, courseId), repo.listStudents({ external: true })]);
   const assignment = mine.find((a) => a.courseId === courseId);
   if (!course || !assignment) return { ok: false, error: "내 담당 과목만 검사할 수 있어요" };
   const students = studentsInCourse(all, course, assignment, roster, section);
@@ -367,7 +367,7 @@ export async function setLevels(input: z.input<typeof LevelSchema>): Promise<{ o
   const v = await requireCan("setuk.write");
   const p = LevelSchema.safeParse(input);
   if (!p.success) return { ok: false, error: "학생과 수준을 골라 주세요" };
-  const [course, mine, roster, all, scale] = await Promise.all([repo.getCourse(p.data.courseId), repo.listTeacherCourses(v.accountId), repo.getCourseRosters(v.accountId, p.data.courseId), repo.listStudents(), repo.getAchievementScale()]);
+  const [course, mine, roster, all, scale] = await Promise.all([repo.getCourse(p.data.courseId), repo.listTeacherCourses(v.accountId), repo.getCourseRosters(v.accountId, p.data.courseId), repo.listStudents({ external: true }), repo.getAchievementScale()]);
   const assignment = mine.find((a) => a.courseId === p.data.courseId);
   if (!course || !assignment) return { ok: false, error: "내 담당 과목만 정할 수 있어요" };
   const allowed = new Set(studentsInCourse(all, course, assignment, roster).map((s) => s.id));

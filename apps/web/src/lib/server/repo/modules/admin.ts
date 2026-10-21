@@ -186,7 +186,8 @@ export const demoAdmin: AdminRepo = {
   async adminListAccounts() {
     const s = store();
     const last = ast().lastLogin;
-    return [...s.accounts.values()].map((a) => {
+    // 공동교육과정 다른 학교 학생(N54) 계정은 로그인 못 하는 자리라 계정 관리에 안 보인다
+    return [...s.accounts.values()].filter((a) => !a.loginId.startsWith("joint:")).map((a) => {
       const t = a.kind === "teacher" ? s.teachers.get(a.id) ?? null : null;
       const st = a.kind === "student" ? s.students.get(a.id) ?? null : null;
       return {
@@ -331,7 +332,7 @@ export const supabaseAdmin: AdminRepo = {
     ]);
     const tm = new Map(teachers.map((t) => [t.id, t]));
     const sm = new Map(students.map((s) => [s.id, s]));
-    return accounts.map((a) => {
+    return accounts.filter((a) => !a.login_id.startsWith("joint:")).map((a) => {
       const t = tm.get(a.id);
       const s = sm.get(a.id);
       return {

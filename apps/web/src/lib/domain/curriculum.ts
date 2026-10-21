@@ -119,6 +119,10 @@ export interface Course {
   /** 2022 개정 과목이 아니면 null (교육감 승인·계열 과목) */
   type: CourseType | null;
   credits: number;
+  /** 공동교육과정 수업 (N54): 학교 간 · 온라인. 편제표 과목이면 없음 */
+  joint?: "school" | "online" | null;
+  /** 공동교육과정 수업을 만든 교사 (그 교사만 고치고 지운다) */
+  ownerId?: string | null;
 }
 
 export function courseLabel(c: Pick<Course, "grade" | "semester" | "subject">): string {

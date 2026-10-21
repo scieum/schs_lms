@@ -2,6 +2,7 @@ import type { Course, SubjectGroup, TeacherCourse } from "@/lib/domain/curriculu
 import type { ActivityArea, ActivityLog, Club, ServiceRecord } from "@/lib/domain/activity";
 import type { SetukRecord } from "@/lib/domain/setuk";
 import type { Account, AuditEntry, Student, Teacher } from "@/lib/domain/types";
+import type { ExternalInput } from "@/lib/domain/joint-curriculum";
 
 export interface NewStudent {
   pseudonymId: string;
@@ -25,7 +26,11 @@ export interface Repo {
 
   getTeacher(id: string): Promise<Teacher | null>;
   getStudent(id: string): Promise<Student | null>;
-  listStudents(): Promise<Student[]>;
+  /** 본교 학생. external 이면 공동교육과정 다른 학교 학생도 (N54) */
+  listStudents(opts?: { external?: boolean }): Promise<Student[]>;
+  /** 공동교육과정 다른 학교 학생 만들기: 로그인 못 하는 계정 + 학생 정보 (N54) */
+  createExternalStudents(rows: (ExternalInput & { pseudonymId: string })[]): Promise<Student[]>;
+  updateExternalStudent(id: string, r: ExternalInput): Promise<void>;
   existingStudentNos(): Promise<Set<string>>;
   existingPseudonymIds(): Promise<string[]>;
   /** 학생 계정과 학생 정보를 함께 만든다. 학번이 겹치면 실패 */
@@ -34,11 +39,14 @@ export interface Repo {
   listTeachers(): Promise<Teacher[]>;
 
   // 편제표 (학교 개설 과목). 지우지 않고 active=false 로 내린다
-  listCourses(year: number): Promise<Course[]>;
+  /** 편제표 과목. joint 이면 공동교육과정 수업(N54)도 — 편제표 · 수강 신청 · 상담에는 안 보인다 */
+  listCourses(year: number, opts?: { joint?: boolean }): Promise<Course[]>;
   getCourse(id: string): Promise<Course | null>;
   /** 같은 학년도·학년·학기·과목이 이미 있으면 실패 */
   createCourse(c: Omit<Course, "id">): Promise<Course>;
   archiveCourse(id: string): Promise<void>;
+  /** 공동교육과정 수업 고치기 (N54) */
+  updateCourse(id: string, patch: Pick<Course, "subject" | "grade" | "semester" | "joint">): Promise<void>;
 
   // 교사의 교과·담당 과목
   getTeacherGroups(teacherId: string): Promise<SubjectGroup[]>;

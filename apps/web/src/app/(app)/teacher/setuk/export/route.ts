@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const assignment = mine.find((a) => a.courseId === courseId);
   if (!course || !assignment) return new Response("내 담당 과목이 아니에요", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
-  const [students, records] = await Promise.all([repo.listStudents(), repo.listSetuk(course.id)]);
+  const [students, records] = await Promise.all([repo.listStudents({ external: true }), repo.listSetuk(course.id)]);
   const latest = latestByStudent(records);
   const rows = studentsInCourse(students, course, assignment, roster, new URL(req.url).searchParams.get("section"))
     .map((s) => ({ s, r: latest.get(s.id) }))

@@ -49,6 +49,10 @@ export async function saveSubjects(_: SubjectsState, form: FormData): Promise<Su
     }
   }
 
+  // 공동교육과정 수업(N54) 배정은 이 폼에 없으니 그대로 둔다
+  const joint = new Set((await repo.listCourses(schoolYear(), { joint: true })).filter((c) => c.joint).map((c) => c.id));
+  rows.push(...(await repo.listTeacherCourses(data.teacherId)).filter((a) => joint.has(a.courseId)));
+
   await repo.setTeacherGroups(data.teacherId, groups);
   try {
     await repo.setTeacherCourses(data.teacherId, rows);
