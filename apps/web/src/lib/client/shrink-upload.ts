@@ -71,3 +71,22 @@ export function batchBySize(files: File[], limit = UPLOAD_LIMIT): File[][] {
 export async function prepareUploads(files: File[]): Promise<File[]> {
   return (await Promise.all(files.map(prepareUpload))).flat();
 }
+
+/** PDF 쪽 수 (못 읽으면 null) */
+export async function pdfPageCount(file: File): Promise<number | null> {
+  try { return (await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true })).getPageCount(); } catch { return null; }
+}
+
+/** 합본 PDF → 구간마다 한 파일 (수행평가 N59 · 쪽 번호는 1부터, 끝 포함). 브라우저에서 나눠 큰 합본도 서버 한도에 안 걸린다 */
+export async function splitPdfRanges(file: File, ranges: { from: number; to: number }[]): Promise<File[]> {
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  const base = file.name.replace(/\.pdf$/i, "");
+  const out: File[] = [];
+  for (const r of ranges) {
+    const doc = await PDFDocument.create();
+    const pages = await doc.copyPages(src, Array.from({ length: r.to - r.from + 1 }, (_, i) => r.from - 1 + i));
+    pages.forEach((p) => doc.addPage(p));
+    out.push(new File([(await doc.save()) as BlobPart], `${base}_${r.from}-${r.to}.pdf`, { type: "application/pdf" }));
+  }
+  return out;
+}

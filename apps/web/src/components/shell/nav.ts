@@ -70,6 +70,7 @@ function baseNav(v: Viewer): NavGroup[] {
     groups.push({ label: "세특", items: [
       I("내 수업", "/teacher/subjects", "presentation"),
       I("조각 모으기", "/teacher/setuk/collect", "layers"),
+      I("수행평가", "/teacher/setuk/assessments", "clipboard"),
       I("글 짓기", "/teacher/setuk/compose", "pencil"),
       I("글 모아 보기", "/teacher/texts?tab=setuk", "list"),
     ] });
@@ -327,6 +328,7 @@ export function hideTabs(tabs: NavItem[], hidden: string[]): NavItem[] {
 export const MENU_KEYWORDS: Record<string, string[]> = {
   "/teacher/setuk/compose": ["세특", "교과", "합치기", "1500바이트"],
   "/teacher/setuk/collect": ["조각", "메모", "관찰", "세특"],
+  "/teacher/setuk/assessments": ["수행", "평가", "보고서", "합본", "PDF", "세특"],
   "/teacher/club/compose": ["동아리 특기사항", "창체"],
   "/teacher/club/collect": ["누가기록", "동아리", "관찰"],
   "/homeroom/compose": ["행발", "행동특성", "종합의견", "자율", "진로", "창체"],

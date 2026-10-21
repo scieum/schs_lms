@@ -1,0 +1,85 @@
+import Link from "next/link";
+import { PageBody, PageHeader } from "@/components/shell/app-shell";
+import { ButtonLink, Card, cx } from "@/components/ui";
+import { assessmentsFor, assessScope, latestSummaries } from "@/lib/domain/assessment";
+import { schoolYear, type Course } from "@/lib/domain/curriculum";
+import { studentsInCourse } from "@/lib/domain/setuk";
+import { aiEnabled } from "@/lib/server/ai/claude";
+import { repo } from "@/lib/server/repo";
+import { requireCan } from "@/lib/server/viewer";
+import { AssessBoard, NewAssessButton } from "./board";
+
+export const metadata = { title: "수행평가 · 속초고등학교 학생관리시스템" };
+
+type Props = { searchParams: Promise<{ course?: string; section?: string; a?: string }> };
+
+const short = (c: Course) => `${c.subject} ${c.grade}-${c.semester}`;
+
+// 세특 · 수행평가 (Figma N59 a · b · c): 반 탭 → 수행평가 목록 · 고른 수행평가(자료 n/m · 합본 PDF 나누기 · 한 명씩 · 학생 칸 · 요약).
+// 주소에는 내부 id 만 (C3).
+export default async function AssessmentsPage({ searchParams }: Props) {
+  const v = await requireCan("setuk.write");
+  const q = await searchParams;
+  const [mine, offered, rosters, all] = await Promise.all([
+    repo.listTeacherCourses(v.accountId), repo.listCourses(schoolYear(), { joint: true }), repo.listCourseRosters(v.accountId), repo.listStudents({ external: true }),
+  ]);
+  const myCourses = offered.filter((c) => mine.some((a) => a.courseId === c.id));
+  if (!myCourses.length) {
+    return (
+      <>
+        <PageHeader title="수행평가" />
+        <PageBody>
+          <Card><div className="flex flex-col items-center gap-3 py-8 text-center"><p className="font-bold">담당 과목이 아직 없어요</p><ButtonLink href="/teacher/subjects">내 수업 정하기</ButtonLink></div></Card>
+        </PageBody>
+      </>
+    );
+  }
+  const tabs = myCourses.flatMap((c) => {
+    const a = mine.find((x) => x.courseId === c.id)!;
+    const rs = rosters.filter((r) => r.courseId === c.id);
+    if (a.mode === "moving" && a.sections?.length) return a.sections.map((sec) => ({ course: c, section: sec as string | null, name: c.joint ? `공동 · ${c.subject}` : `${c.subject} ${sec}`, n: studentsInCourse(all, c, a, rs, sec).length }));
+    return [{ course: c, section: null as string | null, name: `${short(c)} · ${a.classes.join(", ")}반`, n: studentsInCourse(all, c, a, rs).length }];
+  });
+  const tab = tabs.find((t) => t.course.id === q.course && (t.section ?? "") === (q.section ?? "")) ?? tabs.find((t) => t.course.id === q.course) ?? tabs[0];
+  const assignment = mine.find((a) => a.courseId === tab.course.id)!;
+  const students = studentsInCourse(all, tab.course, assignment, rosters.filter((r) => r.courseId === tab.course.id), tab.section);
+  const list = assessmentsFor(await repo.listAssessments({ courseId: tab.course.id }), tab.course.id, tab.section).filter((a) => a.teacherId === v.accountId);
+  const ids = students.map((s) => s.id);
+  const summaries = await Promise.all(list.map(async (a) => latestSummaries(ids.length ? await repo.listRecordMemos(assessScope(tab.course.id, a.id), ids) : [])));
+  const selIndex = Math.max(0, list.findIndex((a) => a.id === q.a));
+  const sel = list[selIndex] ?? null;
+  const sec = (t: typeof tab) => (t.section ? `&section=${encodeURIComponent(t.section)}` : "");
+  const base = `/teacher/setuk/assessments?course=${tab.course.id}${sec(tab)}`;
+
+  return (
+    <>
+      <PageHeader title="수행평가" actions={<NewAssessButton courseId={tab.course.id} section={tab.section} base={base} />} />
+      <PageBody>
+        {tabs.length > 1 && (
+          <nav className="flex gap-1 overflow-x-auto rounded-card border border-line bg-[#fff] p-1 [scrollbar-width:none]">
+            {tabs.map((t) => {
+              const on = t === tab;
+              return (
+                <Link key={`${t.course.id}-${t.section ?? ""}`} href={`/teacher/setuk/assessments?course=${t.course.id}${sec(t)}`} aria-current={on ? "page" : undefined}
+                  className={cx("flex h-11 min-w-[120px] flex-1 flex-col items-center justify-center whitespace-nowrap rounded-control px-3 md:h-[37px] md:flex-row md:gap-1",
+                    on ? "bg-key-soft font-bold text-key-strong" : "font-medium text-sub hover:bg-soft")}>
+                  <span className="text-[13px] md:text-[14px]">{t.name}</span>
+                  <span className="text-[11px] text-mute md:text-[14px]">· {t.n}명</span>
+                </Link>
+              );
+            })}
+          </nav>
+        )}
+        <AssessBoard
+          base={base}
+          aiOn={aiEnabled()}
+          items={list.map((a, i) => ({ id: a.id, title: a.title, date: a.date, description: a.description, done: summaries[i].size }))}
+          selected={sel ? { id: sel.id, title: sel.title, date: sel.date, description: sel.description } : null}
+          total={students.length}
+          students={students.map((s) => ({ id: s.id, no: s.school ?? s.studentNo, name: s.name, summary: sel ? summaries[selIndex].get(s.id)?.content ?? null : null }))}
+          composeHref={`/teacher/setuk/compose?course=${tab.course.id}${sec(tab)}`}
+        />
+      </PageBody>
+    </>
+  );
+}

@@ -68,10 +68,10 @@ describe("메뉴 순서 바꾸기 (N53)", () => {
     expect(arrangeMenus(base, null)).toBe(base);
   });
   it("묶음 순서 · 묶음 사이로 옮긴 메뉴가 반영되고 홈은 맨 위", () => {
-    const moved = moveItem(moveGroup(L, "특색활동", 0), "/teacher/library", "세특", 3);
+    const moved = moveItem(moveGroup(L, "특색활동", 0), "/teacher/library", "세특", 4);
     const out = arrangeMenus(base, moved);
     expect(out.map((g) => g.label)).toEqual(["", "특색활동", "업무", "세특", "동아리"]);
-    expect(out.find((g) => g.label === "세특")!.items.map((it) => it.label)).toEqual(["내 수업", "조각 모으기", "글 짓기", "문장 보관함", "글 모아 보기"]);
+    expect(out.find((g) => g.label === "세특")!.items.map((it) => it.label)).toEqual(["내 수업", "조각 모으기", "수행평가", "글 짓기", "문장 보관함", "글 모아 보기"]);
     expect(out.find((g) => g.label === "업무")!.items.map((it) => it.href)).not.toContain("/teacher/library");
   });
   it("저장 뒤 새로 생긴 메뉴 · 묶음은 처음 자리에, 없어진 묶음 메뉴는 처음 묶음으로", () => {

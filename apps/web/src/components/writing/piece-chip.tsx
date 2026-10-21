@@ -9,6 +9,7 @@ export const PIECE_CHIP: Record<PieceSource, string> = {
   "특색 활동": "bg-navy-2 text-white",
   "공통 활동": "bg-[#DFE3FF] text-[#2F43B8]",
   "자료 요약": "bg-new-soft text-new",
+  수행평가: "bg-wait-soft text-[#9a6400]",
   보관함: "bg-wait-soft text-[#9A6400]",
   // 차시 메뉴로 남긴 메모 (Figma N43): 공통 활동과 같은 색 · 다른 글
   차시: "bg-[#DFE3FF] text-[#2F43B8]",

@@ -24,7 +24,7 @@ export function studentStep(ids: readonly string[], current: string, dir: -1 | 1
 
 /** 묶음마다 칩 순서 — 세특 "메모 · 차시 · 공통 활동", 동아리 "누가기록 · 공통 활동 · 메모", 담임 "누가기록 · 메모". 그 밖의 출처는 뒤에 */
 export const SOURCE_ORDER: Record<ComposeGroup, PieceSource[]> = {
-  setuk: ["메모", "차시", "공통 활동", "자료 요약", "보관함"],
+  setuk: ["메모", "수행평가", "차시", "공통 활동", "자료 요약", "보관함"],
   club: ["누가기록", "공통 활동", "메모", "차시", "자료 요약", "보관함"],
   homeroom: ["누가기록", "메모", "특색 활동", "공통 활동", "차시", "자료 요약", "보관함"],
 };
