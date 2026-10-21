@@ -3,11 +3,11 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Minus, PencilLine, Plus, Upload, X } from "lucide-react";
+import { PencilLine, Plus, Upload, X } from "lucide-react";
 import { Button, ButtonLink, cx } from "@/components/ui";
 import { ASSESS_LIMITS } from "@/lib/domain/assessment";
-import { quickSplit, rangeLabel, validateRanges, type PageRange } from "@/lib/domain/program";
-import { pdfPageCount, prepareUpload, splitPdfRanges } from "@/lib/client/shrink-upload";
+import { prepareUpload } from "@/lib/client/shrink-upload";
+import { PdfSplitDialog } from "@/components/writing/pdf-split-dialog";
 import { ACCEPT } from "@/components/writing/evidence-files";
 import { deleteAssessment, readAssessmentFile, saveAssessment } from "./actions";
 
@@ -220,120 +220,19 @@ function OneDialog({ assessmentId, students, first, onClose }: { assessmentId: s
 
 function SplitDialog({ assessmentId, students, onClose }: { assessmentId: string; students: Stu[]; onClose: () => void }) {
   const router = useRouter();
-  const [file, setFile] = useState<File | null>(null);
-  const [pages, setPages] = useState<number | null>(null);
-  const [mode, setMode] = useState<"order" | "manual">("order");
-  const [per, setPer] = useState(2);
-  const [manual, setManual] = useState<PageRange[]>([]);
-  const [progress, setProgress] = useState<string>("");
-  const [error, setError] = useState("");
-  const [pending, start] = useTransition();
-  const ids = students.map((s) => s.id);
   const nameOf = new Map(students.map((s) => [s.id, `${s.no} ${s.name}`]));
-  const pickFile = async (f: File | null) => {
-    setError(""); setFile(f); setPages(null); setManual([]);
-    if (!f) return;
-    const n = await pdfPageCount(f);
-    if (!n) return setError("PDF를 읽지 못했어요. 합본은 PDF로 올려 주세요");
-    setPages(n);
-    setPer(Math.max(1, Math.round(n / Math.max(1, ids.length))));
-    setManual([{ from: 1, to: Math.min(n, 2), studentId: ids[0] ?? null }]);
-  };
-  const ranges = pages ? (mode === "order" ? quickSplit(pages, per, ids) : manual) : [];
-  const assigned = ranges.filter((r) => r.studentId);
-  const problem = pages ? validateRanges(assigned.length ? assigned : ranges, pages) : null;
-  const fit = pages ? (per * ids.length === pages ? "ok" : per * ids.length > pages ? "short" : "over") : null;
-  const run = () => file && pages && !problem && start(async () => {
-    setError("");
-    const todo = assigned;
-    const parts = await splitPdfRanges(file, todo);
-    const fails: string[] = [];
-    for (let k = 0; k < todo.length; k++) {
-      setProgress(`${k + 1} / ${todo.length}명 읽는 중 · ${nameOf.get(todo[k].studentId!)}`);
-      const e = await readFor(assessmentId, todo[k].studentId!, parts[k]);
-      if (e) fails.push(`${nameOf.get(todo[k].studentId!)}: ${e}`);
-    }
-    setProgress("");
-    if (fails.length) { setError(`${todo.length - fails.length}명 넣었어요 · ${fails.length}명 못 읽음 — ${fails.slice(0, 2).join(" / ")}`); router.refresh(); return; }
-    onClose();
-    router.refresh();
-  });
-  const setRow = (i: number, patch: Partial<PageRange>) => setManual((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)));
-  const num = "h-8 w-14 rounded-chip bg-soft px-2 text-[13px] outline-none focus:ring-2 focus:ring-key";
   return (
-    <Shell title="합본 PDF 나누기" onClose={onClose} wide>
-      {!file ? (
-        <label className="flex flex-col items-center gap-2 rounded-control border border-dashed border-faint px-4 py-8 text-center text-[14px] font-bold text-key-strong">
-          합본 PDF 고르기
-          <span className="text-[12px] font-normal text-mute">학생 자료를 한 파일로 스캔한 PDF · 브라우저에서 나눠요</span>
-          <input type="file" accept="application/pdf,.pdf" className="sr-only" onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
-        </label>
-      ) : (
-        <div className="flex items-center gap-2 rounded-control bg-bg px-3 py-2.5">
-          <span className="min-w-0 flex-1 truncate text-[14px] font-bold">{file.name}</span>
-          {pages && <span className="shrink-0 text-[13px] font-medium text-sub">{pages}쪽</span>}
-          <button type="button" onClick={() => pickFile(null)} className="shrink-0 text-[13px] font-bold text-key-strong">다른 파일</button>
-        </div>
-      )}
-      {pages && (
-        <>
-          <div className="flex gap-1 rounded-inner bg-soft p-1">
-            {([["order", "번호순"], ["manual", "페이지 지정"]] as const).map(([k, l]) => (
-              <button key={k} type="button" onClick={() => setMode(k)} aria-pressed={mode === k}
-                className={cx("h-[34px] flex-1 rounded-control text-[14px]", mode === k ? "border border-line bg-[#fff] font-bold" : "font-medium text-mute")}>{l}</button>
-            ))}
-          </div>
-          {mode === "order" ? (
-            <>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="text-[14px] font-medium text-sub">한 사람</span>
-                <span className="flex items-center rounded-control border border-hair">
-                  <button type="button" aria-label="한 쪽 줄이기" onClick={() => setPer(Math.max(1, per - 1))} className="px-2.5 py-1.5"><Minus size={14} /></button>
-                  <span className="min-w-10 text-center text-[14px] font-bold">{per}쪽</span>
-                  <button type="button" aria-label="한 쪽 늘리기" onClick={() => setPer(Math.min(pages, per + 1))} className="px-2.5 py-1.5"><Plus size={14} /></button>
-                </span>
-                <span className={cx("text-[13px] font-medium", fit === "ok" ? "text-ok" : "text-[#9a6400]")}>
-                  씩 · 명렬표 번호순 · {ids.length}명 {fit === "ok" ? `= ${pages}쪽 딱 맞음` : fit === "short" ? `— ${pages}쪽이라 뒤 학생은 비어요` : `— ${pages - per * ids.length}쪽이 남아요`}
-                </span>
-              </div>
-              <ul className="max-h-64 overflow-y-auto rounded-inner border border-line">
-                {ranges.map((r, i) => (
-                  <li key={i} className="flex h-11 items-center gap-3 border-t border-soft px-3.5 first:border-0">
-                    <span className="w-16 shrink-0 text-[13px] font-bold text-key-strong">{rangeLabel(r)}</span>
-                    <span className={cx("min-w-0 flex-1 truncate text-[14px] font-medium", !r.studentId && "text-mute")}>{r.studentId ? nameOf.get(r.studentId) : "학생 없음 (빼요)"}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <div className="overflow-hidden rounded-inner border border-line">
-              {manual.map((r, i) => (
-                <div key={i} className="flex items-center gap-2 border-t border-soft px-3 py-2 first:border-0">
-                  <input aria-label="시작 쪽" inputMode="numeric" value={r.from || ""} onChange={(e) => setRow(i, { from: Number(e.target.value.replace(/\D/g, "")) })} className={num} />
-                  <span className="text-mute">–</span>
-                  <input aria-label="끝 쪽" inputMode="numeric" value={r.to || ""} onChange={(e) => setRow(i, { to: Number(e.target.value.replace(/\D/g, "")) })} className={num} />
-                  <span className="text-[13px] text-mute">쪽</span>
-                  <select aria-label="학생" value={r.studentId ?? ""} onChange={(e) => setRow(i, { studentId: e.target.value || null })} className="h-8 min-w-0 flex-1 rounded-chip bg-soft px-2 text-[13px]">
-                    <option value="">학생 고르기</option>
-                    {students.map((s) => <option key={s.id} value={s.id}>{s.no} {s.name}</option>)}
-                  </select>
-                  <button type="button" aria-label="구간 빼기" onClick={() => setManual((rs) => rs.filter((_, k) => k !== i))} className="text-faint hover:text-bad"><X size={15} /></button>
-                </div>
-              ))}
-              <button type="button" onClick={() => { const last = manual.at(-1); const from = Math.min(pages, (last?.to ?? 0) + 1); const usedIds = new Set(manual.map((m) => m.studentId)); setManual([...manual, { from, to: Math.min(pages, from + per - 1), studentId: ids.find((x) => !usedIds.has(x)) ?? null }]); }}
-                className="flex h-11 w-full items-center gap-1.5 border-t border-soft px-3 text-[14px] font-bold text-key-strong hover:bg-soft"><Plus size={14} /> 구간 추가</button>
-            </div>
-          )}
-          <p className="rounded-control bg-bg px-3 py-2 text-[12px] text-sub">나눈 파일은 학생마다 AI가 읽어 요약만 조각으로 남겨요 · 파일은 저장하지 않아요</p>
-        </>
-      )}
-      {problem && pages && <p className="text-[13px] text-bad" role="alert">{problem}</p>}
-      {progress && <p className="text-[13px] font-medium text-key-strong" role="status">{progress}</p>}
-      {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
-      <div className="flex justify-end gap-2">
-        <Button type="button" kind="outline" className="flex-1 md:flex-none" onClick={onClose}>취소</Button>
-        <Button type="button" className="flex-1 md:flex-none" disabled={pending || !pages || !!problem || !assigned.length} onClick={run}>{pending ? "읽는 중…" : `${assigned.length}명 자료 만들기`}</Button>
-      </div>
-    </Shell>
+    <PdfSplitDialog students={students} onClose={onClose} confirm={(n) => `${n}명 자료 만들기`}
+      note="나눈 파일은 학생마다 AI가 읽어 요약만 조각으로 남겨요 · 파일은 저장하지 않아요"
+      run={async (parts, report) => {
+        const fails: string[] = [];
+        for (let k = 0; k < parts.length; k++) {
+          report(`${k + 1} / ${parts.length}명 읽는 중 · ${nameOf.get(parts[k].studentId)}`);
+          const e = await readFor(assessmentId, parts[k].studentId, parts[k].file);
+          if (e) fails.push(`${nameOf.get(parts[k].studentId)}: ${e}`);
+        }
+        router.refresh();
+        return fails.length ? `${parts.length - fails.length}명 넣었어요 · ${fails.length}명 못 읽음 — ${fails.slice(0, 2).join(" / ")}` : null;
+      }} />
   );
 }

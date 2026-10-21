@@ -8,11 +8,15 @@ import { prepareUpload } from "@/lib/client/shrink-upload";
 import { matchFile, type Matchable } from "@/lib/domain/common-activity";
 import { saveCommonPiece, summarizeCommonFile } from "@/app/(app)/teacher/common-actions";
 import { ACCEPT } from "./evidence-files";
+import { PdfSplitDialog } from "./pdf-split-dialog";
 
 // 공통 활동 화면 (Figma N26): 파일 이름(5자리 학번 · 이름)으로 학생을 맞추고(AI 없이), 모르는 파일은 교사가 고른다.
 // 학생마다 브라우저가 파일을 나눠(prepareUpload) 보내 요약 → "[활동명] …" 조각으로 남긴다. 파일은 저장하지 않는다.
+// 올리는 방식 (N64): 각각 따로(파일 이름으로 맞춤) | 합본 나누기(PDF 하나 → 번호순 · 페이지 지정 → 학생 칸에 붙음) | 모두에게 하나(한 번 읽고 같은 조각을 모든 학생에게).
 
 type Up = { key: string; file: File; studentId: string | null };
+type Mode = "each" | "split" | "all";
+const MODES: [Mode, string][] = [["each", "각각 따로"], ["split", "합본 나누기"], ["all", "모두에게 하나"]];
 type Status = "대기" | "만드는 중" | "조각 만듦" | "실패";
 const SHOWN = 8;
 const STATUS_CHIP: Record<Status, string> = {
@@ -29,6 +33,19 @@ function FileChip({ name, onRemove }: { name: string; onRemove?: () => void }) {
       <span className="min-w-0 truncate">{name}</span>
       {onRemove && <button type="button" aria-label="파일 빼기" onClick={onRemove} className="shrink-0 text-mute"><X size={12} /></button>}
     </span>
+  );
+}
+
+function UploadBox({ title, sub, onClick, disabled }: { title: string; sub: string; onClick: () => void; disabled: boolean }) {
+  return (
+    <button type="button" disabled={disabled} onClick={onClick}
+      className="flex items-center gap-3 rounded-inner border-2 border-dashed border-[#C2CAFF] bg-[#fff] px-4 py-3.5 text-left disabled:opacity-60">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-key-soft text-key"><FileUp size={20} /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-medium">{title}</span>
+        <span className="block text-[12px] text-mute">{sub}</span>
+      </span>
+    </button>
   );
 }
 
@@ -56,7 +73,13 @@ export function CommonActivityView({ activity, students, made, label }: {
   const [failed, setFailed] = useState<Map<string, string>>(new Map());
   const [progress, setProgress] = useState<{ total: number; done: number; made: number } | null>(null);
   const [all, setAll] = useState(false);
+  const [mode, setMode] = useState<Mode>("each");
+  const [shared, setShared] = useState<File | null>(null);
+  const [splitOpen, setSplitOpen] = useState(false);
+  const sharedInput = useRef<HTMLInputElement>(null);
   const busy = !!progress && progress.done < progress.total;
+  // 모두에게 하나: 파일 하나가 아직 조각 없는 모든 학생 몫
+  const toAll = mode === "all" && !!shared;
 
   const byStudent = useMemo(() => {
     const m = new Map<string, Up[]>();
@@ -66,11 +89,11 @@ export function CommonActivityView({ activity, students, made, label }: {
   const unknown = ups.filter((u) => !u.studentId);
   const matched = students.filter((s) => byStudent.has(s.id)).length;
   const counts = { matched, missing: students.length - matched, unknown: unknown.length };
-  const pending = students.filter((s) => byStudent.has(s.id) && !done.has(s.id));
-  const pendingFiles = pending.reduce((n, s) => n + (byStudent.get(s.id)?.length ?? 0), 0);
+  const pending = toAll ? students.filter((s) => !done.has(s.id)) : students.filter((s) => byStudent.has(s.id) && !done.has(s.id));
+  const pendingFiles = toAll ? 1 : pending.reduce((n, s) => n + (byStudent.get(s.id)?.length ?? 0), 0);
 
   const status = (id: string): Status | null =>
-    done.has(id) ? "조각 만듦" : running.has(id) ? "만드는 중" : failed.has(id) ? "실패" : byStudent.has(id) ? "대기" : null;
+    done.has(id) ? "조각 만듦" : running.has(id) ? "만드는 중" : failed.has(id) ? "실패" : byStudent.has(id) || toAll ? "대기" : null;
 
   const add = (files: FileList | null) => {
     if (!files?.length) return;
@@ -100,7 +123,36 @@ export function CommonActivityView({ activity, students, made, label }: {
     return r.error ?? null;
   };
 
+  /** 모두에게 하나: 한 번만 읽고(첫 학생 범위로 권한 확인) 같은 요약을 학생마다 조각으로 */
+  const runAll = async (file: File) => {
+    const queue = pending.map((s) => s.id);
+    setFailed(new Map());
+    setProgress({ total: queue.length, done: 0, made: 0 });
+    setRunning(new Set(queue));
+    const texts: string[] = [];
+    let readErr: string | null = null;
+    for (const part of await prepareUpload(file)) {
+      const fd = new FormData();
+      fd.set("activityId", activity.id);
+      fd.set("studentId", queue[0]);
+      fd.set("file", part);
+      let r = await summarizeCommonFile(fd);
+      if (!r.ok) r = await summarizeCommonFile(fd);
+      if (!r.ok) { readErr = r.error; break; }
+      texts.push(r.text);
+    }
+    for (const id of queue) {
+      const err = readErr ?? (await saveCommonPiece({ activityId: activity.id, studentId: id, text: texts.join(" ").slice(0, 900), fileCount: 1 }).then((r) => r.error ?? null, () => "만들지 못했어요"));
+      setRunning((s) => { const n = new Set(s); n.delete(id); return n; });
+      if (err) setFailed((m) => new Map(m).set(id, err));
+      else setDone((s) => new Set(s).add(id));
+      setProgress((p) => p && { ...p, done: p.done + 1, made: p.made + (err ? 0 : 1) });
+    }
+    router.refresh();
+  };
+
   const run = async () => {
+    if (toAll) return runAll(shared!);
     const queue = pending.map((s) => ({ id: s.id, files: byStudent.get(s.id) ?? [] }));
     if (!queue.length) return;
     setFailed(new Map());
@@ -153,7 +205,8 @@ export function CommonActivityView({ activity, students, made, label }: {
                       <span className="shrink-0 md:hidden">{chip}</span>
                     </span>
                     <span className="flex min-w-0 flex-wrap gap-1">
-                      {files.length ? files.map((u) => <FileChip key={u.key} name={u.file.name} onRemove={busy ? undefined : () => remove(u.key)} />)
+                      {toAll && !done.has(s.id) ? <FileChip name={`모두 · ${shared!.name}`} />
+                        : files.length ? files.map((u) => <FileChip key={u.key} name={u.file.name} onRemove={busy ? undefined : () => remove(u.key)} />)
                         : <span className="text-[13px] text-faint">{done.has(s.id) ? "" : <><span className="md:hidden">자료 없음</span><span className="hidden md:inline">없음</span></>}</span>}
                     </span>
                     <span className="hidden md:block">{chip}</span>
@@ -175,22 +228,47 @@ export function CommonActivityView({ activity, students, made, label }: {
       {/* 자료 올리기 */}
       <section className="surface order-2 flex flex-col gap-3 rounded-card p-4 md:order-none md:p-5" aria-label="자료 올리기">
         <h2 className="hidden text-[15px] font-bold md:block">자료 올리기</h2>
-        <button type="button" disabled={busy} onClick={() => input.current?.click()}
-          className="flex items-center gap-3 rounded-inner border-2 border-dashed border-[#C2CAFF] bg-[#fff] px-4 py-3.5 text-left disabled:opacity-60">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-key-soft text-key"><FileUp size={20} /></span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[14px] font-medium">학생 자료 한꺼번에 올리기</span>
-            <span className="block text-[12px] text-mute">파일 이름에 학번이나 이름</span>
-          </span>
-        </button>
+        <div className="flex gap-1 rounded-inner bg-soft p-1" role="tablist" aria-label="올리는 방식">
+          {MODES.map(([k, l]) => (
+            <button key={k} type="button" role="tab" aria-selected={mode === k} disabled={busy} onClick={() => setMode(k)}
+              className={cx("h-8 flex-1 whitespace-nowrap rounded-control text-[13px]", mode === k ? "border border-line bg-[#fff] font-bold" : "font-medium text-mute")}>{l}</button>
+          ))}
+        </div>
+        {mode === "all" ? (
+          shared ? (
+            <div className="flex items-center gap-2 rounded-inner bg-bg px-3 py-2.5">
+              <FileChip name={shared.name} onRemove={busy ? undefined : () => setShared(null)} />
+              <span className="ml-auto shrink-0 text-[12px] text-mute">아직 조각 없는 {students.filter((s) => !done.has(s.id)).length}명에게</span>
+            </div>
+          ) : (
+            <UploadBox disabled={busy} onClick={() => sharedInput.current?.click()} title="모두에게 줄 자료 하나" sub="활동지 · 계획서 · 단체 결과물 — 한 번 읽고 모든 학생에게 같은 조각" />
+          )
+        ) : (
+          <UploadBox disabled={busy} onClick={() => (mode === "split" ? setSplitOpen(true) : input.current?.click())}
+            title={mode === "split" ? "합본 PDF 나누기" : "학생 자료 한꺼번에 올리기"}
+            sub={mode === "split" ? "한 PDF를 번호순 · 페이지 지정으로 학생마다 나눠요" : "파일 이름에 학번이나 이름"} />
+        )}
         <input ref={input} type="file" multiple accept={ACCEPT} className="sr-only" aria-label="학생 자료"
           onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
-        <span className="md:hidden"><Chips {...counts} /></span>
-        {ups.length > 0 && <p className="hidden text-[12px] text-mute md:block">파일 {ups.length}개 · 맞춤 {ups.length - unknown.length} · 모름 {unknown.length}</p>}
+        <input ref={sharedInput} type="file" accept={ACCEPT} className="sr-only" aria-label="모두에게 줄 자료"
+          onChange={(e) => { setShared(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+        {!toAll && <span className="md:hidden"><Chips {...counts} /></span>}
+        {!toAll && ups.length > 0 && <p className="hidden text-[12px] text-mute md:block">파일 {ups.length}개 · 맞춤 {ups.length - unknown.length} · 모름 {unknown.length}</p>}
+        {splitOpen && (
+          <PdfSplitDialog students={students.map((s) => ({ id: s.id, no: s.studentNo, name: s.name }))} onClose={() => setSplitOpen(false)}
+            confirm={(n) => `${n}명 칸에 붙이기`} note="나눈 파일은 학생 칸에 붙어요 · [조각 한꺼번에 만들기]를 누르면 AI가 읽어요"
+            run={async (parts) => {
+              const no = new Map(students.map((s) => [s.id, `${s.studentNo} ${s.name}`]));
+              const stamp = Date.now();
+              setUps((cur) => [...cur, ...parts.map((p, i) => ({ key: `${stamp}-s${i}`, studentId: p.studentId,
+                file: new File([p.file], `${no.get(p.studentId)} ${p.range.from}–${p.range.to}쪽.pdf`, { type: "application/pdf" }) }))]);
+              return null;
+            }} />
+        )}
       </section>
 
       {/* 누구 것인지 모름 */}
-      {unknown.length > 0 && (
+      {unknown.length > 0 && !toAll && (
         <section className="surface order-4 flex flex-col gap-3 rounded-card p-4 md:order-none md:p-5" aria-label="누구 것인지 모름">
           <h2 className="text-[15px] font-bold">누구 것인지 모름 <span className="font-normal text-mute">{unknown.length}</span></h2>
           {unknown.map((u) => (
