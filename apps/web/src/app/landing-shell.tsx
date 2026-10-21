@@ -6,7 +6,7 @@ import { MobileMenu } from "./landing-sections";
 
 // 상세페이지 껍데기: 위 메뉴(Nav) · 섹션 머리 · CTA + Footer. 상세페이지(/)와 기능 한눈에 보기(/features)가 같이 쓴다.
 // 메뉴 링크는 "/#…" 로 두어 /features 에서도 상세페이지 해당 섹션으로 간다(/ 에서는 그 자리 스크롤).
-export const NAV: [string, string][] = [["흐름", "/#flow"], ["핵심 기능", "/#core"], ["기능 한눈에 보기", "/features"], ["역할", "/#roles"], ["안심 설계", "/#safety"], ["FAQ", "/#faq"]];
+export const NAV: [string, string][] = [["조각", "/#pieces"], ["흐름", "/#flow"], ["핵심 기능", "/#core"], ["기능 한눈에 보기", "/features"], ["역할", "/#roles"], ["안심 설계", "/#safety"], ["FAQ", "/#faq"]];
 
 export const wrap = "mx-auto w-full max-w-[1200px] px-5 md:px-6 xl:px-0";
 
@@ -56,7 +56,7 @@ export function SiteFooter() {
       <section className="bg-[linear-gradient(180deg,#1c2033_0%,#0a0b12_100%)] text-white">
         <div className={`${wrap} flex flex-col items-center pb-16 pt-14 text-center md:pb-[120px] md:pt-[110px]`}>
           <Image src="/clover.png" alt="" width={187} height={200} className="h-[150px] w-auto md:h-[200px]" />
-          <h2 className="mt-5 text-[26px] font-bold leading-[1.3] md:mt-6 md:text-[44px]">이번 학기부터,<br />학생 기록은 한 곳에</h2>
+          <h2 className="mt-5 text-[26px] font-bold leading-[1.3] md:mt-6 md:text-[44px]">오늘 본 한 줄부터,<br />조각으로 남겨 두세요</h2>
           <Link href="/login" className="mt-5 w-full whitespace-nowrap rounded-control bg-key px-[30px] py-3.5 text-[16px] font-bold hover:bg-key-strong md:mt-6 md:w-auto md:py-[17px] md:text-[17px]">속초고 계정으로 시작하기</Link>
         </div>
       </section>

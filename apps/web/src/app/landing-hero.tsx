@@ -48,7 +48,7 @@ export function HeroVisual() {
         const t = it.anim?.currentTime;
         const p = typeof t === "number" ? Math.min(1, Math.max(0, (t - it.at) / COUNT_MS)) : 1;
         if (p < 1) running = true;
-        const v = String(Math.round(it.final * easeOut(p)));
+        const v = Math.round(it.final * easeOut(p)).toLocaleString("ko-KR");
         if (it.num.textContent !== v) it.num.textContent = v;
       }
       if (running) raf = requestAnimationFrame(tick);
@@ -106,7 +106,7 @@ export function HeroVisual() {
           <div className="text-[12px] font-bold text-white md:text-[15px]">{c.title}</div>
           <div className="mt-0.5 text-[11px] font-medium text-[#b0b8c1] md:mt-1 md:text-[13px]">
             {c.pre}
-            <span data-count={c.n} className="inline-block text-right tabular-nums" style={{ minWidth: `${String(c.n).length}ch` }}>{c.n}</span>
+            <span data-count={c.n} className="inline-block text-right tabular-nums" style={{ minWidth: `${c.n.toLocaleString("ko-KR").length}ch` }}>{c.n.toLocaleString("ko-KR")}</span>
             {c.post}
           </div>
         </div>

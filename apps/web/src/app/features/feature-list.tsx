@@ -75,7 +75,7 @@ function Detail({ it }: { it: Item }) {
       </div>
       {g.img && (
         <div className="overflow-hidden rounded-inner bg-key-soft md:self-start">
-          <Image src={`/landing/${g.img}.png`} alt={`${it.name} 화면`} width={1200} height={800} sizes="(min-width: 768px) 320px, 100vw" className="h-auto w-full" />
+          <Image src={`/landing/n65/${g.img}.png`} alt={`${it.name} 화면`} width={1200} height={800} sizes="(min-width: 768px) 320px, 100vw" className="h-auto w-full" />
         </div>
       )}
     </div>

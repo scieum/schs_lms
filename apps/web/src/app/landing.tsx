@@ -4,10 +4,10 @@ import type { CSSProperties } from "react";
 import { HeroVisual } from "./landing-hero";
 import { FaqList } from "./landing-sections";
 import { Head, SiteFooter, SiteHeader, wrap } from "./landing-shell";
-import { CORE, FLOW, MORE, ROLES, SAFETY } from "./landing-data";
+import { CORE, FLOW, MORE, ROLES, SAFETY, SOURCES } from "./landing-data";
 
-// 상세페이지 = Figma 04 상세페이지 N44 (PC 501:660, Mobile 501:1089 · 옛 B안 v2는 99 이전 버전 502:10262). 로그인 전 첫 화면.
-// 구성: Nav → Hero → Flow(5단계) → Core 01–06(제품 화면) → More 07–18(+ 기능 전체 보기 → /features) → For everyone → Safety(네이비) → FAQ → CTA → Footer
+// 상세페이지 = Figma 04 상세페이지 N65 (N44 PC 501:660 · Mobile 501:1089 를 조각 중심으로 고침). 로그인 전 첫 화면.
+// 구성 (N65 조각 중심, 2026-10-21): Nav → Hero(한 줄이 생기부가) → Pieces(조각이 모이는 길) → Flow(5단계) → Core 01–06(실제 화면) → Tools 07–18(+ 기능 전체 보기) → For everyone → Safety(네이비) → FAQ → Footer
 // 기능 전체 목록은 따로 /features "기능 한눈에 보기" (N44).
 // 성적·수능 최저 기능은 잠가 두었으므로(apps/CLAUDE.md) 상세페이지에서도 소개하지 않는다.
 /** N30 카드 호버: 화살표(opacity·밀림)와 아래 진행선. 장식이라 읽지 않는다 (globals.css .n30-*) */
@@ -42,13 +42,13 @@ export function Landing() {
         <div className={`${wrap} flex flex-col items-center pt-14 text-center md:pt-[120px]`}>
           {/* N29 첫 화면 모션: 제목 단어 → 부제 → 버튼 → 그림 (globals.css .n29-*, 시간표는 docs/design-system.md) */}
           <h1 className="text-[30px] font-bold leading-[1.3] md:text-[56px]">
-            <Rise at={100} y={24} dur={450}>생기부</Rise> <Rise at={180} y={24} dur={450}>초안부터</Rise><br />
-            <Rise at={260} y={24} dur={450}>나이스</Rise> <Rise at={340} y={24} dur={450}>입력까지</Rise>
+            <Rise at={100} y={24} dur={450}>수업에서</Rise> <Rise at={180} y={24} dur={450}>본</Rise> <Rise at={220} y={24} dur={450}>한 줄이</Rise><br />
+            <Rise at={300} y={24} dur={450}>생기부가</Rise> <Rise at={380} y={24} dur={450}>돼요</Rise>
           </h1>
-          <p className="n29-in mt-5 text-[17px] leading-[1.35] text-[#b0b8c1] md:mt-7 md:text-[20px]" style={rise(550, 12)}>설문·서류로 AI가 쓰고, <br className="md:hidden" />선생님이 확정해요.</p>
+          <p className="n29-in mt-5 text-[17px] leading-[1.35] text-[#b0b8c1] md:mt-7 md:text-[20px]" style={rise(550, 12)}>조각을 모으면 AI가 글을 짓고, <br className="md:hidden" />확정은 선생님이 해요.</p>
           <div className="mt-5 flex w-full flex-col gap-3 md:mt-7 md:w-auto md:flex-row">
             <Link href="/login" className="n29-in whitespace-nowrap rounded-control bg-key px-[30px] py-3.5 text-[16px] font-bold hover:bg-key-strong md:py-[17px] md:text-[17px]" style={rise(700, 12)}>속초고 계정으로 시작하기</Link>
-            <a href="#flow" className="n29-in whitespace-nowrap rounded-control border border-white/20 bg-white/10 px-[30px] py-3.5 text-[16px] font-bold hover:bg-white/15 md:py-[17px] md:text-[17px]" style={rise(760, 12)}>둘러보기</a>
+            <a href="#pieces" className="n29-in whitespace-nowrap rounded-control border border-white/20 bg-white/10 px-[30px] py-3.5 text-[16px] font-bold hover:bg-white/15 md:py-[17px] md:text-[17px]" style={rise(760, 12)}>둘러보기</a>
           </div>
           <Link href="/signup" className="n29-in mt-4 text-[13px] text-[#9eaaff] underline-offset-4 hover:underline" style={rise(820, 0, 400)}>처음이신 선생님은 가입하기</Link>
 
@@ -56,16 +56,35 @@ export function Landing() {
         </div>
       </section>
 
-      {/* Flow: 다섯 단계 */}
-      <section id="flow" className="scroll-mt-16 bg-white">
+      {/* Pieces (N65): 조각이란 · 조각이 모이는 길 — 출처 칩은 글 짓기 왼쪽 칸과 같은 색 */}
+      <section id="pieces" className="scroll-mt-16 bg-white">
         <div className={`${wrap} py-[72px] md:py-[120px]`}>
-          <Head eyebrow="Flow">초안에서 나이스까지<br />다섯 단계</Head>
+          <Head eyebrow="Pieces">생기부의 시작은<br />조각 한 줄</Head>
+          <p className="mx-auto mt-4 max-w-[640px] text-center text-[16px] leading-[1.5] text-sub md:mt-6 md:text-[18px]">
+            조각은 학생에게서 본 것 한두 줄이에요. 메모 · 자료 · 수행평가 · 공통 활동이 모두 조각이 되고, 글 짓기에서 골라 한 편으로 엮어요.
+          </p>
+          <ul className="mx-auto mt-9 grid w-full max-w-[1200px] gap-2.5 sm:grid-cols-2 md:mt-14 md:gap-5 lg:grid-cols-3">
+            {SOURCES.map(([chip, line, tone], i) => (
+              <li key={chip} className="n30-more relative flex items-center gap-3 overflow-hidden rounded-card bg-bg px-[18px] py-[18px] md:flex-col md:items-start md:gap-3 md:px-6 md:py-7" style={idx(i)}>
+                <span className={`shrink-0 rounded-chip px-2 py-1 text-[13px] font-bold md:text-[14px] ${tone}`}>{chip}</span>
+                <span className="min-w-0 flex-1 text-[15px] text-ink md:text-[17px] md:font-medium">{line}</span>
+                <Bar className="hidden md:block" />
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Flow: 조각 하나가 생기부가 되기까지 */}
+      <section id="flow" className="scroll-mt-16 bg-[#f8f9fb]">
+        <div className={`${wrap} py-[72px] md:py-[120px]`}>
+          <Head eyebrow="Flow">조각 하나가<br />생기부가 되기까지</Head>
           {/* N30: 카드 위 연결선(md 이상, li 의 가상 요소·점이라 폭을 밀지 않는다)이 올린 단계까지 차오른다 */}
           <ol className="mx-auto mt-9 grid w-full max-w-[1200px] gap-2.5 md:mt-16 md:grid-cols-5 md:gap-5">
             {FLOW.map((s, i) => (
               <li key={s.title} className="n30-flow relative" style={idx(i)}>
                 <span aria-hidden className="n30-dot" />
-                <div className="n30-flow-card relative flex h-full items-center gap-3.5 overflow-hidden rounded-card bg-bg px-[18px] py-[18px] md:flex-col md:items-start md:gap-3 md:px-6 md:py-7">
+                <div className="n30-flow-card relative flex h-full items-center gap-3.5 overflow-hidden rounded-card bg-white px-[18px] py-[18px] md:flex-col md:items-start md:gap-3 md:px-6 md:py-7">
                   <span className="n30-num flex size-7 shrink-0 items-center justify-center rounded-full bg-key text-[14px] font-bold text-white md:size-8 md:text-[15px]">{i + 1}</span>
                   <div className="min-w-0 flex-1 md:flex-none">
                     <div className="n30-t text-[17px] font-bold leading-[1.35] md:text-[20px]">{s.title}</div>
@@ -82,9 +101,9 @@ export function Landing() {
       </section>
 
       {/* Core 01–06: 제품 화면 */}
-      <section id="core" className="scroll-mt-16 bg-[#f8f9fb]">
+      <section id="core" className="scroll-mt-16 bg-white">
         <div className={`${wrap} py-[72px] md:py-[140px]`}>
-          <Head eyebrow="Core features">손이 가장 많이 가던 일부터<br />순서대로</Head>
+          <Head eyebrow="Core features">조각을 모으고, 짓고,<br />나이스까지</Head>
           <div className="mt-14 flex flex-col gap-14 md:mt-24 md:gap-24">
             {CORE.map((c, i) => (
               <div key={c.no} className="n30-core grid items-center gap-5 md:grid-cols-[minmax(0,536fr)_minmax(0,600fr)] md:gap-16 md:[&:nth-child(even)]:grid-cols-[minmax(0,600fr)_minmax(0,536fr)]">
@@ -104,8 +123,8 @@ export function Landing() {
                   </div>
                 </div>
                 <div className={`n30-shot ${i % 2 ? "md:order-1" : ""}`}>
-                  <Image src={`/landing/core-0${i + 1}-m.png`} alt={`${c.label} 화면`} width={372} height={380} sizes="(max-width: 767px) 100vw, 372px" className="h-auto w-full md:hidden" />
-                  <Image src={`/landing/core-0${i + 1}.png`} alt={`${c.label} 화면`} width={600} height={400} sizes="(min-width: 1240px) 600px, 50vw" className="hidden h-auto w-full md:block" />
+                  <Image src={`/landing/n65/core-0${i + 1}-m.png`} alt={`${c.label} 화면`} width={372} height={380} sizes="(max-width: 767px) 100vw, 372px" className="h-auto w-full md:hidden" />
+                  <Image src={`/landing/n65/core-0${i + 1}.png`} alt={`${c.label} 화면`} width={600} height={400} sizes="(min-width: 1240px) 600px, 50vw" className="hidden h-auto w-full md:block" />
                 </div>
               </div>
             ))}
@@ -114,12 +133,12 @@ export function Landing() {
       </section>
 
       {/* More 07–18 */}
-      <section id="more" className="scroll-mt-16 bg-white">
+      <section id="more" className="scroll-mt-16 bg-[#f8f9fb]">
         <div className={`${wrap} py-[72px] md:py-[120px]`}>
-          <Head eyebrow="More features">그 밖의 일도<br />한 곳에서</Head>
+          <Head eyebrow="Tools">곁에 두는 도구와<br />그 밖의 일</Head>
           <ul className="mt-9 grid gap-2 sm:grid-cols-2 md:mt-16 md:gap-5 lg:grid-cols-4">
             {MORE.map(([no, title, line, who]) => (
-              <li key={no} className="n30-more relative flex items-center gap-3 overflow-hidden rounded-card bg-bg px-[15px] py-[15px] md:flex-col md:items-stretch md:gap-2.5 md:p-[23px]">
+              <li key={no} className="n30-more relative flex items-center gap-3 overflow-hidden rounded-card bg-white px-[15px] py-[15px] md:flex-col md:items-stretch md:gap-2.5 md:p-[23px]">
                 <div className="contents md:flex md:items-center md:justify-between">
                   <span className="w-[17px] shrink-0 text-[14px] font-bold text-key md:w-auto md:text-[15px]">{no}</span>
                   <span className="n30-tag order-last md:order-none"><Tag>{who}</Tag></span>
@@ -138,12 +157,12 @@ export function Landing() {
       </section>
 
       {/* For everyone */}
-      <section id="roles" className="scroll-mt-16 bg-[#f8f9fb]">
+      <section id="roles" className="scroll-mt-16 bg-white">
         <div className={`${wrap} py-[72px] md:py-[120px]`}>
           <Head eyebrow="For everyone">역할마다<br />필요한 화면만</Head>
           <div className="mt-9 grid grid-cols-2 gap-3 md:mt-16 md:gap-5 lg:grid-cols-4">
             {ROLES.map((r) => (
-              <div key={r.role} className="n30-role relative overflow-hidden rounded-card bg-white p-[17px] md:p-[27px]">
+              <div key={r.role} className="n30-role relative overflow-hidden rounded-card bg-bg p-[17px] md:p-[27px]">
                 <div className="n30-t text-[18px] font-bold leading-[1.35] md:text-[22px]">{r.role}</div>
                 <Arrow className="right-[17px] top-[19px] md:right-[27px] md:top-[32px]" />
                 <ul className="mt-3 flex flex-col gap-3 text-[14px] text-sub md:mt-4 md:gap-4 md:text-[16px]">
@@ -161,7 +180,7 @@ export function Landing() {
       {/* Safety (네이비) */}
       <section id="safety" className="scroll-mt-16 bg-navy">
         <div className={`${wrap} py-[72px] md:py-[120px]`}>
-          <Head eyebrow="Safety" light>AI가 쓰고,<br />확정은 선생님이</Head>
+          <Head eyebrow="Safety" light>AI가 짓고,<br />확정은 선생님이</Head>
           <ul className="mt-9 grid gap-2.5 md:mt-16 md:grid-cols-3 md:gap-5">
             {SAFETY.map(([t, l]) => (
               <li key={t} className="rounded-card bg-navy-2 px-[18px] py-[18px] md:px-6 md:py-7">
