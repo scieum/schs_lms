@@ -5,7 +5,8 @@ import { schoolYear } from "@/lib/domain/curriculum";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { listMyJoint } from "@/lib/server/joint";
-import { JointList, type JointRow } from "./joint-card";
+import { type JointRow } from "./joint-card";
+import { semesterOf } from "@/lib/domain/writing";
 import { RosterBox, type RosterCourse } from "./roster-box";
 import { SubjectsForm } from "./subjects-form";
 import { TeacherPicker } from "./teacher-picker";
@@ -76,8 +77,8 @@ export default async function SubjectsPage({ searchParams }: Props) {
         />
         <SubjectsForm
           key={target} teacherId={target} initialGroups={groups} initialCourses={assigned} courses={courses} classesByGrade={classesByGrade}
-          jointCount={jointRows.length}
-          joint={target === v.accountId ? <JointList rows={jointRows} students={students.map((s) => ({ id: s.id, studentNo: s.studentNo, grade: s.grade, classNo: s.classNo, number: s.number, name: s.name }))} /> : undefined}
+          semester={semesterOf()}
+          joint={target === v.accountId ? { rows: jointRows, students: students.map((s) => ({ id: s.id, studentNo: s.studentNo, grade: s.grade, classNo: s.classNo, number: s.number, name: s.name })) } : undefined}
         />
       </PageBody>
     </>

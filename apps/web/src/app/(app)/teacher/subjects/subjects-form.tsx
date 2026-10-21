@@ -1,9 +1,11 @@
 "use client";
-import { useActionState, useState, type ReactNode } from "react";
+import { useActionState, useState } from "react";
 import { Check, Plus, X } from "lucide-react";
 import { Button, Card, cx } from "@/components/ui";
 import { defaultClassMode, nextSection, SUBJECT_GROUPS, type ClassMode, type Course, type SubjectGroup, type TeacherCourse } from "@/lib/domain/curriculum";
+import type { PickStudent } from "@/lib/domain/roster-pick";
 import { saveSubjects, type SubjectsState } from "./actions";
+import { JointList, type JointRow } from "./joint-card";
 
 const chip = (on: boolean) =>
   cx("rounded-full px-3.5 py-2 text-sm transition-colors", on ? "bg-key font-bold text-white" : "bg-white text-sub hover:bg-key-soft");
@@ -16,17 +18,20 @@ export function SubjectsForm({
   courses,
   classesByGrade,
   joint,
-  jointCount = 0,
+  semester: nowSemester,
 }: {
   teacherId: string;
   initialGroups: SubjectGroup[];
   initialCourses: TeacherCourse[];
   courses: Course[];
   classesByGrade: Record<number, number[]>;
-  /** 담당 과목 칸 맨 아래 공동교육과정 묶음 (N54) — 교과를 안 골라도 보인다 */
-  joint?: ReactNode;
-  jointCount?: number;
+  /** 담당 과목 칸 맨 아래 공동교육과정 묶음 (N54) — 교과를 안 골라도 보인다. 다른 교사를 고른 관리자 화면에는 없음 */
+  joint?: { rows: JointRow[]; students: PickStudent[] };
+  /** 지금 학기 (3~8월 1학기) — 학기 탭 처음 값 */
+  semester: 1 | 2;
 }) {
+  // 학기 탭 (2026-10-21): 과목 목록 · 공동교육과정을 1 · 2학기로 나눠 보인다. 고른 것은 두 학기 다 저장된다
+  const [sem, setSem] = useState<1 | 2>(nowSemester);
   const [state, action, pending] = useActionState<SubjectsState, FormData>(saveSubjects, {});
   const [groups, setGroups] = useState<SubjectGroup[]>(initialGroups);
   const [picked, setPicked] = useState<Record<string, number[]>>(
@@ -65,6 +70,9 @@ export function SubjectsForm({
   });
   const ready = (c: Course) => !!picked[c.id] && (modeOf(c) === "moving" ? secOf(c.id).length > 0 : picked[c.id].length > 0);
   const count = visible.filter(ready).length;
+  const jointRows = joint?.rows ?? [];
+  const picks = (s: 1 | 2) => visible.filter((c) => c.semester === s && ready(c)).length + jointRows.filter((r) => r.semester === s).length;
+  const shown = visible.filter((c) => c.semester === sem);
 
   return (
     <form action={action} className="grid gap-4 md:grid-cols-[1fr_320px] md:gap-6">
@@ -80,14 +88,23 @@ export function SubjectsForm({
           </div>
         </Card>
 
-        <Card title="담당 과목" action={<span className="text-[13px] text-mute">{count}개 선택</span>}>
+        <Card title="담당 과목" action={<span className="text-[13px] text-mute">{count + jointRows.length}개 선택</span>}>
+          <div className="mb-3 flex gap-1 rounded-inner bg-soft p-1" role="tablist" aria-label="학기">
+            {([nowSemester, nowSemester === 2 ? 1 : 2] as const).map((s) => (
+              <button key={s} type="button" role="tab" aria-selected={sem === s} onClick={() => setSem(s)}
+                className={cx("flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-control text-[14px]", sem === s ? "border border-line bg-[#fff] font-bold text-ink" : "font-medium text-mute")}>
+                {s}학기{s === nowSemester && " · 지금"}
+                <span className={cx("rounded-chip px-1.5 text-[12px] font-bold", sem === s ? "bg-key-soft text-key-strong" : "bg-hair text-sub")}>{picks(s)}</span>
+              </button>
+            ))}
+          </div>
           {groups.length === 0 ? (
             <p className="py-4 text-center text-sm text-mute">교과를 먼저 골라 주세요</p>
-          ) : visible.length === 0 ? (
-            <p className="py-4 text-center text-sm text-mute">편제표에 이 교과 과목이 아직 없어요</p>
+          ) : shown.length === 0 ? (
+            <p className="py-4 text-center text-sm text-mute">편제표에 {sem}학기 이 교과 과목이 아직 없어요</p>
           ) : (
             <ul className="flex flex-col gap-2">
-              {visible.map((c) => {
+              {shown.map((c) => {
                 const on = !!picked[c.id];
                 const classes = classesByGrade[c.grade] ?? [];
                 return (
@@ -146,7 +163,7 @@ export function SubjectsForm({
               })}
             </ul>
           )}
-          {joint}
+          {joint && <JointList rows={jointRows.filter((r) => r.semester === sem)} semester={sem} students={joint.students} />}
         </Card>
       </div>
 
@@ -154,7 +171,7 @@ export function SubjectsForm({
         <dl className="mb-4 flex flex-col gap-2 text-sm">
           <div className="flex justify-between"><dt className="text-mute">교과</dt><dd className="font-medium">{groups.join(", ") || "-"}</dd></div>
           <div className="flex justify-between"><dt className="text-mute">담당 과목</dt><dd className="font-medium">{count}개</dd></div>
-          {jointCount > 0 && <div className="flex justify-between"><dt className="text-mute">공동교육과정</dt><dd className="font-medium">{jointCount}개 · 바로 저장</dd></div>}
+          {jointRows.length > 0 && <div className="flex justify-between"><dt className="text-mute">공동교육과정</dt><dd className="font-medium">{jointRows.length}개 · 바로 저장</dd></div>}
           {visible.filter(ready).map((c) => (
             <div key={c.id} className="flex justify-between gap-2">
               <dt className="truncate text-mute">{c.subject}</dt>

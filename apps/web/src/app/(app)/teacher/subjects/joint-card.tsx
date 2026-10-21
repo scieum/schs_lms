@@ -19,7 +19,8 @@ export type JointRow = {
 
 const KIND_CHIP: Record<JointKind, string> = { school: "bg-key-soft text-key-strong", online: "bg-new-soft text-new" };
 
-export function JointList({ rows, students }: { rows: JointRow[]; students: PickStudent[] }) {
+/** semester: 지금 보고 있는 학기 탭 — 새 수업의 학기 기본값 */
+export function JointList({ rows, students, semester }: { rows: JointRow[]; students: PickStudent[]; semester: 1 | 2 }) {
   const [open, setOpen] = useState<JointRow | "new" | null>(null);
   return (
     <div className="mt-4 flex flex-col gap-2">
@@ -48,7 +49,7 @@ export function JointList({ rows, students }: { rows: JointRow[]; students: Pick
         <Plus size={16} /> 공동교육과정 수업 추가
       </button>
       {/* 담당 과목 폼 안이라 창은 body 로 띄운다 (Enter 가 그 폼을 보내지 않게) */}
-      {open && createPortal(<JointDialog row={open === "new" ? null : open} students={students} onClose={() => setOpen(null)} />, document.body)}
+      {open && createPortal(<JointDialog row={open === "new" ? null : open} semester={semester} students={students} onClose={() => setOpen(null)} />, document.body)}
     </div>
   );
 }
@@ -57,11 +58,11 @@ type Ext = ExternalInput & { key: string };
 const toExt = (e: ExternalInput, i: number): Ext => ({ ...e, key: e.id ?? `n${Date.now()}-${i}-${Math.random()}` });
 const INPUT = "h-10 w-full min-w-0 rounded-control bg-soft px-1.5 text-[13px] md:px-2.5 md:text-[14px] font-medium outline-none focus:ring-2 focus:ring-key";
 
-function JointDialog({ row, students, onClose }: { row: JointRow | null; students: PickStudent[]; onClose: () => void }) {
+function JointDialog({ row, semester: sem, students, onClose }: { row: JointRow | null; semester: 1 | 2; students: PickStudent[]; onClose: () => void }) {
   const [kind, setKind] = useState<JointKind>(row?.kind ?? "school");
   const [subject, setSubject] = useState(row?.subject ?? "");
   const [grade, setGrade] = useState(row?.grade ?? 2);
-  const [semester, setSemester] = useState<1 | 2>(row?.semester ?? 2);
+  const [semester, setSemester] = useState<1 | 2>(row?.semester ?? sem);
   const [own, setOwn] = useState<string[]>(row?.own ?? []);
   const [ext, setExt] = useState<Ext[]>(() => (row?.external ?? []).map(toExt));
   const [tab, setTab] = useState<"own" | "ext">(row && row.external.length ? "ext" : "own");
