@@ -1,13 +1,15 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { ClipboardPaste, PencilLine, Plus, Search, Trash2, Users, X } from "lucide-react";
-import { Button, ButtonLink, cx } from "@/components/ui";
-import { JOINT_KIND_LABEL, JOINT_SECTION, parseExternalPaste, type ExternalInput, type JointKind } from "@/lib/domain/joint-curriculum";
+import { createPortal } from "react-dom";
+import { Check, ClipboardPaste, Plus, Search, Trash2, Users, X } from "lucide-react";
+import { Button, cx } from "@/components/ui";
+import { JOINT_KIND_LABEL, parseExternalPaste, type ExternalInput, type JointKind } from "@/lib/domain/joint-curriculum";
 import { classesOf, filterStudents, type PickStudent } from "@/lib/domain/roster-pick";
 import { deleteJointCourse, saveJointCourse } from "./joint-actions";
 
-// 공동교육과정 (Figma N54 a · c 카드 / b · d 등록 창): 내 수업 맨 위. 수업 = 종류 · 과목 · 학년 · 학기 + 우리 학교 · 다른 학교 학생.
+// 공동교육과정 (Figma N54, 2026-10-21 고침): 내 수업 "담당 과목" 칸 맨 아래 묶음 — 수업 줄 + [＋ 공동교육과정 수업 추가] → 등록 창.
+// 수업 = 종류 · 과목 · 학년 · 학기 + 우리 학교 · 다른 학교 학생. 창에서 저장하면 바로 반영(담당 과목 [저장하기]와 따로).
 // 저장하면 세특 조각 모으기 · 글 짓기에 "공동 · 과목" 탭으로 나온다. 학번 · 이름은 URL에 넣지 않는다 (C3).
 
 export type JointRow = {
@@ -17,42 +19,37 @@ export type JointRow = {
 
 const KIND_CHIP: Record<JointKind, string> = { school: "bg-key-soft text-key-strong", online: "bg-new-soft text-new" };
 
-export function JointCard({ rows, students }: { rows: JointRow[]; students: PickStudent[] }) {
+export function JointList({ rows, students }: { rows: JointRow[]; students: PickStudent[] }) {
   const [open, setOpen] = useState<JointRow | "new" | null>(null);
   return (
-    <section className="surface flex flex-col gap-3 rounded-card p-4 md:p-6">
-      <div className="flex items-center gap-2">
-        <h2 className="text-[17px] font-bold">공동교육과정</h2>
-        {rows.length > 0 && <span className="rounded-chip bg-soft px-2 py-0.5 text-[12px] font-bold text-sub">{rows.length}</span>}
-        <span className="flex-1" />
-        <Link href="/teacher/joint" className="hidden text-[13px] font-medium text-sub hover:text-ink md:inline">운영 안내 ›</Link>
-        <Button size="sm" onClick={() => setOpen("new")}><Plus size={14} /> <span className="md:hidden">등록</span><span className="hidden md:inline">수업 등록</span></Button>
+    <div className="mt-4 flex flex-col gap-2">
+      <div className="flex items-center gap-2 pt-1">
+        <span className="text-[12px] font-bold text-mute">공동교육과정</span>
+        <span className="h-px flex-1 bg-line" />
+        <Link href="/teacher/joint" className="text-[12px] font-medium text-mute hover:text-ink">운영 안내 ›</Link>
       </div>
-      {rows.length === 0 && (
-        <p className="rounded-inner bg-bg px-4 py-5 text-center text-[14px] text-sub">맡은 공동교육과정 수업이 있으면 등록해요 · 다른 학교 학생도 함께</p>
-      )}
       {rows.map((r) => (
-        <div key={r.id} className="flex flex-col gap-2.5 rounded-inner bg-bg px-4 py-3.5 md:flex-row md:items-center md:gap-3 md:pr-3">
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className={cx("shrink-0 rounded-chip px-2 py-0.5 text-[12px] font-bold", KIND_CHIP[r.kind])}>{JOINT_KIND_LABEL[r.kind]}</span>
-              <span className="truncate text-[15px] font-bold">{r.subject}</span>
-              <span className="shrink-0 text-[13px] text-mute">{r.grade}학년 {r.semester}학기</span>
-            </div>
-            <div className="flex gap-1.5">
-              <span className="rounded-chip bg-[#fff] px-2 py-0.5 text-[12px] font-bold text-sub">우리 학교 {r.own.length}</span>
-              <span className="rounded-chip bg-[#fff] px-2 py-0.5 text-[12px] font-bold text-sub">다른 학교 {r.external.length}</span>
-            </div>
+        <div key={r.id} className="flex flex-col gap-2.5 rounded-inner bg-white p-3.5 md:flex-row md:items-center md:gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-chip bg-key text-white"><Check size={16} strokeWidth={3} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate font-medium">{r.subject}</span>
+                <span className={cx("shrink-0 rounded-chip px-1.5 py-px text-[11px] font-bold", KIND_CHIP[r.kind])}>공동 · {JOINT_KIND_LABEL[r.kind]}</span>
+              </span>
+              <span className="block text-[13px] text-mute">{r.grade}학년 {r.semester}학기 · 우리 학교 {r.own.length} · 다른 학교 {r.external.length}</span>
+            </span>
           </div>
-          <div className="flex gap-2">
-            <Button kind="outline" size="sm" className="flex-1 md:flex-none" onClick={() => setOpen(r)}><Users size={14} /> 명단 · 수업 고치기</Button>
-            <ButtonLink kind="soft" size="sm" className="flex-1 md:flex-none" href={`/teacher/setuk/compose?course=${r.id}&section=${encodeURIComponent(JOINT_SECTION)}`}><PencilLine size={14} /> 글 짓기</ButtonLink>
-          </div>
+          <Button type="button" kind="outline" size="sm" className="md:shrink-0" onClick={() => setOpen(r)}><Users size={14} /> 명단 · 수업 고치기</Button>
         </div>
       ))}
-      <Link href="/teacher/joint" className="text-[13px] font-medium text-sub md:hidden">운영 안내 ›</Link>
-      {open && <JointDialog row={open === "new" ? null : open} students={students} onClose={() => setOpen(null)} />}
-    </section>
+      <button type="button" onClick={() => setOpen("new")}
+        className="flex h-12 items-center justify-center gap-1.5 rounded-inner border border-dashed border-faint text-[14px] font-bold text-key-strong hover:bg-key-soft">
+        <Plus size={16} /> 공동교육과정 수업 추가
+      </button>
+      {/* 담당 과목 폼 안이라 창은 body 로 띄운다 (Enter 가 그 폼을 보내지 않게) */}
+      {open && createPortal(<JointDialog row={open === "new" ? null : open} students={students} onClose={() => setOpen(null)} />, document.body)}
+    </div>
   );
 }
 

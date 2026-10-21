@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useActionState, useState, type ReactNode } from "react";
 import { Check, Plus, X } from "lucide-react";
 import { Button, Card, cx } from "@/components/ui";
 import { defaultClassMode, nextSection, SUBJECT_GROUPS, type ClassMode, type Course, type SubjectGroup, type TeacherCourse } from "@/lib/domain/curriculum";
@@ -15,12 +15,17 @@ export function SubjectsForm({
   initialCourses,
   courses,
   classesByGrade,
+  joint,
+  jointCount = 0,
 }: {
   teacherId: string;
   initialGroups: SubjectGroup[];
   initialCourses: TeacherCourse[];
   courses: Course[];
   classesByGrade: Record<number, number[]>;
+  /** 담당 과목 칸 맨 아래 공동교육과정 묶음 (N54) — 교과를 안 골라도 보인다 */
+  joint?: ReactNode;
+  jointCount?: number;
 }) {
   const [state, action, pending] = useActionState<SubjectsState, FormData>(saveSubjects, {});
   const [groups, setGroups] = useState<SubjectGroup[]>(initialGroups);
@@ -141,6 +146,7 @@ export function SubjectsForm({
               })}
             </ul>
           )}
+          {joint}
         </Card>
       </div>
 
@@ -148,6 +154,7 @@ export function SubjectsForm({
         <dl className="mb-4 flex flex-col gap-2 text-sm">
           <div className="flex justify-between"><dt className="text-mute">교과</dt><dd className="font-medium">{groups.join(", ") || "-"}</dd></div>
           <div className="flex justify-between"><dt className="text-mute">담당 과목</dt><dd className="font-medium">{count}개</dd></div>
+          {jointCount > 0 && <div className="flex justify-between"><dt className="text-mute">공동교육과정</dt><dd className="font-medium">{jointCount}개 · 바로 저장</dd></div>}
           {visible.filter(ready).map((c) => (
             <div key={c.id} className="flex justify-between gap-2">
               <dt className="truncate text-mute">{c.subject}</dt>

@@ -5,7 +5,7 @@ import { schoolYear } from "@/lib/domain/curriculum";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { listMyJoint } from "@/lib/server/joint";
-import { JointCard, type JointRow } from "./joint-card";
+import { JointList, type JointRow } from "./joint-card";
 import { RosterBox, type RosterCourse } from "./roster-box";
 import { SubjectsForm } from "./subjects-form";
 import { TeacherPicker } from "./teacher-picker";
@@ -67,9 +67,6 @@ export default async function SubjectsPage({ searchParams }: Props) {
             편제표에 과목이 없어요. {admin ? "편제표에서 먼저 과목을 넣어 주세요" : "관리자 선생님께 편제표 입력을 요청해 주세요"}
           </p>
         )}
-        {target === v.accountId && (
-          <JointCard rows={jointRows} students={students.map((s) => ({ id: s.id, studentNo: s.studentNo, grade: s.grade, classNo: s.classNo, number: s.number, name: s.name }))} />
-        )}
         {/* key: 교사를 바꾸면 폼 상태를 새로 시작 */}
         <RosterBox
           teacherId={target}
@@ -77,7 +74,11 @@ export default async function SubjectsPage({ searchParams }: Props) {
           fixedNote={fixed.length ? fixed.join(" · ") : null}
           students={rosterCourses.length ? students.map((s) => ({ id: s.id, studentNo: s.studentNo, grade: s.grade, classNo: s.classNo, number: s.number, name: s.name })) : []}
         />
-        <SubjectsForm key={target} teacherId={target} initialGroups={groups} initialCourses={assigned} courses={courses} classesByGrade={classesByGrade} />
+        <SubjectsForm
+          key={target} teacherId={target} initialGroups={groups} initialCourses={assigned} courses={courses} classesByGrade={classesByGrade}
+          jointCount={jointRows.length}
+          joint={target === v.accountId ? <JointList rows={jointRows} students={students.map((s) => ({ id: s.id, studentNo: s.studentNo, grade: s.grade, classNo: s.classNo, number: s.number, name: s.name }))} /> : undefined}
+        />
       </PageBody>
     </>
   );
