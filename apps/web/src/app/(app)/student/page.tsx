@@ -20,7 +20,7 @@ import { TodoPlan } from "./todo-plan";
 import { SchoolInfoRow } from "@/components/school-info";
 import { seoulNow } from "@/lib/domain/night";
 
-export const metadata = { title: "홈 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "홈 · 속초고 쌤기부" };
 
 // S1 학생 홈 (Figma 50:294 / 50:452)
 const tile = (Icon: typeof BookOpen) => (

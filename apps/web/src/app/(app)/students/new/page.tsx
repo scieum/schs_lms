@@ -4,7 +4,7 @@ import { requireCan } from "@/lib/server/viewer";
 import { ExcelUpload, RegisterHeaderButton } from "./excel-upload";
 import { OneForm } from "./one-form";
 
-export const metadata = { title: "학생 등록 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "학생 등록 · 속초고 쌤기부" };
 
 export default async function NewStudentsPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
   await requireCan("student.register");

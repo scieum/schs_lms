@@ -11,7 +11,7 @@ import { requireCan } from "@/lib/server/viewer";
 import { GradeSelect, PrintFrame } from "./controls";
 import { listHref, loadReport, type ReportData } from "./load";
 
-export const metadata = { title: "학생부 점검 보고서 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "학생부 점검 보고서 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ grade?: string; area?: string; print?: string; all?: string }> };
 
@@ -224,7 +224,7 @@ function PrintPages({ d, me }: { d: ReportData; me: string }) {
   const s = d.summary;
   const at = fullAt(d.at);
   const foot = (n: number) => (
-    <div className="absolute inset-x-[56px] bottom-[40px] flex justify-between text-[9px] text-[#666]"><span>SCHS 학생관리시스템 · {at} 출력</span><span>{n} / 2</span></div>
+    <div className="absolute inset-x-[56px] bottom-[40px] flex justify-between text-[9px] text-[#666]"><span>SCHS 쌤기부 · {at} 출력</span><span>{n} / 2</span></div>
   );
   const classTable = (rows: (ClassRow | GroupRow)[], total: Counts, group: boolean) => (
     <table className={P_TABLE}>

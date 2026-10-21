@@ -10,7 +10,7 @@ import { loadPipeline } from "./load";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { AdviceBanner } from "./advice";
 
-export const metadata = { title: "초안 생성 현황 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "초안 생성 현황 · 속초고 쌤기부" };
 
 const GATE_TONE = { 통과: "bg-ok-soft text-ok", 진행: "bg-wait-soft text-wait", 대기: "bg-wait-soft text-wait" } as const;
 

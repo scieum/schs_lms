@@ -16,7 +16,7 @@ import { commonActivityRows } from "@/lib/server/common-activity";
 import { lessonView } from "@/lib/server/lessons";
 import { ClassMaterials } from "@/components/writing/class-materials";
 
-export const metadata = { title: "세특 조각 모으기 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "세특 조각 모으기 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ course?: string; section?: string; student?: string }> };
 

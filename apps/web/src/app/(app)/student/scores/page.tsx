@@ -13,7 +13,7 @@ import { AnalysisPanel } from "./analysis-panel";
 import { TargetEditor } from "./target-editor";
 import { TrendCard } from "./trend-card";
 
-export const metadata = { title: "내 성적 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "내 성적 · 속초고 쌤기부" };
 
 const grade = (n: number | null) => (n === null ? "–" : `${n}등급`);
 

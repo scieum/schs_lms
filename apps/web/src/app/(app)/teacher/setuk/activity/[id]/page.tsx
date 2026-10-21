@@ -1,6 +1,6 @@
 import { CommonActivityDetail } from "@/components/writing/common-activity-detail";
 
-export const metadata = { title: "공통 활동 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "공통 활동 · 속초고 쌤기부" };
 
 type Props = { params: Promise<{ id: string }> };
 

@@ -8,7 +8,7 @@ import { AREA_LABEL } from "@/lib/domain/program";
 import { repo } from "@/lib/server/repo";
 import { requireViewer } from "@/lib/server/viewer";
 
-export const metadata = { title: "받은 초안 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "받은 초안 · 속초고 쌤기부" };
 
 /** 담임 받은 초안 (Figma H1 사이드바): 프로그램 교사가 확정해 보낸 초안을 학생별로 모아 본다 */
 export default async function HomeroomDrafts() {

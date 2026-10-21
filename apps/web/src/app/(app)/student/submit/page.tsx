@@ -12,7 +12,7 @@ import { SurveyForm } from "./survey-form";
 import { noticeLine } from "@/lib/domain/retention";
 import { programRetention } from "@/lib/server/retention-sweep";
 
-export const metadata = { title: "설문·서류 제출 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "설문·서류 제출 · 속초고 쌤기부" };
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 

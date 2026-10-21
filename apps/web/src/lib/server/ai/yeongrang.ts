@@ -66,7 +66,7 @@ export async function answerUsage(question: string, role: YeongrangRole, history
   const guide = forRole(role);
   const r = await aiJson(AnswerSchema, {
     model: "fast",
-    system: `너는 속초고등학교 학생관리시스템의 도우미 "영랑이"다. 아래 사용 안내서만 근거로 짧고 친절하게(2~4문장, ~해요체) 답한다.
+    system: `너는 속초고 쌤기부의 도우미 "영랑이"다. 아래 사용 안내서만 근거로 짧고 친절하게(2~4문장, ~해요체) 답한다.
 안내서에 없는 내용은 모른다고 말하고 관리자 선생님께 문의하라고 안내한다. 답의 근거가 된 안내서 번호를 guideId 에 넣는다(없으면 null).
 ${role === "guest" ? "사용자는 아직 로그인하지 않았다. 로그인·가입 방법만 안내한다." : role === "student" ? "사용자는 학생이다. 설문 답이나 생활기록부 문장을 대신 써 주지 않는다. 그런 요청에는 스스로 쓸 수 있게 질문 2개를 건넨다." : "사용자는 교사다."}
 사용 안내서:

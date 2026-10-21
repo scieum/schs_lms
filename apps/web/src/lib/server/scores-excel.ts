@@ -22,7 +22,7 @@ const buf = async (wb: ExcelJS.Workbook) => (await wb.xlsx.writeBuffer()) as Arr
 /** 성적 양식: 번호·이름은 우리 반 명단으로 미리 채운다 */
 export async function buildScoreTemplate(roster: { number: number; name: string }[]): Promise<ArrayBuffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = "속초고등학교 학생관리시스템";
+  wb.creator = "속초고 쌤기부";
   const ws = wb.addWorksheet("성적");
   ws.columns = SCORE_TEMPLATE_COLUMNS.map((h, i) => ({ header: h, key: h, width: i === 1 ? 12 : 9 }));
   for (const r of roster) ws.addRow([r.number, r.name]);
@@ -77,7 +77,7 @@ export async function readScoreSheet(data: ArrayBuffer): Promise<{ headers: stri
 /** 표 하나짜리 엑셀 (오류 행·판정 결과·출석 내보내기) */
 export async function buildTable(sheet: string, headers: string[], rows: (string | number | null)[][], widths?: number[]): Promise<ArrayBuffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = "속초고등학교 학생관리시스템";
+  wb.creator = "속초고 쌤기부";
   const ws = wb.addWorksheet(sheet);
   ws.columns = headers.map((h, i) => ({ header: h, key: `c${i}`, width: widths?.[i] ?? 12 }));
   for (const r of rows) ws.addRow(r.map((x) => x ?? ""));

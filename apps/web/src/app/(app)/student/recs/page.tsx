@@ -8,7 +8,7 @@ import { requireCan } from "@/lib/server/viewer";
 import { CareerToggle } from "../../me/forms";
 import { AiRecs, InterestButton, KindIcon, RemoveInterest } from "./client";
 
-export const metadata = { title: "추천 활동 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "추천 활동 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ kind?: string }> };
 

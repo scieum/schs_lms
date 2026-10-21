@@ -10,7 +10,7 @@ import { repo } from "@/lib/server/repo";
 import { requireViewer } from "@/lib/server/viewer";
 import { MenuSearch } from "./menu-search";
 
-export const metadata = { title: "메뉴 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "메뉴 · 속초고 쌤기부" };
 
 /** 전체 메뉴 (Figma N15, 모바일 다섯째 탭): 내 정보 · 메뉴 찾기 · 사이드바 묶음 전부(내 순서 · 숨긴 메뉴 제외) · 로그아웃 */
 export default async function MenuPage() {

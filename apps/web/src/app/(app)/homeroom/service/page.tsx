@@ -10,7 +10,7 @@ import { serviceActivityCheck } from "@/lib/domain/length";
 import { ServiceAi } from "./service-ai";
 import { InboxRow } from "./inbox-row";
 
-export const metadata = { title: "봉사 받은함 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "봉사 받은함 · 속초고 쌤기부" };
 
 export default async function HomeroomServicePage() {
   const v = await requireCan("service.receive");

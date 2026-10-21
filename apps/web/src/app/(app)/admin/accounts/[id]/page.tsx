@@ -8,7 +8,7 @@ import { requireCan } from "@/lib/server/viewer";
 import { resetPassword, unlockAccount } from "../actions";
 import { TeacherForm } from "../teacher-form";
 
-export const metadata = { title: "교사 계정 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "교사 계정 · 속초고 쌤기부" };
 
 type Props = { params: Promise<{ id: string }> };
 

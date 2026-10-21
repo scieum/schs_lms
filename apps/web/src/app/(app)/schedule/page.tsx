@@ -10,7 +10,7 @@ import { getEvents } from "@/lib/server/school-info";
 import { requireViewer } from "@/lib/server/viewer";
 import { EventCalendar, type ScheduleView } from "./event-calendar";
 
-export const metadata = { title: "학사일정 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "학사일정 · 속초고 쌤기부" };
 
 /** 학사일정 (Figma N1): 나이스 + 직접 추가한 일정. 학생은 자기 학년 일정만 */
 export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ month?: string; view?: string; date?: string }> }) {

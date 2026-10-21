@@ -10,7 +10,7 @@ import { fmtDate, loadMyRecords, shortDate } from "@/lib/server/counsel";
 import { requireCan } from "@/lib/server/viewer";
 import { CorrectionForm, PrintButton, RecordAi } from "./client";
 
-export const metadata = { title: "내 생활기록부 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "내 생활기록부 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ grade?: string; area?: string }> };
 

@@ -4,7 +4,7 @@ import { RosterImport } from "@/components/admin/roster-import";
 import { requireCan } from "@/lib/server/viewer";
 import { TeacherForm } from "../teacher-form";
 
-export const metadata = { title: "계정 추가 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "계정 추가 · 속초고 쌤기부" };
 
 const GRAY = "flex min-w-0 flex-col rounded-card bg-soft p-5 md:p-6";
 

@@ -9,7 +9,7 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { AssessBoard, NewAssessButton } from "./board";
 
-export const metadata = { title: "수행평가 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "수행평가 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ course?: string; section?: string; a?: string }> };
 

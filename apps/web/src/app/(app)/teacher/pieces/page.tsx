@@ -8,7 +8,7 @@ import { requireCan } from "@/lib/server/viewer";
 import { AreaBoxCard } from "./area-box";
 import { PiecesPicker } from "./picker";
 
-export const metadata = { title: "생기부 조각 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "생기부 조각 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ student?: string; area?: string }> };
 

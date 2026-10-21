@@ -12,7 +12,7 @@ import { arrangeMenus, navFor, plainGroups } from "@/components/shell/nav";
 import { MenuSettings, ProfilePhoto } from "./settings";
 import { CareerForm, PasswordForm } from "./forms";
 
-export const metadata = { title: "내 정보 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "내 정보 · 속초고 쌤기부" };
 
 /** 내 정보 · 설정 (Figma N14, 학생·교사 공통): 프로필 사진, 이름·역할, 희망 진로(학생), 메뉴 보이기 · 순서, 비밀번호, 로그아웃 */
 export default async function MePage() {

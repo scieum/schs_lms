@@ -13,7 +13,7 @@ import { RuleForm } from "./rule-form";
 import { VerdictTable, type VerdictRow } from "./verdict-table";
 import { archiveRule } from "./actions";
 
-export const metadata = { title: "수능 최저 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "수능 최저 · 속초고 쌤기부" };
 
 /** 표의 '탐구' 칸: 기준의 탐구 반영 방법대로 */
 function inquiryShown(rule: MinRule | null | undefined, g: Grades | null): number | null {

@@ -9,7 +9,7 @@ import { aiEnabled } from "@/lib/server/ai/claude";
 import { requestManual, retryDrafts } from "../pipeline/actions";
 import { AdviceBanner } from "../pipeline/advice";
 
-export const metadata = { title: "오류 처리 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "오류 처리 · 속초고 쌤기부" };
 
 const icon = <span className="flex size-10 shrink-0 items-center justify-center rounded-field bg-white"><AlertCircle size={20} /></span>;
 

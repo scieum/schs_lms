@@ -15,7 +15,7 @@ import { loadDailyCheck } from "./audit/load";
 import { loadPipeline } from "./pipeline/load";
 import { ScaleSetting } from "@/components/admin/scale-setting";
 
-export const metadata = { title: "관리 홈 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "관리 홈 · 속초고 쌤기부" };
 
 const md = (ymd: string) => {
   const [, m, d] = ymd.split("-");

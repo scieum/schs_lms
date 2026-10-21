@@ -8,7 +8,7 @@ import { getViewer } from "@/lib/server/viewer";
 import { COPYRIGHT, MAKERS_LINE } from "@/lib/domain/credits";
 import { LoginForm } from "./login-form";
 
-export const metadata = { title: "로그인 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "로그인 · 속초고 쌤기부" };
 
 
 const FEATURES: { icon: LucideIcon; title: string; desc: string; ai?: boolean }[] = [
@@ -29,7 +29,7 @@ export default async function LoginPage() {
       <header className="flex h-14 shrink-0 items-center px-4 lg:h-16 lg:border-b lg:border-hair lg:px-10">
         <Link href="/" className="flex items-center gap-2.5" aria-label="처음으로">
           <Image src="/face.png" alt="" width={30} height={32} priority />
-          <Image src="/schs-logo.png" alt="속초고등학교 학생관리시스템" width={100} height={28} priority />
+          <Image src="/schs-logo.png" alt="속초고 쌤기부" width={100} height={28} priority />
         </Link>
       </header>
 

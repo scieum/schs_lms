@@ -7,13 +7,13 @@ const site = process.env.NEXT_PUBLIC_SITE_URL ?? (process.env.VERCEL_PROJECT_PRO
 
 export const metadata: Metadata = {
   ...(site ? { metadataBase: new URL(site) } : {}),
-  title: "속초고등학교 학생관리시스템",
+  title: "속초고 쌤기부",
   description: "속초고등학교 학업·생기부 통합 관리",
   openGraph: {
     type: "website",
     locale: "ko_KR",
-    siteName: "SCHS · 속초고등학교 학생관리시스템",
-    title: "속초고등학교 학생관리시스템",
+    siteName: "SCHS · 속초고 쌤기부",
+    title: "속초고 쌤기부",
     description: "기록은 조각으로 모으고, 생기부는 함께 짓기",
   },
   twitter: { card: "summary_large_image" },

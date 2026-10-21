@@ -5,7 +5,7 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { MembersForm, NewClubForm } from "./club-forms";
 
-export const metadata = { title: "내 동아리 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "내 동아리 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ club?: string }> };
 

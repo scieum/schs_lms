@@ -7,7 +7,7 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { CoursePicker } from "./picker";
 
-export const metadata = { title: "과목 신청 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "과목 신청 · 속초고 쌤기부" };
 
 export default async function StudentCoursesPage() {
   const v = await requireCan("student.self");

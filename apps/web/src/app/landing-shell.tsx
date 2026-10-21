@@ -14,7 +14,7 @@ function Logo() {
   return (
     <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="처음으로">
       <Image src="/face.png" alt="" width={32} height={34} priority className="h-7 w-auto md:h-[34px]" />
-      <Image src="/schs-logo.png" alt="속초고등학교 학생관리시스템" width={107} height={30} priority className="h-6 w-auto md:h-[30px]" />
+      <Image src="/schs-logo.png" alt="속초고 쌤기부" width={107} height={30} priority className="h-6 w-auto md:h-[30px]" />
     </Link>
   );
 }

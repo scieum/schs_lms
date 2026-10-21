@@ -21,7 +21,7 @@ import { aiEnabled } from "@/lib/server/ai/claude";
 import { summarizeFlow } from "./actions";
 import { TabInsight } from "./tab-insight";
 
-export const metadata = { title: "학생 기록 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "학생 기록 · 속초고 쌤기부" };
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> };
 const TABS = ["draft", "scores", "counsel", "night", "logs"] as const;

@@ -8,7 +8,7 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { ApplyForm } from "./apply-form";
 
-export const metadata = { title: "야자 신청 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "야자 신청 · 속초고 쌤기부" };
 
 const TONE: Record<string, string> = { 출석: "bg-ok-soft text-ok", 결석: "bg-bad-soft text-bad", 조퇴: "bg-wait-soft text-wait", 예정: "bg-key-soft text-key-strong", 미확인: "bg-white text-mute" };
 

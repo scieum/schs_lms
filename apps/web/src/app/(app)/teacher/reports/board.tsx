@@ -264,7 +264,7 @@ function Paper({ r, n, total, items, head, byLine, ai, onAi, aiBusy, note, onNot
             : <textarea value={note} onChange={(e) => onNote(e.target.value)} rows={2} maxLength={300} placeholder="학생에게 건넬 말 (인쇄에만 들어가요 · 저장 안 됨)" className="resize-none bg-transparent text-[13px] leading-5 outline-none" />}
         </section>
       )}
-      <footer className="flex text-[10px] text-faint"><span className="flex-1">속초고등학교 학생관리시스템 · 교사 확인용</span><span className="font-medium text-mute">{n} / {total}</span></footer>
+      <footer className="flex text-[10px] text-faint"><span className="flex-1">속초고 쌤기부 · 교사 확인용</span><span className="font-medium text-mute">{n} / {total}</span></footer>
     </article>
   );
 }

@@ -14,7 +14,7 @@ import { closeDay, decideRequest } from "./actions";
 import { AttendanceBoard } from "./attendance-board";
 import { ReviewPanel } from "./review-panel";
 
-export const metadata = { title: "야간 자율학습 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "야간 자율학습 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ class?: string; p?: string }> };
 

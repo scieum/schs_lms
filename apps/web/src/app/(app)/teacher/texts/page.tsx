@@ -12,7 +12,7 @@ import { requireCan } from "@/lib/server/viewer";
 import type { ScopeArg } from "@/app/(app)/teacher/class-actions";
 import { LogRows, ScopeSelect, TextRows, TextsActions } from "./board";
 
-export const metadata = { title: "글 모아 보기 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "글 모아 보기 · 속초고 쌤기부" };
 
 // 글 모아 보기 (Figma N49 메모 묶어 쓰기 (d) — PC 576:14499 · 576:14819 · 576:15122 / 모바일 577:9472 · 577:9667 · 577:9831).
 // 세특 · 창체 · 행발 · 누가기록 글을 내 분반 · 담임 반 · 내 동아리 단위로 모아 본다. 권한은 서버(resolveScope · 누가기록 범위), URL 에는 내부 id 만.

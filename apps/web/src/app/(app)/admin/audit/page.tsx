@@ -8,7 +8,7 @@ import { requireCan } from "@/lib/server/viewer";
 import { actionGroup, PERIODS, readPeriod } from "./labels";
 import { loadAudit, type AuditRow } from "./load";
 
-export const metadata = { title: "감사 로그 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "감사 로그 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ p?: string; q?: string; flag?: string }> };
 

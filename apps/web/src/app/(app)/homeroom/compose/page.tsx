@@ -22,7 +22,7 @@ import { RecordCompose } from "@/components/writing/compose-adapters";
 import { recordComposeData } from "@/app/(app)/teacher/write/compose-data";
 import { evidenceLogs } from "@/app/(app)/teacher/write/data";
 
-export const metadata = { title: "담임 글 짓기 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "담임 글 짓기 · 속초고 쌤기부" };
 /** 반 전체 글 쓰기 (N42) */
 export const maxDuration = 60;
 

@@ -19,7 +19,7 @@ import { suggestCounselQuestions, summarizeCounsel } from "./actions";
 import { StudentPicker } from "./student-picker";
 import { makeStudentNo } from "@/lib/domain/roster";
 
-export const metadata = { title: "담당 학생·상담 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "담당 학생·상담 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ student?: string; tab?: string }> };
 const TABS = ["counsel", "activity", "docs"] as const;

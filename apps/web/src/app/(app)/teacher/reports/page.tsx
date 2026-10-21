@@ -8,7 +8,7 @@ import { loadReports, reportScopes } from "@/lib/server/report";
 import { requireCan } from "@/lib/server/viewer";
 import { PrintButton, ReportBoard } from "./board";
 
-export const metadata = { title: "학생 리포트 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "학생 리포트 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ scope?: string; term?: string; items?: string }> };
 

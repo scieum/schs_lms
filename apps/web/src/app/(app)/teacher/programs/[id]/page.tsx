@@ -20,7 +20,7 @@ import { ExternalImport } from "./external-import";
 import { OriginTag } from "@/components/programs/origin-tag";
 import { ProgramMeta, ProgramTabs } from "./program-tabs";
 
-export const metadata = { title: "프로그램 상세 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "프로그램 상세 · 속초고 쌤기부" };
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; cls?: string; q?: string; src?: string; st?: string; page?: string; remind?: string }> };
 

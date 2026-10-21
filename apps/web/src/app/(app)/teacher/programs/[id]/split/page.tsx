@@ -8,7 +8,7 @@ import { pdfPages } from "../../_lib/pdf";
 import { SplitEditor } from "./split-editor";
 import { makeStudentNo } from "@/lib/domain/roster";
 
-export const metadata = { title: "합본 PDF 나누기 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "합본 PDF 나누기 · 속초고 쌤기부" };
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ file?: string }> };
 

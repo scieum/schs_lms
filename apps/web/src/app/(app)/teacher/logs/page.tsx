@@ -9,7 +9,7 @@ import { LogBoard } from "./log-board";
 import { GuideBookButton } from "@/components/writing/guide-panel";
 import { aiEnabled } from "@/lib/server/ai/claude";
 
-export const metadata = { title: "누가기록 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "누가기록 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ area?: string; club?: string }> };
 

@@ -14,7 +14,7 @@ function scopeOf(href: string): ScopeArg {
   return href.startsWith("/teacher/setuk") ? { kind: "setuk", courseId: q.get("course") ?? "", section: q.get("section") } : { kind: "record", area: q.get("area") ?? "", clubId: q.get("club") };
 }
 
-export const metadata = { title: "나이스 입력 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "나이스 입력 · 속초고 쌤기부" };
 
 const GROUPS: NeisGroup[] = ["교과 세특", "창체", "행발"];
 const CHIP = { wait: "bg-[#FFF5E0] text-[#9A6400]", bad: "bg-[#FEECEE] text-bad", ok: "bg-ok-soft text-[#00A05D]" } as const;

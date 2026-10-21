@@ -24,7 +24,7 @@ import { draftOrigin } from "@/lib/domain/external-text";
 import { OriginTag } from "@/components/programs/origin-tag";
 import { ExternalImport } from "../external-import";
 
-export const metadata = { title: "초안 검토·확정 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "초안 검토·확정 · 속초고 쌤기부" };
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ d?: string; tab?: string; check?: string }> };
 

@@ -13,7 +13,7 @@ import { briefingInputs } from "./briefing-data";
 import { ClassGlance, type GlanceStudent } from "./class-glance";
 import { SchoolInfoRow } from "@/components/school-info";
 
-export const metadata = { title: "우리 반 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "우리 반 · 속초고 쌤기부" };
 
 const DOW = ["일", "월", "화", "수", "목", "금", "토"];
 const md = (ymd: string) => ymd.slice(5).replace("-", ".");

@@ -14,7 +14,7 @@ import { repo } from "@/lib/server/repo";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 
-export const metadata = { title: "AI 기록 쓰기 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "AI 기록 쓰기 · 속초고 쌤기부" };
 /** 반 전체 글 쓰기 (N42) */
 export const maxDuration = 60;
 

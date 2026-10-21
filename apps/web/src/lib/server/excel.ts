@@ -27,7 +27,7 @@ export function styleHead(head: ExcelJS.Row, n: number) {
 export async function buildTemplate(kind: TemplateKind, rows: string[][] = []): Promise<ArrayBuffer> {
   const t = TEMPLATES[kind];
   const wb = new ExcelJS.Workbook();
-  wb.creator = "속초고등학교 학생관리시스템";
+  wb.creator = "속초고 쌤기부";
   const ws = wb.addWorksheet("양식", { views: [{ state: "frozen", ySplit: 1 }] });
   ws.columns = t.columns.map((h, i) => ({ header: h, key: h, width: Math.max(8, Math.round(t.widths[i] / 6)) }));
   styleHead(ws.getRow(1), t.columns.length);
@@ -108,7 +108,7 @@ const WIDTH: Partial<Record<ExportCol, number>> = { 학번: 9, 이름: 10, 영�
 /** 시트마다 학생 한 줄 (학번 글자 서식 · 글 칸 줄바꿈 · 한도 넘은 바이트 굵게 #9A6400) + 마지막 "요약" 시트 */
 export async function buildRecordsWorkbook(input: { sheets: { name: string; rows: ExportRow[] }[]; cols: ExportCol[]; summary: { head: string[]; rows: (string | number)[][] } }): Promise<ArrayBuffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = "속초고등학교 학생관리시스템";
+  wb.creator = "속초고 쌤기부";
   const used = new Set<string>();
   const uniq = (n: string) => { let s = sheetName(n); let i = 2; while (used.has(s)) s = sheetName(`${n} ${i++}`); used.add(s); return s; };
   for (const sh of input.sheets) {

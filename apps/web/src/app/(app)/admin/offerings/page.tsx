@@ -10,7 +10,7 @@ import { requireCan } from "@/lib/server/viewer";
 import { addSections, archiveOffering } from "./actions";
 import { NewOfferingForm, OpenRoundForm, RoundSettingsForm } from "./forms";
 
-export const metadata = { title: "과목 개설 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "과목 개설 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ grade?: string }> };
 

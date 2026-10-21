@@ -7,7 +7,7 @@ import { requireProgram } from "../../_lib/data";
 import { programFormOptions } from "../../_lib/form-data";
 import { ProgramForm } from "../../new/program-form";
 
-export const metadata = { title: "프로그램 수정 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "프로그램 수정 · 속초고 쌤기부" };
 
 /** 프로그램 수정: 담당 교사(등록·공동)와 관리자만 */
 export default async function EditProgramPage({ params }: { params: Promise<{ id: string }> }) {

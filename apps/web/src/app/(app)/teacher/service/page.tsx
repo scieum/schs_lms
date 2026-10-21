@@ -7,7 +7,7 @@ import { requireCan } from "@/lib/server/viewer";
 import { ServiceUploadForm } from "./upload-form";
 import { makeStudentNo } from "@/lib/domain/roster";
 
-export const metadata = { title: "봉사 확인서 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "봉사 확인서 · 속초고 쌤기부" };
 
 export default async function ServicePage() {
   const v = await requireCan("service.upload");

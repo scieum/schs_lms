@@ -13,7 +13,7 @@ import { RetentionLine, RetentionNotice } from "@/components/materials/retention
 import { baseLine, kstToday } from "@/lib/domain/retention";
 import { programRetention } from "@/lib/server/retention-sweep";
 
-export const metadata = { title: "초안 자료 등록 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "초안 자료 등록 · 속초고 쌤기부" };
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ mode?: string }> };
 

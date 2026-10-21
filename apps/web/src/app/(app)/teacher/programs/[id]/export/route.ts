@@ -9,7 +9,7 @@ export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) 
   const { rows } = await programRows(p);
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "속초고등학교 학생관리시스템";
+  wb.creator = "속초고 쌤기부";
   const ws = wb.addWorksheet("학생별 현황");
   ws.columns = [
     { header: "학년", key: "grade", width: 6 }, { header: "반", key: "cls", width: 6 }, { header: "번호", key: "no", width: 6 },

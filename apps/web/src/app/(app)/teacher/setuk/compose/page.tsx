@@ -21,7 +21,7 @@ import { LevelsProvider } from "@/components/writing/level-picker";
 import { ComposePanels } from "@/components/writing/compose-workspace";
 import { SetukCompose } from "@/components/writing/compose-adapters";
 
-export const metadata = { title: "세특 글 짓기 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "세특 글 짓기 · 속초고 쌤기부" };
 /** 반 전체 글 쓰기 (N42): 학생 한 명 Sonnet 쓰기 ~10~25초 */
 export const maxDuration = 60;
 

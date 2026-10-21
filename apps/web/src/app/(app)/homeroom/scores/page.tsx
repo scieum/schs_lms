@@ -10,7 +10,7 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { ScoreUpload } from "./score-upload";
 
-export const metadata = { title: "성적 업로드 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "성적 업로드 · 속초고 쌤기부" };
 
 export default async function ScoresUploadPage({ searchParams }: { searchParams: Promise<{ class?: string }> }) {
   const v = await requireCan("scores.upload");

@@ -174,7 +174,7 @@
   function use(text) {
     try {
       const json = JSON.parse(text);
-      if (json.format !== "schs-neis/1" || !Array.isArray(json.students)) throw new Error("학생관리시스템에서 복사한 자료가 아니에요");
+      if (json.format !== "schs-neis/1" || !Array.isArray(json.students)) throw new Error("쌤기부에서 복사한 자료가 아니에요");
       data = json;
       expected = {};
       cmp = null;
@@ -183,7 +183,7 @@
       say(q(".loadMsg"), []);
       render();
     } catch (err) {
-      say(q(".loadMsg"), [[err instanceof SyntaxError ? "학생관리시스템 › 나이스 입력에서 '복사'를 먼저 눌러 주세요" : err.message, "bad"]]);
+      say(q(".loadMsg"), [[err instanceof SyntaxError ? "쌤기부 › 나이스 입력에서 '복사'를 먼저 눌러 주세요" : err.message, "bad"]]);
     }
   }
 
@@ -443,7 +443,7 @@
       <div class="p" role="dialog" aria-label="SCHS 나이스 입력">
         <div class="top"><span class="t">SCHS 나이스 입력</span><span class="v">v${VERSION}</span><button class="x" aria-label="닫기">×</button></div>
         <div class="load">
-          <textarea class="paste" aria-label="복사한 자료" placeholder="학생관리시스템 › 나이스 입력에서 '복사'한 자료를 여기에 붙여 넣기 (Ctrl+V)"></textarea>
+          <textarea class="paste" aria-label="복사한 자료" placeholder="쌤기부 › 나이스 입력에서 '복사'한 자료를 여기에 붙여 넣기 (Ctrl+V)"></textarea>
           <div class="row" style="margin-top:8px"><button class="link clip">클립보드에서 읽기</button><span class="msg loadMsg"></span></div>
         </div>
         <div class="data" hidden style="display:flex;flex-direction:column;gap:12px">

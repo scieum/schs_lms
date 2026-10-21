@@ -3,7 +3,7 @@ import { New } from "../landing-sections";
 import { Head, SiteFooter, SiteHeader, wrap } from "../landing-shell";
 import { FeatureList } from "./feature-list";
 
-export const metadata = { title: "기능 한눈에 보기 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "기능 한눈에 보기 · 속초고 쌤기부" };
 
 // 기능 한눈에 보기 (N44): 상세페이지 위 메뉴 "기능 한눈에 보기"와 More 아래 "기능 전체 보기 ›"로 온다.
 // 로그인 없이 연다(proxy.ts PUBLIC). 영역 8개 × 이름 · 한 줄 · 누가 · 새로, 줄을 누르면 기능마다 설명(N45, feature-guide.ts).

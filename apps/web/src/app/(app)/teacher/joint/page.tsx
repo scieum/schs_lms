@@ -5,7 +5,7 @@ import { ButtonLink, Card, cx } from "@/components/ui";
 import { JOINT_DIFF, JOINT_FLOW, JOINT_LINKS, JOINT_RULES, JOINT_TABS, type JointKind } from "@/lib/domain/joint-curriculum";
 import { requireCan } from "@/lib/server/viewer";
 
-export const metadata = { title: "공동교육과정 운영 안내 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "공동교육과정 운영 안내 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ tab?: string }> };
 

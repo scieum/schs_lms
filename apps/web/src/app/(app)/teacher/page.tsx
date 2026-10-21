@@ -18,7 +18,7 @@ import { TodayBriefing } from "./briefing";
 import { SchoolInfoRow } from "@/components/school-info";
 import { seoulNow } from "@/lib/domain/night";
 
-export const metadata = { title: "홈 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "홈 · 속초고 쌤기부" };
 
 const DAYS = ["월", "화", "수", "목", "금", "토", "일"];
 

@@ -6,7 +6,7 @@ import { requireCan } from "@/lib/server/viewer";
 import { programFormOptions } from "../_lib/form-data";
 import { ProgramForm } from "./program-form";
 
-export const metadata = { title: "프로그램 등록 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "프로그램 등록 · 속초고 쌤기부" };
 
 export default async function NewProgramPage() {
   const v = await requireCan("program.manage");

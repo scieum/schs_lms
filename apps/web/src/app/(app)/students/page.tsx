@@ -6,7 +6,7 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { StudentSearch } from "./student-search";
 
-export const metadata = { title: "학생 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "학생 · 속초고 쌤기부" };
 
 export default async function StudentsPage() {
   await requireCan("student.list");

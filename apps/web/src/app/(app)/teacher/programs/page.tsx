@@ -11,7 +11,7 @@ import { ScheduleCalendar } from "./calendar";
 import { cardOrder, cardView, ProgramCard } from "./program-card";
 import { ScheduleList, type ScheduleItem } from "./schedule";
 
-export const metadata = { title: "프로그램 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "프로그램 · 속초고 쌤기부" };
 
 const VIEWS = [["mine", "내 프로그램"], ["all", "전체 목록"], ["calendar", "캘린더"]] as const;
 

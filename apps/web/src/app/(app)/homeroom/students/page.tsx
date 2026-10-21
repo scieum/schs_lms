@@ -8,7 +8,7 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { makeStudentNo } from "@/lib/domain/roster";
 
-export const metadata = { title: "학생 기록 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "학생 기록 · 속초고 쌤기부" };
 
 /** 학생 기록 모아 보기: 담임은 우리 반, 관리자는 전체 */
 export default async function HomeroomStudentsPage() {

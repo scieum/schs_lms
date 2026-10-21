@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const d = await loadReport(sp.get("grade") ?? undefined, area);
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "속초고등학교 학생관리시스템";
+  wb.creator = "속초고 쌤기부";
   const sheet = (name: string, head: string[], rows: (string | number)[][], widths: number[]) => {
     const ws = wb.addWorksheet(name, { views: [{ state: "frozen", ySplit: 1 }] });
     ws.columns = head.map((h, i) => ({ header: h, key: `c${i}`, width: widths[i] ?? 10 }));

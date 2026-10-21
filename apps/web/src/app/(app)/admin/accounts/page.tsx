@@ -12,7 +12,7 @@ import { requireCan } from "@/lib/server/viewer";
 import { lockStaleAccounts, resetPassword, unlockAccount } from "./actions";
 import { makeStudentNo } from "@/lib/domain/roster";
 
-export const metadata = { title: "계정 관리 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "계정 관리 · 속초고 쌤기부" };
 
 const FILTERS = [
   ["all", "전체"], ["teacher", "교사"], ["homeroom", "담임"], ["student", "학생"], ["locked", "잠김"],

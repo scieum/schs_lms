@@ -11,7 +11,7 @@ import { loadRetentionBundles, nextDue, sweepIfStale } from "@/lib/server/retent
 import { requireCan } from "@/lib/server/viewer";
 import { holdRetention, runRetentionNow, saveRetention } from "./actions";
 
-export const metadata = { title: "자료 보존 · 파기 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "자료 보존 · 파기 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ tab?: string; msg?: string }> };
 

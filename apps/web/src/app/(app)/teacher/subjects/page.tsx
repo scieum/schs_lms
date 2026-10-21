@@ -11,7 +11,7 @@ import { RosterBox, type RosterCourse } from "./roster-box";
 import { SubjectsForm } from "./subjects-form";
 import { TeacherPicker } from "./teacher-picker";
 
-export const metadata = { title: "내 수업 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "내 수업 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ teacher?: string }> };
 

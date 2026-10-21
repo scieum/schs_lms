@@ -17,7 +17,7 @@ export async function dailyBrief(x: DailyCheckInput & { errorReasons: string[] }
   if (!aiEnabled() || !items.length) return { line: rule, items, label: "자동" };
   const r = await aiJson(z.object({ line: z.string(), order: z.array(z.string()) }), {
     model: "fast",
-    system: `학교 학생관리시스템 관리자(교사)의 오늘 점검을 정리한다. 항목마다 원인과 조치를 생각해 급한 순서를 정한다.
+    system: `학교 생기부 도우미 "쌤기부" 관리자(교사)의 오늘 점검을 정리한다. 항목마다 원인과 조치를 생각해 급한 순서를 정한다.
 line 은 관리자에게 보여 줄 한 줄 요약(60자 이내, 해요체, 가장 먼저 할 일과 이유). order 는 항목 key 를 급한 순서로.`,
     content: [
       ...items.map((it) => `- key=${it.key}: ${it.text}`),
@@ -43,7 +43,7 @@ export async function explainFlags(rows: { actor: string; label: string; target:
   if (!aiEnabled() || !rows.length) return { lines: rule, label: "자동" };
   const r = await aiJson(z.object({ lines: z.array(z.string()) }), {
     model: "fast",
-    system: `학교 학생관리시스템 감사 로그에서 규칙이 '평소와 다르다'고 표시한 기록이다(대량 열람: 한 번에 30건 이상 또는 10분 안에 30번, 야간 열람: 22시~6시).
+    system: `학교 생기부 도우미 "쌤기부" 감사 로그에서 규칙이 '평소와 다르다'고 표시한 기록이다(대량 열람: 한 번에 30건 이상 또는 10분 안에 30번, 야간 열람: 22시~6시).
 관리자가 읽을 설명 2~3문장(각 60자 이내, 해요체)을 쓴다: 누가(사람N) 언제 무엇을 했는지 묶고, 업무상 그럴 만한 경우와 확인할 점을 짧게. 단정하지 않는다.`,
     content: rows.slice(0, 60).map((x) => `${x.at} ${alias.get(x.actor)} ${x.label}${x.target ? ` (${x.target})` : ""} [${x.flag}]`).join("\n"),
   });

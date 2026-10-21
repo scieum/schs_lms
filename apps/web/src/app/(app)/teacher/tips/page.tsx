@@ -5,7 +5,7 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { NewTipButton, TipsBoard } from "./board";
 
-export const metadata = { title: "생기부 팁 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "생기부 팁 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ cat?: string; q?: string; t?: string }> };
 

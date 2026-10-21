@@ -8,7 +8,7 @@ import { Card } from "@/components/ui";
 import { HOMEROOM_MENU } from "@/components/shell/nav";
 import { requireViewer } from "@/lib/server/viewer";
 
-export const metadata = { title: "담임 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "담임 · 속초고 쌤기부" };
 
 /** 모바일 "담임" 탭: 담임 기능을 한곳에 모은 메뉴 */
 export default async function HomeroomMenu() {

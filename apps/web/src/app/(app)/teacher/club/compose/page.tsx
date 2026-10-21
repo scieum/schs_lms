@@ -15,7 +15,7 @@ import { ComposePanels } from "@/components/writing/compose-workspace";
 import { RecordCompose } from "@/components/writing/compose-adapters";
 import { recordComposeData } from "@/app/(app)/teacher/write/compose-data";
 
-export const metadata = { title: "동아리 글 짓기 · 속초고등학교 학생관리시스템" };
+export const metadata = { title: "동아리 글 짓기 · 속초고 쌤기부" };
 /** 반 전체 글 쓰기 (N42) */
 export const maxDuration = 60;
 
