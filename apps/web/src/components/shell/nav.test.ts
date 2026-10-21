@@ -86,6 +86,13 @@ describe("메뉴 순서 바꾸기 (N53)", () => {
     expect(out.find((g) => g.label === "업무")!.items[0].href).toBe("/schedule");
     expect(out.find((g) => g.label === "동아리")!.items.length).toBe(4);
   });
+  it("도구 묶음이 생기기 전에 저장한 순서: 나이스 입력 등은 도구로 돌아오고 도구는 특색활동 다음", () => {
+    const old = [{ label: "특색활동", items: ["/teacher/programs"] }, { label: "업무", items: ["/teacher/neis", "/schedule", "/teacher/tips"] }, { label: "세특", items: ["/teacher/subjects"] }, { label: "동아리", items: ["/teacher/club"] }];
+    const out = arrangeMenus(base, old);
+    expect(out.map((g) => g.label)).toEqual(["", "특색활동", "도구", "업무", "세특", "동아리"]);
+    expect(out.find((g) => g.label === "도구")!.items.map((it) => it.href)).toEqual(["/teacher/neis", "/teacher/reports", "/teacher/library", "/teacher/tips"]);
+    expect(out.find((g) => g.label === "업무")!.items[0].href).toBe("/schedule");
+  });
   it("같은 묶음 안 옮기기 · 묶음 옮기기 자리 계산", () => {
     expect(moveItem(L, "/schedule", "업무", 3).find((g) => g.label === "업무")!.items.slice(0, 3)).toEqual(["/students", "/teacher/counseling", "/schedule"]);
     expect(moveGroup(L, "업무", 4).map((g) => g.label)).toEqual(["세특", "동아리", "특색활동", "업무", "도구"]);

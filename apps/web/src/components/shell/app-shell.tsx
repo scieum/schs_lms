@@ -67,7 +67,7 @@ export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
         )}
         {children}
         {/* 모든 화면 푸터 (2026-10-21) */}
-        <footer className="px-4 pb-6 pt-10 text-center text-[12px] text-mute md:px-10 md:pb-8 md:text-left">
+        <footer className="px-4 pb-6 pt-10 text-center text-[12px] text-mute md:px-10 md:pb-8">
           {COPYRIGHT} <span className="whitespace-nowrap">{MAKERS_LINE}</span>
         </footer>
       </div>

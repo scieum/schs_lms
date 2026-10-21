@@ -61,7 +61,7 @@ export function SiteFooter() {
         </div>
       </section>
       <footer className="bg-[#0a0b12]">
-        <div className={`${wrap} flex flex-col items-start gap-2 pb-12 pt-8 text-[13px] text-[#8b95a1] md:pb-14 md:pt-12`}>
+        <div className={`${wrap} flex flex-col items-center gap-2 pb-12 pt-8 text-center text-[13px] text-[#8b95a1] md:pb-14 md:pt-12`}>
           {/* 노란 배지 로고(투명 배경, 검은 테두리) — 어두운 바탕에서도 노란 바탕·검은 글자라 그대로 읽힌다 */}
           <Link href="/" aria-label="처음으로" className="w-fit">
             <Image src="/schs-long.png" alt="SOKCHO HIGH SCHOOL" width={480} height={68} className="h-7 w-auto md:h-[34px]" />

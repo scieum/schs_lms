@@ -197,6 +197,9 @@ export function activeHref(path: string, search: URLSearchParams, hrefs: string[
 export type MenuLayout = { label: string; items: string[] }[];
 
 /** 지금 메뉴 묶음을 저장한 순서대로 다시 놓는다. 없어진 묶음에 있던 메뉴는 처음 묶음으로 돌아간다 */
+/** 순서 저장 기능(N53) 뒤에 생긴 묶음: 예전에 저장한 순서에 없으면 그 묶음 메뉴는 저장 자리 대신 이 묶음으로 돌아온다 */
+const LATER_GROUPS = ["도구"];
+
 export function arrangeMenus(groups: NavGroup[], layout: MenuLayout | null | undefined): NavGroup[] {
   if (!layout?.length) return groups;
   const top = groups.filter((g) => !g.label);
@@ -205,7 +208,14 @@ export function arrangeMenus(groups: NavGroup[], layout: MenuLayout | null | und
   const home = new Map(rest.flatMap((g) => g.items.map((it) => [it.href, g.label] as const)));
   const known = new Set(rest.map((g) => g.label));
   const saved = layout.map((g) => g.label);
-  const order = [...new Set(saved.filter((l) => known.has(l))), ...rest.map((g) => g.label).filter((l) => !saved.includes(l))];
+  const fresh = new Set(LATER_GROUPS.filter((l) => known.has(l) && !saved.includes(l)));
+  // 저장에 없는 묶음은 끝에. 새로 생긴 묶음(fresh)만 처음 순서의 바로 앞 묶음 뒤에 끼운다
+  const order = [...new Set(saved.filter((l) => known.has(l))), ...rest.map((g) => g.label).filter((l) => !saved.includes(l) && !fresh.has(l))];
+  rest.forEach((g, i) => {
+    if (!fresh.has(g.label)) return;
+    const prev = rest.slice(0, i).map((x) => x.label).filter((l) => order.includes(l)).at(-1);
+    order.splice(prev ? order.indexOf(prev) + 1 : order.length, 0, g.label);
+  });
   const placed = new Set<string>();
   const out = new Map<string, NavItem[]>(order.map((l) => [l, []]));
   for (const g of layout) {
@@ -213,7 +223,8 @@ export function arrangeMenus(groups: NavGroup[], layout: MenuLayout | null | und
     if (!list) continue;
     for (const h of g.items) {
       const it = item.get(h);
-      if (it && !placed.has(h)) { list.push(it); placed.add(h); }
+      // 새로 생긴 묶음으로 옮겨 간 메뉴는 예전 저장 자리 대신 그 묶음으로
+      if (it && !placed.has(h) && !fresh.has(home.get(h)!)) { list.push(it); placed.add(h); }
     }
   }
   for (const g of rest) for (const it of g.items) if (!placed.has(it.href)) out.get(home.get(it.href)!)!.push(it);
