@@ -57,6 +57,7 @@ function baseNav(v: Viewer): NavGroup[] {
     I("상담 기록", "/teacher/counseling", "chat"),
     I("학생 등록", "/students/new", "userPlus"),
     I("문장 보관함", "/teacher/library", "bookmark"),
+    I("생기부 팁", "/teacher/tips", "book"),
     ...(homeroom ? [
       I("학생 기록", "/homeroom/students", "users"),
       I("봉사 받은함", "/homeroom/service", "shield"),
@@ -334,6 +335,7 @@ export const MENU_KEYWORDS: Record<string, string[]> = {
   "/teacher/texts?tab=setuk": ["모아 보기", "1500바이트", "확정본", "세특 모음"],
   "/teacher/texts?tab=behavior": ["모아 보기", "행발", "누가기록", "확정본"],
   "/teacher/counseling": ["상담"],
+  "/teacher/tips": ["팁", "DDAR", "구조", "작성법", "서술어", "게시판", "자료"],
   "/teacher/reports": ["리포트", "보고서", "학생별", "인쇄", "PDF", "출력", "가정 통신"],
   "/teacher/programs": ["설문", "특색 활동", "프로젝트"],
   "/teacher/programs/new": ["프로그램 만들기", "설문 만들기"],

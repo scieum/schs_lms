@@ -88,8 +88,8 @@ describe("메뉴 순서 바꾸기 (N53)", () => {
   it("↑ ↓: 끝에서는 옆 묶음으로 넘어간다", () => {
     const up = stepItem(L, "/teacher/subjects", -1);
     expect(up.find((g) => g.label === "업무")!.items.at(-1)).toBe("/teacher/subjects");
-    const down = stepItem(L, "/teacher/library", 1);
-    expect(down.find((g) => g.label === "세특")!.items[0]).toBe("/teacher/library");
+    const down = stepItem(L, "/teacher/tips", 1);
+    expect(down.find((g) => g.label === "세특")!.items[0]).toBe("/teacher/tips");
     expect(stepItem(L, "/schedule", -1)).toBe(L);
     expect(stepGroup(L, "세특", -1).map((g) => g.label)).toEqual(["세특", "업무", "동아리", "특색활동"]);
   });
