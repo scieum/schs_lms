@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { isAdmin } from "@/lib/domain/policy";
 import { canEditTip, checkTip, type TipCategory } from "@/lib/domain/tips";
+import { identityProblem } from "@/lib/server/identity-check";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 
@@ -9,13 +10,6 @@ import { requireCan } from "@/lib/server/viewer";
 // 학생 이름 · 학번이 들어간 글은 막는다 (팁 게시판은 학교 선생님 모두가 본다).
 
 export type TipResult = { ok: true; id: string } | { ok: false; error: string };
-
-async function identityProblem(text: string): Promise<string | null> {
-  if (/(^|[^\d])[1-3]\d{4}([^\d]|$)/.test(text)) return "학번처럼 보이는 숫자가 있어요. 빼고 올려 주세요";
-  const names = (await repo.listStudents({ external: true })).map((s) => s.name.trim()).filter((n) => n.length >= 2);
-  const hit = names.find((n) => text.includes(n));
-  return hit ? `학생 이름(${hit})이 들어 있어요. '학생A'처럼 바꿔 주세요` : null;
-}
 
 export async function saveTip(input: { id?: string; category: string; title: string; body: string; source?: string }): Promise<TipResult> {
   const v = await requireCan("record.write");

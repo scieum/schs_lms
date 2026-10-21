@@ -7,6 +7,7 @@ import type { Student, Viewer } from "@/lib/domain/types";
 import { canWriteRecord, findIdentity, isRecordArea, latestMemoByStudent, RECORD_LABEL, recordMax, resolveRecordLength, type AiDraftResult, type RecordArea } from "@/lib/domain/writing";
 import { writeRecord } from "@/lib/server/ai/write-record";
 import { repo } from "@/lib/server/repo";
+import { styleAreaOf, styleTone } from "@/lib/domain/writing-style";
 import { requireCan } from "@/lib/server/viewer";
 import { evidenceLogs } from "./data";
 import { lessonBackgroundFor } from "@/lib/server/lessons";
@@ -167,6 +168,8 @@ const MergeSchema = z.object({
   tol: z.number().int().min(0).max(300).optional(),
   /** 지금 글에 더하기 (N49b): 지금 글(id "body")은 그대로 두고 고른 메모로 이어 쓴다 */
   append: z.boolean().optional(),
+  /** 내 스타일 (N58): 이 교사의 창체 · 행발 프롬프트 · 레퍼런스를 붙인다 */
+  style: z.boolean().optional(),
 });
 /** 더하기면 지금 글 (없으면 새로 쓰기) */
 const keepText = (d: { append?: boolean; pieces: { id: string; text: string }[] }) => (d.append ? d.pieces.find((x) => x.id === "body")?.text.trim() || undefined : undefined);
@@ -236,7 +239,8 @@ export async function mergeRecordAction(input: { area: string; studentId: string
   // 차시 메모(N43)가 있으면 그 차시 활동 내용을 배경으로 (학생 행동 아님)
   const lessonLogs = t.area !== "행발" && p.data.pieces.some((x) => x.source === "차시") ? await evidenceLogs(t.area, [t.student.id], input.clubId) : [];
   const background = await lessonBackgroundFor(lessonLogs.map((l) => l.lessonItemId), p.data.pieces.filter((x) => x.source === "차시").map((x) => x.text), t.student);
-  const r = await mergeRecord({ kind: t.area, context: t.clubName, student: t.student, pieces: p.data.pieces, range, level: null, keepOrder: p.data.keepOrder, background, gate: recordGate(t.area, p.data), limit: recordMax(t.area, p.data.unit), keep: keepText(p.data) });
+  const tone = p.data.style ? styleTone(await repo.getWritingStyle(t.v.accountId, styleAreaOf(t.area))) : undefined;
+  const r = await mergeRecord({ kind: t.area, context: t.clubName, student: t.student, pieces: p.data.pieces, range, tone, level: null, keepOrder: p.data.keepOrder, background, gate: recordGate(t.area, p.data), limit: recordMax(t.area, p.data.unit), keep: keepText(p.data) });
   await repo.audit(t.v.accountId, "record.ai_merge", `${t.area} ${t.student.pseudonymId} ${p.data.pieces.length}조각`);
   const d = toDraft(r);
   if (!d.ok) return d;

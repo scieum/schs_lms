@@ -4,7 +4,8 @@ import type { LengthUnit } from "@/lib/domain/length";
 import { gateBand, type GateResult } from "@/lib/domain/length-gate";
 import type { MergePiece } from "@/lib/domain/merge";
 /** 지금 글에 더하기 (N49b) */
-export type MergeOpts = { append?: boolean };
+/** style (N58): 내 스타일(프롬프트 · 레퍼런스)을 붙여 쓴다 */
+export type MergeOpts = { append?: boolean; style?: boolean };
 import { bandText, gateRow, missingPieces, parseTol, tolKey } from "@/lib/domain/memo-gate";
 import type { AiDraftResult } from "@/lib/domain/writing";
 import { GateChips } from "./gate-chips";

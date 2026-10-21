@@ -5,6 +5,7 @@ import { checkLength, neisMax, resolveLength, UNIT_LABEL } from "@/lib/domain/le
 import { gateBand, type GateResult } from "@/lib/domain/length-gate";
 import { studentsInCourse } from "@/lib/domain/setuk";
 import { repo } from "@/lib/server/repo";
+import { styleTone } from "@/lib/domain/writing-style";
 import { requireCan } from "@/lib/server/viewer";
 import { writeRecord } from "@/lib/server/ai/write-record";
 import { findIdentity, latestMemoByStudent, scrubIdentity, type AiDraftResult } from "@/lib/domain/writing";
@@ -158,6 +159,8 @@ const MergeSchema = z.object({
   tol: z.number().int().min(0).max(300).optional(),
   /** 지금 글에 더하기 (N49b): 지금 글(id "body")은 그대로 두고 고른 메모로 이어 쓴다 */
   append: z.boolean().optional(),
+  /** 내 스타일 (N58): 이 교사의 세특 프롬프트 · 레퍼런스를 붙인다 */
+  style: z.boolean().optional(),
 });
 /** 더하기면 지금 글 (없으면 새로 쓰기) */
 const keepText = (d: { append?: boolean; pieces: { id: string; text: string }[] }) => (d.append ? d.pieces.find((x) => x.id === "body")?.text.trim() || undefined : undefined);
@@ -247,7 +250,7 @@ export async function mergeSetuk(input: { courseId: string; studentId: string } 
   // 차시 메모(N43)가 있으면 그 차시 활동 내용을 배경으로 (학생 행동 아님)
   const lessonMemos = p.data.pieces.some((x) => x.source === "차시") ? await repo.listRecordMemos(lessonScope(`세특:${input.courseId}`), [t.student.id]) : [];
   const background = await lessonBackgroundFor(lessonMemos.map((m) => m.lessonItemId), p.data.pieces.filter((x) => x.source === "차시").map((x) => x.text), t.student);
-  const r = await mergeRecord({ kind: "세특", context: t.course.subject, student: t.student, pieces: p.data.pieces, range, tone: await toneFor(p.data.level), level: await levelFor(p.data.level), keepOrder: p.data.keepOrder, background, gate: setukGate(p.data), limit: neisMax("세특", p.data.unit), keep: keepText(p.data) });
+  const r = await mergeRecord({ kind: "세특", context: t.course.subject, student: t.student, pieces: p.data.pieces, range, tone: (await toneFor(p.data.level)) + (p.data.style ? styleTone(await repo.getWritingStyle(t.v.accountId, "세특")) : ""), level: await levelFor(p.data.level), keepOrder: p.data.keepOrder, background, gate: setukGate(p.data), limit: neisMax("세특", p.data.unit), keep: keepText(p.data) });
   await repo.audit(t.v.accountId, "setuk.ai_merge", `${t.course.subject} ${t.student.pseudonymId} ${p.data.pieces.length}조각`);
   if (!r.text) return toDraft(r);
   // AI 원안 (N38): 근거 표는 서버가 다시 읽은 조각으로 (지금 본문 조각은 교사 글)

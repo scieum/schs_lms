@@ -19,6 +19,8 @@ import { ComposePieces, type ComposePiece } from "./compose-pieces";
 import { TargetPicker, TolPicker } from "./gate-pickers";
 import { GateProgress } from "./gate-progress";
 import { useAiGate, type MergeOpts } from "./use-ai-gate";
+import { StyleLine, useMyStyle } from "./style-line";
+import { styleAreaOf } from "@/lib/domain/writing-style";
 import { ReviseBox } from "./revise-box";
 import { RecordChecks, useBodyChecks, type Who } from "./record-checks";
 import { HighlightTextarea, type Mark } from "./highlight-textarea";
@@ -230,10 +232,14 @@ export function ComposeWorkspace({
   const band = gateBand({ unit, target: max, tol, limit });
   const bandLabel = bandText(band, unit);
 
+  // ---------- 내 스타일 (N58) ----------
+  const styleArea = styleAreaOf(adapter.gateScope);
+  const my = useMyStyle(styleArea);
+
   const gate = useAiGate({
     text, unit, limit, target: max, scope: adapter.gateScope,
     fit: (t, m, tl) => adapter.fit(t, unit, m, tl),
-    merge: (ps, m, tl) => adapter.merge(ps, unit, m, tl, level),
+    merge: (ps, m, tl) => adapter.merge(ps, unit, m, tl, level, { style: my.on }),
     apply: (t, r) => { bc.replace(t, "다시 맞췄어요"); pv.adopt(r); },
     onMoreMemos: () => router.push(collectHref),
   });
@@ -263,7 +269,7 @@ export function ComposeWorkspace({
     start(async () => {
       let r: AiDraftResult;
       try {
-        r = await gate.track((x, m, tl, o) => adapter.merge(x, unit, m, tl, level, o))(chosen, max, tol, appending ? { append: true } : undefined);
+        r = await gate.track((x, m, tl, o) => adapter.merge(x, unit, m, tl, level, { ...o, style: my.on }))(chosen, max, tol, appending ? { append: true } : undefined);
       } catch {
         r = { ok: false, error: "AI 처리 중 문제가 생겼어요. 직접 써 주세요" };
       }
@@ -400,6 +406,7 @@ export function ComposeWorkspace({
         </div>
         {mode === "new" && <span className="inline-flex h-6 items-center self-start whitespace-nowrap rounded-chip bg-key-soft px-2 text-[12px] font-bold tabular-nums text-key-strong md:self-auto">{bandLabel} 안에 맞춰요</span>}
       </div>
+      {aiOn && <StyleLine area={styleArea} s={my} />}
       {mode === "append" && (room ? (
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-medium text-sub break-keep">
           <span>지금 글 <b className="tabular-nums text-ink">{kept.toLocaleString()}{u}</b> 그대로 + 고른 조각으로 약 <b className="tabular-nums text-ink">{room.target.toLocaleString()}{u}</b> 더 써요</span>
