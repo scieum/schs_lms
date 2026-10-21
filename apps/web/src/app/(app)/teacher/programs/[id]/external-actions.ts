@@ -19,7 +19,7 @@ import { requireProgram } from "../_lib/data";
 const refresh = (programId: string) => {
   revalidatePath(`/teacher/programs/${programId}`);
   revalidatePath("/teacher/programs");
-  revalidatePath("/teacher/drafts");
+  revalidatePath("/teacher/programs/[id]/drafts", "page");
 };
 
 /** 학생 한 명에게 외부 글 한 버전 넣기 (초안 작업이 없으면 만들고, 끝난 작업으로 둔다) */

@@ -132,7 +132,7 @@ function ActionButton({ a, ctx, kind, cls, onRemind }: { a: NextAction; ctx: Ctx
         </Button>
       );
     case "review":
-      return <Link href={`/teacher/drafts?program=${ctx.programId}`} className={cx("inline-flex items-center justify-center gap-1.5 rounded-control font-medium", kind === "primary" ? "bg-key text-white hover:bg-key-strong" : "border border-hair bg-[#fff]", base)}><FileText size={16} /> {a.label}</Link>;
+      return <Link href={`/teacher/programs/${ctx.programId}/drafts`} className={cx("inline-flex items-center justify-center gap-1.5 rounded-control font-medium", kind === "primary" ? "bg-key text-white hover:bg-key-strong" : "border border-hair bg-[#fff]", base)}><FileText size={16} /> {a.label}</Link>;
     default:
       return <Button type="button" kind={kind} className={base} disabled>{a.label}</Button>;
   }

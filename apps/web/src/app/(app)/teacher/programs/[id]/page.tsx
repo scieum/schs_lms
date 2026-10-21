@@ -4,7 +4,7 @@ import { Bar } from "@/components/programs/meters";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Avatar, Button, ButtonLink, Card, Tag, cx } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
-import { AREA_LABEL, ddayLabel, effectiveStatus, md, responseRate, usesDocs, usesSurvey } from "@/lib/domain/program";
+import { ddayLabel, effectiveStatus, md, responseRate, usesDocs, usesSurvey } from "@/lib/domain/program";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { programRows, requireProgram, type StudentRow } from "../_lib/data";
@@ -18,6 +18,7 @@ import { RosterUpload } from "./roster-upload";
 import { programStage } from "@/lib/domain/program-stage";
 import { ExternalImport } from "./external-import";
 import { OriginTag } from "@/components/programs/origin-tag";
+import { ProgramMeta, ProgramTabs } from "./program-tabs";
 
 export const metadata = { title: "프로그램 상세 · 속초고등학교 학생관리시스템" };
 
@@ -110,7 +111,6 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
   const bundles = materials.filter((m) => m.status === "bundle").length;
   const needs = materials.filter((m) => m.status === "needs_review").length;
 
-  const chip = "whitespace-nowrap rounded-chip border border-line bg-[#fff] px-2 py-0.5 text-[12px] text-sub";
   return (
     <>
       <PageHeader
@@ -123,13 +123,8 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
         }
       />
       <PageBody>
-        <div className="-mt-3 flex flex-wrap items-center gap-1.5 md:-mt-6">
-          <span className={chip}>{AREA_LABEL[p.area]}{p.subject ? ` · ${p.subject}` : ""}</span>
-          <span className={cx(chip, "hidden md:inline")}>{md(p.startDate)} – {md(p.endDate)}</span>
-          <span className={chip}>대상 {rows.length}명</span>
-          {p.coOwnerIds.length > 0 && <span className={cx(chip, "hidden md:inline")}>담당 {1 + p.coOwnerIds.length}명</span>}
-          {status === "draft" ? <Tag>임시 저장</Tag> : status === "closed" ? <Tag tone="bg-soft text-mute">마감</Tag> : <Tag>{ddayLabel(p.endDate, t)}</Tag>}
-        </div>
+        <ProgramMeta program={p} targets={rows.length} />
+        <ProgramTabs programId={p.id} active="status" review={count("검토 대기")} />
 
         {/* 단계 카드: 지금 어디인지 + (PC) 지금 할 일 */}
         <section className="surface flex flex-col gap-4 rounded-card p-4 md:p-6">
@@ -181,7 +176,7 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
             <ul>
               {paged.map((r, i) => {
                 const s = r.student;
-                const draftHref = r.job ? `/teacher/drafts?d=${r.job.id}` : null;
+                const draftHref = r.job ? `/teacher/programs/${p.id}/drafts?d=${r.job.id}` : null;
                 return (
                   <StudentRowItem key={s.id} programId={p.id} student={{ id: s.id, name: s.name, sub: `${s.studentNo} · ${s.grade}학년 ${s.classNo}반 ${s.number}번` }}
                     className={cx("relative flex items-center gap-3 py-3.5 md:grid md:grid-cols-[minmax(0,1fr)_88px_64px_88px_80px] md:px-4", i < paged.length - 1 && "border-b border-line")}>

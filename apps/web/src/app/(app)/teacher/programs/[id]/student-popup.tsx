@@ -268,7 +268,7 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
           <div className={cx("flex items-center gap-2 md:justify-end", entry && "hidden")}>
             <button type="button" onClick={onClose} className={cx(footBtn, "w-[88px] shrink-0 rounded-control text-[14px] font-medium text-sub hover:bg-soft md:w-auto md:px-4")}>닫기</button>
             {data?.jobId ? (
-              <Link href={`/teacher/drafts?d=${data.jobId}`} className={cx(footBtn, "inline-flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-control bg-key px-5 text-[15px] font-bold text-white hover:bg-key-strong md:flex-none")}>
+              <Link href={`/teacher/programs/${programId}/drafts?d=${data.jobId}`} className={cx(footBtn, "inline-flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-control bg-key px-5 text-[15px] font-bold text-white hover:bg-key-strong md:flex-none")}>
                 활동 자세히 보기 <ChevronRight size={18} aria-hidden />
               </Link>
             ) : data?.canRemind ? (

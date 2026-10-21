@@ -8,10 +8,11 @@ import { Icon } from "./icon";
 import type { NavGroup, NavItem } from "./nav";
 
 function isActive(path: string, href: string) {
+  href = href.split("?")[0];
   return path === href || (href !== "/" && path.startsWith(href + "/") && href.split("/").length > 2);
 }
 
-// 대분류(업무·수업·학생·관리) 접고 펴기: 고른 것은 이 브라우저에 기억한다. 접은 묶음에 지금 화면이 있으면 점으로 알린다.
+// 대분류(세특·동아리·담임·특색활동·업무·관리) 접고 펴기: 고른 것은 이 브라우저에 기억한다. 접은 묶음에 지금 화면이 있으면 점으로 알린다.
 // 사이드바를 접은(mini) 상태에서는 묶음 머리가 선으로만 보이므로 늘 펼친다.
 const FOLD_KEY = "schs-nav-closed";
 const FOLD_EVENT = "schs-nav-fold";
@@ -61,6 +62,8 @@ export function SidebarLinks({ groups }: { groups: NavGroup[] }) {
               </Link>
             );
           });
+        // 머리 없는 묶음(홈)은 링크만
+        if (!g.label) return <div key="top" className="pt-2">{links}</div>;
         // 접어 둔 묶음에 지금 화면이 있으면 머리에 점을 찍는다
         const open = !saved.includes(g.label);
         return (

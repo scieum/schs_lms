@@ -11,7 +11,7 @@ import { generateDrafts, type GenState } from "./[id]/actions";
 const refresh = (programId: string) => {
   revalidatePath("/teacher/programs");
   revalidatePath(`/teacher/programs/${programId}`);
-  revalidatePath("/teacher/drafts");
+  revalidatePath("/teacher/programs/[id]/drafts", "page");
 };
 
 /** 목록 카드 "초안 만들기": 상세와 같은 동작 + 목록도 새로 */

@@ -110,7 +110,7 @@ export async function generateDrafts(prev: GenState, form: FormData): Promise<Ge
   }
   const r = await runDraftJobs(ids);
   revalidatePath(`/teacher/programs/${program.id}`);
-  revalidatePath("/teacher/drafts");
+  revalidatePath("/teacher/programs/[id]/drafts", "page");
   return { started: `예시 초안 ${r.done}건을 만들었어요${r.failed ? ` · 실패 ${r.failed}건` : ""}`, n: (prev.n ?? 0) + 1 };
 }
 
@@ -172,7 +172,7 @@ export async function retryFailedDrafts(prev: GenState, form: FormData): Promise
   if (aiEnabled()) after(() => runDraftJobs(ids));
   else await runDraftJobs(ids);
   revalidatePath(`/teacher/programs/${program.id}`);
-  revalidatePath("/teacher/drafts");
+  revalidatePath("/teacher/programs/[id]/drafts", "page");
   return { started: `${ids.length}건을 다시 만들고 있어요`, n: (prev.n ?? 0) + 1 };
 }
 
@@ -269,7 +269,7 @@ export async function saveProgramMemo(input: { programId: string; studentIds: st
   if (turnedOn) await repo.updateProgram(program.id, { useMemos: true });
   await repo.audit(v.accountId, "program.memo", `${program.id} ${ids.length}명${content ? "" : " 지움"}${turnedOn ? " 근거+메모" : ""}`);
   revalidatePath(`/teacher/programs/${program.id}`);
-  revalidatePath("/teacher/drafts");
+  revalidatePath("/teacher/programs/[id]/drafts", "page");
   return { ok: true, saved: ids.length, at: new Date().toISOString(), turnedOn };
 }
 
@@ -288,7 +288,7 @@ export async function rewriteWithMemo(input: { programId: string; studentId: str
   await resetDraftJob(job.id);
   await repo.audit(v.accountId, "draft.regenerate_memo", `${program.id} 1명`);
   revalidatePath(`/teacher/programs/${program.id}`);
-  revalidatePath("/teacher/drafts");
+  revalidatePath("/teacher/programs/[id]/drafts", "page");
   if (aiEnabled()) {
     after(() => runDraftJobs([job.id]));
     return { ok: true, done: "메모를 반영해 다시 쓰는 중이에요. 잠시 뒤 새로고침해 주세요", running: true };

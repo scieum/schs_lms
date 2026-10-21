@@ -105,7 +105,7 @@ export async function applyProgramRoster(prev: ProgramRosterSave, form: FormData
   await repo.audit(v.accountId, "program.roster", rosterAuditLine(program.id, mode, plan));
   revalidatePath(`/teacher/programs/${program.id}`);
   revalidatePath("/teacher/programs");
-  revalidatePath("/teacher/drafts");
+  revalidatePath("/teacher/programs/[id]/drafts", "page");
   const done = mode === "add"
     ? `대상에 ${plan.added.length}명을 더했어요 · 대상 ${plan.next.length}명`
     : `명단으로 바꿨어요 · 더함 ${plan.added.length} · 뺌 ${plan.removed.length}${plan.kept.length ? ` · 남김 ${plan.kept.length}` : ""} · 대상 ${plan.next.length}명`;

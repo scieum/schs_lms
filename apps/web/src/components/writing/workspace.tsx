@@ -8,7 +8,7 @@ import type { LibraryArea } from "@/lib/domain/library";
 import type { AiFixResult } from "@/lib/domain/variants";
 import { cx } from "@/components/ui";
 import { aiFixSetuk, classCheckSetuk, saveSetuk } from "@/app/(app)/teacher/setuk/actions";
-import { aiFixDraft, classCheckDrafts, saveDraft } from "@/app/(app)/teacher/drafts/actions";
+import { aiFixDraft, classCheckDrafts, saveDraft } from "@/app/(app)/teacher/programs/[id]/drafts/actions";
 import { aiFixRecordAction, classCheckRecords, saveRecord } from "@/app/(app)/teacher/write/actions";
 import { runPool } from "@/lib/domain/pool";
 import { CLASS_WRITE_CONCURRENCY, type WriteRow } from "@/lib/domain/class-write";

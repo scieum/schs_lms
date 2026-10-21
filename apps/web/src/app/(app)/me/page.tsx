@@ -18,7 +18,7 @@ export default async function MePage() {
   const v = await requireViewer();
   const name = v.kind === "student" ? v.student.name : `${v.teacher.name} 선생님`;
   const prefs = await repo.getPrefs(v.accountId).catch(() => ({ avatar: null, hiddenMenus: [] as string[] }));
-  const menus = withoutLocked(navFor(v)).map((g) => ({ label: g.label, items: g.items.map((it) => ({ label: it.label, href: it.href, icon: it.icon, locked: isLockedMenu(it) })) }));
+  const menus = withoutLocked(navFor(v)).filter((g) => g.label).map((g) => ({ label: g.label, items: g.items.map((it) => ({ label: it.label, href: it.href, icon: it.icon, locked: isLockedMenu(it) })) }));
 
   return (
     <>

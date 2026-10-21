@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { FileText } from "lucide-react";
 import { Collapse, DeleteConfirm, DeleteFileButton, useDelayedDelete } from "@/components/materials/delete-file";
-import { deleteMaterials } from "../programs/[id]/materials/actions";
+import { deleteMaterials } from "../materials/actions";
 
 export type EvidenceDoc = { id: string; fileName: string; pages: number | null; text: string | null };
 

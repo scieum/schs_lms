@@ -12,7 +12,7 @@ import { resetDraftJob, runDraftJobs } from "@/lib/server/ai/draft";
 import { rephraseSentence, reviewDraft, type ReviewItem } from "@/lib/server/ai/program-ai";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
-import { canOwn } from "../programs/_lib/data";
+import { canOwn } from "../../_lib/data";
 import { forbiddenBlock } from "@/lib/domain/forbidden";
 import { latestVersion } from "@/lib/domain/program";
 import type { ClassCheckView } from "@/lib/domain/class-check";
@@ -31,7 +31,7 @@ async function loadJob(jobId: string) {
 }
 
 const refresh = (programId: string) => {
-  revalidatePath("/teacher/drafts");
+  revalidatePath("/teacher/programs/[id]/drafts", "page");
   revalidatePath(`/teacher/programs/${programId}`);
 };
 
@@ -202,7 +202,7 @@ export async function classCheckDrafts(input: { programId: string }): Promise<Cl
       id: j.id, student: s, text, locked: last?.status === "finalized",
       ...classProv(last?.aiOriginalId && text ? origOf.get(last.aiOriginalId) : undefined, last, text, settings),
       range: resolveLength(program.area, { unit: j.unit, max: j.max }),
-      href: `/teacher/drafts?program=${program.id}&d=${j.id}&check=1`,
+      href: `/teacher/programs/${program.id}/drafts?d=${j.id}&check=1`,
     }];
   }).sort((a, b) => a.student.classNo - b.student.classNo || a.student.number - b.student.number));
   await repo.audit(v.accountId, "draft.class_check", classAudit(program.id, view));

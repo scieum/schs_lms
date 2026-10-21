@@ -2686,7 +2686,7 @@ Figma (VTHccW9TvWVWbNwdBawvSI): 01 구역 "컴포넌트 · N46 외부 생기부 
 |---|---|---|
 | 업무 · 홈 | **홈** (로고 · 프로필 아래 맨 위, 묶음 밖) | /teacher · 담임만이면 /homeroom (지금 규칙 그대로) |
 | 업무 · 학사일정 | 업무 · 학사일정 | /schedule |
-| 업무 · 초안 검토 (배지) | 특색활동 · 초안 검토 (배지 그대로) | /teacher/drafts |
+| 업무 · 초안 검토 (배지) | 특색활동 · 프로그램 › **초안 검토 탭** (배지는 프로그램에) | /teacher/programs/<id>/drafts · 옛 /teacher/drafts 는 넘김 |
 | 업무 · 나이스 입력 | 업무 · 나이스 입력 | /teacher/neis |
 | 업무 · 프로그램 | 특색활동 · 프로그램 | /teacher/programs |
 | 업무 · 봉사 확인서 | 업무 · 봉사 확인서 | /teacher/service |
@@ -2713,7 +2713,7 @@ Figma (VTHccW9TvWVWbNwdBawvSI): 01 구역 "컴포넌트 · N46 외부 생기부 
 | 관리 · 관리자 9개(관리 현황 · 오류 처리 · 초안 생성 현황 · 학생부 점검 · 자료 보존 · 계정 관리 · 과목 개설 · 편제표 · 감사 로그) | **관리** (관리자만, 업무 다음 · 순서 그대로) | /admin/* |
 
 - 묶음 순서: 홈 · **세특 · 동아리 · 담임 · 특색활동 · 업무 · 관리**. 묶음은 그 사람에게 메뉴가 있을 때만(세특 = 맡은 과목, 동아리 = 맡은 동아리, 담임 = 담임, 관리 = 관리자). 특색활동 · 업무는 모든 교사.
-- 기록 묶음 메뉴 순서는 늘 **내 ~ · 조각 모으기 · 글 짓기 · 글 모아 보기**(아이콘 presentation|users · layers · pencil · list). 담임은 우리 반 홈(home) · 누가기록(layers) · 글 짓기(pencil) · 받은 초안(file) · 글 모아 보기(list). 특색활동 프로그램(clipboard) · 초안 검토(file). 업무 아이콘은 지금 그대로.
+- 기록 묶음 메뉴 순서는 늘 **내 ~ · 조각 모으기 · 글 짓기 · 글 모아 보기**(아이콘 presentation|users · layers · pencil · list). 담임은 우리 반 홈(home) · 누가기록(layers) · 글 짓기(pencil) · 받은 초안(file) · 글 모아 보기(list). 특색활동은 프로그램(clipboard) 하나 — 초안 검토는 프로그램 안 탭(아래 2026-10-21). 업무 아이콘은 지금 그대로.
 - 접기(2026-10-17 규칙 그대로): 처음에는 지금 화면이 든 묶음 + 기록 묶음은 펼치고 **업무 · 관리는 접어 둔다**(교과 교사 시안 596:851). 담임 시안 596:1041은 세특 · 동아리 · 업무 접힘. 접힌 묶음 안이 지금 화면이면 점(6 #536DFE).
 - 이전 결정 바뀜: 2026-10-17 "교사 사이드바 업무 · 수업 · 학생 · 관리"(이 문서 "2026-10-17 추가 시안 2 › 사이드바 · 탭바" · `nav.ts` 주석) → N52 묶음으로 바꾼다. N14 메뉴 숨기기 · N15 전체 메뉴 순서도 이 묶음을 따른다(그룹 머리 이름만 바뀜, 홈 · 내 정보는 여전히 못 숨김). 2026-10-17 "모바일 탭 가운데는 언제나 홈"은 그대로.
 - `MENU_KEYWORDS`: `/teacher/setuk/compose` ← "세특", "교과", "글 짓기", "합치기", "조각" / `/teacher/setuk/collect` ← "조각", "메모", "관찰" / `/teacher/club/collect` ← "누가기록", "동아리" / `/homeroom/compose` ← "행발", "행동특성", "종합의견", "자율", "진로" / `/homeroom/logs` ← "누가기록", "관찰".
@@ -2775,14 +2775,14 @@ Figma (VTHccW9TvWVWbNwdBawvSI): 01 구역 "컴포넌트 · N46 외부 생기부 
 - 게이트 칩 문구 "메모 반영" → "조각 반영".
 
 ### 코드 반영
-- [ ] `components/shell/nav.ts` — `baseNav` 교사 묶음을 홈(묶음 밖) · 세특 · 동아리 · 담임 · 특색활동 · 업무 · 관리로. 세특은 맡은 과목, 동아리는 맡은 동아리가 있을 때만. 생기부 조각 빼기. 옛 "업무 · 수업 · 학생 · 관리" 주석 고치기. `tabsFor` 조각 · 글 짓기 · 홈 · (특색|담임|관리) · 메뉴. `HOMEROOM_MENU` = 담임 묶음 + 업무의 담임 전용. `MENU_KEYWORDS` 새 주소.
-- [ ] 사이드바 · 메뉴 화면(`components/shell/*`, `/menu`) — 묶음 머리 이름 · 접힘 기본값(지금 화면 묶음 + 기록 묶음 펼침, 업무 · 관리 접힘) · N14 메뉴 숨기기 목록.
-- [ ] 조각 모으기 공통 컴포넌트(새 `components/writing/collect-board.tsx` 등) — 받는 학생 칸(여러 명 · 조각 수) · 활동명 · 날짜 · 메모 · 다듬기 · n명에게 남기기 · 최근 조각 · 학생별(적은 순). 저장: 세특 = 학생마다 활동 메모(지금 세특 메모 액션을 여러 학생으로), 동아리 · 담임 = 누가기록(`logs/actions.ts` 그대로).
-- [ ] 라우트 `teacher/setuk/collect` · `teacher/club/collect` · `homeroom/logs`(지금 `teacher/logs/log-board.tsx` 를 이 틀로) — 주소는 id만.
-- [ ] 글 짓기 공통 컴포넌트(새 `components/writing/compose-*.tsx`) — 학생 넘기기 · 조각 칸(출처 칩 · 빠르게 고르기 · 기간 · 체크 · 꼭 · 순서, `memo-collect.tsx` 재사용) · 글 칸(`gate-pickers` · `use-ai-gate` · `gate-chips` · `revise-box` · `auto-checks` 재사용, 모드 고르기 N49b) · 아래 줄(이전/다음 학생 · 임시 저장 · 확정, 저장 안 한 글 확인 시트).
-- [ ] 라우트 `teacher/setuk/compose` · `teacher/club/compose` · `homeroom/compose?tab=` — 지금 `setuk/editor.tsx` · `record-editor.tsx` · `homeroom/behavior` 내용을 옮기고, `write-steps.tsx`(N48 단계)는 글 짓기에서 빼기. 행발 키워드 메뉴판(N35)은 행발 탭 글 칸 위 접힌 줄로.
+- [x] `components/shell/nav.ts` — `baseNav` 교사 묶음을 홈(묶음 밖) · 세특 · 동아리 · 담임 · 특색활동 · 업무 · 관리로. 세특은 맡은 과목, 동아리는 맡은 동아리가 있을 때만. 생기부 조각 빼기. 옛 "업무 · 수업 · 학생 · 관리" 주석 고치기. `tabsFor` 조각 · 글 짓기 · 홈 · (특색|담임|관리) · 메뉴. `HOMEROOM_MENU` = 담임 묶음 + 업무의 담임 전용. `MENU_KEYWORDS` 새 주소.
+- [x] 사이드바 · 메뉴 화면(`components/shell/*`, `/menu`) — 묶음 머리 이름 · 접힘 기본값(지금 화면 묶음 + 기록 묶음 펼침, 업무 · 관리 접힘) · N14 메뉴 숨기기 목록.
+- [x] 조각 모으기 공통 컴포넌트(새 `components/writing/collect-board.tsx` 등) — 받는 학생 칸(여러 명 · 조각 수) · 활동명 · 날짜 · 메모 · 다듬기 · n명에게 남기기 · 최근 조각 · 학생별(적은 순). 저장: 세특 = 학생마다 활동 메모(지금 세특 메모 액션을 여러 학생으로), 동아리 · 담임 = 누가기록(`logs/actions.ts` 그대로).
+- [x] 라우트 `teacher/setuk/collect` · `teacher/club/collect` · `homeroom/logs`(지금 `teacher/logs/log-board.tsx` 를 이 틀로) — 주소는 id만.
+- [x] 글 짓기 공통 컴포넌트(새 `components/writing/compose-*.tsx`) — 학생 넘기기 · 조각 칸(출처 칩 · 빠르게 고르기 · 기간 · 체크 · 꼭 · 순서, `memo-collect.tsx` 재사용) · 글 칸(`gate-pickers` · `use-ai-gate` · `gate-chips` · `revise-box` · `auto-checks` 재사용, 모드 고르기 N49b) · 아래 줄(이전/다음 학생 · 임시 저장 · 확정, 저장 안 한 글 확인 시트).
+- [x] 라우트 `teacher/setuk/compose` · `teacher/club/compose` · `homeroom/compose?tab=` — 지금 `setuk/editor.tsx` · `record-editor.tsx` · `homeroom/behavior` 내용을 옮기고, `write-steps.tsx`(N48 단계)는 글 짓기에서 빼기. 행발 키워드 메뉴판(N35)은 행발 탭 글 칸 위 접힌 줄로.
 - [ ] 옛 주소 넘기기(`/teacher/setuk` · `/teacher/write` · `/homeroom/behavior` · `/teacher/logs`) — 쿼리(course · section · student · check · area · club) 그대로.
-- [ ] 게이트 칩 · 진행 문구 "메모" → "조각"(`gate-chips.tsx` · `gate-progress.tsx` · 단계 이름 "빠진 조각 넣기").
+- [x] 게이트 칩 · 진행 문구 "메모" → "조각"(`gate-chips.tsx` · `gate-progress.tsx` · 단계 이름 "빠진 조각 넣기").
 - [ ] 글 모아 보기 "쓰러 가기 ›" → 묶음별 글 짓기 주소.
 - [ ] 테스트: nav 묶음(교과 · 담임 · 담임+관리자 · 성적 잠금) · 조각 수 · 학생 넘기기 순서 · 옛 주소 넘기기.
 - [ ] 확인: tsc · eslint · npm test · build · 데모 1440/412 · `mobile-audit` 412 · 360(탭 · 버튼 꺾임 0).
@@ -2793,3 +2793,27 @@ Figma (VTHccW9TvWVWbNwdBawvSI): 01 구역 "컴포넌트 · N46 외부 생기부 
 - 모바일 탭 "조각"이 어느 묶음으로 갈지 — 마지막에 쓴 묶음(시안) 또는 묶음 고르기 시트.
 - 세특 조각을 여러 학생에게 한 번에 남길 때 학생마다 같은 글인지(누가기록처럼) · 학생마다 고칠 수 있게 할지(N28 한꺼번에 쓰기처럼).
 - 글 짓기 고른 조각 기억을 이 탭(sessionStorage)에만 둘지 계정에 남길지.
+
+## 2026-10-21 초안 검토 → 프로그램 안 탭 (N52 h · i)
+> "초안 검토라는 페이지도 프로그램 안에 하위 영역으로 들어가면 되지 않을까?" → 그렇게 한다.
+> 초안은 늘 한 프로그램의 학생 것이라, 프로그램 상세 머리 아래 탭 **현황 | 초안 검토 n** 으로 나눈다(N52 탭과 같은 모양: 흰 r12 · 1px #E5E8EB · 안쪽 4 · 칸 37(모바일 36, 반반) r8 · 고른 칸 #EEF0FF 14 Bold #3D56E0 · 숫자 배지 r6 12 Bold).
+
+### 참고 (유아이볼)
+- [무신사 — 상품 상세](https://uibowl.io/website/%EB%AC%B4%EC%8B%A0%EC%82%AC?patterns=%EC%83%81%EC%84%B8%EC%A0%95%EB%B3%B4%20%28PDP%29&imgId=cmv54z0po001mjm067hzxryak): 제목 아래 탭 한 줄로 하위 영역 전환.
+- [컬리 — 상품 상세](https://uibowl.io/website/%EC%BB%AC%EB%A6%AC?patterns=%EC%83%81%EC%84%B8%EC%A0%95%EB%B3%B4%20%28PDP%29&imgId=cmno1x03z015jl404bsn1xudf): 고른 탭만 색 · 나머지 흐림.
+- [위시켓 — 이용 방법](https://uibowl.io/website/%EC%9C%84%EC%8B%9C%EC%BC%93?patterns=%EC%83%81%EC%84%B8%EC%A0%95%EB%B3%B4%20%28PDP%29&imgId=cmunb65is0040l204syybnqkd): 상자형 세그먼트 탭.
+- [리스닝마인드 — AI 옵티마이저](https://uibowl.io/website/%EB%A6%AC%EC%8A%A4%EB%8B%9D%EB%A7%88%EC%9D%B8%EB%93%9C?patterns=%EC%83%81%EC%84%B8%EC%A0%95%EB%B3%B4%20%28PDP%29&imgId=cmsssgny4000blb04vyvsd6wk): 작업 도구 안 하위 탭.
+- [신한 디자인 시스템](https://uibowl.io/website/%EC%8B%A0%ED%95%9C%EC%9D%80%ED%96%89%20%EB%94%94%EC%9E%90%EC%9D%B8%20%EC%8B%9C%EC%8A%A4%ED%85%9C%20(zeroheight)?patterns=%EC%83%81%EC%84%B8%EC%A0%95%EB%B3%B4%20%28PDP%29&imgId=cmsh1qrxb0003jx0469gzb77s): 제목 바로 아래 짧은 탭.
+
+### Figma
+| 화면 | 컴퓨터용 (02 · N52 구역) | 모바일용 (03 · N52 구역) |
+|---|---|---|
+| (h) 프로그램 상세 · 현황 탭 | 602:41411 | 602:42363 |
+| (i) 프로그램 상세 · 초안 검토 탭 — 이 프로그램 학생만 | 602:41901 | 602:42608 |
+- N52 사이드바 3종(596:1282): 특색활동 = 프로그램 하나 · 배지 12는 프로그램에. 모바일 메뉴(600:11964)에서 초안 검토 칸 뺌. 옛→새 표 행 고침.
+
+### 규칙
+- 주소 `/teacher/programs/<id>/drafts` (`?d=` · `tab=` · `check=1` 그대로). 옛 `/teacher/drafts` 는 넘긴다: `d` → 그 초안의 프로그램, `program` → 그 프로그램, 없으면 검토할 초안이 남은 첫 프로그램, 없으면 프로그램 목록.
+- 초안 검토 탭 머리 = 프로그램 이름 + 칩 줄(현황과 같은 칩) + 탭. 프로그램 고르기 칩 줄은 없앤다. 학생 목록 부제는 프로그램 이름 대신 반-번호.
+- 사이드바 배지(검토 대기 수)는 "프로그램"에. 메뉴 찾기 "초안 · 검토"는 프로그램으로.
+- 조각 모으기의 "되돌리기"(N33)는 넣지 않았다 — 조각 · 누가기록은 추가만(C4). 세특 조각은 날짜 칸 없음(남긴 날). 학생마다 다른 글 · 파일로 쓰기는 옛 /teacher/logs 에 그대로(머리 [여러 명 따로 쓰기]).

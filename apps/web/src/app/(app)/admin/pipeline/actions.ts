@@ -11,7 +11,7 @@ import { requireCan } from "@/lib/server/viewer";
 const refresh = () => {
   revalidatePath("/admin/pipeline");
   revalidatePath("/admin/errors");
-  revalidatePath("/teacher/drafts");
+  revalidatePath("/teacher/programs/[id]/drafts", "page");
 };
 
 /** 다시 시도: jobId 하나, 또는 비우면 실패한 작업 전부. 재시도 횟수를 처음으로 돌린다 */

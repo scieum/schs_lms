@@ -202,7 +202,7 @@ export async function deleteMaterials(form: FormData): Promise<DeleteState> {
   const pseudo = (await Promise.all([...who].map((sid) => repo.getStudent(sid)))).map((s) => s?.pseudonymId).filter(Boolean);
   await repo.audit(v.accountId, "material.delete", `${program.id} ${n}개${pseudo.length ? ` ${pseudo.join(",")}` : ""}`);
   paths(program.id);
-  revalidatePath("/teacher/drafts");
+  revalidatePath("/teacher/programs/[id]/drafts", "page");
   revalidatePath("/student/submit");
   return { deleted: n };
 }

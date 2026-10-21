@@ -22,7 +22,7 @@ export function cardView(p: Program, c: StageCounts, today: string): CardView {
     return { stage, draft: true, action: { kind: "link", label: "이어서 쓰기", href: `/teacher/programs/${id}/edit` }, progress: null, todo: false };
   }
   const made = c.review + c.confirmed;
-  const review: CardAction = { kind: "link", label: `검토 ${c.review}`, href: `/teacher/drafts?program=${id}` };
+  const review: CardAction = { kind: "link", label: `검토 ${c.review}`, href: `/teacher/programs/${id}/drafts` };
   const got = p.source === "external" ? "외부 글" : usesSurvey(p.source) ? "응답" : "제출";
   let action: CardAction | null = null;
   let progress: Progress;

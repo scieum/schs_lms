@@ -16,7 +16,7 @@ export default async function MenuPage() {
   const v = await requireViewer();
   const name = v.kind === "student" ? v.student.name : `${v.teacher.name} 선생님`;
   const prefs = await repo.getPrefs(v.accountId).catch(() => ({ avatar: null, hiddenMenus: [] as string[] }));
-  const groups = hideMenus(withoutLocked(navFor(v)), prefs.hiddenMenus).map((g) => ({ label: g.label, items: g.items.map((it) => ({ label: it.label, href: it.href, icon: it.icon })) }));
+  const groups = hideMenus(withoutLocked(navFor(v)), prefs.hiddenMenus).filter((g) => g.label).map((g) => ({ label: g.label, items: g.items.map((it) => ({ label: it.label, href: it.href, icon: it.icon })) }));
 
   return (
     <div className="flex flex-col gap-3.5 px-5 pb-7 pt-3 md:mx-auto md:max-w-[640px] md:pt-8">

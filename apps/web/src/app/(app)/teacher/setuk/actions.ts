@@ -32,6 +32,8 @@ import { parseKeywordMemo } from "@/lib/domain/writing";
 import type { WriteOutcome } from "@/lib/domain/class-write";
 import { aiFailed, runClassWrite } from "@/lib/server/class-write";
 import { aiEnabled } from "@/lib/server/ai/claude";
+import { maskIdentity } from "@/lib/domain/program";
+import { polishLog } from "@/lib/server/ai/teacher-ai";
 
 /** needReason (N38): 적게 고친 채 확정 — 까닭을 받아 다시 확정 (n: 몇 번째 응답인지) */
 export type SetukState = { error?: string; saved?: "draft" | "confirmed"; at?: string; needReason?: { ratio: number; nosource: number; n: number } };
@@ -195,6 +197,45 @@ export async function addSetukPiece(input: { courseId: string; studentId: string
   await repo.audit(t.v.accountId, "record.piece", `세특 ${t.course.subject} ${t.student.pseudonymId}`);
   revalidatePath("/teacher/pieces");
   return {};
+}
+
+/**
+ * 조각 모으기 (Figma N52 a): 고른 학생 모두에게 같은 조각을 남긴다 (추가만, C4).
+ * 학생마다 따로 권한을 본다 — 내 과목·반이 아닌 학생이 섞이면 아무것도 남기지 않는다.
+ */
+export async function addSetukPieces(input: { courseId: string; studentIds: string[]; text: string; activity: string }): Promise<{ added?: number; error?: string }> {
+  const ids = [...new Set(input.studentIds ?? [])];
+  if (!ids.length) return { error: "받는 학생을 골라 주세요" };
+  if (ids.length > 60) return { error: "한 번에 60명까지 남길 수 있어요" };
+  if (!cleanActivity(input.activity)) return { error: "활동명을 적어 주세요" };
+  const targets = await Promise.all(ids.map((id) => setukTarget(input.courseId, id)));
+  if (targets.some((t) => !t)) return { error: "내 담당 과목·반 학생만 쓸 수 있어요" };
+  let added = 0;
+  for (const t of targets) {
+    const text = withActivity(input.activity, scrubIdentity(String(input.text ?? ""), t!.student).text);
+    if (text.length < PIECE_MIN || text.length > PIECE_MAX) return { error: `조각은 ${PIECE_MIN}~${PIECE_MAX.toLocaleString()}자로 써 주세요`, added };
+    await repo.addRecordMemo({ scope: pieceScopeOf(`세특:${input.courseId}`, "memo"), studentId: t!.student.id, authorId: t!.v.accountId, content: text });
+    added++;
+  }
+  await repo.audit(targets[0]!.v.accountId, "record.piece", `세특 ${targets[0]!.course.subject} ${added}명`);
+  revalidatePath("/teacher/setuk/collect");
+  return { added };
+}
+
+/** 조각 모으기 "AI 다듬기" (N52 a · N32): 메모 → 짧은 관찰 문장. 저장하지 않는다. 이 과목 학생 이름·학번은 가린 뒤 보낸다 */
+export async function polishSetukMemo(input: { courseId: string; text: string }): Promise<{ ok: true; text: string; label: "AI" | "자동"; notice?: string } | { ok: false; error: string }> {
+  const v = await requireCan("setuk.write");
+  const text = String(input.text ?? "").trim();
+  if (text.length < 2) return { ok: false, error: "메모를 먼저 적어 주세요" };
+  if (text.length > 1000) return { ok: false, error: "1000자까지 다듬을 수 있어요" };
+  const [course, mine, all, roster] = await Promise.all([repo.getCourse(input.courseId), repo.listTeacherCourses(v.accountId), repo.listStudents(), repo.getCourseRosters(v.accountId, input.courseId)]);
+  const assignment = mine.find((a) => a.courseId === input.courseId);
+  if (!course || !assignment) return { ok: false, error: "내 담당 과목만 쓸 수 있어요" };
+  const masked = maskIdentity(text, studentsInCourse(all, course, assignment, roster));
+  const r = await polishLog(masked, `교과 세특 · ${course.subject}`);
+  if (r.label === "AI") await repo.audit(v.accountId, "logs.ai.polish", "세특");
+  if (!r.data) return { ok: false, error: "다듬을 내용을 찾지 못했어요. 직접 써 주세요" };
+  return { ok: true, text: r.data, label: r.label, notice: r.error ? `AI 대신 규칙으로 다듬었어요 (${r.error})` : masked !== text ? "이름·학번은 가린 뒤 다듬었어요" : undefined };
 }
 
 export async function mergeSetuk(input: { courseId: string; studentId: string } & z.input<typeof MergeSchema>): Promise<AiDraftResult> {

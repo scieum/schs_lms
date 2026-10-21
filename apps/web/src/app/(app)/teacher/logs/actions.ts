@@ -54,6 +54,8 @@ export async function addLogs(_: LogState, form: FormData): Promise<LogState> {
   const n = await repo.addActivityLogs(targets.map((s) => ({ area, studentId: s!.id, authorId: v.accountId, clubId, date, content })));
   await repo.audit(v.accountId, "logs.add", `${area} ${n}명`);
   revalidatePath("/teacher/logs");
+  revalidatePath("/teacher/club/collect");
+  revalidatePath("/homeroom/logs");
   return { added: n };
 }
 
@@ -94,6 +96,8 @@ export async function addLogsEach(input: { area: string; clubId?: string; date: 
   const n = await repo.addActivityLogs(items.map((i) => ({ area, studentId: i.studentId, authorId: v.accountId, clubId, date, content: i.content })));
   await repo.audit(v.accountId, "logs.add_each", `${area} ${n}명`);
   revalidatePath("/teacher/logs");
+  revalidatePath("/teacher/club/collect");
+  revalidatePath("/homeroom/logs");
   return { added: n };
 }
 

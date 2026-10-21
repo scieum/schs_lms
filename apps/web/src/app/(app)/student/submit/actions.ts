@@ -91,7 +91,7 @@ export async function deleteMyDoc(form: FormData): Promise<{ deleted?: number; e
   revalidatePath("/student");
   revalidatePath(`/teacher/programs/${program.id}/materials`);
   revalidatePath(`/teacher/programs/${program.id}`);
-  revalidatePath("/teacher/drafts");
+  revalidatePath("/teacher/programs/[id]/drafts", "page");
   return { deleted: 1 };
 }
 
