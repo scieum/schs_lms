@@ -13,12 +13,12 @@ export const FLOW = [
 
 /** 조각이 모이는 길 (N65): [출처 칩, 한 줄, 칩 색] — 글 짓기 왼쪽 칸의 출처 칩과 같은 색 */
 export const SOURCES: [string, string, string][] = [
-  ["메모", "수업에서 본 것 한두 줄, 여러 학생에게 한 번에", "bg-soft text-sub"],
-  ["자료", "활동지 · 보고서 · 사진을 AI가 읽어 요약", "bg-new-soft text-[#0789a6]"],
-  ["수행평가", "합본 PDF를 학생마다 나눠 읽기", "bg-wait-soft text-[#9a6400]"],
-  ["공통 활동", "다 같이 한 활동, 모두에게 한 번에", "bg-[#DFE3FF] text-[#2F43B8]"],
-  ["차시", "수업 계획의 차시를 눌러 메모", "bg-key-soft text-key-strong"],
-  ["특색활동", "학생 제출 서류로 만든 초안이 담임에게", "bg-ok-soft text-ok"],
+  ["메모", "본 것 한 줄, 여러 학생에게", "bg-soft text-sub"],
+  ["자료", "활동지 · 사진을 AI가 요약", "bg-new-soft text-[#0789a6]"],
+  ["수행평가", "합본 PDF를 학생별로 읽기", "bg-wait-soft text-[#9a6400]"],
+  ["공통 활동", "다 같이 한 활동을 한 번에", "bg-[#DFE3FF] text-[#2F43B8]"],
+  ["차시", "차시를 눌러 바로 메모", "bg-key-soft text-key-strong"],
+  ["특색활동", "제출 서류로 만든 초안", "bg-ok-soft text-ok"],
 ];
 
 /** Core 01–06 (N65 조각 순서): 그림은 public/landing/n65/core-0N.png (PC 600×400 @2x), core-0N-m.png (모바일 372×380 @2x) — 실제 화면을 찍어 만든다 */
