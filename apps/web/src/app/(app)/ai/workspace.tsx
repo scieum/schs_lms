@@ -1,14 +1,15 @@
 "use client";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { AtSign, Copy, RotateCcw, Send, Sparkles, X } from "lucide-react";
+import { ArrowUp, AtSign, BookOpen, ChevronDown, Copy, Presentation, RotateCcw, Sparkles, UserRound, UsersRound, X, type LucideIcon } from "lucide-react";
 import { cx } from "@/components/ui";
-import { CHAT_LIMITS, filterMentions, mentionQuery, showNames, type Mention, type MentionKind } from "@/lib/domain/ai-chat";
+import { CHAT_LIMITS, CHAT_MODELS, filterMentions, mentionQuery, showNames, type ChatModelChoice, type Mention, type MentionKind } from "@/lib/domain/ai-chat";
 import { askAi, listMentions } from "./actions";
 
 // AI 작업창 (Figma N70): 대화 · @ 맥락 고르기(노션처럼) · 붙인 맥락 칩 · 복사 · 다시. 대화는 이 화면에만 (새로고침하면 사라져요).
 
 type Turn = { role: "user" | "assistant"; content: string; used?: string[]; model?: string; error?: boolean };
 const TONE: Record<MentionKind, string> = { 학생: "bg-ok-soft text-ok", 수업: "bg-key-soft text-key-strong", 프롬프트: "bg-new-soft text-new", 협업방: "bg-soft text-sub", 팁: "bg-wait-soft text-[#9a6400]" };
+const ICON: Record<MentionKind, LucideIcon> = { 학생: UserRound, 수업: Presentation, 프롬프트: Sparkles, 협업방: UsersRound, 팁: BookOpen };
 const IDEAS = ["가정통신문 초안 써 줘: 11월 학부모 상담 주간 안내", "@학생 상담 전에 이 학생 기록을 세 줄로 요약해 줘", "@수업 수행평가 채점 기준표(루브릭) 만들어 줘", "@프롬프트 이 프롬프트를 더 짧고 분명하게 고쳐 줘"];
 
 /** compact: 영랑이 오른쪽 사이드 창 안 (노션 AI처럼) — 목록만 스크롤, 입력칸은 창 아래에 붙는다 */
@@ -16,6 +17,7 @@ export function AiWorkspace({ aiOn, compact = false }: { aiOn: boolean; compact?
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
   const [picked, setPicked] = useState<Mention[]>([]);
+  const [model, setModel] = useState<ChatModelChoice>("자동");
   const [options, setOptions] = useState<Mention[] | null>(null);
   const [query, setQuery] = useState<string | null>(null);
   const [active, setActive] = useState(0);
@@ -61,7 +63,7 @@ export function AiWorkspace({ aiOn, compact = false }: { aiOn: boolean; compact?
     setTurns(next); setText(""); setQuery(null);
     const mentions = picked;
     start(async () => {
-      const r = await askAi({ messages: next.map(({ role, content: c }) => ({ role, content: c })), mentions }).catch(() => ({ ok: false as const, error: "AI 연결이 끊겼어요. 다시 보내 주세요" }));
+      const r = await askAi({ messages: next.map(({ role, content: c }) => ({ role, content: c })), mentions, model }).catch(() => ({ ok: false as const, error: "AI 연결이 끊겼어요. 다시 보내 주세요" }));
       if (!r.ok) return setTurns((t) => [...t, { role: "assistant", content: r.error, error: true }]);
       setAliases((a) => ({ ...a, ...r.aliases }));
       setTurns((t) => [...t, { role: "assistant", content: r.text, used: r.used, model: r.model }]);
@@ -147,26 +149,48 @@ export function AiWorkspace({ aiOn, compact = false }: { aiOn: boolean; compact?
           </ul>
         )}
         {query !== null && options && !shown.length && <p className={cx("rounded-[12px] border border-line bg-[#fff] px-3 py-2 text-[13px] text-mute", compact ? "absolute inset-x-3 bottom-full mb-1" : "md:w-[440px]")}>맞는 맥락이 없어요 — 학생 이름 · 수업 · 프롬프트 제목으로 찾아요</p>}
-        <div className="flex flex-col gap-2 rounded-[16px] border-2 border-key bg-[#fff] px-4 py-3">
-          {picked.length > 0 && (
-            <span className="flex flex-wrap gap-1.5">
-              {picked.map((m) => (
-                <span key={`${m.kind}-${m.id}`} className={cx("flex items-center gap-1 rounded-chip px-2 py-0.5 text-[12px] font-bold", TONE[m.kind])}>
-                  @ {m.kind} {m.label}
-                  <button type="button" aria-label={`${m.label} 빼기`} onClick={() => setPicked((p) => p.filter((x) => x !== m))}><X size={12} /></button>
-                </span>
-              ))}
+        {/* 입력 카드 + 아래 회색 받침(붙인 맥락) */}
+        <div className="flex flex-col">
+          <div className="relative z-[1] flex flex-col gap-3 rounded-[20px] border border-line bg-[#fff] px-5 pb-3.5 pt-4 shadow-[0_8px_28px_rgba(28,32,51,0.10)] focus-within:border-key">
+            <textarea ref={box} value={text} rows={2} maxLength={CHAT_LIMITS.message} onFocus={() => void ensureOptions()}
+              onChange={(e) => onChange(e.target.value, e.target.selectionStart ?? e.target.value.length)} onKeyDown={onKey}
+              placeholder="무엇이든 시켜 보세요 · @로 맥락 붙이기"
+              className={cx("max-h-[40vh] min-h-[56px] resize-none bg-transparent leading-[1.6] outline-none placeholder:text-faint", compact ? "text-[15px]" : "text-[17px]")} />
+            <span className="flex items-center gap-2">
+              <button type="button" onClick={openAt} className="flex h-9 items-center gap-1.5 rounded-[10px] border border-line bg-[#fff] px-3 text-[14px] font-medium hover:bg-soft">
+                <span className="flex items-center rounded-[6px] bg-new-soft px-1.5 py-0.5 text-[11px] font-bold text-new"><AtSign size={11} /></span> 맥락
+              </button>
+              {turns.length > 0 && <button type="button" onClick={() => { setTurns([]); setPicked([]); }} className="text-[13px] font-medium text-mute hover:text-ink">새 대화</button>}
+              <span className="flex-1" />
+              <label className="relative flex items-center gap-1 text-[14px] font-bold">
+                <span className="sr-only">모델</span>
+                <select value={model} onChange={(e) => setModel(e.target.value as ChatModelChoice)} title={CHAT_MODELS[model]}
+                  className="cursor-pointer appearance-none bg-transparent pr-5 outline-none">
+                  {(Object.keys(CHAT_MODELS) as ChatModelChoice[]).map((k) => <option key={k} value={k}>{k}</option>)}
+                </select>
+                <ChevronDown size={14} className="pointer-events-none absolute right-0 text-mute" />
+              </label>
+              <span aria-hidden className="h-5 w-px bg-line" />
+              <span className={cx("whitespace-nowrap text-[13px]", picked.length ? "font-medium text-sub" : "text-mute")}>{picked.length ? `맥락 ${picked.length}개` : "맥락 없음"}</span>
+              <button type="button" onClick={() => send()} disabled={pending || !text.trim() || !aiOn} aria-label="보내기"
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-key text-[#fff] hover:bg-key-strong disabled:opacity-40"><ArrowUp size={20} /></button>
             </span>
-          )}
-          <textarea ref={box} value={text} rows={2} maxLength={CHAT_LIMITS.message} onFocus={() => void ensureOptions()}
-            onChange={(e) => onChange(e.target.value, e.target.selectionStart ?? e.target.value.length)} onKeyDown={onKey}
-            placeholder="무엇이든 시켜 보세요 · @로 학생 · 수업 · 프롬프트 붙이기" className="max-h-[40vh] min-h-[48px] resize-none bg-transparent text-[15px] leading-6 outline-none" />
-          <span className="flex items-center gap-2">
-            <button type="button" onClick={openAt} className="flex items-center gap-1 rounded-control bg-key-soft px-2.5 py-1 text-[13px] font-bold text-key-strong"><AtSign size={13} /> 맥락</button>
-            <span className="hidden text-[12px] text-mute md:inline">Enter 보내기 · Shift+Enter 줄바꿈</span>
-            {turns.length > 0 && <button type="button" onClick={() => { setTurns([]); setPicked([]); }} className="ml-auto text-[12px] font-medium text-mute hover:text-ink">새 대화</button>}
-            <button type="button" onClick={() => send()} disabled={pending || !text.trim() || !aiOn} className={cx("flex items-center gap-1 rounded-control bg-key px-3.5 py-1.5 text-[13px] font-bold text-[#fff] disabled:opacity-40", turns.length === 0 && "ml-auto")}><Send size={13} /> 보내기</button>
-          </span>
+          </div>
+          <div className="-mt-4 flex min-h-[44px] flex-wrap items-center gap-x-4 gap-y-1.5 rounded-b-[20px] bg-[#eef0f4] px-5 pb-2.5 pt-6 text-[13px]">
+            {picked.length === 0 ? (
+              <span className="text-mute">@를 치면 학생 · 수업 · 프롬프트 · 협업방 · 팁을 붙여요 <span className="max-md:hidden">· Enter 보내기 · Shift+Enter 줄바꿈</span></span>
+            ) : picked.map((m) => {
+              const Icon = ICON[m.kind];
+              return (
+                <span key={`${m.kind}-${m.id}`} className="flex min-w-0 items-center gap-1.5 text-sub">
+                  <Icon size={14} className="shrink-0 text-mute" />
+                  <b className="shrink-0 font-bold text-[#4e5968]">{m.kind}</b>
+                  <span className="truncate">{m.label}</span>
+                  <button type="button" aria-label={`${m.label} 빼기`} onClick={() => setPicked((p) => p.filter((x) => x !== m))} className="shrink-0 text-faint hover:text-ink"><X size={13} /></button>
+                </span>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

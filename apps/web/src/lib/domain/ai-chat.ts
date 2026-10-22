@@ -7,6 +7,11 @@ export const isMentionKind = (v: unknown): v is MentionKind => (MENTION_KINDS as
 /** id: 학생 = "<범위key>|<학생id>", 수업 = 범위key, 그 밖은 글 · 방 id */
 export type Mention = { kind: MentionKind; id: string; label: string; sub?: string };
 
+/** 모델 고르기 (입력칸 ▾): 자동 = 학생을 붙이면 생기부용, 아니면 보통 */
+export const CHAT_MODELS = { 자동: "학생을 붙이면 Opus 5.5, 아니면 Sonnet", 빠르게: "Haiku — 짧고 가벼운 일", 보통: "Sonnet — 업무 글 · 정리", 생기부: "Opus 5.5 — 생기부 글" } as const;
+export type ChatModelChoice = keyof typeof CHAT_MODELS;
+export const isChatModel = (v: unknown): v is ChatModelChoice => Object.prototype.hasOwnProperty.call(CHAT_MODELS, String(v));
+
 export const CHAT_LIMITS = { turns: 20, message: 4000, mentions: 6, context: 30000 } as const;
 
 /** @ 뒤에 친 말로 고르기: 이름 · 설명에 다 들어 있는 것, 종류 이름으로도 (예: "@학생", "@화학") */

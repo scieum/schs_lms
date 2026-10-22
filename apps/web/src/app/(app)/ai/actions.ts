@@ -1,5 +1,5 @@
 "use server";
-import { CHAT_LIMITS, isMentionKind, type Mention } from "@/lib/domain/ai-chat";
+import { CHAT_LIMITS, isChatModel, isMentionKind, type ChatModelChoice, type Mention } from "@/lib/domain/ai-chat";
 import { aiChat, type ChatTurn } from "@/lib/server/ai/claude";
 import { buildContext, mentionOptions, scrub } from "@/lib/server/ai-context";
 import { repo } from "@/lib/server/repo";
@@ -22,7 +22,10 @@ const SYSTEM = `너는 속초고등학교 교사를 돕는 AI 작업 도우미�
 - 학생은 S012 같은 가명ID로 부른다. 실명을 추측하지 않는다.
 - 답은 바로 쓸 수 있게: 필요한 만큼만 짧게, 목록이 낫으면 목록으로.`;
 
-export async function askAi(input: { messages: ChatTurn[]; mentions: Mention[] }): Promise<AskResult> {
+const PICK = { 빠르게: "fast", 보통: "write", 생기부: "record" } as const;
+const LABEL = { fast: "Haiku", write: "Sonnet", record: "Opus 5.5" } as const;
+
+export async function askAi(input: { messages: ChatTurn[]; mentions: Mention[]; model?: ChatModelChoice }): Promise<AskResult> {
   const v = await requireCan("record.write");
   if (v.kind !== "teacher") return { ok: false, error: "선생님만 쓸 수 있어요" };
   const turns = (Array.isArray(input.messages) ? input.messages : []).slice(-CHAT_LIMITS.turns)
@@ -35,9 +38,10 @@ export async function askAi(input: { messages: ChatTurn[]; mentions: Mention[] }
   const safe = turns.map((m) => ({ ...m, content: scrub(m.content, ctx) }));
   const last = safe[safe.length - 1];
   if (ctx.blocks.length) last.content = `${ctx.blocks.join("\n\n")}\n\n${last.content}`;
-  const model = ctx.hasStudent ? "record" : "write";
+  const choice = isChatModel(input.model) ? input.model : "자동";
+  const model = choice === "자동" ? (ctx.hasStudent ? "record" : "write") : PICK[choice];
   const r = await aiChat({ system: SYSTEM, messages: safe, model, maxTokens: 3000 });
   await repo.audit(v.accountId, "ai.chat", `${model} · 맥락 ${ctx.used.length ? ctx.used.map((u) => u.split(" ")[0]).join(",") : "없음"}`);
   if (!r.ok) return r;
-  return { ok: true, text: r.data, aliases: ctx.aliases, used: ctx.used, model: model === "record" ? "Opus 5.5" : "Sonnet" };
+  return { ok: true, text: r.data, aliases: ctx.aliases, used: ctx.used, model: LABEL[model] };
 }
