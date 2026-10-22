@@ -14,7 +14,8 @@ export const metadata = { title: "수행평가 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ course?: string; section?: string; a?: string }> };
 
-const short = (c: Course) => `${c.subject} ${c.grade}-${c.semester}`;
+// 탭 이름은 과목 이름만 (2026-10-22: "1-2" 같은 학년-학기는 뺌)
+const short = (c: Course) => c.subject;
 
 // 세특 · 수행평가 (Figma N59 a · b · c): 반 탭 → 수행평가 목록 · 고른 수행평가(자료 n/m · 합본 PDF 나누기 · 한 명씩 · 학생 칸 · 요약).
 // 주소에는 내부 id 만 (C3).

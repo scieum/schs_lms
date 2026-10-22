@@ -27,7 +27,8 @@ export const maxDuration = 60;
 
 type Props = { searchParams: Promise<{ course?: string; section?: string; student?: string; check?: string; mode?: string }> };
 
-const short = (c: Course) => `${c.subject} ${c.grade}-${c.semester}`;
+// 탭 이름은 과목 이름만 (2026-10-22: "1-2" 같은 학년-학기는 뺌)
+const short = (c: Course) => c.subject;
 
 // 세특 · 글 짓기 (Figma N52 (b) 598:15582 · (c) 598:16109 · (g1) 598:17238): 분반 · 학생 한 명씩. 주소는 id만 (C3).
 // 데이터는 옛 /teacher/setuk 화면과 같다 — 공통과목 합산 · AI 원안 · 성취수준 · 비슷한 문장 · 차시 · 공통 활동.

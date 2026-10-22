@@ -57,7 +57,7 @@ export async function resolveScope(v: Viewer, input: ClassScopeInput): Promise<R
     const latest = latestByStudent(await repo.listSetuk(course.id));
     return {
       kind: "setuk", key: `setuk:${course.id}${section ? `:${section}` : ""}`,
-      title: section ? `${course.subject} ${section}` : `${course.subject} ${course.grade}-${course.semester}`,
+      title: section ? `${course.subject} ${section}` : course.subject,
       area: "세특", areaKey: "세특", students, maxBytes: NEIS_MAX_BYTES["세특"], year: course.year, semester: course.semester, course, section,
       latest: new Map(students.flatMap((s) => { const r = latest.get(s.id); return r ? [[s.id, r] as const] : []; })),
     };

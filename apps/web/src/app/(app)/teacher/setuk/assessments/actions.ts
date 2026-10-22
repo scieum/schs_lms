@@ -125,7 +125,7 @@ export async function listSameSubjectAssessments(courseId: string, section: stri
       const name = teachers.find((t) => t.id === a.teacherId)?.name;
       return { id: a.id, title: a.title, date: a.date, description: a.description, mine,
         who: mine ? "내 수업" : name ? `${name} 선생님` : "다른 선생님",
-        where: `${course.subject} ${course.grade}-${course.semester}${a.section ? ` · ${a.section}` : ""}` };
+        where: `${course.subject}${a.section ? ` · ${a.section}` : ""}` };
     })
     .slice(0, 30);
 }

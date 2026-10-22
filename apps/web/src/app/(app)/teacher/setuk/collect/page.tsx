@@ -21,7 +21,8 @@ export const metadata = { title: "세특 조각 모으기 · 속초고 쌤기부
 
 type Props = { searchParams: Promise<{ course?: string; section?: string; student?: string }> };
 
-const short = (c: Course) => `${c.subject} ${c.grade}-${c.semester}`;
+// 탭 이름은 과목 이름만 (2026-10-22: "1-2" 같은 학년-학기는 뺌)
+const short = (c: Course) => c.subject;
 const seoulDay = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 
 // 세특 · 조각 모으기 (Figma N52 a 599:17196 · 모바일 600:10311): 반 탭 → 받는 학생(여러 명) · 활동명 · 메모 → 남기기.
