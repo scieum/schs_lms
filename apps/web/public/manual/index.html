@@ -128,6 +128,7 @@ footer{color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding
   <a href="#neis">나이스 입력</a>
   <a href="#reports">학생 리포트</a>
   <a href="#library">문장 보관함 · 생기부 팁</a>
+  <a href="#ai">AI 작업창</a>
   <a href="#collab">협업방</a>
   <a href="#prompts">프롬프트 보관함</a>
   <a href="#qna">문의 게시판</a>
@@ -187,6 +188,7 @@ footer{color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding
   <p class="lead">왼쪽 사이드바는 묶음으로 나뉘어 있어요. 맡은 역할에 따라 보이는 묶음이 달라요.</p>
   <table>
     <tr><th style="width:120px">묶음</th><th>메뉴</th><th style="width:150px">보이는 사람</th></tr>
+    <tr><td><b>(맨 위)</b></td><td>홈 · AI 작업창</td><td>교사 모두</td></tr>
     <tr><td><b>업무</b></td><td>학사일정 · 담당 학생 · 상담 기록 · 학생 등록</td><td>교사 모두</td></tr>
     <tr><td><b>세특</b></td><td>내 수업 · 조각 모으기 · 수행평가 · 글 짓기 · 글 모아 보기</td><td>교과 교사</td></tr>
     <tr><td><b>동아리</b></td><td>내 동아리 · 조각 모으기 · 글 짓기 · 글 모아 보기</td><td>교사 모두</td></tr>
@@ -451,6 +453,25 @@ footer{color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding
     </ul></div>
   </div>
   <figure class="shot"><img src="tips.webp" alt="생기부 팁 게시판" loading="lazy"><figcaption>생기부 팁 — 분류 · 목록 · 글</figcaption></figure>
+</section>
+
+<section id="ai" data-k="AI 작업창 챗 채팅 질문 맥락 멘션 @ 초안 요약 가정통신문">
+  <h2>AI 작업창</h2>
+  <p>사이드바 <b>홈 바로 아래</b>. 일반 AI처럼 무엇이든 시켜요. 입력칸에서 <b>@</b>를 치면(노션처럼) 맥락을 붙일 수 있어요.</p>
+  <div class="grid2">
+    <div class="card"><h3>@로 붙이는 것</h3><ul>
+      <li><b>학생</b> — 학생 리포트에서 볼 수 있는 범위의 세특 · 창체 · 행발 · 누가기록 · 특색활동 · 봉사(상담 글은 빼요).</li>
+      <li><b>수업</b> — 내 분반 과목 · 학년 · 내가 등록한 수행평가.</li>
+      <li><b>프롬프트 · 협업방 · 팁</b> — 그 글 내용.</li>
+      <li>↑ ↓로 고르고 Enter, 붙인 맥락은 칩의 ✕로 빼요.</li>
+    </ul></div>
+    <div class="card"><h3>알아 두기</h3><ul>
+      <li>학생은 가명ID(S012)로만 AI에 가요. 내 글과 맥락 속 이름 · 학번도 가리고, 답에서는 화면에서만 이름을 붙여 보여 줘요.</li>
+      <li>학생을 붙이면 생기부용 Opus 5.5, 아니면 Sonnet이 답해요.</li>
+      <li>대화는 저장하지 않아요. 새로고침하면 사라지니 필요한 답은 <span class="btn">복사</span>해 두세요.</li>
+    </ul></div>
+  </div>
+  <figure class="shot"><img src="ai.webp" alt="AI 작업창" loading="lazy"><figcaption>AI 작업창 — @를 치면 붙일 맥락이 떠요</figcaption></figure>
 </section>
 
 <section id="collab" data-k="협업 협업방 동학년 교과 공동 초대 메모 공유 가져오기">

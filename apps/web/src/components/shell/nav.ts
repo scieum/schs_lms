@@ -49,7 +49,8 @@ function baseNav(v: Viewer, rooms: { id: string; name: string }[] = []): NavGrou
   // 담임(관리자 아님)은 우리 반 홈이 첫 화면
   const home = homeroom && !admin ? "/homeroom" : "/teacher";
 
-  const groups: NavGroup[] = [{ label: "", items: [I("홈", home, "home")] }];
+  // AI 작업창 (Figma N70, 2026-10-22): 홈 바로 아래 — 무엇이든 시키고 @로 맥락 붙이기
+  const groups: NavGroup[] = [{ label: "", items: [I("홈", home, "home"), I("AI 작업창", "/ai", "sparkle")] }];
   groups.push({ label: "업무", items: [
     I("학사일정", "/schedule", "calendar"),
     I("담당 학생", "/students", "users"),
@@ -360,6 +361,7 @@ export const MENU_KEYWORDS: Record<string, string[]> = {
   "/teacher/texts?tab=setuk": ["모아 보기", "1500바이트", "확정본", "세특 모음"],
   "/teacher/texts?tab=behavior": ["모아 보기", "행발", "누가기록", "확정본"],
   "/teacher/counseling": ["상담"],
+  "/ai": ["AI", "인공지능", "챗", "채팅", "질문", "작업", "GPT", "클로드", "초안", "요약"],
   "/collab": ["협업", "협업방", "동학년", "교과", "공동", "같이", "공유", "초대"],
   "/teacher/prompts": ["프롬프트", "프롬", "AI", "스타일", "공식", "공유", "별", "추천"],
   "/teacher/qna": ["문의", "질문", "QnA", "Q&A", "답변", "게시판", "도움"],

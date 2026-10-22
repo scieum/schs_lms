@@ -73,3 +73,28 @@ export function aiError(e: unknown): string {
   if (e instanceof Anthropic.APIError) return `AI 호출 실패 (${e.status ?? "연결"})`;
   return "AI 처리 중 문제가 생겼어요";
 }
+
+export type ChatTurn = { role: "user" | "assistant"; content: string };
+
+/** 자유 대화 (AI 작업창, 2026-10-22): 정해진 형식 없이 글로 답을 받는다. 규칙(RULES)은 똑같이 붙는다 */
+export async function aiChat(opts: { system: string; messages: ChatTurn[]; model?: AiModel; maxTokens?: number }): Promise<AiResult<string>> {
+  if (!aiEnabled()) return { ok: false, error: "AI가 꺼져 있어요 (ANTHROPIC_API_KEY 없음)" };
+  const client = new Anthropic();
+  try {
+    const model = opts.model ?? "write";
+    const res = await client.messages.create({
+      model: MODEL[model],
+      max_tokens: opts.maxTokens ?? 3000,
+      system: [{ type: "text", text: opts.system + RULES, cache_control: { type: "ephemeral" } }],
+      messages: opts.messages.map((m) => ({ role: m.role, content: m.content })),
+      thinking: THINKING[model],
+      output_config: { effort: EFFORT[model] },
+    });
+    if (res.stop_reason === "refusal") return { ok: false, error: "AI가 이 요청을 처리하지 못했어요" };
+    const text = res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim();
+    if (!text) return { ok: false, error: res.stop_reason === "max_tokens" ? "답이 길어 중간에 끊겼어요. 나눠서 물어봐 주세요" : "AI 답을 받지 못했어요. 다시 눌러 주세요" };
+    return { ok: true, data: res.stop_reason === "max_tokens" ? `${text}\n\n(답이 길어 여기서 끊겼어요)` : text };
+  } catch (e) {
+    return { ok: false, error: aiError(e) };
+  }
+}
