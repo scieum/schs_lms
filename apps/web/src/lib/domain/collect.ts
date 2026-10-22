@@ -35,3 +35,10 @@ export function sortStudents(list: CollectStudent[], by: "few" | "no"): CollectS
 
 /** 오늘 남긴 조각 줄 수 (최근 조각 머리 "오늘 n") */
 export const todayCount = (list: RecentPiece[], today: string) => list.filter((r) => r.date === today).length;
+
+/** 학생 찾기 (2026-10-22): 학번 · 이름 일부로 (띄어 쓴 말은 모두 맞아야). 빈 말이면 그대로 */
+export function findStudents<T extends { no: string; name: string }>(list: T[], q: string): T[] {
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return list;
+  return list.filter((s) => words.every((w) => s.no.includes(w) || s.name.toLowerCase().includes(w)));
+}

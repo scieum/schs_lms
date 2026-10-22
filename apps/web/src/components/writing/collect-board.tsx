@@ -2,11 +2,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { CalendarDays, Check, ChevronDown, ChevronRight, FileUp, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronRight, FileUp, Search, Trash2, X } from "lucide-react";
 import { cx } from "@/components/ui";
 import { ACTIVITY_MAX, cleanActivity } from "@/lib/domain/activity-name";
 import { shortMd } from "@/lib/domain/log-date";
-import { sortStudents, todayCount, type CollectStudent, type RecentPiece } from "@/lib/domain/collect";
+import { sortStudents, todayCount, type CollectStudent, type RecentPiece, findStudents } from "@/lib/domain/collect";
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { ACCEPT } from "./evidence-files";
 import { addSetukPieces, polishSetukMemo, readSetukCollectFile } from "@/app/(app)/teacher/setuk/actions";
@@ -45,6 +45,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
   const router = useRouter();
   const [picked, setPicked] = useState<Set<string>>(() => new Set(preselect.filter((id) => students.some((s) => s.id === id))));
   const [more, setMore] = useState(false);
+  const [find, setFind] = useState("");
   const [activity, setActivity] = useState("");
   const [date, setDate] = useState(today);
   const [area, setArea] = useState(areas?.[0]?.value ?? (target.kind === "log" ? target.area : ""));
@@ -157,6 +158,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
     </button>
   );
 
+  const shown = findStudents(students, find);
   return (
     // 두 칸은 화면 폭이 아니라 본문 폭으로 (영랑이 사이드 창이 열려 좁아지면 한 칸) — Tailwind 컨테이너 쿼리
     <div className="@container">
@@ -167,7 +169,16 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
           <h2 className="text-[15px] font-bold">받는 학생</h2>
           <span className={cx("rounded-chip px-2 py-0.5 text-[12px] font-bold", n ? "bg-key-soft text-key-strong" : "bg-soft text-mute")}>{n}명</span>
           <span className="flex-1" />
-          <button type="button" onClick={() => { setMsg(null); setPicked(new Set(students.map((s) => s.id))); }} className="px-1.5 text-[13px] font-medium text-sub">모두</button>
+          {students.length > 8 && (
+            <label className="flex h-8 w-[150px] items-center gap-1.5 rounded-control border border-line bg-[#fff] px-2.5 md:w-[200px]">
+              <Search size={13} className="shrink-0 text-mute" aria-hidden />
+              <input value={find} onChange={(e) => setFind(e.target.value)} placeholder="학번 · 이름 찾기" aria-label="학생 찾기"
+                className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-faint" />
+              {find && <button type="button" onClick={() => setFind("")} aria-label="찾기 지우기" className="text-faint hover:text-ink"><X size={13} /></button>}
+            </label>
+          )}
+          {/* 찾는 중이면 '모두'는 찾은 학생만 더한다 */}
+          <button type="button" onClick={() => { setMsg(null); setPicked(find.trim() ? new Set([...picked, ...shown.map((s) => s.id)]) : new Set(students.map((s) => s.id))); }} className="px-1.5 text-[13px] font-medium text-sub">모두</button>
           <button type="button" onClick={() => { setMsg(null); setPicked(new Set()); }} className="px-1.5 text-[13px] font-medium text-sub">비우기</button>
         </div>
 
@@ -175,10 +186,12 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
           <p className="rounded-inner bg-bg px-4 py-6 text-center text-[13px] text-mute">명단에 학생이 없어요</p>
         ) : (
           <div>
+            {shown.length === 0 && <p className="rounded-inner bg-bg px-4 py-5 text-center text-[13px] text-mute">&quot;{find.trim()}&quot; 학생이 없어요</p>}
             <ul className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              {students.map((s, i) => {
+              {shown.map((s, i) => {
                 const on = picked.has(s.id);
-                const hide = !more && (i >= PC_SHOWN ? "hidden" : i >= M_SHOWN ? "hidden md:block" : "");
+                // 찾는 중에는 찾은 학생을 다 보여 준다
+                const hide = !more && !find.trim() && (i >= PC_SHOWN ? "hidden" : i >= M_SHOWN ? "hidden md:block" : "");
                 return (
                   <li key={s.id} className={cx(hide || "")}>
                     <button type="button" onClick={() => toggle(s.id)} aria-pressed={on}
@@ -195,7 +208,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
                 );
               })}
             </ul>
-            {!more && students.length > M_SHOWN && (
+            {!more && !find.trim() && students.length > M_SHOWN && (
               <button type="button" onClick={() => setMore(true)}
                 className={cx("mt-2.5 inline-flex items-center gap-1 px-1 text-[13px] font-bold text-key-strong", students.length <= PC_SHOWN && "md:hidden")}>
                 <span className="md:hidden">{students.length - M_SHOWN}명 더 보기</span>

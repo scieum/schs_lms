@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useActionState, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Layers, Lock, Sparkles, Users } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Layers, Lock, Search, Sparkles, Users } from "lucide-react";
 import { cx } from "@/components/ui";
 import { checkLength, measure, UNIT_LABEL, type LengthRange, type LengthUnit } from "@/lib/domain/length";
 import { appendBand, gateBand, type GateResult } from "@/lib/domain/length-gate";
@@ -36,6 +36,7 @@ import { SimilarNotice, SimilarSheet, useSimilar, type SimilarPeer, type Similar
 import { LevelPicker, useLevels } from "./level-picker";
 import { ClassActionsBar } from "./class-actions-bar";
 import { deleteMyPieces } from "@/app/(app)/teacher/piece-actions";
+import { findStudents } from "@/lib/domain/collect";
 import { useWorkspace } from "./workspace";
 
 // 글 짓기 (Figma N52 (b)(c)(d)(e)(g1)): 한 학생씩 — 머리 "글 짓기" ↔ [반 전체] [조각 모으기] · (담임) 탭 · 학생 넘기기 ·
@@ -651,6 +652,7 @@ function StudentSwitcher({ classes, classLabel, students, current, pos, status, 
 }) {
   const [cls, setCls] = useState(false);
   const [names, setNames] = useState(false);
+  const [find, setFind] = useState("");
   const closeCls = useMemo(() => () => setCls(false), []);
   const closeNames = useMemo(() => () => setNames(false), []);
   const clsRef = useAway(cls, closeCls);
@@ -684,14 +686,23 @@ function StudentSwitcher({ classes, classLabel, students, current, pos, status, 
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {step(prevHref, "이전 학생", <ChevronLeft size={18} />)}
         <div ref={nameRef} className="relative min-w-0 md:flex-none max-md:flex-1">
-          <button type="button" onClick={() => setNames(!names)} aria-expanded={names} aria-haspopup="listbox"
+          <button type="button" onClick={() => { setNames(!names); setFind(""); }} aria-expanded={names} aria-haspopup="listbox"
             className="flex h-10 min-w-0 max-w-full items-center gap-1.5 rounded-control px-2 text-[16px] font-bold hover:bg-soft">
             <span className="min-w-0 truncate tabular-nums">{me ? `${me.no} ${me.name}` : "학생"}</span>
             <ChevronDown size={16} className={cx("shrink-0 text-sub", names && "rotate-180")} aria-hidden />
           </button>
           {names && (
-            <div role="listbox" aria-label="학생 고르기" className="absolute left-0 top-[calc(100%+6px)] z-40 max-h-[360px] w-[280px] max-w-[calc(100vw-48px)] overflow-y-auto rounded-card border border-line bg-[#fff] p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
-              {students.map((s) => (
+            <div className="absolute left-0 top-[calc(100%+6px)] z-40 flex max-h-[400px] w-[280px] max-w-[calc(100vw-48px)] flex-col rounded-card border border-line bg-[#fff] p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
+            {/* 학생 찾기 (2026-10-22): 학번 · 이름 일부 → Enter 면 맨 위 학생으로 */}
+            <label className="mb-1 flex h-9 shrink-0 items-center gap-1.5 rounded-control bg-soft px-2.5">
+              <Search size={14} className="shrink-0 text-mute" aria-hidden />
+              <input autoFocus value={find} onChange={(e) => setFind(e.target.value)} placeholder="학번 · 이름 찾기" aria-label="학생 찾기"
+                onKeyDown={(e) => { const first = findStudents(students, find)[0]; if (e.key === "Enter" && first) { e.preventDefault(); setNames(false); if (first.id !== current) onGo(hrefOf(first.id)); } }}
+                className="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-faint" />
+            </label>
+            <div role="listbox" aria-label="학생 고르기" className="min-h-0 flex-1 overflow-y-auto">
+              {findStudents(students, find).length === 0 && <p className="px-2.5 py-4 text-center text-[13px] text-mute">맞는 학생이 없어요</p>}
+              {findStudents(students, find).map((s) => (
                 <button key={s.id} type="button" role="option" aria-selected={s.id === current} onClick={() => { setNames(false); if (s.id !== current) onGo(hrefOf(s.id)); }}
                   className={cx("flex h-10 w-full items-center gap-2 rounded-control px-2.5 text-left", s.id === current ? "bg-key-soft text-key-strong" : "hover:bg-soft")}>
                   <span className="w-12 shrink-0 text-[12px] tabular-nums text-mute">{s.no}</span>
@@ -699,6 +710,7 @@ function StudentSwitcher({ classes, classLabel, students, current, pos, status, 
                   <span className={cx("inline-flex h-[22px] shrink-0 items-center whitespace-nowrap rounded-chip px-1.5 text-[11px] font-bold", STATUS_CHIP[s.status])}>{s.status}</span>
                 </button>
               ))}
+            </div>
             </div>
           )}
         </div>
