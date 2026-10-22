@@ -34,6 +34,16 @@ export async function buildTemplate(kind: TemplateKind, rows: string[][] = []): 
   // 모든 칸을 글자로 (학번 앞 0·반 번호가 날짜로 바뀌지 않게)
   t.columns.forEach((_, i) => { ws.getColumn(i + 1).numFmt = "@"; });
   for (const r of rows) ws.addRow(t.columns.map((_, i) => r[i] ?? "")).alignment = { vertical: "top", wrapText: true };
+  // 제목 칸 메모 · 본문 드롭다운 (2026-10-22 명단: 학과 = 일반학과)
+  t.columns.forEach((h, i) => {
+    const note = t.notes?.[h];
+    if (note) ws.getRow(1).getCell(i + 1).note = note;
+    const list = t.choices?.[h];
+    if (!list) return;
+    for (let r = 2; r <= TEMPLATE_MAX_ROWS + 1; r++) {
+      ws.getRow(r).getCell(i + 1).dataValidation = { type: "list", allowBlank: true, formulae: [`"${list.join(",")}"`], showErrorMessage: false };
+    }
+  });
 
   const guide = wb.addWorksheet("작성 방법");
   guide.getColumn(1).width = 56;

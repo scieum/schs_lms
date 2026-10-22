@@ -24,7 +24,15 @@ export interface TemplateSpec {
   legacy?: readonly string[];
   /** 함께 읽는 예전 제목 줄들 (학번 하나로 쓰던 양식 등) */
   alt?: readonly (readonly string[])[];
+  /** 제목 칸 메모 (엑셀 빨간 삼각형 — 마우스를 올리면 보임) */
+  notes?: Readonly<Record<string, string>>;
+  /** 칸 드롭다운 (본문 줄에 미리 걸어 둠) */
+  choices?: Readonly<Record<string, readonly string[]>>;
 }
+
+/** 학생 명단 양식 공통 (나이스 명렬): 학과 = 일반학과 */
+const ROSTER_NOTES = { 연번: "1부터 차례로 — 읽지 않아요", 학과: "일반학과라고 쓰면 돼요 (드롭다운에서 골라도 돼요)" } as const;
+const ROSTER_CHOICES = { 학년: ["1", "2", "3"], 학과: ["일반학과"] } as const;
 
 export const TEMPLATES: Record<TemplateKind, TemplateSpec> = {
   register: {
@@ -32,7 +40,9 @@ export const TEMPLATES: Record<TemplateKind, TemplateSpec> = {
     columns: ["연번", "학년", "학과", "반", "번호", "성명", "성별", "계열"],
     widths: [40, 40, 72, 36, 40, 64, 44, 48],
     examples: [["1", "2", "일반학과", "1", "2", "학생A", "여", "1"], ["2", "2", "일반학과", "1", "22", "학생B", "남", "2"]],
-    guide: ["나이스 명렬 양식 그대로예요 — 나이스에서 내려받은 명단에 성별 · 계열 칸만 붙여도 돼요", "연번 · 학과는 읽지 않아요 · 학년 · 반 · 번호는 숫자", "성별은 남·여, 계열은 비우면 1"],
+    guide: ["나이스 명렬 양식 그대로예요 — 나이스에서 내려받은 명단에 성별 · 계열 칸만 붙여도 돼요", "학과에는 일반학과라고 쓰면 돼요 (학년 · 학과 · 성별은 드롭다운으로 골라도 돼요)", "연번 · 학과는 읽지 않아요 · 학년 · 반 · 번호는 숫자", "성별은 남·여, 계열은 비우면 1"],
+    notes: ROSTER_NOTES,
+    choices: { ...ROSTER_CHOICES, 성별: ["남", "여"] },
     legacy: ["학번", "학년", "반", "번호", "이름", "성별", "계열"],
     alt: [["학번", "이름", "성별", "계열"], ["연번", "학년", "학과", "반", "번호", "성명"]],
   },
@@ -41,7 +51,9 @@ export const TEMPLATES: Record<TemplateKind, TemplateSpec> = {
     columns: ["연번", "학년", "학과", "반", "번호", "성명"],
     widths: [40, 40, 72, 36, 40, 64],
     examples: [["1", "2", "일반학과", "1", "2", "학생A"], ["2", "2", "일반학과", "1", "22", "학생B"]],
-    guide: ["나이스 명렬 양식 그대로예요 — 나이스에서 내려받은 명단을 그대로 올려도 돼요", "연번 · 학과는 읽지 않아요", "성명이 등록된 이름과 다르면 그 줄은 못 찾음으로 나와요"],
+    guide: ["나이스 명렬 양식 그대로예요 — 나이스에서 내려받은 명단을 그대로 올려도 돼요", "학과에는 일반학과라고 쓰면 돼요 (학년 · 학과는 드롭다운으로 골라도 돼요)", "연번 · 학과는 읽지 않아요", "성명이 등록된 이름과 다르면 그 줄은 못 찾음으로 나와요"],
+    notes: ROSTER_NOTES,
+    choices: ROSTER_CHOICES,
     legacy: ["학번", "학년", "반", "번호", "이름"],
     alt: [["학번", "이름"]],
   },
