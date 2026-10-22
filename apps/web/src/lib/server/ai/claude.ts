@@ -13,7 +13,12 @@ import type { z } from "zod";
  * record = 생기부 글 쓰기 · 고쳐 쓰기 (Opus 5.5, 노력 보통) */
 export type AiModel = "fast" | "write" | "record";
 const MODEL: Record<AiModel, string> = { fast: "claude-haiku-5-5", write: "claude-sonnet-5-5", record: "claude-opus-5-5" };
-const THINKING: Record<AiModel, Anthropic.ThinkingConfigParam> = { fast: { type: "disabled" }, write: { type: "between_tools" }, record: { type: "between_tools" } };
+// 생각 설정 (2026-10-22 운영 400 고침): Haiku 5.5 = 끔(노력 high 이하에서만), Sonnet 5.5 = between_tools(끔 대신, high 이하),
+// Opus 5.5 = 끌 수 없음 — disabled · between_tools 모두 400 이라 thinking 을 아예 보내지 않고(적응형) 노력으로만 조절한다
+const THINKING: Record<AiModel, Anthropic.ThinkingConfigParam | null> = { fast: { type: "disabled" }, write: { type: "between_tools" }, record: null };
+const thinkingFor = (m: AiModel) => (THINKING[m] ? { thinking: THINKING[m]! } : {});
+/** Opus 는 생각이 늘 켜져 있어 생각 토큰이 max_tokens 를 먹는다 — 답이 끊기지 않게 넉넉히 */
+const maxFor = (m: AiModel, n: number) => (m === "record" ? Math.max(n, 16000) : n);
 const EFFORT: Record<AiModel, "low" | "medium"> = { fast: "low", write: "medium", record: "medium" };
 
 export type AiResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -41,13 +46,13 @@ export async function aiJson<S extends z.ZodType>(
     const model = opts.model ?? "fast";
     const res = await client.messages.parse({
       model: MODEL[model],
-      max_tokens: opts.maxTokens ?? 4000,
+      max_tokens: maxFor(model, opts.maxTokens ?? 4000),
       // 긴 시스템 프롬프트(세특 프롬프트 등)는 캐시해 두 번째부터 빨리 시작한다
       system: [{ type: "text", text: opts.system + RULES, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: opts.content }],
       // 속도 (2026-10-18 "AI가 너무 오래 걸려"): Claude 5 모델은 기본으로 생각을 켜고 오래 고민한다.
       // 정해진 형식의 짧은 글이라 생각을 끄고 노력 수준을 낮춘다 (Haiku 낮음 · Sonnet 보통). 생각 토큰이 max_tokens 를 먹어 답이 끊기던 것도 막는다
-      thinking: THINKING[model],
+      ...thinkingFor(model),
       output_config: { format: zodOutputFormat(schema), effort: EFFORT[model] },
     });
     if (res.stop_reason === "refusal") return { ok: false, error: "AI가 이 요청을 처리하지 못했어요. 직접 입력해 주세요" };
@@ -84,10 +89,10 @@ export async function aiChat(opts: { system: string; messages: ChatTurn[]; model
     const model = opts.model ?? "write";
     const res = await client.messages.create({
       model: MODEL[model],
-      max_tokens: opts.maxTokens ?? 3000,
+      max_tokens: maxFor(model, opts.maxTokens ?? 3000),
       system: [{ type: "text", text: opts.system + RULES, cache_control: { type: "ephemeral" } }],
       messages: opts.messages.map((m) => ({ role: m.role, content: m.content })),
-      thinking: THINKING[model],
+      ...thinkingFor(model),
       output_config: { effort: EFFORT[model] },
     });
     if (res.stop_reason === "refusal") return { ok: false, error: "AI가 이 요청을 처리하지 못했어요" };
