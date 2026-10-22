@@ -107,7 +107,7 @@ export async function writeRecord(input: WriteInput): Promise<WriteResult> {
 
   const system = recordSystemPrompt(input.kind, input.kind === "세특" ? input.context : null) + APP_RULES + SOURCED_RULES + (input.tone ?? "")
     + praisePrompt(input.level, evidenceAmount([memo, ...logs.map((l) => l.content)]));
-  const r = await aiJson(SourcedOut, { system, content, model: "write", maxTokens: 3500 });
+  const r = await aiJson(SourcedOut, { system, content, model: "record", maxTokens: 3500 });
   if (!r.ok) return fallback(`${r.error} — 예시 초안을 대신 채웠어요`);
 
   // 결과에 이름·학번·가명ID가 섞이면 지운다

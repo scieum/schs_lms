@@ -8,11 +8,13 @@ import type { z } from "zod";
 // - 학생 정보는 가명ID만 보낸다 (이름·학번 금지). 예외는 ADR-0001에 적힌 것만.
 // - 키가 없으면 꺼진다 → 화면은 "직접 입력"으로 이어간다.
 
-/** fast = 읽기·열 맞추기·요약 같은 빠른 작업, write = 생기부 초안·문항처럼 글을 쓰는 작업 */
-export type AiModel = "fast" | "write";
-const MODEL: Record<AiModel, string> = { fast: "claude-haiku-5-5", write: "claude-sonnet-5-5" };
-const THINKING: Record<AiModel, Anthropic.ThinkingConfigParam> = { fast: { type: "disabled" }, write: { type: "between_tools" } };
-const EFFORT: Record<AiModel, "low" | "medium"> = { fast: "low", write: "medium" };
+/** 사용료 순 (2026-10-22 "하찮은 작업은 싼 모델, 생기부 작성은 Opus 5.5 medium"):
+ * fast = 열 맞추기·요약·알림 문구 같은 가벼운 작업 (Haiku), write = 서류·편제표 읽기·업무 글 (Sonnet),
+ * record = 생기부 글 쓰기 · 고쳐 쓰기 (Opus 5.5, 노력 보통) */
+export type AiModel = "fast" | "write" | "record";
+const MODEL: Record<AiModel, string> = { fast: "claude-haiku-5-5", write: "claude-sonnet-5-5", record: "claude-opus-5-5" };
+const THINKING: Record<AiModel, Anthropic.ThinkingConfigParam> = { fast: { type: "disabled" }, write: { type: "between_tools" }, record: { type: "between_tools" } };
+const EFFORT: Record<AiModel, "low" | "medium"> = { fast: "low", write: "medium", record: "medium" };
 
 export type AiResult<T> = { ok: true; data: T } | { ok: false; error: string };
 type Content = string | Anthropic.ContentBlockParam[];

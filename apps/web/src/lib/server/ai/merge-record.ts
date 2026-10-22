@@ -63,12 +63,12 @@ async function rewrite(input: { kind: WriteKind; context?: string; student: Stud
   let draft: string;
   let sentences: WriteResult["sentences"];
   if (input.labels) {
-    const r = await aiJson(SourcedOut, { system: system.replace(/draft 에 최종본만 넣는다\./g, "최종본만 쓴다.") + SOURCED_RULES, content: input.content, model: "write", maxTokens: 3500 });
+    const r = await aiJson(SourcedOut, { system: system.replace(/draft 에 최종본만 넣는다\./g, "최종본만 쓴다.") + SOURCED_RULES, content: input.content, model: "record", maxTokens: 3500 });
     if (!r.ok) return fallback(`${r.error} — 조각을 이어 붙였어요`);
     draft = joinSentences(r.data.sentences);
     sentences = toKeys(r.data.sentences, input.labels);
   } else {
-    const r = await aiJson(Out, { system, content: input.content, model: "write", maxTokens: 3000 });
+    const r = await aiJson(Out, { system, content: input.content, model: "record", maxTokens: 3000 });
     if (!r.ok) return fallback(`${r.error} — 조각을 이어 붙였어요`);
     draft = r.data.draft;
   }
@@ -403,7 +403,7 @@ export async function variantsRecord(input: { kind: WriteKind; context?: string;
 - 본문에 없는 내용은 쓰지 않는다. 학생 이름·가명ID·주어는 쓰지 않는다.
 - 버전마다 ${range.max.toLocaleString()}${UNIT_LABEL[range.unit]}를 넘지 않는다. 한 문단.
 - versions 에 3개를 넣는다.`;
-  const r = await aiJson(z.object({ versions: z.array(z.string()) }), { system, content, model: "write", maxTokens: 4000 });
+  const r = await aiJson(z.object({ versions: z.array(z.string()) }), { system, content, model: "record", maxTokens: 4000 });
   if (!r.ok) return { versions: [], label: "AI", sample: false, notice: r.error };
   const out: Variant[] = [];
   for (const raw of r.data.versions.slice(0, 3)) {

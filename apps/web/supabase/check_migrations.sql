@@ -33,7 +33,8 @@ with probe(no, label, tbl, col) as (values
   ('0030', '생기부 팁', 'tips_posts', 'id'),
   ('0031', '내 스타일', 'writing_styles', 'teacher_id'),
   ('0033', '수행평가', 'course_assessments', 'id'),
-  ('0034', '조각 지우기', 'record_memos', 'deleted_at')
+  ('0034', '조각 지우기', 'record_memos', 'deleted_at'),
+  ('0035', '문의 게시판', 'qna_posts', 'id')
 )
 select p.no, p.label,
   case when c.column_name is null then '안 넣음' else '들어감' end as 상태

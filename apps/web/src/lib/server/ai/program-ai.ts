@@ -15,7 +15,7 @@ const withDay = (ymd: string) => `${md(ymd)}(${WEEK[new Date(`${ymd}T00:00:00`).
 /** T3 설문 문항 추천: 활동 개요 → 추가 문항 후보 */
 export async function suggestQuestions(p: { title: string; area: string; overview: string }): Promise<AiResult<string[]>> {
   const r = await aiJson(z.object({ questions: z.array(z.string()) }), {
-    model: "write",
+    model: "fast",
     system: `너는 고등학교 활동 설문 문항을 만드는 도우미다. 고정 문항(활동 내용·배운 점·느낀 점·후속 계획)과 겹치지 않는 추가 문항 3개를 만든다.
 - 학생이 구체적인 사실(과정·수치·어려움·역할)을 쓰게 하는 질문
 - 한 문항 40자 이내, 존댓말 의문문 ("~은 무엇인가요?")`,
@@ -29,7 +29,7 @@ export async function reminderMessage(p: Program, missing: number): Promise<{ te
   const fallback = `"${p.title}" 설문이 ${withDay(p.endDate)}에 마감돼요. ${p.questions.length}문항, 10분이면 끝나요.${p.requestDocs ? " 제출 서류만 올려도 괜찮아요!" : ""}`;
   if (!aiEnabled()) return { text: fallback, label: "자동" };
   const r = await aiJson(z.object({ message: z.string() }), {
-    model: "write",
+    model: "fast",
     system: "너는 고등학생에게 보내는 설문 응답 독촉 알림을 쓴다. 다정하고 짧게(80자 이내), 마감일과 걸리는 시간을 넣는다. 이름은 넣지 않는다.",
     content: `프로그램: ${p.title}\n마감: ${withDay(p.endDate)}\n문항 수: ${p.questions.length}\n미응답: ${missing}명\n서류 제출 요청: ${p.requestDocs ? "있음" : "없음"}`,
   });
@@ -254,7 +254,7 @@ export async function rephraseSentence(
   const rule = { options: rephraseRule(sentence), label: "자동" as const };
   if (!aiEnabled()) return rule;
   const r = await aiJson(z.object({ options: z.array(z.string()) }), {
-    model: "write",
+    model: "record",
     maxTokens: 1500,
     system: `${recordSystemPrompt(kindOfArea(p.area), p.subject)}
 

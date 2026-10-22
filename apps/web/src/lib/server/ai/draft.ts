@@ -91,7 +91,7 @@ async function attemptOnce(job: DraftJob, people: { name: string; studentNo: str
     // N41 과장 막기: 프로그램 초안은 성취수준을 고르지 않는다 → 사실 그대로, 근거가 적으면 총평·최상급 칭찬 금지
     const amount = evidenceAmount(pool.length ? pool.map((p) => p.text) : evidence.map((e) => e.text));
     const system = recordSystemPrompt(kindOfArea(program.area), program.subject) + APP_RULES(range.min, range.max, UNIT_LABEL[range.unit]) + SOURCED_RULES + praisePrompt(null, amount);
-    const r = await aiJson(SourcedOut, { system, content, model: "write", maxTokens: 3500 });
+    const r = await aiJson(SourcedOut, { system, content, model: "record", maxTokens: 3500 });
     if (!r.ok) return { ok: false, error: r.error };
     text = joinSentences(r.data.sentences).trim();
     aiSentences = toKeys(r.data.sentences, labels);
