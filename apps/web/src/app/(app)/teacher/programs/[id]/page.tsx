@@ -25,7 +25,7 @@ export const metadata = { title: "프로그램 상세 · 속초고 쌤기부" };
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; cls?: string; q?: string; src?: string; st?: string; page?: string; remind?: string }> };
 
 // 학생별 현황 거르기: 받는 중·마감에는 응답 기준, 초안부터는 초안 기준 (Figma N16)
-const TABS_EARLY = [["all", "전체"], ["missing", "미응답"], ["resp", "응답"], ["reason", "사유"]] as const;
+const TABS_EARLY = [["all", "전체"], ["missing", "미제출"], ["resp", "제출"], ["reason", "사유"]] as const;
 const TABS_LATE = [["all", "전체"], ["review", "검토 대기"], ["running", "만드는 중"], ["failed", "실패"]] as const;
 /** 외부 글 프로그램 (N46): 글 없음 · 검토 대기 */
 const TABS_EXT = [["all", "전체"], ["missing", "글 없음"], ["review", "검토 대기"]] as const;
@@ -168,7 +168,7 @@ export default async function ProgramDetail({ params, searchParams }: Props) {
           </form>
 
           <div className="hidden grid-cols-[minmax(0,1fr)_88px_64px_88px_80px] items-center gap-3 rounded-inner bg-white px-4 py-2.5 text-[13px] text-mute md:grid">
-            <span>학생</span><span className="text-center">근거 자료</span><span className="text-center">응답일</span><span className="text-center">상태</span><span />
+            <span>학생</span><span className="text-center">근거 자료</span><span className="text-center">제출일</span><span className="text-center">상태</span><span />
           </div>
           {paged.length === 0 ? (
             <p className="py-8 text-center text-sm text-mute">해당하는 학생이 없어요</p>

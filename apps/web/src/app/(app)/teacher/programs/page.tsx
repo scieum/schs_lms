@@ -78,7 +78,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
       <PageBody>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
           {tabs}
-          <SummaryLine items={[["진행", open.length], ["응답률", `${avg}%`], ["검토", summary.reduce((n, s) => n + s.review, 0)], ["실패", failed]]} bad={failed > 0 ? 3 : -1} />
+          <SummaryLine items={[["진행", open.length], ["제출률", `${avg}%`], ["검토", summary.reduce((n, s) => n + s.review, 0)], ["실패", failed]]} bad={failed > 0 ? 3 : -1} />
         </div>
         {programs.length === 0 ? (
           <Card>

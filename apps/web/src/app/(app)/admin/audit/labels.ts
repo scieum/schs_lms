@@ -15,7 +15,7 @@ const LABEL: Record<string, string> = {
   "offering.sections": "반 늘리기", "offering.settings": "신청 설정", "offering.apply": "과목 신청",
   // 프로그램·초안
   "program.save": "프로그램 임시 저장", "program.edit": "프로그램 수정", "program.delete": "프로그램 삭제", "draft.over_length": "분량 초과 확정", "setuk.over_length": "세특 분량 초과 확정", "record.over_length": "기록 분량 초과 확정", "program.publish": "프로그램 발행", "program.close": "프로그램 마감", "program.source": "근거 자료 방식 변경",
-  "program.remind": "미응답 알림", "program.roster": "프로그램 명단 업로드", "program.external_import": "외부 글 엑셀로 넣기", "program.external_template": "외부 글 양식 받기", "draft.external": "외부 글 직접 넣기","program.ai.questions": "AI 문항 추천", "program.ai.reminder": "AI 독촉 문구",
+  "program.remind": "미제출 알림", "program.roster": "프로그램 명단 업로드", "program.external_import": "외부 글 엑셀로 넣기", "program.external_template": "외부 글 양식 받기", "draft.external": "외부 글 직접 넣기","program.ai.questions": "AI 문항 추천", "program.ai.reminder": "AI 독촉 문구",
   "material.upload": "서류 올리기", "material.assign": "서류 학생 지정", "material.student": "서류 학생 연결", "material.missing": "미제출 사유", "material.delete": "서류 지움", "material.student.delete": "학생이 서류 지움",
   "material.split": "합본 PDF 나누기", "material.ai.read": "AI 서류 읽기", "material.ai.confirm": "AI 연결 확인", "material.ai.split": "AI 쪽 나누기",
   "draft.generate": "초안 만들기", "draft.regenerate": "초안 다시 만들기", "draft.edit": "초안 수정", "draft.finalize": "초안 확정",

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertCircle, Check, ClipboardList, FileText, Scissors, Sparkles, Upload } from "lucide-react";
+import { AlertCircle, Check, ClipboardList, FileText, Scissors, Upload } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Button, ButtonLink, Card, Steps, cx } from "@/components/ui";
 import { usesDocs, type EvidenceSource, type Material } from "@/lib/domain/program";
@@ -18,9 +18,7 @@ export const metadata = { title: "초안 자료 등록 · 속초고 쌤기부" }
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ mode?: string }> };
 
 const SOURCES: [EvidenceSource, string, string, typeof ClipboardList][] = [
-  ["survey", "설문 응답", "학생이 직접 쓴 활동 설문으로 작성", ClipboardList],
-  ["docs", "학생 제출 서류", "보고서·활동지·소감문 등 제출물로 작성 · 설문 없이도 시작할 수 있어요", Upload],
-  ["both", "둘 다 사용", "설문과 제출 서류를 함께 근거로 작성", Sparkles],
+  ["docs", "학생 제출 서류", "보고서·활동지·소감문 등 제출물로 작성", Upload],
 ];
 const MODES = [["bulk", "일괄 업로드"], ["one", "개별 업로드"], ["bundle", "합본 PDF 나누기"]] as const;
 
@@ -138,7 +136,7 @@ export default async function MaterialsPage({ params, searchParams }: Props) {
             </div>
           </Card>
         ) : (
-          <Card><p className="py-4 text-center text-sm text-sub">설문만 쓰는 프로그램이에요. 서류도 쓰려면 위에서 바꿔 주세요</p></Card>
+          <Card><p className="py-4 text-center text-sm text-sub">예전 설문 프로그램이에요. 서류로 쓰려면 위에서 “학생 제출 서류”를 골라 주세요</p></Card>
         )}
 
         <section className="rounded-card bg-navy p-5 text-white md:p-6">

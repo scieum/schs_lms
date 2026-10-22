@@ -69,7 +69,7 @@ export function ProgramMemoBox({ programId, studentId, initial, canRewrite, othe
       <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={PROGRAM_MEMO_MAX} rows={3} aria-label="이 학생 관찰 메모"
         placeholder="수업에서 본 일을 짧게 · 예: 발표 뒤 질문에 그래프로 다시 설명함"
         className="min-h-[76px] w-full resize-y rounded-field bg-soft px-3 py-2.5 text-[14px] leading-[22px] outline-none focus:ring-2 focus:ring-key" />
-      <p className="text-[12px] text-mute break-keep">설문·서류와 함께 근거가 돼요 · AI에는 이름 없이 가명으로만 가요</p>
+      <p className="text-[12px] text-mute break-keep">제출 서류와 함께 근거가 돼요 · AI에는 이름 없이 가명으로만 가요</p>
       {others.length > 0 && (
         <div className="flex flex-col gap-2">
           <button type="button" onClick={() => setBulk(!bulk)} aria-expanded={bulk} className="flex items-center gap-1 self-start text-[12px] font-medium text-key-strong">

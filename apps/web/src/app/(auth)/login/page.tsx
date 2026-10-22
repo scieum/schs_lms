@@ -12,7 +12,7 @@ export const metadata = { title: "로그인 · 속초고 쌤기부" };
 
 
 const FEATURES: { icon: LucideIcon; title: string; desc: string; ai?: boolean }[] = [
-  { icon: ClipboardList, title: "설문·서류 제출", desc: "프로그램이 끝나면 휴대폰으로 바로 내요" },
+  { icon: ClipboardList, title: "서류 제출", desc: "프로그램이 끝나면 휴대폰으로 바로 내요" },
   { icon: Sparkles, title: "생기부 초안", desc: "응답을 모아 선생님이 다듬을 초안을 만들어요", ai: true },
   { icon: MessageCircle, title: "상담 기록", desc: "담임·교과 선생님이 이어서 봐요" },
   { icon: Lock, title: "가명 처리", desc: "AI에는 이름 대신 가명만 보내요" },

@@ -4,7 +4,7 @@ import { Bell, ClipboardList } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { Card, Tag, cx } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
-import { daysLeft, ddayLabel, effectiveStatus, md, usesDocs, usesSurvey } from "@/lib/domain/program";
+import { daysLeft, ddayLabel, effectiveStatus, md, usesDocs } from "@/lib/domain/program";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
@@ -12,7 +12,7 @@ import { SurveyForm } from "./survey-form";
 import { noticeLine } from "@/lib/domain/retention";
 import { programRetention } from "@/lib/server/retention-sweep";
 
-export const metadata = { title: "설문·서류 제출 · 속초고 쌤기부" };
+export const metadata = { title: "서류 제출 · 속초고 쌤기부" };
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -33,12 +33,12 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
     const r = responses[i];
     const docs = usesDocs(p.source) && p.requestDocs;
     const myDocs = mats.filter((m) => m.programId === p.id);
-    const surveyDone = !usesSurvey(p.source) || !!r?.submittedAt;
-    const docsDone = !docs || myDocs.length > 0;
+    // 설문은 2026-10-22 뺐다 — 서류를 받는 프로그램만, 낸 서류가 있으면 제출 완료
+    const docsDone = myDocs.length > 0;
     const closed = effectiveStatus(p, t) === "closed" || daysLeft(p.endDate, t) < 0;
-    const state = surveyDone && docsDone ? "제출 완료" : closed ? "마감" : r && !r.submittedAt ? "임시 저장" : "미응답";
+    const state = docsDone ? "제출 완료" : closed ? "마감" : "미제출";
     return { p, r, docs, myDocs, closed, state };
-  });
+  }).filter((x) => x.docs);
   // 열린 것 먼저, 마감 임박 순
   rows.sort((a, b) => Number(a.closed) - Number(b.closed) || Number(a.state === "제출 완료") - Number(b.state === "제출 완료") || a.p.endDate.localeCompare(b.p.endDate));
   const sel = rows.find((x) => x.p.id === q.p) ?? rows.find((x) => !x.closed && x.state !== "제출 완료") ?? rows[0];
@@ -50,13 +50,13 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title={sel ? sel.p.title : "설문·서류 제출"} />
+      <PageHeader title={sel ? sel.p.title : "서류 제출"} />
       <PageBody>
         {rows.length === 0 ? (
           <Card>
             <div className="flex flex-col items-center gap-2 py-8 text-center">
               <ClipboardList size={28} className="text-mute" />
-              <p className="font-bold">지금 낼 설문·서류가 없어요</p>
+              <p className="font-bold">지금 낼 서류가 없어요</p>
             </div>
           </Card>
         ) : (
@@ -76,7 +76,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
               <>
                 <div className={cx("flex flex-wrap items-center gap-1.5 text-[13px] text-mute", rows.length <= 1 && "-mt-2 md:-mt-4")}>
                   <span>{md(sel.p.startDate)} ~ {md(sel.p.endDate)}</span>
-                  <Tag>{sel.state === "미응답" || sel.state === "임시 저장" ? ddayLabel(sel.p.endDate, t) : sel.state}</Tag>
+                  <Tag>{sel.state === "미제출" ? ddayLabel(sel.p.endDate, t) : sel.state}</Tag>
                   {sel.state === "임시 저장" && <Tag>임시 저장</Tag>}
                 </div>
                 {lastReminder && sel.state !== "제출 완료" && (
@@ -88,7 +88,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
                   questions={sel.p.questions}
                   initial={sel.r?.answers ?? {}}
                   submittedAt={sel.r?.submittedAt ?? null}
-                  survey={usesSurvey(sel.p.source)}
+                  survey={false}
                   docs={sel.docs}
                   docTitle={sel.p.docKinds[0] ?? "서류"}
                   myDocs={sel.myDocs.map((m) => ({ id: m.id, name: m.fileName, mine: m.uploaderId === me.id && m.matchedBy === "student" }))}

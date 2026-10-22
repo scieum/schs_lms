@@ -4,7 +4,7 @@ import { ChevronRight, Send } from "lucide-react";
 import { Button, cx } from "@/components/ui";
 import { analyzeResponsesAction, draftReminder, generateDrafts, sendReminder, type AnalyzeState, type GenState, type RemindDraft } from "./actions";
 
-/** T2 AI 배너: 미응답 독촉 메시지 → 문구 확인·수정 → 확인 후 보내기 */
+/** T2 AI 배너: 미제출 알림 메시지 → 문구 확인·수정 → 확인 후 보내기 */
 export function RemindBox({ programId, missing, aiOn, last }: { programId: string; missing: number; aiOn: boolean; last: string | null }) {
   const [draft, draftAction, drafting] = useActionState<RemindDraft, FormData>(draftReminder, {});
   const [sent, sendAction, sending] = useActionState<RemindDraft, FormData>(sendReminder, {});
@@ -19,9 +19,9 @@ export function RemindBox({ programId, missing, aiOn, last }: { programId: strin
         <input type="hidden" name="programId" value={programId} />
         <span className={cx("rounded-chip px-2.5 py-1 text-xs font-bold", aiOn ? "bg-new-soft text-new" : "bg-key-soft text-key-strong")}>{aiOn ? "AI" : "자동"}</span>
         <div className="min-w-0 flex-1">
-          <div className="text-[15px] font-bold">미응답 독촉 메시지</div>
+          <div className="text-[15px] font-bold">미제출 알림 메시지</div>
           <div className="truncate text-[13px] text-sub">
-            {sent.sent ?? (missing ? `미응답 ${missing}명에게 보낼 문구를 만들어요${last ? ` · 마지막 알림 ${last}` : ""}` : "미응답 학생이 없어요")}
+            {sent.sent ?? (missing ? `미제출 ${missing}명에게 보낼 문구를 만들어요${last ? ` · 마지막 알림 ${last}` : ""}` : "미제출 학생이 없어요")}
           </div>
         </div>
         <span className="hidden md:block"><Button size="sm" kind="outline" disabled={!missing || drafting}>{drafting ? "만드는 중…" : "문구 만들기"}</Button></span>

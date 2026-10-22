@@ -6,7 +6,7 @@ export type IconName =
   | "book" | "bookmark" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user" | "calendar" | "presentation" | "send" | "share" | "layers" | "grid" | "lock" | "pencil" | "plus";
 
 export interface NavItem { label: string; href: string; icon: IconName; ready?: boolean; badge?: number; /** 탭: 이 경로로 시작하면 켜짐 */ match?: string[] }
-/** 사이드바 숫자 배지 (Figma: 프로그램 12 = 검토 대기 초안, 오류 처리 2, 설문·서류 제출 2) — href 기준 */
+/** 사이드바 숫자 배지 (Figma: 프로그램 12 = 검토 대기 초안, 오류 처리 2, 서류 제출 2) — href 기준 */
 export type NavBadges = Record<string, number>;
 /** fold: 처음에 접어 두는 묶음. label 이 빈 묶음은 머리 없이 맨 위에 둔다(홈) */
 export interface NavGroup { label: string; items: NavItem[]; fold?: boolean }
@@ -24,7 +24,7 @@ function baseNav(v: Viewer): NavGroup[] {
     return [
       { label: "나의 기록", items: [
         { label: "홈", href: "/student", icon: "home", ready: true },
-        { label: "설문·서류 제출", href: "/student/submit", icon: "clipboard", ready: true },
+        { label: "서류 제출", href: "/student/submit", icon: "clipboard", ready: true },
         { label: "성적·최저", href: "/student/scores", icon: "chart", ready: true },
         { label: "생활기록부", href: "/student/record", icon: "book", ready: true },
         { label: "학사일정", href: "/schedule", icon: "calendar", ready: true },
@@ -353,8 +353,8 @@ export const MENU_KEYWORDS: Record<string, string[]> = {
   "/teacher/counseling": ["상담"],
   "/teacher/tips": ["팁", "DDAR", "구조", "작성법", "서술어", "게시판", "자료"],
   "/teacher/reports": ["리포트", "보고서", "학생별", "인쇄", "PDF", "출력", "가정 통신"],
-  "/teacher/programs": ["설문", "특색 활동", "프로젝트"],
-  "/teacher/programs/new": ["프로그램 만들기", "설문 만들기"],
+  "/teacher/programs": ["특색 활동", "프로젝트", "서류"],
+  "/teacher/programs/new": ["프로그램 만들기", "서류 받기"],
   "/teacher/drafts": ["초안", "검토", "특색 활동 초안"],
   "/teacher/programs?view=calendar": ["캘린더", "달력", "일정"],
   "/teacher/service": ["봉사"],

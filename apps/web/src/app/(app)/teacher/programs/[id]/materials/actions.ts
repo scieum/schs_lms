@@ -23,11 +23,11 @@ async function targetsOf(targetIds: string[]): Promise<Student[]> {
   return (await repo.listStudents()).filter((s) => set.has(s.id));
 }
 
-/** 근거 자료 고르기: 설문 · 서류 · 둘 다 */
+/** 근거 자료 고르기: 서류 · 교사 메모 (설문은 2026-10-22 뺐다) */
 export async function setSource(form: FormData) {
   const { v, program } = await requireProgram(String(form.get("programId") ?? ""));
   const source = String(form.get("source")) as EvidenceSource;
-  if (!["survey", "docs", "both", "memo"].includes(source)) return;
+  if (!["docs", "memo"].includes(source)) return;
   await repo.updateProgram(program.id, { source });
   await repo.audit(v.accountId, "program.source", `${program.id} ${source}`);
   paths(program.id);

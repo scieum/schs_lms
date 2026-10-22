@@ -154,7 +154,7 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
               {data.external ? (
                 <section className="flex flex-col gap-2.5">
                   <h3 className="text-[14px] font-bold">한 활동</h3>
-                  <p className="flex items-center gap-2 rounded-inner bg-bg px-3.5 py-3 text-[13px] text-sub"><Info size={16} className="shrink-0 text-mute" aria-hidden /> 설문·서류를 받지 않는 프로그램이에요 · 기관이 보낸 글을 넣어요</p>
+                  <p className="flex items-center gap-2 rounded-inner bg-bg px-3.5 py-3 text-[13px] text-sub"><Info size={16} className="shrink-0 text-mute" aria-hidden /> 서류를 받지 않는 프로그램이에요 · 기관이 보낸 글을 넣어요</p>
                 </section>
               ) : (
               <section className="flex flex-col gap-2.5">
@@ -169,7 +169,7 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
                 {empty ? (
                   <div className="flex flex-col items-center gap-2 rounded-inner bg-bg py-6">
                     <FileText size={24} className="text-faint" aria-hidden />
-                    <p className="text-[14px] text-sub">설문 응답도 서류도 없어요</p>
+                    <p className="text-[14px] text-sub">낸 서류가 없어요</p>
                   </div>
                 ) : (
                   <>
@@ -274,7 +274,7 @@ function StudentPopup({ programId, student, onClose }: { programId: string; stud
             ) : data?.canRemind ? (
               <button type="button" onClick={remind} disabled={sending || sent}
                 className={cx(footBtn, "inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-control bg-key-soft px-5 text-[15px] font-bold text-key-strong hover:bg-[#e3e7ff] disabled:cursor-not-allowed md:flex-none")}>
-                <Bell size={16} aria-hidden /> {sent ? "알림을 보냈어요" : sending ? "보내는 중…" : "응답 알림 보내기"}
+                <Bell size={16} aria-hidden /> {sent ? "알림을 보냈어요" : sending ? "보내는 중…" : "제출 알림 보내기"}
               </button>
             ) : null}
           </div>

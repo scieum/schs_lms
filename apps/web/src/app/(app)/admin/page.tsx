@@ -55,10 +55,10 @@ export default async function AdminHome() {
   const byProgram = new Map(programs.map((p) => [p.id, p.title]));
   const names = new Map(accounts.map((a) => [a.id, a.name]));
 
-  // 다가오는 마감: 프로그램 설문 마감 + 학년별 과목 신청 마감
+  // 다가오는 마감: 프로그램 제출 마감 + 학년별 과목 신청 마감
   const t = today();
   const schedule = [
-    ...programs.filter((p) => p.status === "open" && p.endDate >= t).map((p) => ({ date: p.endDate, title: `${p.title} 설문 마감`, href: "/teacher/programs" })),
+    ...programs.filter((p) => p.status === "open" && p.endDate >= t).map((p) => ({ date: p.endDate, title: `${p.title} 제출 마감`, href: "/teacher/programs" })),
     ...rounds.filter((r) => r && r.deadline >= t).map((r) => ({ date: r!.deadline, title: `${r!.grade}학년 과목 신청 마감`, href: `/admin/offerings?grade=${r!.grade}` })),
   ].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
 

@@ -11,7 +11,7 @@ import { EXTERNAL_OPEN_EVENT } from "./external-import";
 // 프로그램 상세 단계 (Figma N16 상세 285:4342 · 286:4325): 다섯 단계 표시 + 지금 할 일 버튼 하나
 // 모바일은 탭바 바로 위에 고정, PC는 단계 카드 오른쪽 아래.
 
-const SUB = ["설문·서류 모으기", "응답 끝", "AI가 초안 만들기", "초안 검토 화면", "담임 받은 초안으로"];
+const SUB = ["서류 모으기", "제출 끝", "AI가 초안 만들기", "초안 검토 화면", "담임 받은 초안으로"];
 /** 외부 글 프로그램 (N46): AI 없이 교사가 넣은 글로 */
 const SUB_EXTERNAL = ["외부 글 넣기", "넣기 끝", "AI 안 씀", "초안 검토 화면", "담임 받은 초안으로"];
 
@@ -78,10 +78,10 @@ export function RemindSheet({ ctx, onClose, startOpen }: { ctx: Ctx; onClose?: (
   if (!open) return null;
   const close = () => { setOpen(false); onClose?.(); };
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 md:items-center" role="dialog" aria-modal="true" aria-label="미응답 알리기" onClick={close}>
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 md:items-center" role="dialog" aria-modal="true" aria-label="미제출 알리기" onClick={close}>
       <div className="flex w-full max-w-[520px] flex-col gap-3 rounded-t-card bg-[#fff] p-5 md:rounded-card" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center">
-          <h2 className="flex-1 text-[17px] font-bold">미응답 {ctx.missing}명에게 알리기</h2>
+          <h2 className="flex-1 text-[17px] font-bold">미제출 {ctx.missing}명에게 알리기</h2>
           <button type="button" onClick={close} aria-label="닫기" className="text-mute"><X size={20} /></button>
         </div>
         <RemindBox programId={ctx.programId} missing={ctx.missing} aiOn={ctx.aiOn} last={ctx.last} />

@@ -26,7 +26,8 @@ const Schema = z.object({
   startDate: date,
   endDate: date,
   overview: z.string().trim().max(1000, "활동 개요는 1000자까지예요").optional().default(""),
-  source: z.enum(["survey", "docs", "both", "memo", "external"], "근거 자료를 하나 이상 골라 주세요"),
+  // 설문은 2026-10-22 뺐다 (서류 · 교사 메모 · 외부 글만)
+  source: z.enum(["docs", "memo", "external"], "근거 자료를 하나 이상 골라 주세요"),
   useMemos: z.string().optional(),
   intent: z.enum(["draft", "open", "save"]),
 });
@@ -63,7 +64,7 @@ async function readProgramForm(form: FormData, ownerId: string): Promise<{ error
   };
 }
 
-/** 프로그램 등록 (임시 저장 또는 발행). 발행하면 대상 학생 화면에 설문·서류 제출이 열린다 */
+/** 프로그램 등록 (임시 저장 또는 발행). 발행하면 대상 학생 화면에 서류 제출이 열린다 */
 export async function createProgramAction(_: CreateState, form: FormData): Promise<CreateState> {
   const v = await requireCan("program.manage");
   const r = await readProgramForm(form, v.accountId);

@@ -182,7 +182,7 @@ function ResultView({ preview: p, mode, setMode }: { preview: ProgramRosterPrevi
         <legend className="mb-2 text-[14px] font-bold">어떻게 넣을까요?</legend>
         {([
           ["add", "대상에 더하기 (기본)", add.added ? `새로 찾은 ${add.added}명만 더해요 · 지금 대상 ${current}명은 그대로예요` : `새로 더할 학생이 없어요 · 모두 이미 대상이에요`],
-          ["replace", "이 명단으로 바꾸기", missing ? `명단에 없는 ${missing}명을 대상에서 빼요 · 응답·서류·초안이 있는 학생은 빼지 않아요` : "명단에 없는 대상 학생이 없어요 · 새 학생만 더해요"],
+          ["replace", "이 명단으로 바꾸기", missing ? `명단에 없는 ${missing}명을 대상에서 빼요 · 서류·초안이 있는 학생은 빼지 않아요` : "명단에 없는 대상 학생이 없어요 · 새 학생만 더해요"],
         ] as const).map(([k, title, desc]) => {
           const on = mode === k;
           return (
@@ -206,7 +206,7 @@ function ResultView({ preview: p, mode, setMode }: { preview: ProgramRosterPrevi
             ))}
             {rep.kept.length > KEPT_SHOW && <span className="px-1 py-0.5 text-[12px] text-mute">외 {rep.kept.length - KEPT_SHOW}명</span>}
           </div>
-          <span className="text-[12px] text-mute">응답·서류·초안은 지우지 않아요. 빼려면 학생 줄에서 따로 정리해 주세요.</span>
+          <span className="text-[12px] text-mute">서류·초안은 지우지 않아요. 빼려면 학생 줄에서 따로 정리해 주세요.</span>
         </div>
       )}
 

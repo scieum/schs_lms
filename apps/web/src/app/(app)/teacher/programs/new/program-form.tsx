@@ -22,10 +22,9 @@ const LABEL = "text-[13px] font-medium text-sub";
 const PICK_ON = "border-[1.5px] border-key bg-key-soft font-bold text-key-strong";
 const PICK_OFF = "border border-hair bg-[#fff] font-medium hover:bg-soft";
 
-// 근거 자료 (Figma N41 492:15969): 설문 · 서류 · 교사 메모 중 하나 이상 (교사 메모만도 된다)
+// 근거 자료 (Figma N41 492:15969): 서류 · 교사 메모 중 하나 이상 (교사 메모만도 된다). 설문은 2026-10-22 뺐다
 type Pick = "survey" | "docs" | "memo";
-const SOURCES: [Pick, string, string, typeof ClipboardList][] = [
-  ["survey", "설문 응답", "학생이 직접 쓰는 활동 설문", ClipboardList],
+const SOURCES: [Exclude<Pick, "survey">, string, string, typeof ClipboardList][] = [
   ["docs", "학생 제출 서류", "보고서 · 활동지 · 소감문", Upload],
   ["memo", "교사 메모", "내가 본 일을 학생마다 적어요", NotebookPen],
 ];
@@ -51,11 +50,11 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
   const [len, setLen] = useState<{ unit: LengthUnit; max: number }>(initial ? { unit: initial.unit, max: initial.max } : { unit: "bytes", max: neisMax("세특", "bytes") });
   const [start, setStart] = useState(initial?.startDate ?? today);
   const [endDate, setEndDate] = useState(initial?.endDate ?? end);
-  const [picks, setPicks] = useState<Record<Pick, boolean>>(() => (initial ? { survey: usesSurvey(initial.source), docs: usesDocs(initial.source), memo: usesMemos(initial) } : { survey: true, docs: false, memo: false }));
+  const [picks, setPicks] = useState<Record<Pick, boolean>>(() => (initial ? { survey: false, docs: usesDocs(initial.source) || usesSurvey(initial.source), memo: usesMemos(initial) } : { survey: false, docs: true, memo: false }));
   // N46 외부 글 (직접 넣기): 혼자만 — 고르면 설문·서류·메모가 꺼지고, 그것들을 고르면 외부 글이 꺼진다
   const [external, setExternal] = useState(initial?.source === "external");
   const picked = external ? { source: "external" as const, useMemos: false } : sourceFromPicks(picks);
-  const source = picked?.source ?? "survey";
+  const source = picked?.source ?? "docs";
   const srcText = picked ? sourceLabel(picked) : "고르지 않음";
   const [requestDocs, setRequestDocs] = useState(initial?.requestDocs ?? true);
   const [kinds, setKinds] = useState<string[]>(initial ? initial.docKinds : ["탐구 보고서"]);
@@ -150,7 +149,7 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
     targets: { dirty: targets.length > 0, text: `${targets.length}명` },
     extras: { dirty: extras.length > 0, text: extras.join(" / ") },
     docKinds: { dirty: kinds.join() !== "탐구 보고서", text: kinds.join(", ") },
-    source: { dirty: external || !(picks.survey && !picks.docs && !picks.memo), text: srcText },
+    source: { dirty: external || !(picks.docs && !picks.memo), text: srcText },
   };
   const applyPlan = (keys: FillKey[], f: PlanFields) => {
     const has = (k: FillKey) => keys.includes(k);
@@ -163,7 +162,7 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
     if (has("extras") && f.extraQuestions.length) setExtras(f.extraQuestions.slice(0, MAX_EXTRA_QUESTIONS));
     if (has("docKinds") && f.docKinds.length) { setKindOptions([...new Set([...kindOptions, ...f.docKinds])]); setKinds(f.docKinds); }
     if (has("source") && f.source) setExternal(false);
-    if (has("source") && f.source) setPicks((p) => ({ survey: usesSurvey(f.source!), docs: usesDocs(f.source!), memo: p.memo || f.source === "memo" }));
+    if (has("source") && f.source) setPicks((p) => ({ survey: false, docs: usesDocs(f.source!) || usesSurvey(f.source!), memo: p.memo || f.source === "memo" }));
   };
 
   const runSuggest = () => {
@@ -348,7 +347,7 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
             <input type="hidden" name="source" value={picked ? source : ""} />
             <input type="hidden" name="useMemos" value={picked?.useMemos ? "on" : ""} />
             <p className="-mt-1 text-[13px] text-mute">여러 개 골라도 돼요 · 외부 글은 혼자만{!picked && <span className="font-medium text-bad"> · 하나 이상 골라 주세요</span>}</p>
-            <div className="grid gap-2 md:grid-cols-3" role="group" aria-label="초안 근거 자료">
+            <div className="grid gap-2 md:grid-cols-2" role="group" aria-label="초안 근거 자료">
               {SOURCES.map(([v, t, d, I]) => (
                 <button key={v} type="button" aria-pressed={!external && picks[v]} onClick={() => { if (external) { setExternal(false); setPicks({ survey: false, docs: false, memo: false, [v]: true }); } else setPicks((p) => ({ ...p, [v]: !p[v] })); }}
                   className={cx("flex items-center gap-3 rounded-inner p-4 text-left md:flex-col md:items-start md:gap-2", !external && picks[v] ? PICK_ON : PICK_OFF, external && "opacity-45")}>
@@ -375,7 +374,7 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
             {external && (
               <p className="flex items-start gap-2 rounded-inner bg-bg px-3.5 py-3 text-[13px] leading-5 text-sub">
                 <Info size={16} className="mt-0.5 shrink-0" aria-hidden />
-                학생 화면에 설문·제출 칸이 열리지 않아요 · AI를 쓰지 않아요 · 등록한 뒤 상세에서 엑셀이나 학생마다 글을 넣어요
+                학생 화면에 제출 칸이 열리지 않아요 · AI를 쓰지 않아요 · 등록한 뒤 상세에서 엑셀이나 학생마다 글을 넣어요
               </p>
             )}
             {docs && (
@@ -538,7 +537,7 @@ export function ProgramForm({ students, teachers, ownerId, today, end, aiOn, ini
             </div>
             <p className="flex items-center gap-2 rounded-field bg-bg px-3.5 py-3 text-[13px] text-sub">
               <AlertCircle size={16} className="shrink-0 text-mute" />
-              {external ? "학생 화면에는 열리지 않아요 · 등록한 뒤 상세에서 외부 글을 넣어요" : canDraft ? "등록하면 학생 앱에 설문·제출 칸이 열려요" : "저장하면 학생 앱에 바로 반영돼요"}
+              {external ? "학생 화면에는 열리지 않아요 · 등록한 뒤 상세에서 외부 글을 넣어요" : canDraft ? "등록하면 학생 앱에 제출 칸이 열려요" : "저장하면 학생 앱에 바로 반영돼요"}
             </p>
             {state.error && <p className="text-sm text-bad max-md:hidden" role="alert">{state.error}</p>}
             {/* PC 제출 버튼 (모바일은 아래 고정 줄) */}

@@ -26,7 +26,7 @@ export function TodoPlan({ initial, aiOn }: { initial: { steps: TodoStep[]; line
                 {pending ? "정리 중…" : r?.ok ? "다시 정리" : "순서 정리"}
               </Button>
             )}
-            {/* 화면당 인디고 버튼 1개 → 홈 인디고는 "설문 응답하기", 여기는 소프트 */}
+            {/* 화면당 인디고 버튼 1개 → 홈 인디고는 "서류 제출하기", 여기는 소프트 */}
             {first && <span className="hidden md:block"><ButtonLink href={first.href} kind="soft" size="sm">이어서 하기</ButtonLink></span>}
           </div>
         }

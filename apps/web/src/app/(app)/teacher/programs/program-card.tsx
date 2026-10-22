@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Tag, cx } from "@/components/ui";
-import { AREA_LABEL, daysLeft, ddayLabel, md, sourceLabel, usesSurvey, type Program } from "@/lib/domain/program";
+import { AREA_LABEL, daysLeft, ddayLabel, md, sourceLabel, type Program } from "@/lib/domain/program";
 import { programStage, type Stage, type StageCounts } from "@/lib/domain/program-stage";
 import { CardRunButton } from "./card-action";
 import { CARD_BTN, StageDots } from "./stage-dots";
@@ -23,7 +23,7 @@ export function cardView(p: Program, c: StageCounts, today: string): CardView {
   }
   const made = c.review + c.confirmed;
   const review: CardAction = { kind: "link", label: `검토 ${c.review}`, href: `/teacher/programs/${id}/drafts` };
-  const got = p.source === "external" ? "외부 글" : usesSurvey(p.source) ? "응답" : "제출";
+  const got = p.source === "external" ? "외부 글" : "제출";
   let action: CardAction | null = null;
   let progress: Progress;
   switch (stage.index) {

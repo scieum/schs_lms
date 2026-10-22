@@ -67,7 +67,7 @@ export default async function HomeroomHome() {
     .filter((p) => p.status !== "draft" && p.targetIds.some((id) => byName.has(id)))
     .flatMap((p) => [
       { date: p.startDate, text: `${p.title} 시작` },
-      { date: p.endDate, text: `${p.title} ${p.source === "survey" ? "설문" : "제출"} 마감` },
+      { date: p.endDate, text: `${p.title} 제출 마감` },
     ])
     .filter((e) => e.date >= today && e.date <= until)
     .sort((a, b) => a.date.localeCompare(b.date))

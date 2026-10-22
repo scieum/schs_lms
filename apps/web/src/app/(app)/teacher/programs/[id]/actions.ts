@@ -36,7 +36,7 @@ export async function sendReminder(prev: RemindDraft, form: FormData): Promise<R
   const { rows } = await programRows(program);
   const only = String(form.get("studentId") ?? "");
   const ids = rows.filter((r) => !r.hasEvidence && !r.missingReason && (!only || r.student.id === only)).map((r) => r.student.id);
-  if (ids.length === 0) return { ...prev, error: "알림을 보낼 미응답 학생이 없어요" };
+  if (ids.length === 0) return { ...prev, error: "알림을 보낼 미제출 학생이 없어요" };
   await repo.addReminder({ programId: program.id, studentIds: ids, message, senderId: v.accountId });
   await repo.audit(v.accountId, "program.remind", `${program.id} ${ids.length}명`);
   revalidatePath(`/teacher/programs/${program.id}`);

@@ -1,7 +1,7 @@
 import "server-only";
 import type { LengthUnit } from "@/lib/domain/length";
 import {
-  daysLeft, effectiveStatus, isProgramOwner, latestVersion, reviewStatus, usesDocs, usesSurvey, FIXED_QUESTIONS,
+  daysLeft, effectiveStatus, isProgramOwner, latestVersion, reviewStatus, usesDocs, FIXED_QUESTIONS,
   type DraftJob, type DraftState, type DraftVersion, type Material, type Program, type StudentTodo, type SurveyResponse,
 } from "@/lib/domain/program";
 import { store } from "../demo";
@@ -106,13 +106,7 @@ function withDerived(base: BaseRepo): ProgramsRepo {
       const mats = await base.listMaterialsByStudent(studentId);
       const out: StudentTodo[] = [];
       for (const p of programs) {
-        if (usesSurvey(p.source)) {
-          const r = await base.getResponse(p.id, studentId);
-          if (!r?.submittedAt) {
-            const done = p.questions.filter((q) => (r?.answers[q.id] ?? "").trim().length >= q.minChars).length;
-            out.push({ programId: p.id, title: p.title, kind: "survey", endDate: p.endDate, progress: `${done}/${p.questions.length}문항` });
-          }
-        }
+        // 설문은 2026-10-22 뺐다 — 예전 설문 프로그램도 학생 할 일에 설문을 내지 않는다 (서류만)
         if (usesDocs(p.source) && p.requestDocs && !mats.some((m) => m.programId === p.id)) {
           out.push({ programId: p.id, title: p.docKinds[0] ?? "서류", kind: "docs", endDate: p.endDate, progress: "0개 올림" });
         }

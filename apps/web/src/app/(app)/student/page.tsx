@@ -1,6 +1,6 @@
 import { scoresEnabled } from "@/lib/server/features";
 import Link from "next/link";
-import { BookOpen, ClipboardList, ListChecks, Moon, Upload } from "lucide-react";
+import { BookOpen, ListChecks, Moon, Upload } from "lucide-react";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
@@ -71,17 +71,17 @@ export default async function StudentHome() {
     loadMyRecords(v),
     repo.listRecItems(),
   ]);
-  const surveys = todos.filter((t) => t.kind === "survey");
+  // 설문은 2026-10-22 뺐다 — 할 일은 서류 제출만
   const docs = todos.filter((t) => t.kind === "docs");
   const steps = orderTodos(inputs, now);
   const planLine = steps.length ? `${steps[0].title}부터 · ${steps[0].why}` : "지금 낼 것이 없어요";
-  const firstSurvey = surveys[0] ? `/student/submit?p=${surveys[0].programId}` : null;
+  const firstDoc = docs[0] ? `/student/submit?p=${docs[0].programId}` : null;
   const nightTodo = inputs.find((x) => x.kind === "night");
   const courseTodo = inputs.find((x) => x.kind === "courses");
   const counts = countByArea(records);
   const recs = matchRecs(recItems, s.careerGoal).slice(0, 2);
-  const respond = firstSurvey && (
-    <ButtonLink href={firstSurvey} size="sm"><ClipboardList size={15} /> 설문 응답하기</ButtonLink>
+  const respond = firstDoc && (
+    <ButtonLink href={firstDoc} size="sm"><Upload size={15} /> 서류 제출하기</ButtonLink>
   );
 
   return (
@@ -92,8 +92,7 @@ export default async function StudentHome() {
       />
       <PageBody>
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-4">
-          <Stat label="제출할 설문" value={`${surveys.length}개`} action={respond} />
-          <Stat label="제출할 서류" value={`${docs.length}개`} />
+          <Stat label="제출할 서류" value={`${docs.length}개`} action={respond} />
           {scores ? (
             <Stat
               label={scores.latestExam ? `${scores.latestExam.month}월 모의 평균` : "모의 평균"}
@@ -103,24 +102,25 @@ export default async function StudentHome() {
             <Stat label="확정된 기록" value={`${records.length}건`} />
           )}
           <Stat label="이번 주 야자" value={`${night.signed}일`} />
+          <Stat label="나에게 맞는 추천" value={`${recs.length}개`} />
         </div>
-        {firstSurvey && (
-          <ButtonLink href={firstSurvey} className="w-full md:hidden"><ClipboardList size={18} /> 설문 응답하기</ButtonLink>
+        {firstDoc && (
+          <ButtonLink href={firstDoc} className="w-full md:hidden"><Upload size={18} /> 서류 제출하기</ButtonLink>
         )}
         <TodoPlan initial={{ steps, line: planLine }} aiOn={aiEnabled()} />
 
         <div className="grid gap-4 md:grid-cols-[1fr_340px] md:gap-6">
           <Card title="오늘 할 일" action={more("/student/submit", "전체 보기")} className="h-full">
             <div className="flex flex-col gap-3">
-              {todos.map((t) => (
+              {docs.map((t) => (
                 <TodoRow
                   key={`${t.programId}-${t.kind}`}
                   href={`/student/submit?p=${t.programId}`}
-                  icon={tile(t.kind === "survey" ? ClipboardList : Upload)}
-                  title={`${t.title} ${t.kind === "survey" ? "설문" : "서류 제출"}`}
+                  icon={tile(Upload)}
+                  title={`${t.title} 서류 제출`}
                   tag={ddayLabel(t.endDate, now)}
                   meta={`${t.progress} · ${md(t.endDate)} 마감`}
-                  button={t.kind === "survey" ? "응답하기" : "제출하기"}
+                  button="제출하기"
                 />
               ))}
               {courseTodo && (

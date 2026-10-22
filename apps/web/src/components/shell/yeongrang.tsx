@@ -10,7 +10,7 @@ import { askYeongrang, makeWithYeongrang } from "./yeongrang-actions";
 
 const KINDS = ["안내 문자", "가정통신문", "상담 요약", "회의 메모 정리"] as const;
 const QUICK_T = ["합본 PDF는 어떻게 나눠요?", "초안 분량은 어디서 정해요?", "나이스에는 어떻게 옮겨요?"];
-const QUICK_S = ["설문은 어디서 내요?", "비밀번호를 잊었어요", "생활기록부는 언제 볼 수 있어요?"];
+const QUICK_S = ["서류는 어디서 내요?", "비밀번호를 잊었어요", "생활기록부는 언제 볼 수 있어요?"];
 
 type Msg = { q: string; a: string; source: string | null; href: string | null; ai: boolean };
 
@@ -133,7 +133,7 @@ export function Yeongrang({ student = false }: { student?: boolean }) {
                 ))}
               </div>
               <textarea value={memo} onChange={(e) => setMemo(e.target.value)} rows={5} maxLength={3000}
-                placeholder={kind === "안내 문자" ? "예: 10.20(화)까지 과학 탐구 발표 설문 제출, 미제출 5명" : "들어갈 내용을 메모처럼 적어 주세요"}
+                placeholder={kind === "안내 문자" ? "예: 10.20(화)까지 과학 탐구 발표 보고서 제출, 미제출 5명" : "들어갈 내용을 메모처럼 적어 주세요"}
                 className="rounded-field bg-soft px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-key" />
               <button onClick={make} disabled={pending || memo.trim().length < 5} className="rounded-control border border-hair bg-white py-2.5 text-sm font-medium hover:bg-soft disabled:text-faint">
                 {pending ? "만드는 중이에요…" : "초안 만들기"}

@@ -1,7 +1,7 @@
 import type { ProgramStatus } from "./program";
 
 // 프로그램 흐름 (Figma N16): 다섯 단계 중 지금 어디인지, 다음에 누를 일 하나.
-// ① 받는 중(설문·서류) → ② 마감 → ③ 초안 만들기 → ④ 검토·확정 → ⑤ 담임 전달
+// ① 받는 중(서류) → ② 마감 → ③ 초안 만들기 → ④ 검토·확정 → ⑤ 담임 전달
 
 export const STAGES = ["받는 중", "마감", "초안 만들기", "검토·확정", "담임 전달"] as const;
 export type StageIndex = 0 | 1 | 2 | 3 | 4;
@@ -51,10 +51,10 @@ export function programStage(c: StageCounts, dday: string): Stage {
     if (c.review) return S(3, line, { kind: "review", label: `검토하러 가기 ${c.review}건`, n: c.review }, left ? put : null);
     return S(left ? 0 : 3, line, left ? put : { kind: "done", label: `확정 ${c.confirmed}/${c.targets}` });
   }
-  // ① 받는 중 (마감 전): 미응답이 있으면 알리기 + 지금 마감, 다 냈으면 마감
+  // ① 받는 중 (마감 전): 미제출이 있으면 알리기 + 지금 마감, 다 냈으면 마감
   if (c.status === "open") {
-    return S(0, `응답 ${c.evidence}/${c.targets}명 · 마감 ${dday}`,
-      missing ? { kind: "remind", label: `미응답 ${missing}명에게 알리기`, n: missing } : { kind: "close", label: "지금 마감하기" },
+    return S(0, `제출 ${c.evidence}/${c.targets}명 · 마감 ${dday}`,
+      missing ? { kind: "remind", label: `미제출 ${missing}명에게 알리기`, n: missing } : { kind: "close", label: "지금 마감하기" },
       missing ? { kind: "close", label: "지금 마감" } : null);
   }
 
@@ -77,9 +77,9 @@ export function programStage(c: StageCounts, dday: string): Stage {
     return S(3, `검토 대기 ${c.review} · 확정 ${c.confirmed}/${c.evidence}`, { kind: "review", label: `검토하러 가기 ${c.review}건`, n: c.review });
   }
   if (c.status === "closed") {
-    return S(1, `응답 ${c.evidence}/${c.targets}명 · 마감`, c.ready
+    return S(1, `제출 ${c.evidence}/${c.targets}명 · 마감`, c.ready
       ? { kind: "generate", label: `초안 만들기 ${c.ready}명`, n: c.ready }
-      : { kind: "done", label: "초안을 만들 응답이 없어요" });
+      : { kind: "done", label: "초안을 만들 서류가 없어요" });
   }
-  return S(1, `응답 ${c.evidence}/${c.targets}명`, { kind: "done", label: "초안을 만들 응답이 없어요" });
+  return S(1, `제출 ${c.evidence}/${c.targets}명`, { kind: "done", label: "초안을 만들 서류가 없어요" });
 }

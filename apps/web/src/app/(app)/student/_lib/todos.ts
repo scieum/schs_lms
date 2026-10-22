@@ -6,7 +6,7 @@ import type { TodoInput } from "@/lib/domain/student-assist";
 import type { Student } from "@/lib/domain/types";
 import { repo } from "@/lib/server/repo";
 
-/** 학생 홈 "할 일 정리" 재료: 설문·서류 + 다음 주 야자 신청 + 과목 신청 (서버에서만 모은다) */
+/** 학생 홈 "할 일 정리" 재료: 서류 + 다음 주 야자 신청 + 과목 신청 (서버에서만 모은다) */
 export async function myTodoInputs(s: Student, today: string): Promise<TodoInput[]> {
   const now = seoulNow();
   const next = addDays(weekStart(now.date), 7);
@@ -18,7 +18,7 @@ export async function myTodoInputs(s: Student, today: string): Promise<TodoInput
   const items: TodoInput[] = todos.map((t) => ({
     key: `${t.kind}-${t.programId}`,
     kind: t.kind,
-    title: `${t.title} ${t.kind === "survey" ? "설문" : "제출"}`,
+    title: `${t.title} 제출`,
     due: t.endDate,
     progress: t.progress,
     href: `/student/submit?p=${t.programId}`,

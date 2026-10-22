@@ -7,7 +7,7 @@ import { PageBody, PageHeader, todayLabel } from "@/components/shell/app-shell";
 import { Avatar, ButtonLink, cx } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
 import { counselStats, weekStart } from "@/lib/domain/counsel";
-import { addDays, daysLeft, ddayLabel, effectiveStatus, latestVersion, md, reviewStatus } from "@/lib/domain/program";
+import { addDays, daysLeft, ddayLabel, effectiveStatus, latestVersion, md, reviewStatus, usesDocs } from "@/lib/domain/program";
 import { briefingRule } from "@/lib/domain/teacher-assist";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { loadAssigned, loadCounsel } from "@/lib/server/counsel";
@@ -16,6 +16,13 @@ import { repo } from "@/lib/server/repo";
 import { requireViewer } from "@/lib/server/viewer";
 import { TodayBriefing } from "./briefing";
 import { SchoolInfoRow } from "@/components/school-info";
+
+/** 학생 제출 서류 → 학생마다 한 번 "제출" (처음 낸 때) — 예전 설문 응답과 같은 모양이라 아래 계산을 그대로 쓴다 */
+function submissionsOf(mats: { studentId: string | null; createdAt: string }[]): { studentId: string; submittedAt: string }[] {
+  const first = new Map<string, string>();
+  for (const m of mats) if (m.studentId && (!first.has(m.studentId) || m.createdAt < first.get(m.studentId)!)) first.set(m.studentId, m.createdAt);
+  return [...first].map(([studentId, submittedAt]) => ({ studentId, submittedAt }));
+}
 import { seoulNow } from "@/lib/domain/night";
 
 export const metadata = { title: "홈 · 속초고 쌤기부" };
@@ -33,15 +40,16 @@ export default async function TeacherHome() {
     repo.countDraftReviewQueue(v.accountId),
     ids.length ? repo.listDraftJobs({ programIds: ids }) : Promise.resolve([]),
     ids.length ? repo.listDraftVersions({ programIds: ids }) : Promise.resolve([]),
-    Promise.all(programs.map((p) => repo.listResponses(p.id))),
+    // 설문은 2026-10-22 뺐다 — "제출" = 학생이 낸 서류 (학생마다 처음 낸 때)
+    Promise.all(programs.map(async (p) => submissionsOf(await repo.listMaterials(p.id)))),
     repo.listStudents(),
   ]);
   const name = new Map(students.map((s) => [s.id, s]));
   const title = new Map(programs.map((p) => [p.id, p.title]));
 
-  // 응답률: 설문을 쓰는 열린 프로그램만 (전체 대상 중 제출한 학생)
+  // 제출률: 서류를 받는 열린 프로그램만 (전체 대상 중 서류를 낸 학생)
   const open = programs.map((p, i) => ({ p, submitted: responses[i].filter((r) => r.submittedAt && p.targetIds.includes(r.studentId)).length }))
-    .filter(({ p }) => effectiveStatus(p, now) === "open" && p.source !== "docs");
+    .filter(({ p }) => effectiveStatus(p, now) === "open" && usesDocs(p.source) && p.requestDocs);
   const targets = open.reduce((a, o) => a + o.p.targetIds.length, 0);
   const submittedAll = open.reduce((a, o) => a + o.submitted, 0);
   const rate = targets ? Math.round((100 * submittedAll) / targets) : null;
@@ -54,7 +62,7 @@ export default async function TeacherHome() {
   const newToday = pending.filter((j) => latest.get(j.id)?.createdAt.slice(0, 10) === now).length;
   const pendingNames = [...new Set(pending.map((j) => name.get(j.studentId)?.name).filter((n): n is string => !!n))];
 
-  // 이번 주 응답 (월~일)
+  // 이번 주 제출 (월~일)
   const mon = weekStart(new Date());
   const week = DAYS.map((_, i) => addDays(mon, i));
   const weekCount = week.map((d) => responses.flat().filter((r) => r.submittedAt?.slice(0, 10) === d).length);
@@ -81,8 +89,8 @@ export default async function TeacherHome() {
   const firstFail = failed[0];
 
   const steps: { icon: typeof Users; label: string; short: string; value: number; unit: string; line: string; todo?: number }[] = [
-    { icon: Users, label: "응답 수집", short: "응답", value: collected, unit: "명", line: `${totalTargets}명 중` },
-    { icon: Sparkles, label: "초안 생성", short: "초안", value: generated, unit: "건", line: `응답 대비 ${pct(generated, collected)}%` },
+    { icon: Users, label: "서류 수집", short: "제출", value: collected, unit: "명", line: `${totalTargets}명 중` },
+    { icon: Sparkles, label: "초안 생성", short: "초안", value: generated, unit: "건", line: `제출 대비 ${pct(generated, collected)}%` },
     { icon: Shield, label: "자동 검사", short: "검사", value: checked, unit: "건", line: `통과율 ${pct(checked, generated)}%` },
     { icon: Check, label: "교사 확정", short: "확정", value: finalized.length, unit: "건", line: "", todo: waiting },
     { icon: Send, label: "담임 전달", short: "전달", value: exportable, unit: "개", line: "내보낼 프로그램" },
@@ -125,9 +133,9 @@ export default async function TeacherHome() {
             <Image src="/char-stand.png" alt="" width={190} height={230} className="pointer-events-none absolute bottom-4 right-4 h-auto w-[100px] md:bottom-3 md:right-10 md:w-[150px]" />
           </section>
 
-          {/* 평균 응답률 */}
+          {/* 평균 제출률 */}
           <section className="flex flex-col surface rounded-card p-4 [grid-area:ring] md:p-6">
-            <h2 className="text-[13px] text-mute md:text-lg md:font-bold md:text-ink">평균 응답률</h2>
+            <h2 className="text-[13px] text-mute md:text-lg md:font-bold md:text-ink">평균 제출률</h2>
             <div className="mt-3 flex flex-1 flex-col items-center justify-center md:mt-0">
               <span className="md:hidden"><Ring pct={rate ?? 0} size={92} /></span>
               <span className="relative hidden md:block">
@@ -138,15 +146,15 @@ export default async function TeacherHome() {
                 </span>
               </span>
               <span className="mt-4 hidden items-center gap-2 text-[13px] text-mute md:flex">
-                <span className="rounded-chip bg-white px-2.5 py-1 font-bold text-sub">설문 {open.length}개</span> 열린 설문 기준
+                <span className="rounded-chip bg-white px-2.5 py-1 font-bold text-sub">프로그램 {open.length}개</span> 열린 서류 제출 기준
               </span>
             </div>
           </section>
 
-          {/* 이번 주 응답 (PC) */}
+          {/* 이번 주 제출 (PC) */}
           <section className="hidden flex-col surface rounded-card p-6 [grid-area:week] md:flex">
             <div className="flex items-center">
-              <h2 className="flex-1 text-lg font-bold">이번 주 응답</h2>
+              <h2 className="flex-1 text-lg font-bold">이번 주 제출</h2>
               <span className="text-[13px] text-mute">{md(mon)} – {md(addDays(mon, 6))}</span>
             </div>
             <div className="mt-3 flex items-baseline gap-1"><span className="text-[36px] font-bold leading-none">{weekTotal}</span><span className="text-[15px] font-medium text-sub">명</span></div>
@@ -171,7 +179,7 @@ export default async function TeacherHome() {
                   <span className="block text-[30px] font-bold leading-none md:text-[36px]">{ddayLabel(firstDue.p.endDate, now)}</span>
                   <Link href={`/teacher/programs/${firstDue.p.id}`} className="mt-2 block min-w-0 md:mt-0">
                     <span className="block truncate text-[15px] font-bold">{firstDue.p.title}</span>
-                    <span className="block truncate text-[13px] text-mute">미응답 {firstDue.p.targetIds.length - firstDue.submitted}명<span className="hidden md:inline"> · {md(firstDue.p.endDate)} 마감</span></span>
+                    <span className="block truncate text-[13px] text-mute">미제출 {firstDue.p.targetIds.length - firstDue.submitted}명<span className="hidden md:inline"> · {md(firstDue.p.endDate)} 마감</span></span>
                   </Link>
                 </div>
                 <div className="mt-4 hidden h-1.5 overflow-hidden rounded-full bg-white md:block" aria-hidden>
@@ -180,10 +188,10 @@ export default async function TeacherHome() {
                 {dueSoon[1] && (
                   <Link href={`/teacher/programs/${dueSoon[1].p.id}`} className="mt-3 hidden items-center gap-4 rounded-inner bg-white px-4 py-3 text-[13px] text-sub md:flex">
                     <span className="font-bold text-ink">{ddayLabel(dueSoon[1].p.endDate, now)}</span>
-                    <span className="truncate">{dueSoon[1].p.title} · 미응답 {dueSoon[1].p.targetIds.length - dueSoon[1].submitted}명</span>
+                    <span className="truncate">{dueSoon[1].p.title} · 미제출 {dueSoon[1].p.targetIds.length - dueSoon[1].submitted}명</span>
                   </Link>
                 )}
-                <div className="mt-auto hidden pt-3 md:block"><ButtonLink href={`/teacher/programs/${firstDue.p.id}#remind`} kind="outline" size="sm" className="w-full"><Send size={15} /> 미응답자에게 알림 보내기</ButtonLink></div>
+                <div className="mt-auto hidden pt-3 md:block"><ButtonLink href={`/teacher/programs/${firstDue.p.id}#remind`} kind="outline" size="sm" className="w-full"><Send size={15} /> 미제출자에게 알림 보내기</ButtonLink></div>
               </>
             ) : (
               <p className="flex flex-1 items-center justify-center py-4 text-sm text-mute">이번 주 마감이 없어요</p>
@@ -278,7 +286,7 @@ export default async function TeacherHome() {
   );
 }
 
-/** PC 응답률 큰 고리 (글자는 위에 겹친다) */
+/** PC 제출률 큰 고리 (글자는 위에 겹친다) */
 function BigRing({ pct }: { pct: number }) {
   const size = 168;
   const r = (size - 22) / 2;

@@ -13,7 +13,7 @@ export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) 
   const ws = wb.addWorksheet("학생별 현황");
   ws.columns = [
     { header: "학년", key: "grade", width: 6 }, { header: "반", key: "cls", width: 6 }, { header: "번호", key: "no", width: 6 },
-    { header: "이름", key: "name", width: 10 }, { header: "근거 자료", key: "ev", width: 12 }, { header: "응답일", key: "at", width: 10 },
+    { header: "이름", key: "name", width: 10 }, { header: "근거 자료", key: "ev", width: 12 }, { header: "제출일", key: "at", width: 10 },
     { header: "초안 상태", key: "st", width: 12 }, { header: "분량", key: "len", width: 10 }, { header: "미제출 사유", key: "why", width: 20 },
     { header: "초안 (마지막 버전)", key: "draft", width: 80 },
   ];
