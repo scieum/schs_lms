@@ -31,9 +31,9 @@ export async function buildTemplate(kind: TemplateKind, rows: string[][] = []): 
   const ws = wb.addWorksheet("양식", { views: [{ state: "frozen", ySplit: 1 }] });
   ws.columns = t.columns.map((h, i) => ({ header: h, key: h, width: Math.max(8, Math.round(t.widths[i] / 6)) }));
   styleHead(ws.getRow(1), t.columns.length);
-  // 모든 칸을 글자로 (학번 앞 0·반 번호가 날짜로 바뀌지 않게)
-  t.columns.forEach((_, i) => { ws.getColumn(i + 1).numFmt = "@"; });
-  for (const r of rows) ws.addRow(t.columns.map((_, i) => r[i] ?? "")).alignment = { vertical: "top", wrapText: true };
+  // 칸 서식은 "일반" (2026-10-22: 텍스트 서식이면 수식이 안 먹음). 미리 채우는 학번 같은 숫자는 숫자로 넣어 "텍스트로 저장된 숫자" 표시가 안 뜨게.
+  // 올릴 때는 수식 칸도 계산 결과로 읽는다 (cellText)
+  for (const r of rows) ws.addRow(t.columns.map((_, i) => asCell(r[i] ?? ""))).alignment = { vertical: "top", wrapText: true };
   // 제목 칸 메모 · 본문 드롭다운 (2026-10-22 명단: 학과 = 일반학과)
   t.columns.forEach((h, i) => {
     const note = t.notes?.[h];
@@ -67,6 +67,9 @@ export async function templateResponse(kind: TemplateKind, opts: { rows?: string
     },
   });
 }
+
+/** 0 으로 시작하지 않는 숫자만으로 된 글은 숫자 칸으로 (학번 20301 등). 그 밖은 글 그대로 */
+const asCell = (v: string): string | number => (/^[1-9]\d{0,14}$/.test(v) ? Number(v) : v);
 
 function cellText(v: ExcelJS.CellValue): string {
   if (v === null || v === undefined) return "";
@@ -126,10 +129,8 @@ export async function buildRecordsWorkbook(input: { sheets: { name: string; rows
     const ws = wb.addWorksheet(uniq(sh.name), { views: [{ state: "frozen", ySplit: 1 }] });
     ws.columns = input.cols.map((c) => ({ header: c, key: c, width: WIDTH[c] ?? 10 }));
     styleHead(ws.getRow(1), input.cols.length);
-    const noCol = input.cols.indexOf("학번") + 1;
-    if (noCol) ws.getColumn(noCol).numFmt = "@";
     for (const r of sh.rows) {
-      const row = ws.addRow(input.cols.map((c) => cellOf(r, c)));
+      const row = ws.addRow(input.cols.map((c) => (c === "학번" ? asCell(String(cellOf(r, c))) : cellOf(r, c))));
       row.alignment = { vertical: "top", wrapText: true };
       if (r.over) {
         const b = input.cols.indexOf("바이트") + 1;
