@@ -235,3 +235,13 @@ body {
   html[data-guide="open"] [data-guide-hide] { display: none; }
   html[data-guide="open"] [data-guide-only] { display: inline-flex; }
 }
+
+/* 영랑이 사이드 창 (2026-10-22, 노션처럼): 오른쪽 전체 높이 · PC 에서는 본문이 창 폭만큼 비켜 선다 */
+:root { --yr-w: 420px; }
+.yr-side { animation: yr-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes yr-in { from { opacity: 0; transform: translateX(24px); } }
+@media (min-width: 768px) {
+  [data-shell-main] { transition: margin-right 220ms cubic-bezier(0.22, 1, 0.36, 1); }
+  body[data-yr="open"] [data-shell-main] { margin-right: var(--yr-w); }
+}
+@media (prefers-reduced-motion: reduce) { .yr-side { animation: none; } [data-shell-main] { transition: none; } }

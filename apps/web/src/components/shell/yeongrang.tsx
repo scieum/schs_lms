@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { BookOpen, Copy, RotateCcw, Send, X } from "lucide-react";
+import { BookOpen, Copy, Maximize2, RotateCcw, Send, X } from "lucide-react";
 import { askYeongrang, makeWithYeongrang } from "./yeongrang-actions";
 
 // 영랑이: 오른쪽 아래 검정 원형 버튼 → 사용법 문의 / AI로 만들기 (Figma "영랑이 · AI 도우미" Y1~Y4).
@@ -46,6 +46,14 @@ export function Yeongrang({ student = false }: { student?: boolean }) {
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => end.current?.scrollIntoView({ block: "end" }), [msgs, pending]);
+  // 노션처럼 오른쪽 사이드 창 (2026-10-22): 열리면 PC 본문이 창 폭만큼 비켜 선다(globals.css body[data-yr]) · Esc 로 닫기
+  useEffect(() => {
+    document.body.dataset.yr = open ? "open" : "";
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); document.body.dataset.yr = ""; };
+  }, [open]);
 
   const ask = (q: string) => {
     if (!q.trim() || pending) return;
@@ -69,7 +77,7 @@ export function Yeongrang({ student = false }: { student?: boolean }) {
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-40 flex flex-col bg-white md:inset-auto md:bottom-28 md:right-8 md:h-[640px] md:w-[420px] md:rounded-card md:border md:border-hair md:shadow-[0_12px_40px_rgba(28,32,51,0.14)]">
+        <aside aria-label="영랑이" className="yr-side fixed inset-0 z-40 flex flex-col bg-white md:inset-y-0 md:left-auto md:right-0 md:h-dvh md:w-[var(--yr-w)] md:border-l md:border-line md:shadow-[-12px_0_32px_rgba(28,32,51,0.08)]">
           <header className="flex items-center gap-2.5 border-b border-line px-5 py-4">
             <span className="relative size-9 overflow-hidden rounded-full bg-ink">
               <Image src="/yeongrang.png" alt="" fill sizes="36px" className="translate-y-1 scale-125 object-contain" />
@@ -77,6 +85,7 @@ export function Yeongrang({ student = false }: { student?: boolean }) {
             <strong className="text-base">영랑이</strong>
             <span className="rounded-chip bg-new-soft px-2 py-0.5 text-xs font-bold text-new">AI</span>
             <button onClick={reset} className="ml-auto rounded-control px-2 py-1 text-[13px] text-sub hover:bg-soft">새 대화</button>
+            {!student && <Link href="/ai" onClick={() => setOpen(false)} title="AI 작업창에서 크게 (@ 맥락 붙이기)" aria-label="AI 작업창에서 크게" className="rounded-full p-1.5 text-sub hover:bg-soft"><Maximize2 size={18} /></Link>}
             <button onClick={() => setOpen(false)} aria-label="닫기" className="rounded-full p-1.5 text-sub hover:bg-soft"><X size={22} /></button>
           </header>
 
@@ -156,12 +165,12 @@ export function Yeongrang({ student = false }: { student?: boolean }) {
               <p className="mt-auto text-[12px] text-mute">학생 이름·학번은 가린 뒤 AI에 보내요.</p>
             </div>
           )}
-        </div>
+        </aside>
       )}
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "영랑이 닫기" : "영랑이에게 물어보기"}
-        className="fixed bottom-[92px] right-4 z-50 size-14 overflow-hidden rounded-full bg-ink md:bottom-8 md:right-8 md:size-16 [body:has([data-sticky-cta])_&]:bottom-[156px] md:[body:has([data-sticky-cta])_&]:bottom-8"
+        className={`fixed bottom-[92px] right-4 z-50 size-14 overflow-hidden rounded-full bg-ink md:bottom-8 md:right-8 md:size-16 [body:has([data-sticky-cta])_&]:bottom-[156px] md:[body:has([data-sticky-cta])_&]:bottom-8 ${open ? "hidden" : ""}`}
       >
         {open ? (
           <X className="m-auto text-white" size={26} />

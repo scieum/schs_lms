@@ -35,14 +35,14 @@ export function Steps() {
   );
   const chip = "whitespace-nowrap rounded-chip px-2 py-0.5 text-[12px] font-bold text-sub";
   // PC 칸: 같은 높이 132 · 제목 줄 → 설명 한 줄 → 바닥 줄(버튼/칩 가로, 높이 36) (Figma N47 단계 카드 530:733)
-  const cell = "flex flex-col gap-1.5 py-3 md:h-[132px] md:rounded-inner md:bg-bg md:p-4";
-  const foot = "hidden h-9 items-center gap-1.5 md:mt-auto md:flex";
+  const cell = "flex flex-col gap-1.5 py-3 md:min-h-[132px] md:rounded-inner md:bg-bg md:p-4";
+  const foot = "hidden min-h-9 flex-wrap items-center gap-1.5 md:mt-auto md:flex";
 
   return (
     <section className="surface rounded-card p-4 md:p-5">
       <div className="grid md:grid-cols-3 md:gap-3 max-md:divide-y max-md:divide-line">
         <div className={cx(cell, "gap-2.5 max-md:pt-0 md:gap-1.5")}>
-          <p className="flex items-center gap-2 text-[15px] font-bold">
+          <p className="flex items-center gap-2 whitespace-nowrap text-[15px] font-bold">
             <Num n={1} />나이스 입력 버튼 달기
             <span className="ml-auto text-[12px] font-normal text-mute">v{NEIS_BOOKMARKLET_VERSION}</span>
           </p>
@@ -58,17 +58,17 @@ export function Steps() {
           {open && <div className="md:hidden">{howto}</div>}
         </div>
         <div className={cx(cell, "max-md:flex-row max-md:items-center max-md:justify-between")}>
-          <p className="flex items-center gap-2 text-[15px] font-bold"><Num n={2} />기록 복사</p>
+          <p className="flex items-center gap-2 whitespace-nowrap text-[15px] font-bold"><Num n={2} />기록 복사</p>
           <p className="text-[13px] text-sub md:hidden">아래 목록 › 복사</p>
           <p className="hidden text-[13px] text-sub md:block">아래 보낼 기록에서 과목마다 복사</p>
           <div className={foot}>
-            <span className="inline-flex items-center gap-1 rounded-[6px] bg-key px-2 py-1 text-[12px] font-bold text-white"><Copy size={12} />복사</span>
+            <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[6px] bg-key px-2 py-1 text-[12px] font-bold text-white"><Copy size={12} />복사</span>
             <span className={cx(chip, "border border-line bg-[#fff]")}>확정한 글만</span>
             <span className={cx(chip, "border border-line bg-[#fff]")}>시트 · 엑셀은 ⋯</span>
           </div>
         </div>
         <div className={cx(cell, "max-md:pb-0")}>
-          <p className="flex items-center gap-2 text-[15px] font-bold">
+          <p className="flex items-center gap-2 whitespace-nowrap text-[15px] font-bold">
             <Num n={3} />나이스에서 채우기
             <span className="ml-auto flex gap-1 md:hidden">
               <span className={cx(chip, "bg-soft")}>저장은 직접</span>
