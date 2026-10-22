@@ -11,7 +11,8 @@ type Turn = { role: "user" | "assistant"; content: string; used?: string[]; mode
 const TONE: Record<MentionKind, string> = { 학생: "bg-ok-soft text-ok", 수업: "bg-key-soft text-key-strong", 프롬프트: "bg-new-soft text-new", 협업방: "bg-soft text-sub", 팁: "bg-wait-soft text-[#9a6400]" };
 const IDEAS = ["가정통신문 초안 써 줘: 11월 학부모 상담 주간 안내", "@학생 상담 전에 이 학생 기록을 세 줄로 요약해 줘", "@수업 수행평가 채점 기준표(루브릭) 만들어 줘", "@프롬프트 이 프롬프트를 더 짧고 분명하게 고쳐 줘"];
 
-export function AiWorkspace({ aiOn }: { aiOn: boolean }) {
+/** compact: 영랑이 오른쪽 사이드 창 안 (노션 AI처럼) — 목록만 스크롤, 입력칸은 창 아래에 붙는다 */
+export function AiWorkspace({ aiOn, compact = false }: { aiOn: boolean; compact?: boolean }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
   const [picked, setPicked] = useState<Mention[]>([]);
@@ -90,12 +91,13 @@ export function AiWorkspace({ aiOn }: { aiOn: boolean }) {
   const copy = async (i: number, s: string) => { try { await navigator.clipboard.writeText(s); setCopied(i); setTimeout(() => setCopied(null), 1500); } catch { /* 막힘 */ } };
 
   return (
-    <div className="mx-auto flex w-full max-w-[880px] flex-col gap-4">
+    <div className={compact ? "flex min-h-0 flex-1 flex-col" : "mx-auto flex w-full max-w-[880px] flex-col gap-4"}>
+      <div className={compact ? "flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4" : "contents"}>
       {!aiOn && <p className="rounded-inner bg-wait-soft px-4 py-3 text-[13px] text-[#9a6400]">AI가 꺼져 있어요 (서버에 AI 키가 없음). 관리자에게 알려 주세요.</p>}
       {turns.length === 0 && (
         <div className="flex flex-col gap-3">
-          <p className="text-[14px] text-sub">무엇이든 시켜 보세요. 입력칸에서 <b>@</b>를 치면 학생 · 수업 · 프롬프트 · 협업방 · 팁을 붙여 그 내용을 보고 답해요. 학생은 가명ID로만 AI에 가고, 대화는 저장하지 않아요.</p>
-          <ul className="grid gap-2 md:grid-cols-2">
+          <p className={cx("text-sub", compact ? "text-[13px]" : "text-[14px]")}>무엇이든 시켜 보세요. 입력칸에서 <b>@</b>를 치면 학생 · 수업 · 프롬프트 · 협업방 · 팁을 붙여 그 내용을 보고 답해요. 학생은 가명ID로만 AI에 가고, 대화는 저장하지 않아요.</p>
+          <ul className={cx("grid gap-2", !compact && "md:grid-cols-2")}>
             {IDEAS.map((x) => (
               <li key={x}><button type="button" onClick={() => takeIdea(x)}
                 className="flex w-full items-center gap-2 rounded-inner bg-[#fff] px-4 py-3 text-left text-[14px] font-medium text-sub hover:bg-key-soft hover:text-key-strong"><Sparkles size={14} className="shrink-0" /> {x}</button></li>
@@ -126,10 +128,11 @@ export function AiWorkspace({ aiOn }: { aiOn: boolean }) {
         {pending && <li className="self-start rounded-[14px] bg-[#fff] px-4 py-3 text-[14px] text-mute">생각하는 중…</li>}
       </ol>
       <div ref={end} />
+      </div>
 
-      <div className="sticky bottom-[76px] z-10 flex flex-col gap-2 md:bottom-4">
+      <div className={compact ? "relative flex flex-col gap-2 border-t border-line p-3" : "sticky bottom-[76px] z-10 flex flex-col gap-2 md:bottom-4"}>
         {shown.length > 0 && (
-          <ul className="max-h-[300px] overflow-y-auto rounded-[12px] border border-line bg-[#fff] p-2 shadow-lg md:w-[440px]" role="listbox" aria-label="붙일 맥락">
+          <ul className={cx("max-h-[300px] overflow-y-auto rounded-[12px] border border-line bg-[#fff] p-2 shadow-lg", compact ? "absolute inset-x-3 bottom-full mb-1" : "md:w-[440px]")} role="listbox" aria-label="붙일 맥락">
             <li className="px-2 pb-1 text-[12px] font-bold text-mute">@{query} — 붙일 맥락</li>
             {shown.map((m, i) => (
               <li key={`${m.kind}-${m.id}`} role="option" aria-selected={i === active}>
@@ -143,7 +146,7 @@ export function AiWorkspace({ aiOn }: { aiOn: boolean }) {
             ))}
           </ul>
         )}
-        {query !== null && options && !shown.length && <p className="rounded-[12px] border border-line bg-[#fff] px-3 py-2 text-[13px] text-mute md:w-[440px]">맞는 맥락이 없어요 — 학생 이름 · 수업 · 프롬프트 제목으로 찾아요</p>}
+        {query !== null && options && !shown.length && <p className={cx("rounded-[12px] border border-line bg-[#fff] px-3 py-2 text-[13px] text-mute", compact ? "absolute inset-x-3 bottom-full mb-1" : "md:w-[440px]")}>맞는 맥락이 없어요 — 학생 이름 · 수업 · 프롬프트 제목으로 찾아요</p>}
         <div className="flex flex-col gap-2 rounded-[16px] border-2 border-key bg-[#fff] px-4 py-3">
           {picked.length > 0 && (
             <span className="flex flex-wrap gap-1.5">

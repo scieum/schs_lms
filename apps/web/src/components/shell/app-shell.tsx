@@ -15,6 +15,7 @@ import { SIDEBAR_COOKIE, SidebarFrame } from "./sidebar-frame";
 import { GuideButton, Yeongrang } from "./yeongrang";
 import { COPYRIGHT, MAKERS_LINE } from "@/lib/domain/credits";
 import { repo } from "@/lib/server/repo";
+import { aiEnabled } from "@/lib/server/ai/claude";
 import { GuidePanel } from "@/components/writing/guide-panel";
 
 // D2 벤토 그리드: 흰 사이드바 + 흰 본문. 모바일은 하단 탭바.
@@ -75,7 +76,7 @@ export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
         </footer>
       </div>
       <TabBar tabs={hideTabs(tabsWithoutLocked(tabsFor(viewer)), prefs.hiddenMenus)} />
-      <Yeongrang student={viewer.kind === "student"} />
+      <Yeongrang student={viewer.kind === "student"} aiOn={aiEnabled()} />
       {/* 기재요령 찾아보기 (Figma N43): 편집기 머리 버튼 · N34 칩이 연다 */}
       {viewer.kind === "teacher" && <GuidePanel />}
     </div>

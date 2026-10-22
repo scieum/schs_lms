@@ -2,13 +2,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { BookOpen, Copy, Maximize2, RotateCcw, Send, X } from "lucide-react";
-import { askYeongrang, makeWithYeongrang } from "./yeongrang-actions";
+import { BookOpen, Maximize2, Send, X } from "lucide-react";
+import { AiWorkspace } from "@/app/(app)/ai/workspace";
+import { askYeongrang } from "./yeongrang-actions";
 
 // 영랑이: 오른쪽 아래 검정 원형 버튼 → 사용법 문의 / AI로 만들기 (Figma "영랑이 · AI 도우미" Y1~Y4).
 // 결과는 초안으로만 보여 주고 자동으로 보내지 않는다. 학생은 사용법 문의만 (대신 써 주지 않음).
 
-const KINDS = ["안내 문자", "가정통신문", "상담 요약", "회의 메모 정리"] as const;
 const QUICK_T = ["합본 PDF는 어떻게 나눠요?", "초안 분량은 어디서 정해요?", "나이스에는 어떻게 옮겨요?"];
 const QUICK_S = ["서류는 어디서 내요?", "비밀번호를 잊었어요", "생활기록부는 언제 볼 수 있어요?"];
 
@@ -32,16 +32,12 @@ export function GuideButton({ mini = false, student = false }: { mini?: boolean;
   );
 }
 
-export function Yeongrang({ student = false }: { student?: boolean }) {
+// 교사: 첫 탭 "AI 작업" = AI 작업창과 같은 것(@ 맥락 · 노션 AI처럼), 둘째 탭 "사용법 문의". 학생은 사용법 문의만.
+export function Yeongrang({ student = false, aiOn = false }: { student?: boolean; aiOn?: boolean }) {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"ask" | "make">("ask");
+  const [tab, setTab] = useState<"ai" | "ask">("ai");
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
-  const [kind, setKind] = useState<(typeof KINDS)[number]>("안내 문자");
-  const [memo, setMemo] = useState("");
-  const [draft, setDraft] = useState<{ text: string; ai: boolean } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [pending, start] = useTransition();
   const end = useRef<HTMLDivElement>(null);
 
@@ -63,21 +59,13 @@ export function Yeongrang({ student = false }: { student?: boolean }) {
       setMsgs((m) => [...m, { q, a: a.text, source: a.source, href: a.href, ai: a.ai }]);
     });
   };
-  const make = () => {
-    if (pending) return;
-    setError(null);
-    start(async () => {
-      const r = await makeWithYeongrang(kind, memo);
-      if (r.ok) setDraft({ text: r.text, ai: r.ai });
-      else setError(r.error);
-    });
-  };
-  const reset = () => { setMsgs([]); setDraft(null); setMemo(""); setError(null); };
+  const reset = () => setMsgs([]);
 
   return (
     <>
-      {open && (
-        <aside aria-label="영랑이" className="yr-side fixed inset-0 z-40 flex flex-col bg-white md:inset-y-0 md:left-auto md:right-0 md:h-dvh md:w-[var(--yr-w)] md:border-l md:border-line md:shadow-[-12px_0_32px_rgba(28,32,51,0.08)]">
+      {/* 닫아도 숨기기만 — AI 작업 대화가 남아 다시 열면 이어서 */}
+      {(
+        <aside aria-label="영랑이" aria-hidden={!open} className={`yr-side fixed inset-0 z-40 ${open ? "flex" : "hidden"} flex-col bg-white md:inset-y-0 md:left-auto md:right-0 md:h-dvh md:w-[var(--yr-w)] md:border-l md:border-line md:shadow-[-12px_0_32px_rgba(28,32,51,0.08)]`}>
           <header className="flex items-center gap-2.5 border-b border-line px-5 py-4">
             <span className="relative size-9 overflow-hidden rounded-full bg-ink">
               <Image src="/yeongrang.png" alt="" fill sizes="36px" className="translate-y-1 scale-125 object-contain" />
@@ -91,14 +79,17 @@ export function Yeongrang({ student = false }: { student?: boolean }) {
 
           {!student && (
             <div className="flex gap-1 border-b border-line px-5 pt-2" role="tablist">
-              {([["ask", "사용법 문의"], ["make", "AI로 만들기"]] as const).map(([k, l]) => (
+              {([["ai", "AI 작업"], ["ask", "사용법 문의"]] as const).map(([k, l]) => (
                 <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
                   className={`-mb-px border-b-2 px-3 pb-2.5 pt-1 text-[14px] ${tab === k ? "border-key font-bold text-ink" : "border-transparent text-mute"}`}>{l}</button>
               ))}
             </div>
           )}
 
-          {tab === "ask" || student ? (
+          {!student && tab === "ai" ? (
+            // 닫아도 대화가 남게 숨기기만 (영랑이를 다시 열면 이어서)
+            <AiWorkspace aiOn={aiOn} compact />
+          ) : (
             <>
               <div className="flex-1 space-y-3 overflow-y-auto p-4">
                 <p className="w-fit max-w-[88%] rounded-inner bg-soft px-4 py-3 text-sm">무엇이 궁금하세요? 화면 사용법을 알려 드릴게요.</p>
@@ -134,36 +125,6 @@ export function Yeongrang({ student = false }: { student?: boolean }) {
                 <button disabled={pending || !text.trim()} aria-label="보내기" className="flex size-11 items-center justify-center rounded-control bg-key text-white disabled:bg-faint"><Send size={18} /></button>
               </form>
             </>
-          ) : (
-            <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
-              <div className="flex flex-wrap gap-1.5">
-                {KINDS.map((k) => (
-                  <button key={k} onClick={() => setKind(k)} className={`rounded-full px-3 py-1.5 text-[13px] ${kind === k ? "bg-ink font-bold text-white" : "bg-soft text-sub"}`}>{k}</button>
-                ))}
-              </div>
-              <textarea value={memo} onChange={(e) => setMemo(e.target.value)} rows={5} maxLength={3000}
-                placeholder={kind === "안내 문자" ? "예: 10.20(화)까지 과학 탐구 발표 보고서 제출, 미제출 5명" : "들어갈 내용을 메모처럼 적어 주세요"}
-                className="rounded-field bg-soft px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-key" />
-              <button onClick={make} disabled={pending || memo.trim().length < 5} className="rounded-control border border-hair bg-white py-2.5 text-sm font-medium hover:bg-soft disabled:text-faint">
-                {pending ? "만드는 중이에요…" : "초안 만들기"}
-              </button>
-              {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
-              {draft && (
-                <div className="rounded-inner border border-line p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="rounded-chip bg-new-soft px-2 py-0.5 text-xs font-bold text-new">초안</span>
-                    <span className="text-[12px] text-mute">확인하고 고쳐서 쓰세요 · 자동으로 보내지 않아요</span>
-                  </div>
-                  <p className="whitespace-pre-line text-sm leading-relaxed">{draft.text}</p>
-                  <div className="mt-3 flex gap-2">
-                    <button onClick={() => { navigator.clipboard.writeText(draft.text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-                      className="flex items-center gap-1 rounded-control border border-hair px-3 py-1.5 text-[13px] hover:bg-soft"><Copy size={14} /> {copied ? "복사했어요" : "복사"}</button>
-                    <button onClick={make} className="flex items-center gap-1 rounded-control border border-hair px-3 py-1.5 text-[13px] hover:bg-soft"><RotateCcw size={14} /> 다시 쓰기</button>
-                  </div>
-                </div>
-              )}
-              <p className="mt-auto text-[12px] text-mute">학생 이름·학번은 가린 뒤 AI에 보내요.</p>
-            </div>
           )}
         </aside>
       )}

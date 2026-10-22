@@ -158,7 +158,9 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
   );
 
   return (
-    <div className="grid items-stretch gap-3.5 pb-24 md:grid-cols-[minmax(0,1fr)_400px] md:gap-5 md:pb-0 [&>*]:min-w-0">
+    // 두 칸은 화면 폭이 아니라 본문 폭으로 (영랑이 사이드 창이 열려 좁아지면 한 칸) — Tailwind 컨테이너 쿼리
+    <div className="@container">
+    <div className="grid items-stretch gap-3.5 pb-24 md:gap-5 md:pb-0 @4xl:grid-cols-[minmax(0,1fr)_400px] [&>*]:min-w-0">
       {/* 조각 남기기 */}
       <section className="surface flex flex-col gap-4 rounded-card p-4 md:p-6">
         <div className="flex items-center gap-2">
@@ -290,7 +292,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
 
         <div className="mt-auto flex items-center gap-2">
           <button type="button" onClick={runPolish} disabled={busy || memo.trim().length < 2}
-            className="inline-flex h-11 items-center gap-1.5 rounded-control border border-hair bg-[#fff] px-3.5 text-[14px] font-medium disabled:opacity-50 md:h-10">
+            className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-control border border-hair bg-[#fff] px-3.5 text-[14px] font-medium disabled:opacity-50 md:h-10">
             <span className="rounded-[6px] bg-new-soft px-1.5 py-0.5 text-[11px] font-bold text-new">{aiOn ? "AI" : "자동"}</span> 다듬기
           </button>
           <span className="flex-1" />
@@ -356,6 +358,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
           )}
         </section>
       </div>
+    </div>
     </div>
   );
 }
