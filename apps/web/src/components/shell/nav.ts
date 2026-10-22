@@ -91,6 +91,7 @@ function baseNav(v: Viewer): NavGroup[] {
     I("학생 리포트", "/teacher/reports", "file"),
     I("문장 보관함", "/teacher/library", "bookmark"),
     I("생기부 팁", "/teacher/tips", "book"),
+    I("프롬프트 보관함", "/teacher/prompts", "sparkle"),
     I("문의 게시판", "/teacher/qna", "list"),
   ] });
   if (homeroom) {
@@ -352,6 +353,7 @@ export const MENU_KEYWORDS: Record<string, string[]> = {
   "/teacher/texts?tab=setuk": ["모아 보기", "1500바이트", "확정본", "세특 모음"],
   "/teacher/texts?tab=behavior": ["모아 보기", "행발", "누가기록", "확정본"],
   "/teacher/counseling": ["상담"],
+  "/teacher/prompts": ["프롬프트", "프롬", "AI", "스타일", "공식", "공유", "별", "추천"],
   "/teacher/qna": ["문의", "질문", "QnA", "Q&A", "답변", "게시판", "도움"],
   "/teacher/tips": ["팁", "DDAR", "구조", "작성법", "서술어", "게시판", "자료"],
   "/teacher/reports": ["리포트", "보고서", "학생별", "인쇄", "PDF", "출력", "가정 통신"],

@@ -43,6 +43,7 @@ const PROBES: Probe[] = [
   { no: "0033", label: "수행평가", table: "course_assessments", column: "id" },
   { no: "0034", label: "조각 지우기", table: "record_memos", column: "deleted_at" },
   { no: "0035", label: "문의 게시판", table: "qna_posts", column: "id" },
+  { no: "0036", label: "프롬프트 보관함", table: "prompt_stars", column: "account_id" },
 ];
 
 export type DbStatus = { demo: true } | { demo: false; missing: { no: string; label: string; why: string }[]; total: number };

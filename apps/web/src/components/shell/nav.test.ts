@@ -14,7 +14,7 @@ describe("교사 사이드바 묶음 (N52 → N53)", () => {
   });
   it("도구: 나이스 입력 · 학생 리포트 · 문장 보관함 · 생기부 팁 (업무에서 뺌)", () => {
     const g = navFor(teacher(["subject"]));
-    expect(g.find((x) => x.label === "도구")!.items.map((it) => it.href)).toEqual(["/teacher/neis", "/teacher/reports", "/teacher/library", "/teacher/tips", "/teacher/qna"]);
+    expect(g.find((x) => x.label === "도구")!.items.map((it) => it.href)).toEqual(["/teacher/neis", "/teacher/reports", "/teacher/library", "/teacher/tips", "/teacher/prompts", "/teacher/qna"]);
     expect(g.find((x) => x.label === "업무")!.items.map((it) => it.href)).toEqual(["/schedule", "/students", "/teacher/counseling", "/students/new"]);
   });
   it("담임: 담임 묶음이 생기고 홈은 우리 반 홈", () => {
@@ -90,7 +90,7 @@ describe("메뉴 순서 바꾸기 (N53)", () => {
     const old = [{ label: "특색활동", items: ["/teacher/programs"] }, { label: "업무", items: ["/teacher/neis", "/schedule", "/teacher/tips"] }, { label: "세특", items: ["/teacher/subjects"] }, { label: "동아리", items: ["/teacher/club"] }];
     const out = arrangeMenus(base, old);
     expect(out.map((g) => g.label)).toEqual(["", "특색활동", "도구", "업무", "세특", "동아리"]);
-    expect(out.find((g) => g.label === "도구")!.items.map((it) => it.href)).toEqual(["/teacher/neis", "/teacher/reports", "/teacher/library", "/teacher/tips", "/teacher/qna"]);
+    expect(out.find((g) => g.label === "도구")!.items.map((it) => it.href)).toEqual(["/teacher/neis", "/teacher/reports", "/teacher/library", "/teacher/tips", "/teacher/prompts", "/teacher/qna"]);
     expect(out.find((g) => g.label === "업무")!.items[0].href).toBe("/schedule");
   });
   it("같은 묶음 안 옮기기 · 묶음 옮기기 자리 계산", () => {
