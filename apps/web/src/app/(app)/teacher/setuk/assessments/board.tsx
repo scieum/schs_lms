@@ -9,6 +9,8 @@ import { ASSESS_LIMITS } from "@/lib/domain/assessment";
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { PdfSplitDialog } from "@/components/writing/pdf-split-dialog";
 import { ACCEPT } from "@/components/writing/evidence-files";
+import { ShareToRoomButton } from "@/components/collab-share";
+import { roomAssessments } from "@/app/(app)/collab/actions";
 import { deleteAssessment, listSameSubjectAssessments, readAssessmentFile, readAssessPlanFile, saveAssessment, type SharedAssessment } from "./actions";
 
 // 세특 · 수행평가 (Figma N59): 목록 · 고른 수행평가 칸 · 등록 창 · 한 명씩 올리기 · 합본 PDF 나누기(번호순 | 페이지 지정).
@@ -90,6 +92,7 @@ export function AssessBoard({ base, aiOn, items, selected, total, students, comp
             <h2 className="min-w-0 truncate text-[18px] font-bold">{selected.title}</h2>
             <span className="shrink-0 rounded-chip bg-soft px-1.5 py-px text-[12px] font-bold text-sub">{dot(selected.date)}</span>
             <span className="flex-1" />
+            <ShareToRoomButton preset={{ kind: "수행평가", title: selected.title, body: selected.description, meta: { date: selected.date } }} className="flex shrink-0 items-center gap-1 text-[13px] font-medium text-sub hover:text-ink" />
             <button type="button" onClick={() => setDialog("edit")} className="shrink-0 text-[13px] font-medium text-sub hover:text-ink">고치기</button>
             <button type="button" onClick={remove} disabled={pending} className="shrink-0 text-[13px] font-medium text-bad">지우기</button>
           </div>
@@ -161,7 +164,7 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   // 계획서 AI 읽기 · 같은 과목 가져오기 (2026-10-22): 고르면 칸을 채운다. 저장은 등록을 눌러야
-  const [picks, setPicks] = useState<{ from: "ai" | "same"; list: PlanPick[] } | null>(null);
+  const [picks, setPicks] = useState<{ from: "ai" | "same" | "room"; list: PlanPick[] } | null>(null);
   const file = useRef<HTMLInputElement>(null);
   const fill = (x: PlanPick) => { setTitle(x.title); if (x.date) setDate(x.date); setDescription(x.description); setPicks(null); };
   const readPlan = (f: File) => start(async () => {
@@ -177,6 +180,12 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
     const list: SharedAssessment[] = await listSameSubjectAssessments(courseId ?? "", section ?? null).catch(() => []);
     if (!list.length) return setError("같은 과목에 등록된 수행평가가 아직 없어요");
     setPicks({ from: "same", list });
+  });
+  const loadRooms = () => start(async () => {
+    setError("");
+    const list = await roomAssessments().catch(() => []);
+    if (!list.length) return setError("든 협업방에 올린 수행평가가 아직 없어요");
+    setPicks({ from: "room", list });
   });
   const saveAll = () => picks && start(async () => {
     setError("");
@@ -203,6 +212,7 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
         <div className="flex flex-wrap gap-2">
           {aiOn && <button type="button" onClick={() => file.current?.click()} disabled={pending} className="flex h-9 items-center gap-1.5 rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50"><Sparkles size={14} /> 계획서로 채우기 (AI)</button>}
           <button type="button" onClick={loadSame} disabled={pending} className="flex h-9 items-center gap-1.5 rounded-control bg-soft px-3 text-[13px] font-bold text-sub hover:text-ink disabled:opacity-50"><Copy size={14} /> 같은 과목에서 가져오기</button>
+          <button type="button" onClick={loadRooms} disabled={pending} className="flex h-9 items-center gap-1.5 rounded-control bg-ok-soft px-3 text-[13px] font-bold text-ok disabled:opacity-50">협업방에서 가져오기</button>
           <input ref={file} type="file" hidden accept=".pdf,.hwpx,.pptx,.txt,image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) readPlan(f); e.target.value = ""; }} />
           {pending && <span className="self-center text-[12px] text-mute">{picks ? "" : "읽는 중…"}</span>}
         </div>
@@ -210,7 +220,7 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
       {picks && (
         <div className="flex flex-col gap-1.5 rounded-inner bg-bg p-2">
           <p className="flex items-center px-1 text-[12px] font-bold text-sub">
-            {picks.from === "ai" ? <><FileUp size={13} className="mr-1" /> 계획서에서 {picks.list.length}개를 찾았어요 — 하나를 고르거나 모두 등록</> : "같은 과목 수행평가 — 고르면 칸에 채워져요"}
+            {picks.from === "ai" ? <><FileUp size={13} className="mr-1" /> 계획서에서 {picks.list.length}개를 찾았어요 — 하나를 고르거나 모두 등록</> : picks.from === "room" ? "협업방 수행평가 — 고르면 칸에 채워져요" : "같은 과목 수행평가 — 고르면 칸에 채워져요"}
             <button type="button" onClick={() => setPicks(null)} className="ml-auto text-mute hover:text-ink" aria-label="닫기"><X size={14} /></button>
           </p>
           <ul className="flex max-h-[260px] flex-col gap-1 overflow-y-auto">

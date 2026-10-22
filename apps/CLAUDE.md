@@ -34,7 +34,7 @@
 
 ## Supabase 연결 (처음 한 번)
 1. Supabase 새 프로젝트: 지역 Seoul(ap-northeast-2).
-2. SQL Editor에 `apps/web/supabase/migrations/` 의 0001 ~ 0037 를 번호 순서대로 붙여 실행. 어디까지 넣었는지는 관리 현황 "DB 업데이트 확인"에서 본다(새 SQL 을 만들면 `src/lib/server/db-status.ts` 에 한 줄 더함). (0002 = service_role 권한. "새 테이블 자동 공개"를 꺼 두었으므로 필요)
+2. SQL Editor에 `apps/web/supabase/migrations/` 의 0001 ~ 0038 를 번호 순서대로 붙여 실행. 어디까지 넣었는지는 관리 현황 "DB 업데이트 확인"에서 본다(새 SQL 을 만들면 `src/lib/server/db-status.ts` 에 한 줄 더함). (0002 = service_role 권한. "새 테이블 자동 공개"를 꺼 두었으므로 필요)
 3. `apps/web/.env.example` → `.env.local` 로 복사해 채운다 (URL, service role 키, SESSION_SECRET, INITIAL_AUTH_CODE). Vercel 크론(노션 동기화 · 자료 보존 파기 `/api/cron/retention`)은 `CRON_SECRET` 이 있어야 돈다.
 4. 첫 관리자: `/signup` (교사 가입, 학교 인증코드 필요)에서 **맨 처음 가입한 교사가 관리자**가 된다. 또는 `npm run seed:admin -- <관리자 이름>`.
 5. `npm run build && npm start` — 화면 위 "데모 모드" 띠가 사라지면 연결된 것.

@@ -14,6 +14,7 @@ import { SidebarLinks, TabBar } from "./nav-links";
 import { SIDEBAR_COOKIE, SidebarFrame } from "./sidebar-frame";
 import { GuideButton, Yeongrang } from "./yeongrang";
 import { COPYRIGHT, MAKERS_LINE } from "@/lib/domain/credits";
+import { repo } from "@/lib/server/repo";
 import { GuidePanel } from "@/components/writing/guide-panel";
 
 // D2 벤토 그리드: 흰 사이드바 + 흰 본문. 모바일은 하단 탭바.
@@ -23,7 +24,9 @@ export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
   prefs: AccountPrefs;
 }) {
   // 메뉴 = 내 역할 메뉴 → 내가 바꾼 순서(N53) → 숨긴 메뉴 빼기. 순서 바꾸기는 교사만
-  const base = withoutLocked(navFor(viewer, badges));
+  // 협업방(N69): 내가 든 방이 사이드바 "협업" 묶음에 바로 나온다 (0038 전 DB면 빈 목록)
+  const rooms = viewer.kind === "teacher" ? (await repo.listRooms(viewer.accountId).catch(() => [])).map((r) => ({ id: r.id, name: r.name })) : [];
+  const base = withoutLocked(navFor(viewer, badges, rooms));
   const all = arrangeMenus(base, prefs.menuLayout);
   const arrange = viewer.kind === "teacher" ? { all: plainGroups(all), base: plainGroups(base), hidden: prefs.hiddenMenus } : undefined;
   const mini = (await cookies()).get(SIDEBAR_COOKIE)?.value === "mini";

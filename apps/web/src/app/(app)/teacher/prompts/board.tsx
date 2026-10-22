@@ -7,6 +7,7 @@ import { ChevronLeft, Copy, FileUp, Lock, Plus, Search, Star, X } from "lucide-r
 import { Button, cx } from "@/components/ui";
 import { fitsStyle, PROMPT_LIMITS, PROMPT_TABS, type PromptDoc, type PromptTab } from "@/lib/domain/prompt-library";
 import { STYLE_AREAS, STYLE_LIMITS, type StyleArea } from "@/lib/domain/writing-style";
+import { ShareToRoomButton } from "@/components/collab-share";
 import { deletePromptAction, readPromptFile, savePrompt, togglePromptStar, applyPromptAsStyle } from "./actions";
 
 // 프롬프트 보관함 (도구, 2026-10-22): 탭(공식 · 공유 · 내 프롬프트) · 영역 칩 · 찾기 · 목록(★ 수) · 글(★ · 복사 · 내 스타일에 넣기) · 올리기 창.
@@ -154,6 +155,7 @@ export function PromptsBoard({ prompts, counts, tab, area, text, selected, detai
                   title={fitsStyle(selected.body) ? undefined : `내 스타일은 ${STYLE_LIMITS.prompt.toLocaleString("ko-KR")}자까지예요`}
                   className="flex h-9 items-center gap-1.5 rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50">내 스타일에 넣기</button>
               )}
+              <ShareToRoomButton preset={{ kind: "프롬프트", title: selected.title, body: selected.body.slice(0, 4000), meta: { area: selected.area, subject: selected.subject } }} />
               <span className="flex-1" />
               {editable && <button type="button" onClick={() => setEdit(true)} className="text-[13px] font-medium text-sub hover:text-ink">고치기</button>}
               {editable && <button type="button" onClick={remove} disabled={pending} className="text-[13px] font-medium text-bad">지우기</button>}

@@ -11,15 +11,16 @@ export type NavBadges = Record<string, number>;
 /** fold: 처음에 접어 두는 묶음. label 이 빈 묶음은 머리 없이 맨 위에 둔다(홈) */
 export interface NavGroup { label: string; items: NavItem[]; fold?: boolean }
 
-export function navFor(v: Viewer, badges: NavBadges = {}): NavGroup[] {
-  return withBadges(baseNav(v), badges);
+/** rooms: 내가 든 협업방 (사이드바 "협업" 묶음에 바로 나온다, N69) */
+export function navFor(v: Viewer, badges: NavBadges = {}, rooms: { id: string; name: string }[] = []): NavGroup[] {
+  return withBadges(baseNav(v, rooms), badges);
 }
 
 function withBadges(groups: NavGroup[], badges: NavBadges): NavGroup[] {
   return groups.map((g) => ({ ...g, items: g.items.map((it) => (badges[it.href] ? { ...it, badge: badges[it.href] } : it)) }));
 }
 
-function baseNav(v: Viewer): NavGroup[] {
+function baseNav(v: Viewer, rooms: { id: string; name: string }[] = []): NavGroup[] {
   if (v.kind === "student") {
     return [
       { label: "나의 기록", items: [
@@ -84,6 +85,12 @@ function baseNav(v: Viewer): NavGroup[] {
     I("초안 검토", "/teacher/drafts", "file"),
     I("프로그램 일정", "/teacher/programs?view=calendar", "calendar"),
     I("봉사 확인서", "/teacher/service", "shield"),
+  ] });
+  // 협업 (Figma N69, 2026-10-22): 대분류. 교과 · 학년이 달라도 방을 만들어 함께 — 내가 든 방이 바로 메뉴
+  groups.push({ label: "협업", items: [
+    ...rooms.slice(0, 5).map((x) => ({ ...I(x.name, `/collab/${x.id}`, "users"), match: [`/collab/${x.id}`] })),
+    I("새 협업방", "/collab/new", "plus"),
+    I("협업방 모두 보기", "/collab", "grid"),
   ] });
   // 도구 (2026-10-21): 생기부를 쓰고 내보낼 때 곁에 두는 것 — 어느 기록 묶음에서든 쓴다
   groups.push({ label: "도구", items: [
@@ -200,7 +207,7 @@ export type MenuLayout = { label: string; items: string[] }[];
 
 /** 지금 메뉴 묶음을 저장한 순서대로 다시 놓는다. 없어진 묶음에 있던 메뉴는 처음 묶음으로 돌아간다 */
 /** 순서 저장 기능(N53) 뒤에 생긴 묶음: 예전에 저장한 순서에 없으면 그 묶음 메뉴는 저장 자리 대신 이 묶음으로 돌아온다 */
-const LATER_GROUPS = ["도구"];
+const LATER_GROUPS = ["도구", "협업"];
 
 export function arrangeMenus(groups: NavGroup[], layout: MenuLayout | null | undefined): NavGroup[] {
   if (!layout?.length) return groups;
@@ -353,6 +360,7 @@ export const MENU_KEYWORDS: Record<string, string[]> = {
   "/teacher/texts?tab=setuk": ["모아 보기", "1500바이트", "확정본", "세특 모음"],
   "/teacher/texts?tab=behavior": ["모아 보기", "행발", "누가기록", "확정본"],
   "/teacher/counseling": ["상담"],
+  "/collab": ["협업", "협업방", "동학년", "교과", "공동", "같이", "공유", "초대"],
   "/teacher/prompts": ["프롬프트", "프롬", "AI", "스타일", "공식", "공유", "별", "추천"],
   "/teacher/qna": ["문의", "질문", "QnA", "Q&A", "답변", "게시판", "도움"],
   "/teacher/tips": ["팁", "DDAR", "구조", "작성법", "서술어", "게시판", "자료"],
