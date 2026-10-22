@@ -1,6 +1,7 @@
 import "server-only";
 import JSZip from "jszip";
 import { HWP_GUIDE, HWPX_MIME, hwpxSectionText, isHwp, isHwpx, sortSections } from "@/lib/domain/hwpx";
+import { isPpt, isPptx, PPT_GUIDE, PPTX_MIME, slidesText, slideText, sortSlides } from "@/lib/domain/pptx";
 
 /** HWPX(ZIP) → 본문 글. 열 수 없으면 null */
 export async function hwpxText(bytes: Uint8Array): Promise<string | null> {
@@ -16,15 +17,34 @@ export async function hwpxText(bytes: Uint8Array): Promise<string | null> {
   }
 }
 
+/** PPTX(ZIP) → 슬라이드 글. 열 수 없으면 null */
+export async function pptxText(bytes: Uint8Array): Promise<string | null> {
+  try {
+    const zip = await JSZip.loadAsync(bytes);
+    const slides = sortSlides(Object.keys(zip.files));
+    if (!slides.length) return null;
+    const texts = await Promise.all(slides.map(async (n) => slideText(await zip.file(n)!.async("string"))));
+    return slidesText(texts) || null;
+  } catch {
+    return null;
+  }
+}
+
 export type ReadUpload = { bytes: Uint8Array; name: string; mime: string; text: string | null };
 
 /**
- * 올린 파일을 앱이 다루는 모양으로: HWPX 는 글을 뽑아 둔다(mime = application/hwp+zip), TXT 는 글 그대로.
+ * 올린 파일을 앱이 다루는 모양으로: HWPX · PPTX 는 글을 뽑아 둔다(mime = application/hwp+zip · PPTX mime), TXT 는 글 그대로.
  * HWP(바이너리)는 읽지 못해 안내 문구를 돌려준다. 다른 종류는 그대로 (검사는 부르는 쪽에서)
  */
 export async function readUpload(f: File): Promise<ReadUpload | string> {
   const bytes = new Uint8Array(await f.arrayBuffer());
   if (isHwp(f.name)) return `${f.name}: ${HWP_GUIDE}`;
+  if (isPpt(f.name)) return `${f.name}: ${PPT_GUIDE}`;
+  if (isPptx(f.name)) {
+    const text = await pptxText(bytes);
+    if (!text) return `${f.name}: PPTX에서 글을 찾지 못했어요. 그림뿐인 슬라이드면 PDF로 저장해 올려 주세요`;
+    return { bytes, name: f.name, mime: PPTX_MIME, text };
+  }
   if (isHwpx(f.name)) {
     const text = await hwpxText(bytes);
     if (!text) return `${f.name}: HWPX 파일을 열지 못했어요. 한글에서 다시 저장하거나 PDF로 올려 주세요`;

@@ -220,7 +220,7 @@ export function canDeleteMaterial(
 }
 
 /** 제출 서류 형식. HWPX 는 서버가 글을 뽑아 둔다 (lib/server/hwpx.ts, hwpx 스킬 방식) */
-export const MATERIAL_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "text/plain", "application/hwp+zip"] as const;
+export const MATERIAL_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "text/plain", "application/hwp+zip", "application/vnd.openxmlformats-officedocument.presentationml.presentation"] as const;
 /** AI 가 원본 파일(PDF·이미지)을 직접 읽을 수 있는 형식 */
 export const isReadableByAi = (mime: string) => mime === "application/pdf" || mime.startsWith("image/");
 export const MATERIAL_MAX_BYTES = 50 * 1024 * 1024;

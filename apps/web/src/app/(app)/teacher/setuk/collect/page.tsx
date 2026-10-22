@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PencilLine } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { ButtonLink, Card, cx } from "@/components/ui";
-import { studentsInCourse } from "@/lib/domain/setuk";
+import { courseSections, studentsInCourse } from "@/lib/domain/setuk";
 import { schoolYear, type Course } from "@/lib/domain/curriculum";
 import { recentPieces } from "@/lib/domain/collect";
 import { seoulNow } from "@/lib/domain/night";
@@ -56,7 +56,8 @@ export default async function SetukCollectPage({ searchParams }: Props) {
     if (a.mode === "moving" && a.sections?.length) {
       return a.sections.map((sec) => ({ course: c, section: sec as string | null, name: c.joint ? `공동 · ${c.subject}` : `${c.subject} ${sec}`, n: studentsInCourse(all, c, a, rs, sec).length }));
     }
-    return [{ course: c, section: null as string | null, name: `${short(c)} · ${a.classes.join(", ")}반`, n: studentsInCourse(all, c, a, rs).length }];
+    // 고정반 여러 반은 반마다 따로 (2026-10-22)
+    return courseSections(a).map((sec) => ({ course: c, section: sec, name: sec ? `${short(c)} · ${sec}` : `${short(c)} · ${a.classes.join(", ")}반`, n: studentsInCourse(all, c, a, rs, sec).length }));
   });
   const tab = tabs.find((t) => t.course.id === q.course && (t.section ?? "") === (q.section ?? "")) ?? tabs.find((t) => t.course.id === q.course) ?? tabs[0];
   const course = tab.course;

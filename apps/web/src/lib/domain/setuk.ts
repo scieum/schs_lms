@@ -35,6 +35,26 @@ export type SectionRoster = { section: string; studentIds: string[] };
  * - 이동반: 분반 명단대로. section 을 주면 그 분반만, 없으면 모든 분반을 합쳐서
  * - 고정반: 과목 학년 + 맡은 반
  */
+/** 고정반 반 이름 ("3반") ↔ 반 번호 */
+export const classSection = (n: number) => `${n}반`;
+const classOfSection = (s: string | null | undefined) => { const m = s?.match(/^(\d+)반$/); return m ? Number(m[1]) : null; };
+
+/**
+ * 탭 · 범위로 나눌 칸 (2026-10-22 "고정반이지만 반은 따로따로"): 이동반 = 분반마다, 고정반 = 반이 둘 이상이면 반마다("1반" · "2반"), 하나면 [null].
+ */
+export function courseSections(a: TeacherCourse): (string | null)[] {
+  if (a.mode === "moving" && a.sections?.length) return a.sections;
+  return a.classes.length > 1 ? [...a.classes].sort((x, y) => x - y).map(classSection) : [null];
+}
+
+/** 이 담당(분반 · 고정반 반)에 있는 칸인가 */
+export function sectionAllowed(a: TeacherCourse, section: string | null | undefined): boolean {
+  if (!section) return true;
+  if (a.mode === "moving") return (a.sections ?? []).includes(section);
+  const n = classOfSection(section);
+  return n !== null && a.classes.includes(n);
+}
+
 export function studentsInCourse(students: Student[], course: Course, assignment: TeacherCourse | undefined, rosters?: SectionRoster[] | null, section?: string | null): Student[] {
   if (!assignment) return [];
   if (assignment.mode === "moving") {
@@ -42,7 +62,9 @@ export function studentsInCourse(students: Student[], course: Course, assignment
     const ids = new Set(list.flatMap((r) => r.studentIds));
     return students.filter((s) => ids.has(s.id)).sort((a, b) => a.studentNo.localeCompare(b.studentNo));
   }
-  const classes = new Set(assignment?.classes ?? []);
+  // 고정반 "3반" 칸이면 그 반만
+  const one = classOfSection(section);
+  const classes = new Set(one !== null && assignment.classes.includes(one) ? [one] : assignment?.classes ?? []);
   // 고정반은 본교 반 그대로 (다른 학교 학생은 공동교육과정 명단에만)
   return students
     .filter((s) => !s.school && s.grade === course.grade && classes.has(s.classNo))

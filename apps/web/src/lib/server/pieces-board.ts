@@ -3,7 +3,7 @@ import { homeroomStudents } from "@/lib/domain/activity";
 import { schoolYear } from "@/lib/domain/curriculum";
 import { NEIS_MAX_BYTES } from "@/lib/domain/length";
 import type { MergePiece } from "@/lib/domain/merge";
-import { latestByStudent, statusLabel, studentsInCourse } from "@/lib/domain/setuk";
+import { courseSections, latestByStudent, statusLabel, studentsInCourse } from "@/lib/domain/setuk";
 import type { Student, Viewer } from "@/lib/domain/types";
 import { latestRecordByStudent, RECORD_LABEL, RECORD_MAX_BYTES, recordStatus, type RecordArea } from "@/lib/domain/writing";
 import { evidenceLogs } from "@/app/(app)/teacher/write/data";
@@ -52,7 +52,7 @@ async function refsFor(v: Viewer): Promise<Ref[]> {
   for (const course of offered.filter((c) => mine.some((a) => a.courseId === c.id))) {
     const a = mine.find((x) => x.courseId === course.id)!;
     const rs = rosters.filter((r) => r.courseId === course.id);
-    const sections: (string | null)[] = a.mode === "moving" && a.sections?.length ? a.sections : [null];
+    const sections = courseSections(a);
     for (const sec of sections) {
       const q = `course=${course.id}${sec ? `&section=${encodeURIComponent(sec)}` : ""}`;
       refs.push({

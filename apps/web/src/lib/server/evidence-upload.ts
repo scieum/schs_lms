@@ -14,7 +14,7 @@ export async function takeEvidenceFile(form: FormData): Promise<EvidenceFile | s
   if (f.size > EVIDENCE_MAX_BYTES) return `${f.name}: 4MB까지 읽을 수 있어요. PDF는 쪽을 나눠 올려 주세요`;
   const up = await readUpload(f);
   if (typeof up === "string") return up;
-  if (!(MATERIAL_TYPES as readonly string[]).includes(up.mime)) return `${f.name}: PDF·이미지(JPG·PNG·WEBP)·HWPX·TXT만 읽을 수 있어요`;
+  if (!(MATERIAL_TYPES as readonly string[]).includes(up.mime)) return `${f.name}: PDF·이미지(JPG·PNG·WEBP)·HWPX·PPTX·TXT만 읽을 수 있어요`;
   return up;
 }
 

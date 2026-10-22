@@ -60,7 +60,7 @@ export async function uploadMyDoc(prev: DocState, form: FormData): Promise<DocSt
   if (f.size > STUDENT_MAX_BYTES) return { error: "20MB까지 올릴 수 있어요", n };
   const up = await readUpload(f);
   if (typeof up === "string") return { error: up, n };
-  if (!(MATERIAL_TYPES as readonly string[]).includes(up.mime)) return { error: "PDF, HWPX, JPG, PNG, TXT 파일만 올릴 수 있어요", n };
+  if (!(MATERIAL_TYPES as readonly string[]).includes(up.mime)) return { error: "PDF, HWPX, PPTX, JPG, PNG, TXT 파일만 올릴 수 있어요", n };
   const mine = (await repo.listMaterialsByStudent(me.id)).filter((m) => m.programId === program.id);
   if (mine.length >= 5) return { error: "한 프로그램에 5개까지 올릴 수 있어요", n };
   const { bytes, mime } = up;

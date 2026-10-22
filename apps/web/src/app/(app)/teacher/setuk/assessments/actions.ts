@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { withActivity } from "@/lib/domain/activity-name";
 import { assessScope, checkAssessment } from "@/lib/domain/assessment";
-import { studentsInCourse } from "@/lib/domain/setuk";
+import { sectionAllowed, studentsInCourse } from "@/lib/domain/setuk";
 import { readEvidence } from "@/lib/server/ai/read-evidence";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
 import { repo } from "@/lib/server/repo";
@@ -20,7 +20,7 @@ async function myCourse(courseId: string, section: string | null) {
   const [course, mine] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId)]);
   const a = mine.find((x) => x.courseId === courseId);
   if (!course || !a) return null;
-  if (section && !(a.sections ?? []).includes(section)) return null;
+  if (!sectionAllowed(a, section)) return null;
   return { v, course, assignment: a };
 }
 

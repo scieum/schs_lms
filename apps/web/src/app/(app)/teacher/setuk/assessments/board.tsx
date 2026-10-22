@@ -99,7 +99,7 @@ export function AssessBoard({ base, aiOn, items, selected, total, students, comp
             <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-soft"><span className="block h-full rounded-full bg-key" style={{ width: `${total ? (done / total) * 100 : 0}%` }} /></span>
             <span className="text-[13px] font-bold tabular-nums text-key-strong">{done} / {total}명</span>
           </div>
-          {!aiOn && <p className="rounded-control bg-wait-soft px-3 py-2 text-[12px] text-[#9a6400]">AI가 꺼져 있어 글자 파일(hwpx · txt)만 앞부분을 그대로 넣어요</p>}
+          {!aiOn && <p className="rounded-control bg-wait-soft px-3 py-2 text-[12px] text-[#9a6400]">AI가 꺼져 있어 글자 파일(hwpx · pptx · txt)만 앞부분을 그대로 넣어요</p>}
           <div className="flex flex-col gap-2 md:flex-row">
             <Button type="button" className="md:flex-none" onClick={() => setDialog("split")}><Upload size={15} /> 합본 PDF 나누기</Button>
             <Button type="button" kind="outline" className="md:flex-none" onClick={() => { setWho(null); setDialog("one"); }}>학생 자료 한 명씩</Button>
@@ -205,7 +205,7 @@ function OneDialog({ assessmentId, students, first, onClose }: { assessmentId: s
           {students.map((s) => <option key={s.id} value={s.id}>{s.no} {s.name}{s.summary ? " · 자료 있음" : ""}</option>)}
         </select>
       </label>
-      <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">파일 (PDF · 사진 · hwpx · txt)
+      <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">파일 (PDF · 사진 · hwpx · pptx · txt)
         <input type="file" accept={ACCEPT} onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="rounded-control border border-dashed border-faint px-3 py-3 text-[14px]" />
       </label>
       <p className="rounded-control bg-bg px-3 py-2 text-[12px] text-sub">AI가 읽어 요약만 조각으로 남겨요 · 파일은 저장하지 않아요 · 다시 올리면 새 요약이 더해져요</p>

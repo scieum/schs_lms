@@ -242,7 +242,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
             onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files?.[0]; if (f) setFile(f); }}
             className={cx("flex cursor-pointer flex-col items-center gap-1 rounded-control border border-dashed px-4 py-5 text-center", drag ? "border-key bg-key-soft" : "border-faint bg-[#fff] hover:bg-soft")}>
             <span className="flex items-center gap-1.5 text-[14px] font-bold text-key-strong"><FileUp size={16} /> 활동 자료 올리기</span>
-            <span className="text-[12px] text-mute">활동지 · 보고서 · 사진 (PDF · 이미지 · hwpx · txt) · AI가 읽어 요약만 남겨요 · 파일은 저장하지 않아요</span>
+            <span className="text-[12px] text-mute">활동지 · 보고서 · 발표 자료 · 사진 (PDF · 이미지 · hwpx · pptx · txt) · AI가 읽어 요약만 남겨요 · 파일은 저장하지 않아요</span>
             <input type="file" accept={ACCEPT} className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f); e.target.value = ""; }} />
           </label>
         ))}

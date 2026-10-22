@@ -231,7 +231,8 @@ footer{color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding
       <ol class="steps">
         <li>위의 학기 탭 <span class="btn">2학기 · 지금</span> <span class="btn">1학기</span>에서 학기를 골라요. 지금 학기가 먼저 열려요.</li>
         <li>편제표 과목을 체크하고 <b>고정반 | 이동반</b>을 정해요.</li>
-        <li>고정반은 반 칩을 고르고, 이동반은 <span class="btn">+ 분반</span>으로 분반을 만들어요.</li>
+        <li>반은 모두 꺼진 채로 시작해요. 고정반은 <b>맡은 반 칩만</b> 고르고, 이동반은 <span class="btn">+ 분반</span>으로 분반을 만들어요.</li>
+        <li>고정반에 반이 여럿이면 조각 모으기 · 수행평가 · 글 짓기 탭이 <b>반마다 따로</b> 나와요.</li>
       </ol>
     </div>
     <div class="card"><h3>이동반 분반 명단</h3>
@@ -261,7 +262,7 @@ footer{color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding
       <li><b>받는 학생</b>을 체크해요. <span class="btn">모두</span> <span class="btn">비우기</span>도 있어요. 칸의 숫자는 그 학생의 조각 수예요.</li>
       <li><b>활동명</b>을 적어요(꼭 필요해요). 예: 빗면 실험.</li>
       <li><b>메모</b> 탭: 본 것을 한두 줄로 적어요. <span class="btn">AI 다듬기</span>를 누르면 전 · 후를 보여 주고 <span class="btn">이걸로 바꾸기</span>를 눌러야 바뀌어요.</li>
-      <li><b>자료</b> 탭: 활동지 · 보고서 · 사진(PDF · 이미지 · hwpx · txt)을 올리고 <span class="btn">읽기</span> → 요약이 메모 칸에 들어가요. 고쳐 써도 돼요.</li>
+      <li><b>자료</b> 탭: 활동지 · 보고서 · 발표 자료 · 사진(PDF · 이미지 · hwpx · pptx · txt)을 올리고 <span class="btn">읽기</span> → 요약이 메모 칸에 들어가요. 고쳐 써도 돼요.</li>
       <li><span class="btn p">n명에게 남기기</span>. 활동명과 학생은 그대로 남아 이어서 남길 수 있어요.</li>
     </ol>
   </div>
@@ -540,7 +541,7 @@ footer{color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding
     <figure class="shot" style="margin:0"><img src="submit.webp" alt="서류 제출" loading="lazy"><figcaption>서류 제출</figcaption></figure>
   </div>
   <div class="grid3" style="margin-top:14px">
-    <div class="card"><h3>서류 제출</h3><p>열린 프로그램을 골라 서류(PDF · HWPX · JPG · PNG, 20MB)를 올리면 제출이 끝나요. 마감 전에는 지우고 다시 올릴 수 있어요.</p></div>
+    <div class="card"><h3>서류 제출</h3><p>열린 프로그램을 골라 서류(PDF · HWPX · PPTX · JPG · PNG, 20MB)를 올리면 제출이 끝나요. 마감 전에는 지우고 다시 올릴 수 있어요.</p></div>
     <div class="card"><h3>성적 · 최저</h3><p>내신 · 모의고사 추이, 목표 대학 최저 충족 여부와 공부 계획.</p></div>
     <div class="card"><h3>생활기록부</h3><p>확정된 지난 학년도 기록만 보여요. 올해 쓰는 중인 글은 보이지 않아요.</p></div>
     <div class="card"><h3>추천 활동</h3><p>희망 진로에 맞는 도서 · 대회 · 특강 · 활동을 <span class="btn">추천 받기</span> → 담기.</p></div>
@@ -573,7 +574,7 @@ footer{color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding
   <details><summary>올린 자료 파일은 어디에 저장돼요?</summary><p>조각 · 수행평가 자료는 저장하지 않아요. AI가 읽은 요약만 조각으로 남아요. 원본은 선생님 컴퓨터에 보관하세요.</p></details>
   <details><summary>확정한 글을 고치고 싶어요.</summary><p>글 짓기에서 고친 뒤 <b>다시 확정</b>하면 새 버전으로 남아요. 예전 버전은 지워지지 않아요.</p></details>
   <details><summary>합본 PDF 쪽수가 학생 수와 안 맞아요.</summary><p>번호순 대신 <b>페이지 지정</b>으로 학생마다 쪽 구간을 적으세요. 비어 있는 학생은 빼면 돼요.</p></details>
-  <details><summary>AI가 꺼져 있다고 나와요.</summary><p>관리자가 AI를 끈 상태예요. 메모 · 확정 · 나이스 입력은 그대로 되고, 글 파일(hwpx · txt)은 앞부분을 그대로 넣어요.</p></details>
+  <details><summary>AI가 꺼져 있다고 나와요.</summary><p>관리자가 AI를 끈 상태예요. 메모 · 확정 · 나이스 입력은 그대로 되고, 글 파일(hwpx · pptx · txt)은 앞부분을 그대로 넣어요.</p></details>
 </section>
 
 <p class="hidden" id="empty" style="color:var(--mute)">찾는 말이 있는 부분이 없어요. 다른 낱말로 찾아 보세요.</p>

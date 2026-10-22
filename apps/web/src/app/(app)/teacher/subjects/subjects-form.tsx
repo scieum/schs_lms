@@ -48,7 +48,7 @@ export function SubjectsForm({
     setPicked((p) => {
       const next = { ...p };
       if (next[c.id]) delete next[c.id];
-      else next[c.id] = [...(classesByGrade[c.grade] ?? [])]; // 처음엔 그 학년 반 전체
+      else next[c.id] = []; // 처음엔 반을 모두 끈 채로 — 맡은 반만 고른다 (2026-10-22)
       return next;
     });
   const setMode = (c: Course, m: ClassMode) => setModes((x) => ({ ...x, [c.id]: m }));

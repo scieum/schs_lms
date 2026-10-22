@@ -2,7 +2,7 @@ import "server-only";
 import { homeroomStudents } from "@/lib/domain/activity";
 import { parseScope, progressChip, type CommonActivity, type ScopeRef } from "@/lib/domain/common-activity";
 import { schoolYear } from "@/lib/domain/curriculum";
-import { studentsInCourse } from "@/lib/domain/setuk";
+import { sectionAllowed, studentsInCourse } from "@/lib/domain/setuk";
 import type { Student, Viewer } from "@/lib/domain/types";
 import { RECORD_LABEL } from "@/lib/domain/writing";
 import { repo } from "./repo";
@@ -32,7 +32,7 @@ export async function resolveScope(v: Viewer, scope: string): Promise<ResolvedSc
     const [course, mine, rosters] = await Promise.all([repo.getCourse(ref.courseId), repo.listTeacherCourses(v.accountId), repo.getCourseRosters(v.accountId, ref.courseId)]);
     const a = mine.find((x) => x.courseId === ref.courseId);
     if (!course || !a) return null;
-    if (a.mode === "moving" ? !ref.section || !(a.sections ?? []).includes(ref.section) : !!ref.section) return null;
+    if (a.mode === "moving" ? !ref.section || !(a.sections ?? []).includes(ref.section) : !sectionAllowed(a, ref.section)) return null;
     const sec = ref.section ? `&section=${encodeURIComponent(ref.section)}` : "";
     return {
       ref, students: studentsInCourse(all, course, a, rosters, ref.section),

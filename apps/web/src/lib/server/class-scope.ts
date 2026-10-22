@@ -2,7 +2,7 @@ import "server-only";
 import { homeroomStudents } from "@/lib/domain/activity";
 import { schoolYear, type Course } from "@/lib/domain/curriculum";
 import { NEIS_MAX_BYTES } from "@/lib/domain/length";
-import { latestByStudent, studentsInCourse } from "@/lib/domain/setuk";
+import { courseSections, latestByStudent, sectionAllowed, studentsInCourse } from "@/lib/domain/setuk";
 import type { Student, Viewer } from "@/lib/domain/types";
 import { isRecordArea, latestRecordByStudent, RECORD_LABEL, RECORD_MAX_BYTES, type RecordArea } from "@/lib/domain/writing";
 import type { Level } from "@/lib/domain/achievement";
@@ -52,7 +52,7 @@ export async function resolveScope(v: Viewer, input: ClassScopeInput): Promise<R
     const [course, mine, roster] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getCourseRosters(v.accountId, courseId)]);
     const assignment = mine.find((a) => a.courseId === courseId);
     if (!course || !assignment) return null;
-    if (section && !(assignment.sections ?? []).includes(section)) return null;
+    if (!sectionAllowed(assignment, section)) return null;
     const students = studentsInCourse(all, course, assignment, roster, section);
     const latest = latestByStudent(await repo.listSetuk(course.id));
     return {
@@ -96,7 +96,7 @@ export async function mySetukScopes(v: Viewer): Promise<ClassScopeInput[]> {
   const [mine, offered] = await Promise.all([repo.listTeacherCourses(v.accountId), repo.listCourses(schoolYear())]);
   return offered.filter((c) => mine.some((a) => a.courseId === c.id)).flatMap((c): ClassScopeInput[] => {
     const a = mine.find((x) => x.courseId === c.id)!;
-    return a.mode === "moving" && a.sections?.length ? a.sections.map((s) => ({ kind: "setuk" as const, courseId: c.id, section: s })) : [{ kind: "setuk" as const, courseId: c.id, section: null }];
+    return courseSections(a).map((s) => ({ kind: "setuk" as const, courseId: c.id, section: s }));
   });
 }
 
