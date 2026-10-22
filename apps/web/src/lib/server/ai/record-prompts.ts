@@ -1,6 +1,10 @@
 import "server-only";
 import { FORBIDDEN_PROMPT } from "@/lib/domain/forbidden";
+import { isNotionFamily, NOTION_SETUK } from "./setuk-prompts-notion";
 
+// 2026-10-22 사용자 요청 "세특 프롬프트는 노션 내용 토씨 빼지 말고 그대로": 국어 · 수학 · 영어 · 사회 · 과학 · 정보 세특은
+// setuk-prompts-notion.ts 의 원문을 그대로 쓴다(+ 앱 입력 · 분량 안내 NOTION_BRIDGE). 아래 FAMILY 의 6개 교과는 그래서 쓰이지 않고,
+// 체육 · 그 밖의 교과 · 창체 · 행발만 아래 묶은 프롬프트를 쓴다.
 // 생기부 프롬프트 — 출처: 노션 "세특 프롬프트(속초고등학교 전달용)" (2026-07-21 판)
 //   [SKILL] 2022 개정 교육과정 국어·수학·영어·사회·과학·정보 생기부 프롬프트
 //   + 노션 "생기부 프롬프트 예시(선생님 전달용)" (2025-12-29 판): 체육과 · 동아리용 · 행동특성용
@@ -271,9 +275,17 @@ const NON_SUBJECT: Record<Exclude<RecordKind, "세특">, NonSubjectSpec> = {
 };
 
 /** 시스템 프롬프트 (교과 세특은 교과 계열별 SKILL, 창체·행발은 공통 문체 + 영역 설명) */
+// 노션 원문(국어 · 수학 · 영어 · 사회 · 과학 · 정보)을 그대로 쓸 때 앱 입력 · 분량만 맞추는 짧은 안내 (원문은 고치지 않음, 2026-10-22)
+const NOTION_BRIDGE = (subject?: string | null) => `앱에서 쓸 때 맞출 것(위 원문을 그대로 따르고 입력과 분량만 이렇게 읽음)
+- ${subject ? `과목은 ${subject}임.` : "과목은 근거 자료로 판단함."}
+- 입력은 (주제)/(활동)/(키워드) 블록 대신 교사가 남긴 조각(메모, 자료 요약, 수행평가, 차시, 공통 활동)으로 옴. 조각마다 활동명이 있으면 그것을 (주제)로, 내용을 (활동)으로 보고 같은 활동의 조각은 하나로 묶음.
+- 분량은 (글자수) 대신 아래에 따로 주는 나이스 바이트 범위(한글 한 글자 3바이트)를 따름.`;
+
 function basePrompt(kind: RecordKind, subject?: string | null): string {
   if (kind === "세특") {
     const fam = subjectFamily(subject);
+    // 노션 원문이 있는 교과는 원문 그대로 (체육 · 그 밖의 교과는 아래 기존 프롬프트)
+    if (isNotionFamily(fam)) return [NOTION_SETUK[fam], NOTION_BRIDGE(subject)].join("\n\n");
     const f = fam ? FAMILY[fam] : GENERIC;
     const label = fam ? `${fam} 교과` : `${subject ?? ""} 교과`.trim();
     return [
