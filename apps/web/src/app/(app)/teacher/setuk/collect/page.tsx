@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { PencilLine } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
@@ -78,14 +79,14 @@ export default async function SetukCollectPage({ searchParams }: Props) {
       <PageHeader title="조각 모으기" actions={<ButtonLink href={q.student ? `${compose}&student=${q.student}` : compose} kind="outline" size="sm"><PencilLine size={14} /> 글 짓기</ButtonLink>} />
       <PageBody>
         {tabs.length > 1 && (
-          <nav className="flex gap-1 overflow-x-auto rounded-card border border-line bg-[#fff] p-1 [scrollbar-width:none]">
+          <nav className="grid grid-cols-2 gap-1 rounded-card border border-line bg-[#fff] p-1 md:grid-cols-[repeat(var(--tabs),minmax(0,1fr))]" style={{ "--tabs": Math.min(tabs.length, 5) } as CSSProperties}>
             {tabs.map((t) => {
               const on = t === tab;
               return (
                 <Link key={`${t.course.id}-${t.section ?? ""}`} href={`/teacher/setuk/collect?course=${t.course.id}${sec(t)}`} aria-current={on ? "page" : undefined}
-                  className={cx("flex h-11 min-w-[120px] flex-1 flex-col items-center justify-center whitespace-nowrap rounded-control px-3 md:h-[37px] md:flex-row md:gap-1",
+                  className={cx("flex h-11 min-w-0 flex-col items-center justify-center whitespace-nowrap rounded-control px-3 md:h-[37px] md:flex-row md:gap-1",
                     on ? "bg-key-soft font-bold text-key-strong" : "font-medium text-sub hover:bg-soft")}>
-                  <span className="text-[13px] md:text-[14px]">{t.name}</span>
+                  <span className="max-w-full truncate text-[13px] md:text-[14px]">{t.name}</span>
                   <span className="text-[11px] md:text-[14px]"><span className="hidden md:inline">· </span>{t.n}명</span>
                 </Link>
               );
