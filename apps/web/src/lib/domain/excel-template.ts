@@ -1,5 +1,7 @@
 // 엑셀 양식 (Figma N25): 엑셀을 받는 모든 곳은 이 양식만 읽는다. AI·열 맞추기·붙여넣기 없음.
-// 첫 시트 1행 제목이 양식과 똑같을 때만(앞뒤 공백만 무시) 읽고, 아니면 TEMPLATE_ERROR.
+// 첫 시트 제목 줄이 양식과 똑같을 때만(앞뒤 공백만 무시) 읽고, 아니면 TEMPLATE_ERROR.
+// 학생 명단은 나이스 명렬 양식 그대로(연번 · 학년 · 학과 · 반 · 번호 · 성명, 2026-10-22) — 나이스에서 내려받은 파일은 위에 제목 줄이 있어
+// 제목 줄을 위쪽 몇 줄 안에서 찾는다.
 // 파일 열기(exceljs)는 lib/server/excel.ts, 여기는 순수 함수만.
 
 export type TemplateKind = "register" | "list" | "teacher" | "lesson" | "external" | "records";
@@ -20,24 +22,28 @@ export interface TemplateSpec {
    * 새 양식으로 읽은 줄은 이 열 순서로 펼쳐서 돌려준다 (학년 · 반 · 번호 = 학번에서) — 읽는 쪽은 예전 칸 순서를 그대로 쓴다.
    */
   legacy?: readonly string[];
+  /** 함께 읽는 예전 제목 줄들 (학번 하나로 쓰던 양식 등) */
+  alt?: readonly (readonly string[])[];
 }
 
 export const TEMPLATES: Record<TemplateKind, TemplateSpec> = {
   register: {
     file: "학생등록_양식.xlsx",
-    columns: ["학번", "이름", "성별", "계열"],
-    widths: [64, 72, 44, 48],
-    examples: [["20101", "학생A", "여", "1"], ["20102", "학생B", "남", "2"]],
-    guide: ["학번은 5자리 (학년 1 + 반 2 + 번호 2, 예: 2학년 1반 1번 → 20101)", "성별은 남·여, 계열은 비우면 1"],
+    columns: ["연번", "학년", "학과", "반", "번호", "성명", "성별", "계열"],
+    widths: [40, 40, 72, 36, 40, 64, 44, 48],
+    examples: [["1", "2", "일반학과", "1", "2", "학생A", "여", "1"], ["2", "2", "일반학과", "1", "22", "학생B", "남", "2"]],
+    guide: ["나이스 명렬 양식 그대로예요 — 나이스에서 내려받은 명단에 성별 · 계열 칸만 붙여도 돼요", "연번 · 학과는 읽지 않아요 · 학년 · 반 · 번호는 숫자", "성별은 남·여, 계열은 비우면 1"],
     legacy: ["학번", "학년", "반", "번호", "이름", "성별", "계열"],
+    alt: [["학번", "이름", "성별", "계열"], ["연번", "학년", "학과", "반", "번호", "성명"]],
   },
   list: {
     file: "명단_양식.xlsx",
-    columns: ["학번", "이름"],
-    widths: [64, 72],
-    examples: [["20101", "학생A"], ["20102", "학생B"]],
-    guide: ["학번은 5자리 (예: 2학년 1반 1번 → 20101)", "이름이 등록된 이름과 다르면 그 줄은 못 찾음으로 나와요"],
+    columns: ["연번", "학년", "학과", "반", "번호", "성명"],
+    widths: [40, 40, 72, 36, 40, 64],
+    examples: [["1", "2", "일반학과", "1", "2", "학생A"], ["2", "2", "일반학과", "1", "22", "학생B"]],
+    guide: ["나이스 명렬 양식 그대로예요 — 나이스에서 내려받은 명단을 그대로 올려도 돼요", "연번 · 학과는 읽지 않아요", "성명이 등록된 이름과 다르면 그 줄은 못 찾음으로 나와요"],
     legacy: ["학번", "학년", "반", "번호", "이름"],
+    alt: [["학번", "이름"]],
   },
   teacher: {
     file: "교사명부_양식.xlsx",
@@ -87,22 +93,29 @@ export function sameHeader(row: readonly unknown[], columns: readonly string[]):
   return head.length === columns.length && columns.every((c, i) => head[i] === c);
 }
 
+/** 제목 줄을 찾는 위쪽 줄 수 (나이스 파일은 위에 학교 · 학년도 제목이 있다) */
+const HEADER_SCAN = 10;
+
 /**
- * 표(행×칸, 1행 = 제목) → 양식 열만 자른 본문 줄. 빈 줄은 건너뛴다.
+ * 표(행×칸) → 양식 열만 자른 본문 줄. 빈 줄은 건너뛴다. 제목 줄은 위쪽 HEADER_SCAN 줄 안에서 찾는다.
+ * legacy 가 있으면 어느 양식으로 읽었든 legacy 열 순서로 펼쳐 돌려준다 (학번 ↔ 학년 · 반 · 번호, 성명 = 이름).
  * 제목이 양식과 다르면 null (부르는 쪽이 TEMPLATE_ERROR 를 보여 준다).
  */
 export function readTemplate(rows: readonly (readonly unknown[])[], kind: TemplateKind): { line: number; cells: string[] }[] | null {
-  const { columns, legacy } = TEMPLATES[kind];
-  if (!rows.length) return null;
-  const isNew = sameHeader(rows[0], columns);
-  const isOld = !isNew && !!legacy && sameHeader(rows[0], legacy);
-  if (!isNew && !isOld) return null;
-  const head = isOld ? legacy! : columns;
+  const { columns, legacy, alt = [] } = TEMPLATES[kind];
+  const heads = [columns, ...(legacy ? [legacy] : []), ...alt];
+  let at = -1, head: readonly string[] = columns;
+  for (let i = 0; i < Math.min(rows.length, HEADER_SCAN) && at < 0; i++) {
+    const h = heads.find((x) => sameHeader(rows[i], x));
+    if (h) { at = i; head = h; }
+  }
+  if (at < 0) return null;
   const out: { line: number; cells: string[] }[] = [];
-  rows.slice(1).forEach((r, i) => {
+  rows.slice(at + 1).forEach((r, i) => {
     const cells = head.map((_, c) => cell(r[c]));
     if (!cells.some(Boolean)) return;
-    out.push({ line: i + 2, cells: isNew && legacy ? expandLegacy(cells, columns, legacy) : cells });
+    // 나이스 파일 끝의 "계 30명" 같은 줄 · 번호 없는 줄은 검사에서 걸리게 그대로 둔다
+    out.push({ line: at + i + 2, cells: legacy && head !== legacy ? expandLegacy(cells, head, legacy) : cells });
   });
   return out;
 }
@@ -113,9 +126,16 @@ export function splitStudentNo(no: string): { grade: string; classNo: string; nu
   return m ? { grade: m[1], classNo: String(Number(m[2])), number: String(Number(m[3])) } : { grade: "", classNo: "", number: "" };
 }
 
-/** 새 양식 줄 → 예전 열 순서 (학년 · 반 · 번호는 학번에서) */
+/** 학년 · 반 · 번호 → 학번 5자리 (모양이 아니면 빈칸) */
+export function joinStudentNo(grade: string, classNo: string, number: string): string {
+  const [g, c, n] = [grade, classNo, number].map((x) => x.replace(/\s/g, ""));
+  return /^[1-3]$/.test(g) && /^\d{1,2}$/.test(c) && /^\d{1,2}$/.test(n) ? `${g}${c.padStart(2, "0")}${n.padStart(2, "0")}` : "";
+}
+
+/** 다른 양식 줄 → legacy 열 순서 (학번 ↔ 학년 · 반 · 번호, 성명 → 이름) */
 function expandLegacy(cells: string[], columns: readonly string[], legacy: readonly string[]): string[] {
-  const by = new Map(columns.map((c, i) => [c, cells[i]]));
+  const by = new Map(columns.map((c, i) => [c === "성명" ? "이름" : c, cells[i]]));
+  if (!by.has("학번")) by.set("학번", joinStudentNo(by.get("학년") ?? "", by.get("반") ?? "", by.get("번호") ?? ""));
   const parts = splitStudentNo(by.get("학번") ?? "");
   const derived: Record<string, string> = { 학년: parts.grade, 반: parts.classNo, 번호: parts.number };
   return legacy.map((c) => by.get(c) ?? derived[c] ?? "");

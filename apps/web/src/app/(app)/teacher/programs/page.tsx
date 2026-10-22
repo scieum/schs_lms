@@ -46,7 +46,8 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
       <>
         <PageHeader title="프로그램" actions={<ButtonLink href="/teacher/programs/new" size="sm"><Plus size={14} /> 새 프로그램</ButtonLink>} />
         <PageBody>
-          {tabs}
+          {/* 탭 크기는 내 프로그램 화면과 같게 (PC 에서 늘어나지 않게) */}
+          <div className="flex flex-col md:flex-row md:items-center">{tabs}</div>
           {view === "all" ? <ScheduleList items={items} today={t} /> : <ScheduleCalendar items={items} month={month} today={t} />}
         </PageBody>
       </>

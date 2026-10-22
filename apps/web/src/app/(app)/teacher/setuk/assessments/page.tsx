@@ -55,7 +55,7 @@ export default async function AssessmentsPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="수행평가" actions={<NewAssessButton courseId={tab.course.id} section={tab.section} base={base} />} />
+      <PageHeader title="수행평가" actions={<NewAssessButton courseId={tab.course.id} section={tab.section} base={base} aiOn={aiEnabled()} />} />
       <PageBody>
         {tabs.length > 1 && (
           <nav className="grid grid-cols-2 gap-1 rounded-card border border-line bg-[#fff] p-1 md:grid-cols-[repeat(var(--tabs),minmax(0,1fr))]" style={{ "--tabs": Math.min(tabs.length, 5) } as CSSProperties}>

@@ -1,15 +1,15 @@
 "use client";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { PencilLine, Plus, Upload, X } from "lucide-react";
+import { Copy, FileUp, PencilLine, Plus, Sparkles, Upload, X } from "lucide-react";
 import { Button, ButtonLink, cx } from "@/components/ui";
 import { ASSESS_LIMITS } from "@/lib/domain/assessment";
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { PdfSplitDialog } from "@/components/writing/pdf-split-dialog";
 import { ACCEPT } from "@/components/writing/evidence-files";
-import { deleteAssessment, readAssessmentFile, saveAssessment } from "./actions";
+import { deleteAssessment, listSameSubjectAssessments, readAssessmentFile, readAssessPlanFile, saveAssessment, type SharedAssessment } from "./actions";
 
 // 세특 · 수행평가 (Figma N59): 목록 · 고른 수행평가 칸 · 등록 창 · 한 명씩 올리기 · 합본 PDF 나누기(번호순 | 페이지 지정).
 // 나누기는 브라우저에서 하고(큰 합본도 됨), 학생마다 한 파일씩 서버가 AI로 읽어 요약만 조각으로 남긴다.
@@ -34,12 +34,12 @@ async function readFor(assessmentId: string, studentId: string, file: File): Pro
   return null;
 }
 
-export function NewAssessButton({ courseId, section, base }: { courseId: string; section: string | null; base: string }) {
+export function NewAssessButton({ courseId, section, base, aiOn }: { courseId: string; section: string | null; base: string; aiOn: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}><Plus size={14} /> <span className="md:hidden">등록</span><span className="hidden md:inline">수행평가 등록</span></Button>
-      {open && <RegisterDialog courseId={courseId} section={section} base={base} onClose={() => setOpen(false)} />}
+      {open && <RegisterDialog courseId={courseId} section={section} base={base} aiOn={aiOn} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -151,13 +151,44 @@ function Shell({ title, onClose, children, wide = false }: { title: string; onCl
   );
 }
 
-function RegisterDialog({ courseId, section, item, base, onClose }: { courseId?: string; section?: string | null; item?: Sel; base: string; onClose: () => void }) {
+type PlanPick = { title: string; date: string | null; description: string; who?: string; where?: string };
+
+function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { courseId?: string; section?: string | null; item?: Sel; base: string; aiOn?: boolean; onClose: () => void }) {
   const router = useRouter();
   const [title, setTitle] = useState(item?.title ?? "");
   const [date, setDate] = useState(item?.date ?? today());
   const [description, setDescription] = useState(item?.description ?? "");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  // 계획서 AI 읽기 · 같은 과목 가져오기 (2026-10-22): 고르면 칸을 채운다. 저장은 등록을 눌러야
+  const [picks, setPicks] = useState<{ from: "ai" | "same"; list: PlanPick[] } | null>(null);
+  const file = useRef<HTMLInputElement>(null);
+  const fill = (x: PlanPick) => { setTitle(x.title); if (x.date) setDate(x.date); setDescription(x.description); setPicks(null); };
+  const readPlan = (f: File) => start(async () => {
+    setError("");
+    const fd = new FormData();
+    fd.set("courseId", courseId ?? ""); fd.set("section", section ?? ""); fd.set("file", f);
+    const r = await readAssessPlanFile(fd).catch(() => ({ ok: false as const, error: "읽지 못했어요" }));
+    if (!r.ok) return setError(r.error);
+    if (r.items.length === 1) fill(r.items[0]); else setPicks({ from: "ai", list: r.items });
+  });
+  const loadSame = () => start(async () => {
+    setError("");
+    const list: SharedAssessment[] = await listSameSubjectAssessments(courseId ?? "", section ?? null).catch(() => []);
+    if (!list.length) return setError("같은 과목에 등록된 수행평가가 아직 없어요");
+    setPicks({ from: "same", list });
+  });
+  const saveAll = () => picks && start(async () => {
+    setError("");
+    let last = "";
+    for (const x of picks.list) {
+      const r = await saveAssessment({ courseId: courseId ?? "", section: section ?? null, title: x.title, date: x.date ?? today(), description: x.description });
+      if (!r.ok) return setError(`${x.title}: ${r.error}`);
+      last = r.id;
+    }
+    onClose();
+    router.push(`${base}&a=${last}`);
+  });
   const save = () => start(async () => {
     setError("");
     const r = await saveAssessment({ id: item?.id, courseId: courseId ?? "", section: section ?? null, title, date, description });
@@ -168,6 +199,34 @@ function RegisterDialog({ courseId, section, item, base, onClose }: { courseId?:
   const field = "h-11 rounded-control bg-soft px-3 text-[15px] text-ink outline-none focus:ring-2 focus:ring-key";
   return (
     <Shell title={item ? "수행평가 고치기" : "수행평가 등록"} onClose={onClose}>
+      {!item && courseId && (
+        <div className="flex flex-wrap gap-2">
+          {aiOn && <button type="button" onClick={() => file.current?.click()} disabled={pending} className="flex h-9 items-center gap-1.5 rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50"><Sparkles size={14} /> 계획서로 채우기 (AI)</button>}
+          <button type="button" onClick={loadSame} disabled={pending} className="flex h-9 items-center gap-1.5 rounded-control bg-soft px-3 text-[13px] font-bold text-sub hover:text-ink disabled:opacity-50"><Copy size={14} /> 같은 과목에서 가져오기</button>
+          <input ref={file} type="file" hidden accept=".pdf,.hwpx,.pptx,.txt,image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) readPlan(f); e.target.value = ""; }} />
+          {pending && <span className="self-center text-[12px] text-mute">{picks ? "" : "읽는 중…"}</span>}
+        </div>
+      )}
+      {picks && (
+        <div className="flex flex-col gap-1.5 rounded-inner bg-bg p-2">
+          <p className="flex items-center px-1 text-[12px] font-bold text-sub">
+            {picks.from === "ai" ? <><FileUp size={13} className="mr-1" /> 계획서에서 {picks.list.length}개를 찾았어요 — 하나를 고르거나 모두 등록</> : "같은 과목 수행평가 — 고르면 칸에 채워져요"}
+            <button type="button" onClick={() => setPicks(null)} className="ml-auto text-mute hover:text-ink" aria-label="닫기"><X size={14} /></button>
+          </p>
+          <ul className="flex max-h-[260px] flex-col gap-1 overflow-y-auto">
+            {picks.list.map((x, i) => (
+              <li key={i}>
+                <button type="button" onClick={() => fill(x)} className="flex w-full flex-col gap-0.5 rounded-control bg-[#fff] px-3 py-2 text-left hover:bg-key-soft">
+                  <span className="flex min-w-0 items-center gap-1.5 text-[14px] font-bold"><span className="truncate">{x.title}</span>{x.date && <span className="shrink-0 text-[12px] font-medium text-mute">{x.date}</span>}</span>
+                  {x.who && <span className="text-[12px] text-mute">{x.who} · {x.where}</span>}
+                  {x.description && <span className="line-clamp-2 text-[12px] leading-5 text-sub">{x.description}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {picks.from === "ai" && picks.list.length > 1 && <Button type="button" size="sm" kind="soft" disabled={pending} onClick={saveAll}>{picks.list.length}개 모두 등록</Button>}
+        </div>
+      )}
       <div className="grid gap-3 md:grid-cols-[1fr_170px]">
         <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">이름<input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={ASSESS_LIMITS.title} placeholder="예: 빗면 실험 보고서" className={field} /></label>
         <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">날짜<input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field} /></label>

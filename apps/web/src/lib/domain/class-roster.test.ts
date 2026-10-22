@@ -62,9 +62,20 @@ describe("명단 양식 읽기", () => {
   });
 });
 
-describe("명단 양식 — 학번 하나로 (2026-10-22)", () => {
+describe("명단 양식 — 나이스 명렬 그대로 (2026-10-22)", () => {
+  it("나이스 파일: 위 제목 줄 건너뛰고 연번 · 학년 · 학과 · 반 · 번호 · 성명 → 학번", () => {
+    const rows = [["[활 5], [회 1], [특 0], [합 7]"], [], [...TEMPLATES.list.columns, "", ""], ["1", "2", "일반학과", "1", "3", "김민준", ""], ["2", "3", "일반학과", "1", "3", "김민준"]];
+    const body = readTemplate(rows, "list")!;
+    expect(body[0]).toEqual({ line: 4, cells: ["20103", "2", "1", "3", "김민준"] });
+    expect(matchRoster(listLines(body), students, 2).matched.map((s) => s.id)).toEqual(["a", "d"]);
+  });
+  it("학생 등록 양식도 나이스 열 + 성별 · 계열", () => {
+    const body = readTemplate([[...TEMPLATES.register.columns], ["1", "2", "일반학과", "5", "13", "학생A", "여", "2"]], "register")!;
+    expect(body[0].cells).toEqual(["20513", "2", "5", "13", "학생A", "여", "2"]);
+  });
+
   it("새 양식(학번 · 이름)은 학년 · 반 · 번호를 학번에서 펼친다", () => {
-    const body = readTemplate([[...TEMPLATES.list.columns], ["20103", "김민준"], ["30103", "김민준"]], "list")!;
+    const body = readTemplate([["학번", "이름"], ["20103", "김민준"], ["30103", "김민준"]], "list")!;
     expect(body[0].cells).toEqual(["20103", "2", "1", "3", "김민준"]);
     const r = matchRoster(listLines(body), students, 2);
     expect(r.matched.map((s) => s.id)).toEqual(["a", "d"]);
