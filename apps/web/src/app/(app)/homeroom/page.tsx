@@ -1,7 +1,7 @@
 import { scoresEnabled } from "@/lib/server/features";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileText } from "lucide-react";
+import { FileText, Layers } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { ButtonLink, Card, Tag } from "@/components/ui";
 import { addDays, seoulNow } from "@/lib/domain/night";
@@ -25,14 +25,18 @@ export default async function HomeroomHome() {
   const { grade, classNo } = v.teacher.homeroom;
   const mine = (await repo.listStudents()).filter((s) => s.grade === grade && s.classNo === classNo).sort((a, b) => a.number - b.number);
   const ids = mine.map((s) => s.id);
-  const [drafts, scores, night, brief, counsel, programs] = await Promise.all([
+  const [drafts, scores, night, brief, counsel, programs, autoLogs, careerLogs] = await Promise.all([
     repo.listDraftsForStudents(ids),
     scoresEnabled() ? repo.scoresClassSummary(ids) : Promise.resolve([]),
     repo.nightClassToday(ids),
     briefingInputs(mine),
     repo.listCounsel({ studentIds: ids }),
     repo.listPrograms(),
+    repo.listActivityLogs("자율·자치", ids),
+    repo.listActivityLogs("진로", ids),
   ]);
+  // 조각 모으기 (2026-10-22): 담임 조각 = 자율·자치 · 진로 누가기록. 이번 주 남긴 수 · 조각 적은 학생
+  const pieceLogs = [...autoLogs, ...careerLogs];
   const verdict = new Map(scores.map((r) => [r.studentId, r.verdict]));
   const met = scores.filter((r) => r.verdict === "충족").length;
   const nightSigned = Math.max(0, ...Object.values(night).map((p) => p.signed));
@@ -73,6 +77,11 @@ export default async function HomeroomHome() {
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 4);
 
+  const weekStart = addDays(today, -6);
+  const weekPieces = pieceLogs.filter((l) => l.date >= weekStart).length;
+  const pieceCount = new Map(mine.map((s) => [s.id, pieceLogs.filter((l) => l.studentId === s.id).length]));
+  const fewest = [...mine].sort((a, b) => pieceCount.get(a.id)! - pieceCount.get(b.id)! || a.number - b.number).slice(0, 6);
+
   const tiles: [string, string][] = [["우리 반", `${mine.length}명`], ["받은 초안", `${drafts.length}건`], scoresEnabled() ? ["최저 충족 예상", `${met}명`] : ["상담 필요", `${care.size}명`], ["오늘 야자", `${nightSigned}명`]];
 
   return (
@@ -101,6 +110,29 @@ export default async function HomeroomHome() {
             {mine.length === 0 ? <p className="py-6 text-center text-sm text-mute">아직 등록된 학생이 없어요</p> : <ClassGlance students={glance} scores={scoresEnabled()} />}
           </Card>
           <div className="flex flex-col gap-4 md:gap-6">
+            <Card title="조각 모으기" action={<Link href="/homeroom/logs" className="text-[13px] text-sub hover:text-key-strong">조각 남기기 ›</Link>}>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3 rounded-inner bg-white px-3.5 py-3">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-key-soft text-key-strong"><Layers size={16} /></span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[15px] font-bold">이번 주 남긴 조각 {weekPieces}개</div>
+                    <div className="text-xs text-mute">모두 {pieceLogs.length}개 · 자율·자치 · 진로 누가기록</div>
+                  </div>
+                </div>
+                {mine.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[12px] font-bold text-mute">조각이 적은 학생 — 누르면 그 학생에게 남겨요</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {fewest.map((s) => (
+                        <Link key={s.id} href={`/homeroom/logs?student=${s.id}`} className="flex items-center gap-1 rounded-chip border border-line bg-white px-2.5 py-1 text-[13px] font-medium hover:border-key hover:text-key-strong">
+                          {s.name}<span className="text-[12px] text-mute">{pieceCount.get(s.id)}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
             <div id="drafts" className="scroll-mt-6">
               <Card title="받은 생기부 초안" action={<Link href="/homeroom/students" className="text-[13px] text-sub hover:text-key-strong">전체</Link>}>
                 {inbox.length === 0 ? (

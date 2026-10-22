@@ -19,10 +19,10 @@ describe("교사 사이드바 묶음 (N52 → N53)", () => {
   });
   it("담임: 담임 묶음이 생기고 홈은 우리 반 홈", () => {
     const v = teacher(["subject", "homeroom"], { grade: 1, classNo: 2 });
-    expect(labels(v)).toEqual(["", "업무", "세특", "동아리", "특색활동", "협업", "도구", "담임"]);
+    expect(labels(v)).toEqual(["", "업무", "담임", "세특", "동아리", "특색활동", "협업", "도구"]);
     expect(navFor(v)[0].items[0].href).toBe("/homeroom");
     const hr = navFor(v).find((g) => g.label === "담임")!.items.map((it) => it.label);
-    expect(hr).toEqual(["누가기록", "글 짓기", "받은 초안", "글 모아 보기"]);
+    expect(hr).toEqual(["조각 모으기", "글 짓기", "받은 초안", "글 모아 보기"]);
   });
   it("담임 + 관리자: 우리 반 홈이 담임 묶음에 · 관리 묶음은 맨 끝", () => {
     const v = teacher(["subject", "homeroom", "admin"], { grade: 1, classNo: 2 });

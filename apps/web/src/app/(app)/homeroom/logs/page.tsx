@@ -15,7 +15,7 @@ import { commonActivityRows } from "@/lib/server/common-activity";
 import { lessonView } from "@/lib/server/lessons";
 import { ClassMaterials } from "@/components/writing/class-materials";
 
-export const metadata = { title: "누가기록 · 속초고 쌤기부" };
+export const metadata = { title: "조각 모으기 · 속초고 쌤기부" };
 
 type Props = { searchParams: Promise<{ area?: string; student?: string }> };
 
@@ -40,7 +40,7 @@ export default async function HomeroomLogsPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="누가기록" actions={<>
+      <PageHeader title="조각 모으기" eyebrow="담임 · 누가기록" actions={<>
         <ButtonLink href={`/teacher/logs?area=${encodeURIComponent(first.value)}`} kind="outline" size="sm" className="hidden md:inline-flex">여러 명 따로 쓰기</ButtonLink>
         <ButtonLink href={q.student ? `/homeroom/compose?student=${q.student}` : "/homeroom/compose"} kind="outline" size="sm"><PencilLine size={14} /> 글 짓기</ButtonLink>
       </>} />

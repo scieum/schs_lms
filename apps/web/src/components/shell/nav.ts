@@ -102,10 +102,11 @@ function baseNav(v: Viewer, rooms: { id: string; name: string }[] = []): NavGrou
     I("프롬프트 보관함", "/teacher/prompts", "sparkle"),
     I("문의 게시판", "/teacher/qna", "list"),
   ] });
+  // 담임은 업무 바로 다음, 수업(세특)보다 위 (2026-10-22). 누가기록 = 담임의 조각 모으기
   if (homeroom) {
-    groups.push({ label: "담임", items: [
+    groups.splice(groups.findIndex((g) => g.label === "업무") + 1, 0, { label: "담임", items: [
       ...(home !== "/homeroom" ? [I("우리 반 홈", "/homeroom", "home")] : []),
-      I("누가기록", "/homeroom/logs", "layers"),
+      I("조각 모으기", "/homeroom/logs", "layers"),
       I("글 짓기", "/homeroom/compose", "pencil"),
       I("받은 초안", "/homeroom/drafts", "file"),
       I("글 모아 보기", "/teacher/texts?tab=behavior", "list"),
@@ -162,7 +163,7 @@ export function tabsFor(v: Viewer): NavItem[] {
 /** 담임 탭 메뉴 (/homeroom/menu, N52): 담임 묶음 + 업무 끝의 담임 전용 메뉴 */
 export const HOMEROOM_MENU: { label: string; items: NavItem[] }[] = [
   { label: "담임", items: [
-    { label: "누가기록", href: "/homeroom/logs", icon: "layers" },
+    { label: "조각 모으기", href: "/homeroom/logs", icon: "layers" },
     { label: "글 짓기", href: "/homeroom/compose", icon: "pencil" },
     { label: "받은 초안", href: "/homeroom/drafts", icon: "file" },
     { label: "글 모아 보기", href: "/teacher/texts?tab=behavior", icon: "list" },
@@ -356,7 +357,7 @@ export const MENU_KEYWORDS: Record<string, string[]> = {
   "/teacher/club/compose": ["동아리 특기사항", "창체"],
   "/teacher/club/collect": ["누가기록", "동아리", "관찰"],
   "/homeroom/compose": ["행발", "행동특성", "종합의견", "자율", "진로", "창체"],
-  "/homeroom/logs": ["관찰", "기록", "자율", "진로"],
+  "/homeroom/logs": ["조각", "누가기록", "관찰", "기록", "자율", "진로"],
   "/teacher/neis": ["세특 붙여넣기", "나이스", "내보내기"],
   "/teacher/texts?tab=setuk": ["모아 보기", "1500바이트", "확정본", "세특 모음"],
   "/teacher/texts?tab=behavior": ["모아 보기", "행발", "누가기록", "확정본"],
