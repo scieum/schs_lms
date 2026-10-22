@@ -178,7 +178,10 @@ export function AiWorkspace({ aiOn, compact = false }: { aiOn: boolean; compact?
           </div>
           <div className="-mt-4 flex min-h-[44px] flex-wrap items-center gap-x-4 gap-y-1.5 rounded-b-[20px] bg-[#eef0f4] px-5 pb-2.5 pt-6 text-[13px]">
             {picked.length === 0 ? (
-              <span className="text-mute">@를 치면 학생 · 수업 · 프롬프트 · 협업방 · 팁을 붙여요 <span className="max-md:hidden">· Enter 보내기 · Shift+Enter 줄바꿈</span></span>
+              <span className="flex flex-col text-mute">
+                <span>@를 치면 학생 · 수업 · 프롬프트 · 협업방 · 팁을 붙여요</span>
+                <span className="max-md:hidden">Enter 보내기 · Shift+Enter 줄바꿈</span>
+              </span>
             ) : picked.map((m) => {
               const Icon = ICON[m.kind];
               return (
