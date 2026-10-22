@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, ChevronUp, Layers, Plus, Star } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Layers, Plus, Star, Trash2 } from "lucide-react";
 import { cx } from "@/components/ui";
 import { activityTag, stripActivity } from "@/lib/domain/activity-name";
 import { activeQuick, QUICK_LABEL, quickPick } from "@/lib/domain/memo-gate";
@@ -18,7 +18,9 @@ const MOBILE_SHOWN = 3;
 
 export type ComposePiece = MergePiece & { weight: Importance };
 
-export function ComposePieces({ all, visible, selected, setSelected, onWeight, onMove, chips, source, setSource, period, setPeriod, collectHref, loading }: {
+export function ComposePieces({ all, visible, selected, setSelected, onWeight, onMove, onDelete, chips, source, setSource, period, setPeriod, collectHref, loading }: {
+  /** 내 조각 지우기 (2026-10-22) — 없으면 버튼을 숨긴다 */
+  onDelete?: (p: ComposePiece) => void;
   /** 이 학생 조각 전부 (교사가 정한 순서) */
   all: ComposePiece[];
   /** 출처 · 기간으로 거른 것 */
@@ -141,6 +143,10 @@ export function ComposePieces({ all, visible, selected, setSelected, onWeight, o
                     <Star size={11} fill={must ? "currentColor" : "none"} aria-hidden /> 꼭
                   </button>
                   <span className="flex gap-0.5">
+                    {p.mine && onDelete && (
+                      <button type="button" aria-label="이 조각 지우기" title="지우기" onClick={() => onDelete(p)}
+                        className="flex size-6 items-center justify-center rounded-chip text-faint hover:bg-bad-soft hover:text-bad"><Trash2 size={13} /></button>
+                    )}
                     <button type="button" aria-label="위로" disabled={at <= 0} onClick={() => onMove(p.id, -1)}
                       className="flex size-6 items-center justify-center rounded-chip text-mute hover:bg-soft disabled:opacity-30"><ChevronUp size={15} /></button>
                     <button type="button" aria-label="아래로" disabled={at >= all.length - 1} onClick={() => onMove(p.id, 1)}

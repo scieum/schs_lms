@@ -203,7 +203,7 @@ export async function listRecordPieces(input: { area: string; studentId: string;
     listMemosWithPieces(t.area, [input.studentId]),
     programArea ? repo.listDraftsForStudents([input.studentId]) : Promise.resolve([]),
   ]);
-  return [...programPieces(drafts.filter((d) => d.area === programArea)), ...logPieces(logs), ...memoPieces(memos)];
+  return [...programPieces(drafts.filter((d) => d.area === programArea)), ...logPieces(logs, t.v.accountId), ...memoPieces(memos, t.v.accountId)];
 }
 
 /**

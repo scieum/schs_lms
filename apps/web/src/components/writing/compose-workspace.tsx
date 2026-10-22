@@ -35,6 +35,7 @@ import { OverApproval } from "./over-approval";
 import { SimilarNotice, SimilarSheet, useSimilar, type SimilarPeer, type SimilarSelf } from "./similar-sheet";
 import { LevelPicker, useLevels } from "./level-picker";
 import { ClassActionsBar } from "./class-actions-bar";
+import { deleteMyPieces } from "@/app/(app)/teacher/piece-actions";
 import { useWorkspace } from "./workspace";
 
 // 글 짓기 (Figma N52 (b)(c)(d)(e)(g1)): 한 학생씩 — 머리 "글 짓기" ↔ [반 전체] [조각 모으기] · (담임) 탭 · 학생 넘기기 ·
@@ -166,6 +167,14 @@ export function ComposeWorkspace({
   const remember = (next: { excluded: string[]; order: string[] }) => {
     setStored(next);
     try { sessionStorage.setItem(key, encodePick(next)); } catch { /* 이번에만 쓴다 */ }
+  };
+  // 내 조각 지우기 (2026-10-22): 숨김(deleted_at) — 목록에서 바로 뺀다
+  const removePiece = async (p: ComposePiece) => {
+    if (!window.confirm("이 조각을 지울까요? 이 학생 조각 칸 · 글 짓기에서 빠져요")) return;
+    const id = p.id.replace(/^(memo|log)-/, "");
+    const res = await deleteMyPieces(p.id.startsWith("log-") ? { logIds: [id] } : { memoIds: [id] }).catch(() => ({ ok: false as const, error: "지우지 못했어요" }));
+    if (!res.ok) { window.alert(res.error); return; }
+    setLoaded((cur) => (cur ?? []).filter((x) => x.id !== p.id));
   };
   // 꼭 넣기 (N20 중요도 3): 이 기기에 기억
   const [weights, setWeights] = useState<Record<string, Importance>>({});
@@ -574,7 +583,7 @@ export function ComposeWorkspace({
         <ComposeSwap>
           <div className="flex flex-col gap-3.5 md:gap-5">
             <div className="grid gap-3.5 md:gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
-              <ComposePieces all={all} visible={visible} selected={selected} setSelected={setSelected} onWeight={setWeight} onMove={move}
+              <ComposePieces all={all} visible={visible} selected={selected} setSelected={setSelected} onWeight={setWeight} onMove={move} onDelete={removePiece}
                 chips={chips} source={src} setSource={setSource} period={period} setPeriod={setPeriod} collectHref={collectHref} loading={loaded === null} />
               {recordPane}
             </div>

@@ -13,7 +13,8 @@ import { linkSentences } from "./sentence-flow";
 /** 수행평가 = 수행평가(Figma N59)에 올린 학생 자료를 AI가 읽은 요약 */
 export type PieceSource = "누가기록" | "메모" | "본문" | "특색 활동" | "공통 활동" | "자료 요약" | "보관함" | "차시" | "수행평가";
 export const PIECE_SOURCES = ["누가기록", "메모", "본문", "특색 활동", "공통 활동", "자료 요약", "보관함", "차시", "수행평가"] as const satisfies readonly PieceSource[];
-export type MergePiece = { id: string; source: PieceSource; date: string | null; text: string; weight?: Importance };
+/** mine: 지금 선생님이 쓴 조각 (지우기 버튼 — 2026-10-22) */
+export type MergePiece = { id: string; source: PieceSource; date: string | null; text: string; weight?: Importance; mine?: boolean };
 
 // 조각 고르기 (Figma N20): 교사가 조각마다 중요도를 매기고, 목표 분량에 맞춰 고른다.
 /** 3 핵심 · 2 보통 · 1 참고 */

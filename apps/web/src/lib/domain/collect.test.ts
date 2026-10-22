@@ -43,3 +43,11 @@ describe("학생별 조각 정렬", () => {
     expect(sortStudents(list, "no").map((s) => s.id)).toEqual(["a", "b", "c"]);
   });
 });
+
+describe("최근 조각 — 지우기용 id (2026-10-22)", () => {
+  it("여러 학생에게 한 번에 남긴 같은 조각은 한 줄 · 기록 id 는 모두", () => {
+    const r = recentPieces([{ id: "m1", studentId: "a", date: "2026-10-22", content: "[실험] 측정함" }, { id: "m2", studentId: "b", date: "2026-10-22", content: "[실험] 측정함" }], () => "학생");
+    expect(r).toHaveLength(1);
+    expect(r[0].ids).toEqual(["m1", "m2"]);
+  });
+});

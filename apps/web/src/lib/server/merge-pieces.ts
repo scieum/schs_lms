@@ -22,11 +22,11 @@ export async function listMemosWithPieces(scope: string, studentIds: string[]): 
 
 // 합치기 조각 만들기: 누가기록 · 관찰 메모 · 받은 특색 활동 초안 (같은 글은 한 번만, 새 것부터)
 
-export function logPieces(logs: { id: string; date: string; content: string; commonActivityId?: string | null; lessonItemId?: string | null }[]): MergePiece[] {
-  return [...logs].sort((a, b) => b.date.localeCompare(a.date)).map((l) => ({ id: `log-${l.id}`, source: l.lessonItemId ? "차시" : l.commonActivityId ? "공통 활동" : "누가기록", date: l.date, text: l.content }));
+export function logPieces(logs: { id: string; date: string; content: string; authorId?: string; commonActivityId?: string | null; lessonItemId?: string | null }[], me?: string): MergePiece[] {
+  return [...logs].sort((a, b) => b.date.localeCompare(a.date)).map((l) => ({ id: `log-${l.id}`, source: l.lessonItemId ? "차시" : l.commonActivityId ? "공통 활동" : "누가기록", date: l.date, text: l.content, ...(me && l.authorId === me ? { mine: true } : {}) }));
 }
 
-export function memoPieces(memos: RecordMemo[]): MergePiece[] {
+export function memoPieces(memos: RecordMemo[], me?: string): MergePiece[] {
   const seen = new Set<string>();
   return [...memos]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -36,7 +36,7 @@ export function memoPieces(memos: RecordMemo[]): MergePiece[] {
       seen.add(k);
       return true;
     })
-    .map((m) => ({ id: `memo-${m.id}`, source: isAssessScope(m.scope) ? "수행평가" : isLessonScope(m.scope) ? "차시" : isCommonScope(m.scope) ? "공통 활동" : isFileScope(m.scope) ? "자료 요약" : isLibraryScope(m.scope) ? "보관함" : "메모", date: m.date ?? m.createdAt.slice(0, 10), text: m.content }));
+    .map((m) => ({ id: `memo-${m.id}`, source: isAssessScope(m.scope) ? "수행평가" : isLessonScope(m.scope) ? "차시" : isCommonScope(m.scope) ? "공통 활동" : isFileScope(m.scope) ? "자료 요약" : isLibraryScope(m.scope) ? "보관함" : "메모", date: m.date ?? m.createdAt.slice(0, 10), text: m.content, ...(me && m.authorId === me ? { mine: true } : {}) }));
 }
 
 /** 담임이 받은 특색 활동(프로그램) 초안 → 자율·자치·진로 조각. 앞에 프로그램 이름을 붙인다 */

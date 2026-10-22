@@ -99,7 +99,7 @@ export default async function SetukCollectPage({ searchParams }: Props) {
           target={{ kind: "setuk", courseId: course.id }}
           // 다른 학교 학생(N54)은 칸이 좁아 번호 자리에 학교 이름만
           students={students.map((s) => ({ id: s.id, no: s.school ?? s.studentNo, name: s.name, count: memoPieces(memos.filter((m) => m.studentId === s.id)).length }))}
-          recent={recentPieces(memos.filter((m) => m.authorId === v.accountId).map((m) => ({ studentId: m.studentId, date: m.date ?? seoulDay(m.createdAt), content: m.content })), (id) => nameOf.get(id))}
+          recent={recentPieces(memos.filter((m) => m.authorId === v.accountId).map((m) => ({ id: m.id, studentId: m.studentId, date: m.date ?? seoulDay(m.createdAt), content: m.content })), (id) => nameOf.get(id))}
           composeHref={compose}
           today={today}
           withDate={false}

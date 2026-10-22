@@ -256,9 +256,17 @@ export const supabaseRepo: Repo = {
   async listActivityLogs(area, studentIds) {
     const ids = studentIds.filter(isUuid);
     if (!ids.length) return [];
-    const r = await selectIn<LogRow>(ids, (part) => db().from("activity_logs").select("*").eq("area", area).in("student_id", part).order("date", { ascending: false }).order("created_at", { ascending: false }),
+    const r = await selectIn<LogRow & { deleted_at?: string | null }>(ids, (part) => db().from("activity_logs").select("*").eq("area", area).in("student_id", part).order("date", { ascending: false }).order("created_at", { ascending: false }),
       (a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at));
-    return r.map(toLog);
+    // 지운 누가기록(0034 deleted_at)은 빼고
+    return r.filter((x) => !x.deleted_at).map(toLog);
+  },
+  async hideActivityLogs(ids, authorId) {
+    const want = ids.filter(isUuid);
+    if (!want.length || !isUuid(authorId)) return 0;
+    const res = await db().from("activity_logs").update({ deleted_at: new Date().toISOString() }).in("id", want).eq("author_id", authorId).is("deleted_at", null).select("id");
+    if (res.error && /deleted_at/.test(res.error.message)) throw new Error("기록을 지우려면 DB 업데이트(0034)가 필요해요. 관리자에게 알려 주세요");
+    return (check(res) as { id: string }[]).length;
   },
   async addActivityLogs(rows) {
     if (!rows.length) return 0;

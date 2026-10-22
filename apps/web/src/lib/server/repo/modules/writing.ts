@@ -18,6 +18,8 @@ export interface WritingRepo {
   /** scope = "행발" | "자율·자치" | "동아리" | "진로" | "세특:<과목ID>" */
   listRecordMemos(scope: string, studentIds: string[]): Promise<RecordMemo[]>;
   addRecordMemo(r: NewRecordMemo): Promise<RecordMemo>;
+  /** 조각 지우기 (0034): 그 선생님이 쓴 것만 숨긴다. 숨긴 수 */
+  hideRecordMemos(ids: string[], authorId: string): Promise<number>;
 }
 
 // ---------- 데모 ----------
@@ -55,7 +57,13 @@ export const demoWriting: WritingRepo = {
   },
   async listRecordMemos(scope, studentIds) {
     const set = new Set(studentIds);
-    return ws().memos.filter((m) => m.scope === scope && set.has(m.studentId)).sort(byTime);
+    return ws().memos.filter((m) => m.scope === scope && set.has(m.studentId) && !(m as { deletedAt?: string }).deletedAt).sort(byTime);
+  },
+  async hideRecordMemos(ids, authorId) {
+    const want = new Set(ids);
+    let n = 0;
+    for (const m of ws().memos) if (want.has(m.id) && m.authorId === authorId && !(m as { deletedAt?: string }).deletedAt) { (m as { deletedAt?: string }).deletedAt = new Date().toISOString(); n++; }
+    return n;
   },
   async addRecordMemo(r) {
     const row: RecordMemo = { ...r, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
@@ -96,9 +104,17 @@ export const supabaseWriting: WritingRepo = {
   async listRecordMemos(scope, studentIds) {
     const ids = studentIds.filter(isUuid);
     if (!ids.length) return [];
-    const r = await selectIn<MemoRow>(ids, (part) => db().from("record_memos").select("*").eq("scope", scope).in("student_id", part).order("created_at"),
+    const r = await selectIn<MemoRow & { deleted_at?: string | null }>(ids, (part) => db().from("record_memos").select("*").eq("scope", scope).in("student_id", part).order("created_at"),
       (a, b) => a.created_at.localeCompare(b.created_at));
-    return r.map(toMemo);
+    // 지운 조각(0034 deleted_at)은 빼고 — 0034 전 DB면 열이 없어 그대로
+    return r.filter((x) => !x.deleted_at).map(toMemo);
+  },
+  async hideRecordMemos(ids, authorId) {
+    const want = ids.filter(isUuid);
+    if (!want.length || !isUuid(authorId)) return 0;
+    const res = await db().from("record_memos").update({ deleted_at: new Date().toISOString() }).in("id", want).eq("author_id", authorId).is("deleted_at", null).select("id");
+    if (res.error && /deleted_at/.test(res.error.message)) throw new Error("조각을 지우려면 DB 업데이트(0034)가 필요해요. 관리자에게 알려 주세요");
+    return (check(res) as { id: string }[]).length;
   },
   async addRecordMemo(x) {
     const r = check(await db().from("record_memos").insert({ scope: x.scope, student_id: x.studentId, author_id: x.authorId, content: x.content }).select("*").single());

@@ -50,7 +50,7 @@ export default async function HomeroomLogsPage({ searchParams }: Props) {
           target={{ kind: "log", area: first.value }}
           areas={areas}
           students={students.map((s) => ({ id: s.id, no: makeStudentNo(s.grade, s.classNo, s.number), name: s.name, count: logs.filter((l) => l.studentId === s.id).length }))}
-          recent={recentPieces(logs.map((l) => ({ studentId: l.studentId, date: l.date, content: l.content })), (id) => nameOf.get(id))}
+          recent={recentPieces(logs.filter((l) => l.authorId === v.accountId).map((l) => ({ id: l.id, studentId: l.studentId, date: l.date, content: l.content })), (id) => nameOf.get(id))}
           composeHref="/homeroom/compose?tab=behavior"
           today={today()}
           withDate

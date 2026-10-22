@@ -73,6 +73,8 @@ export interface Repo {
   // 창체 누가기록: 추가만 한다 (C4)
   listActivityLogs(area: ActivityArea, studentIds: string[]): Promise<ActivityLog[]>;
   addActivityLogs(rows: Omit<ActivityLog, "id" | "createdAt">[]): Promise<number>;
+  /** 누가기록 지우기 (0034): 그 선생님이 쓴 것만 숨긴다. 숨긴 수 */
+  hideActivityLogs(ids: string[], authorId: string): Promise<number>;
 
   // 봉사 확인서
   addServiceRecord(r: NewServiceRecord, file: Uint8Array): Promise<ServiceRecord>;

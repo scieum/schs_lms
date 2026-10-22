@@ -3,19 +3,20 @@ import { activityTag, stripActivity } from "./activity-name";
 // 조각 모으기 (Figma N52 a): 최근 조각 묶기 · 학생별 조각 수 정렬. 화면 · 서버가 같이 쓴다 (AI 없음).
 
 export type CollectStudent = { id: string; no: string; name: string; count: number };
-export type RecentPiece = { key: string; date: string; activity: string; text: string; who: string; n: number };
+/** ids: 그 줄에 묶인 기록 id (지우기에 쓴다) */
+export type RecentPiece = { key: string; date: string; activity: string; text: string; who: string; n: number; ids: string[] };
 
 /**
  * 여러 학생에게 한 번에 남긴 같은 조각은 한 줄로 ("학생A 외 2명"). 같은 날 · 같은 글이면 같은 조각으로 본다.
  * 새 것부터, limit 줄까지.
  */
-export function recentPieces(items: { studentId: string; date: string; content: string }[], nameOf: (id: string) => string | undefined, limit = 4): RecentPiece[] {
-  const groups = new Map<string, { date: string; content: string; ids: string[] }>();
+export function recentPieces(items: { id?: string; studentId: string; date: string; content: string }[], nameOf: (id: string) => string | undefined, limit = 4): RecentPiece[] {
+  const groups = new Map<string, { date: string; content: string; ids: string[]; recs: string[] }>();
   for (const it of items) {
     const key = `${it.date}|${it.content.trim()}`;
     const g = groups.get(key);
-    if (g) { if (!g.ids.includes(it.studentId)) g.ids.push(it.studentId); }
-    else groups.set(key, { date: it.date, content: it.content.trim(), ids: [it.studentId] });
+    if (g) { if (!g.ids.includes(it.studentId)) g.ids.push(it.studentId); if (it.id) g.recs.push(it.id); }
+    else groups.set(key, { date: it.date, content: it.content.trim(), ids: [it.studentId], recs: it.id ? [it.id] : [] });
   }
   return [...groups.entries()]
     .sort((a, b) => b[1].date.localeCompare(a[1].date))
@@ -23,7 +24,7 @@ export function recentPieces(items: { studentId: string; date: string; content: 
     .map(([key, g]) => {
       const names = g.ids.map(nameOf).filter((x): x is string => !!x);
       const who = names.length === 0 ? `${g.ids.length}명` : names.length === 1 ? names[0] : `${names[0]} 외 ${names.length - 1}명`;
-      return { key, date: g.date, activity: activityTag(g.content) ?? "", text: stripActivity(g.content), who, n: g.ids.length };
+      return { key, date: g.date, activity: activityTag(g.content) ?? "", text: stripActivity(g.content), who, n: g.ids.length, ids: g.recs };
     });
 }
 

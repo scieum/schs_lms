@@ -82,7 +82,7 @@ export default async function ClubCollectPage({ searchParams }: Props) {
           key={club.id}
           target={{ kind: "log", area: "동아리", clubId: club.id }}
           students={students.map((s) => ({ id: s.id, no: makeStudentNo(s.grade, s.classNo, s.number), name: s.name, count: logs.filter((l) => l.studentId === s.id).length }))}
-          recent={recentPieces(logs.map((l) => ({ studentId: l.studentId, date: l.date, content: l.content })), (id) => nameOf.get(id))}
+          recent={recentPieces(logs.filter((l) => l.authorId === v.accountId).map((l) => ({ id: l.id, studentId: l.studentId, date: l.date, content: l.content })), (id) => nameOf.get(id))}
           composeHref={compose}
           today={today()}
           withDate

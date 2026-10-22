@@ -260,7 +260,13 @@ export const demoRepo: Repo = {
   },
   async listActivityLogs(area, studentIds) {
     const set = new Set(studentIds);
-    return store().logs.filter((l) => l.area === area && set.has(l.studentId)).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+    return store().logs.filter((l) => l.area === area && set.has(l.studentId) && !(l as { deletedAt?: string }).deletedAt).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+  },
+  async hideActivityLogs(ids, authorId) {
+    const want = new Set(ids);
+    let n = 0;
+    for (const l of store().logs) if (want.has(l.id) && l.authorId === authorId && !(l as { deletedAt?: string }).deletedAt) { (l as { deletedAt?: string }).deletedAt = new Date().toISOString(); n++; }
+    return n;
   },
   async addActivityLogs(rows) {
     const now = new Date().toISOString();

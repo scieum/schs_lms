@@ -199,7 +199,7 @@ async function setukTarget(courseId: string, studentId: string) {
 export async function listSetukPieces(input: { courseId: string; studentId: string }): Promise<MergePiece[]> {
   const t = await setukTarget(input.courseId, input.studentId);
   if (!t) return [];
-  return memoPieces(await listMemosWithPieces(`세특:${input.courseId}`, [input.studentId]));
+  return memoPieces(await listMemosWithPieces(`세특:${input.courseId}`, [input.studentId]), t.v.accountId);
 }
 
 /** 조각 칸 (Figma N19 · N32): 수업 중 본 것(메모) 또는 자료 요약을 한 조각으로 남긴다 (추가만, C4) */

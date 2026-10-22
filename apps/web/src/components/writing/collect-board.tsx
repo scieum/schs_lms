@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { CalendarDays, Check, ChevronDown, ChevronRight, FileUp, X } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronRight, FileUp, Trash2, X } from "lucide-react";
 import { cx } from "@/components/ui";
 import { ACTIVITY_MAX, cleanActivity } from "@/lib/domain/activity-name";
 import { shortMd } from "@/lib/domain/log-date";
@@ -11,6 +11,7 @@ import { prepareUpload } from "@/lib/client/shrink-upload";
 import { ACCEPT } from "./evidence-files";
 import { addSetukPieces, polishSetukMemo, readSetukCollectFile } from "@/app/(app)/teacher/setuk/actions";
 import { addLogs, polishLogMemo, readLogFile } from "@/app/(app)/teacher/logs/actions";
+import { deleteMyPieces } from "@/app/(app)/teacher/piece-actions";
 
 // 조각 모으기 (Figma N52 a 599:17196 · g2 599:17565 · 모바일 600:10311): 조각만 남기는 곳 — 바이트 이야기는 없다.
 // 받는 학생(여러 명, 학생마다 조각 수) → 활동명 · 날짜 · 메모 → [AI 다듬기](전 · 후 → 이걸로 바꾸기) → "n명에게 남기기".
@@ -78,6 +79,17 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
     }
   });
   const shownPolish = polish && polish.memo === memo ? polish : null;
+
+  // 조각 지우기 (2026-10-22): 내가 쓴 조각만 — 여러 학생에게 한 번에 남긴 줄은 그 학생들 것 모두
+  const removePiece = (r: RecentPiece) => {
+    if (!r.ids.length || busy) return;
+    if (!window.confirm(r.n > 1 ? `이 조각을 ${r.n}명 모두에게서 지울까요?` : "이 조각을 지울까요?")) return;
+    start(async () => {
+      const res = await deleteMyPieces(target.kind === "setuk" ? { memoIds: r.ids } : { logIds: r.ids }).catch(() => ({ ok: false as const, error: "지우지 못했어요" }));
+      setMsg(res.ok ? { ok: true, text: `조각을 지웠어요 (${res.n}개)` } : { ok: false, text: res.error });
+      if (res.ok) router.refresh();
+    });
+  };
 
   const readFile = () => file && start(async () => {
     setMsg(null);
@@ -303,6 +315,10 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
                     <span className="text-[12px] text-mute">{shortMd(r.date)}</span>
                     <b className="min-w-0 flex-1 truncate">{r.activity || "조각"}</b>
                     <span className="shrink-0 text-[12px] font-medium text-sub">{r.who}</span>
+                    {r.ids.length > 0 && (
+                      <button type="button" onClick={() => removePiece(r)} disabled={busy} aria-label={`${r.activity || "조각"} 지우기`} title="지우기"
+                        className="-my-1 shrink-0 rounded-control p-1 text-faint hover:bg-bad-soft hover:text-bad disabled:opacity-40"><Trash2 size={14} /></button>
+                    )}
                   </div>
                   <p className="truncate text-[13px] text-sub">{r.text}</p>
                 </li>
