@@ -13,10 +13,11 @@ type Props = { searchParams: Promise<{ cat?: string; s?: string; q?: string; t?:
 export default async function QnaPage({ searchParams }: Props) {
   const v = await requireCan("record.write");
   const q = await searchParams;
-  const all = await repo.listQna();
+  const admin = isAdmin(v);
+  // AI 답 초안은 관리자만 본다
+  const all = (await repo.listQna()).map((p) => (admin ? p : { ...p, draftAnswer: null }));
   const list = filterQna(all, { category: q.cat, state: q.s, text: q.q });
   const selected = all.find((p) => p.id === q.t) ?? list[0] ?? null;
-  const admin = isAdmin(v);
   return (
     <>
       <PageHeader title="문의 게시판" actions={<AskButton />} />

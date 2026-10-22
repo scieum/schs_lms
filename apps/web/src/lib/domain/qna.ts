@@ -18,6 +18,8 @@ export type QnaPost = {
   answeredBy: string | null;
   createdAt: string;
   answeredAt: string | null;
+  /** AI 답 초안 (관리자만 봄, 0037) */
+  draftAnswer?: string | null;
 };
 
 export const QNA_LIMITS = { title: 80, question: 2000, answer: 4000 } as const;

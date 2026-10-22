@@ -126,14 +126,14 @@ export function QnaBoard({ posts, counts, waiting, cat, state, text, selected, d
             )}
             {answer !== null && (
               <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">
-                <span className="flex">답<span className="ml-auto text-[12px] text-mute">{answer.length.toLocaleString("ko-KR")} / {QNA_LIMITS.answer.toLocaleString("ko-KR")}</span></span>
+                <span className="flex">답{!selected.answer && selected.draftAnswer && <span className="ml-1.5 rounded-chip bg-new-soft px-1.5 text-[12px] font-bold text-new">AI 초안 — 고쳐서 저장하면 게시돼요</span>}<span className="ml-auto text-[12px] text-mute">{answer.length.toLocaleString("ko-KR")} / {QNA_LIMITS.answer.toLocaleString("ko-KR")}</span></span>
                 <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} maxLength={QNA_LIMITS.answer} rows={8} autoFocus
                   placeholder="어디서 · 무엇을 누르면 되는지 적어 주세요 (줄바꿈 그대로 보여요)" className={cx(field, "resize-y py-3 leading-6 text-ink")} />
               </label>
             )}
             {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
             <div className="flex items-center gap-3 pt-1">
-              {admin && answer === null && <button type="button" onClick={() => setAnswer(selected.answer ?? "")} className="flex h-9 items-center rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong">{selected.answer ? "답 고치기" : "답하기"}</button>}
+              {admin && answer === null && <button type="button" onClick={() => setAnswer(selected.answer ?? selected.draftAnswer ?? "")} className="flex h-9 items-center rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong">{selected.answer ? "답 고치기" : selected.draftAnswer ? "AI 초안으로 답하기" : "답하기"}</button>}
               {answer !== null && <>
                 <Button type="button" size="sm" disabled={pending} onClick={saveAnswer}>{pending ? "저장 중…" : "답 저장"}</Button>
                 <Button type="button" size="sm" kind="outline" onClick={() => setAnswer(null)}>취소</Button>

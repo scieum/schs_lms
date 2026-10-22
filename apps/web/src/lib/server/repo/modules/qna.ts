@@ -13,6 +13,8 @@ export interface QnaRepo {
   updateQuestion(id: string, input: QuestionInput): Promise<void>;
   answerQuestion(id: string, answer: string, by: string): Promise<void>;
   deleteQuestion(id: string): Promise<void>;
+  /** AI 답 초안 적기 (0037 전 DB면 조용히 건너뜀) */
+  setQnaDraft(id: string, draft: string): Promise<void>;
 }
 
 const g = globalThis as unknown as { __schsqna?: QnaPost[] };
@@ -28,12 +30,13 @@ export const demoQna: QnaRepo = {
   async updateQuestion(id, input) { const p = mem().find((x) => x.id === id); if (p) Object.assign(p, input); },
   async answerQuestion(id, answer, by) { const p = mem().find((x) => x.id === id); if (p) Object.assign(p, { answer, answeredBy: by, answeredAt: new Date().toISOString() }); },
   async deleteQuestion(id) { g.__schsqna = mem().filter((x) => x.id !== id); },
+  async setQnaDraft(id, draft) { const p = mem().find((x) => x.id === id); if (p) p.draftAnswer = draft; },
 };
 
 const NEED35 = "문의 게시판을 쓰려면 DB 업데이트(0035)가 필요해요. 관리자에게 알려 주세요";
 const missing = (e: { message: string } | null) => !!e && /qna_posts/.test(e.message);
-type Row = { id: string; category: QnaCategory; title: string; question: string; answer: string | null; author_id: string | null; author_name: string; answered_by: string | null; created_at: string; answered_at: string | null };
-const toPost = (r: Row): QnaPost => ({ id: r.id, category: r.category, title: r.title, question: r.question, answer: r.answer, authorId: r.author_id, authorName: r.author_name, answeredBy: r.answered_by, createdAt: r.created_at, answeredAt: r.answered_at });
+type Row = { id: string; category: QnaCategory; title: string; question: string; answer: string | null; author_id: string | null; author_name: string; answered_by: string | null; created_at: string; answered_at: string | null; draft_answer?: string | null };
+const toPost = (r: Row): QnaPost => ({ id: r.id, category: r.category, title: r.title, question: r.question, answer: r.answer, authorId: r.author_id, authorName: r.author_name, answeredBy: r.answered_by, createdAt: r.created_at, answeredAt: r.answered_at, draftAnswer: r.draft_answer ?? null });
 
 export const supabaseQna: QnaRepo = {
   async listQna() {
@@ -59,6 +62,11 @@ export const supabaseQna: QnaRepo = {
   async deleteQuestion(id) {
     const res = await db().from("qna_posts").update({ deleted_at: new Date().toISOString() }).eq("id", id);
     if (missing(res.error)) throw new Error(NEED35);
+    check(res);
+  },
+  async setQnaDraft(id, draft) {
+    const res = await db().from("qna_posts").update({ draft_answer: draft }).eq("id", id);
+    if (res.error && /draft_answer|qna_posts/.test(res.error.message)) return;
     check(res);
   },
 };
