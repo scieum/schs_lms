@@ -168,6 +168,14 @@ footer{color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding
       <li>교과를 맡았다면 먼저 <a href="#subjects">내 수업</a>에서 담당 과목과 반을 정해요. 그래야 세특 메뉴에 학생이 나와요.</li>
     </ol>
   </div>
+  <div class="card"><h3>학교 처음 세팅 <span class="tag t-bad">관리자</span></h3>
+    <ol class="steps">
+      <li><b>계정 관리</b>에서 교사를 한 명씩 또는 교사명부 엑셀로 넣어요(담임 학년 · 반 포함).</li>
+      <li><b>학생 등록</b>에서 나이스 <b>학생명렬표</b>나 <b>학번 · 이름 명단</b>(엑셀 · CSV)을 그대로 올려요. 전 학년 한 파일도 돼요(1,500명까지).</li>
+      <li><b>편제표 · 과목 개설</b>로 올해 과목을 정하면 선생님들이 내 수업에서 담당 과목을 골라요.</li>
+      <li>DB를 바꿨다면 <b>관리 현황 → DB 업데이트 확인</b>에서 빠진 SQL 번호가 없는지 봐요.</li>
+    </ol>
+  </div>
   <div class="tip"><b>PC · 모바일 모두 돼요.</b>나이스 입력만 PC 크롬에서 해요. 나머지는 휴대폰에서도 같은 기능을 써요.</div>
 </section>
 
@@ -228,7 +236,7 @@ footer{color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding
     </div>
     <div class="card"><h3>이동반 분반 명단</h3>
       <ul>
-        <li><span class="btn">명단 올리기</span> → <b>엑셀로</b>(명단_양식.xlsx) 또는 <b>직접 고르기</b>.</li>
+        <li><span class="btn">명단 올리기</span> → <b>엑셀로</b>(명단_양식.xlsx — 학번 · 이름 두 칸) 또는 <b>직접 고르기</b>.</li>
         <li>직접 고르기: 학년 · 반 칩으로 찾아 체크 → <span class="btn">n명 저장</span>.</li>
         <li>다른 분반에 있던 학생을 고르면 "2분반 → 옮김"으로 보이고 저장할 때 옮겨져요.</li>
       </ul>
@@ -351,14 +359,24 @@ footer{color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding
   <div class="tip"><b>넘어가기 전에</b>저장하지 않은 글이 있으면 "임시 저장하고 넘어갈까요?"를 물어요.</div>
 </section>
 
-<section id="texts" data-k="글 모아 보기 복사 엑셀 확정">
+<section id="texts" data-k="글 모아 보기 복사 엑셀 확정 갖고 있던 생기부 올리기 옮기기">
   <h2>글 모아 보기</h2>
-  <p class="lead">세특 · 창체 · 행발 · 누가기록을 한 표로 봐요.</p>
-  <div class="card"><ul>
-    <li>과목 · 분반을 고르고 <b>확정만 | 전체</b>로 걸러요(처음엔 확정만).</li>
-    <li>줄마다 복사, 또는 <span class="btn">모두 복사</span> · <span class="btn">엑셀로 받기</span>.</li>
-    <li>내가 맡은 학생 글만 보여요.</li>
-  </ul></div>
+  <p class="lead">세특 · 창체 · 행발 · 누가기록을 한 표로 봐요. 갖고 있던 생기부 글도 여기서 한 번에 옮겨 와요.</p>
+  <div class="grid2">
+    <div class="card"><h3>보기 · 내보내기</h3><ul>
+      <li>과목 · 분반을 고르고 <b>확정만 | 전체</b>로 걸러요(처음엔 확정만).</li>
+      <li>줄마다 복사, 또는 <span class="btn">모두 복사</span> · <span class="btn">엑셀로 받기</span>.</li>
+      <li>내가 맡은 학생 글만 보여요.</li>
+    </ul></div>
+    <div class="card"><h3>엑셀로 올리기 <span class="tag t-new">NEW</span></h3>
+      <ol class="steps">
+        <li><span class="btn">엑셀로 올리기</span> → <span class="btn">양식 받기</span>: 이 반 학번 · 이름(지금 글까지) 채워진 생기부글_양식.xlsx.</li>
+        <li>"생기부 글" 칸에 한글 · 엑셀에 써 둔 글을 붙여 넣고 올려요.</li>
+        <li>줄마다 <span class="tag t-ok">넣음</span> <span class="tag t-warn">새 버전</span> <span class="tag t-bad">못 넣음</span> · 바이트를 보고 <span class="btn p">n명 임시 저장</span>.</li>
+      </ol>
+      <p style="margin:8px 0 0;font-size:13px;color:var(--sub)">지금 글은 이전 버전으로 남아요. 확정은 글 짓기에서 해요.</p>
+    </div>
+  </div>
 </section>
 
 
@@ -498,13 +516,13 @@ footer{color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding
   </div>
 </section>
 
-<section id="admin" data-k="관리자 계정 오류 학생부 점검 자료 보존 과목 개설 편제표 감사 로그 성취수준">
+<section id="admin" data-k="관리자 계정 오류 학생부 점검 자료 보존 과목 개설 편제표 감사 로그 성취수준 DB 업데이트 SQL">
   <h2>관리 메뉴 <span class="tag t-bad">관리자</span></h2>
   <p class="lead">관리자는 모든 권한을 가진 교사예요. 사이드바 맨 아래 <b>관리</b> 묶음(처음엔 접힘)에 있어요.</p>
   <figure class="shot"><img src="admin.webp" alt="관리 현황" loading="lazy"><figcaption>관리 현황</figcaption></figure>
   <table>
     <tr><th style="width:140px">메뉴</th><th>하는 일</th></tr>
-    <tr><td>관리 현황</td><td>오늘 접속 · 계정 대기 · 오류 · 최근 활동. 학교 설정에서 성취수준 단계(A~E / 상 · 중 · 하).</td></tr>
+    <tr><td>관리 현황</td><td>오늘 접속 · 계정 대기 · 오류 · 최근 활동. 학교 설정에서 성취수준 단계(A~E / 상 · 중 · 하). 맨 아래 <b>DB 업데이트 확인</b>: Supabase에 아직 넣지 않은 SQL 번호를 알려 줘요.</td></tr>
     <tr><td>오류 처리</td><td>초안 생성 실패 → <span class="btn">모두 다시 시도</span> / <span class="btn">수동 작성 요청</span>.</td></tr>
     <tr><td>초안 생성 현황</td><td>프로그램별 생성 · 실패 건수와 원인.</td></tr>
     <tr><td>학생부 점검</td><td>학년 · 영역별 확정 · 작성 중 · 미작성 · 확인 필요 건수. 인쇄용 보고서(결재란) · 엑셀. 글과 이름은 보이지 않아요.</td></tr>
@@ -545,6 +563,9 @@ footer{color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding
 
 <section id="faq" data-k="자주 묻는 질문 FAQ">
   <h2>자주 묻는 질문</h2>
+  <details><summary>한글 · 엑셀에 써 둔 생기부를 옮기고 싶어요.</summary><p>글 모아 보기에서 <b>엑셀로 올리기</b> → 양식 받기 → 글 붙여 넣고 올리기. 학생마다 임시 저장으로 들어가요.</p></details>
+  <details><summary>학생 명단을 한 번에 넣고 싶어요.</summary><p>관리자가 학생 등록에서 나이스 학생명렬표나 학번 · 이름 명단을 그대로 올리면 돼요. 이미 있는 학번은 "중복"으로 건너뛰어요.</p></details>
+  <details><summary>저장하려니 "DB 업데이트(00xx)가 필요해요"가 나와요.</summary><p>새 기능의 표가 아직 없어서예요. 관리자가 관리 현황 → DB 업데이트 확인에 나온 번호의 SQL을 Supabase SQL Editor에서 실행하면 돼요.</p></details>
   <details><summary>세특 메뉴에 학생이 안 나와요.</summary><p>내 수업에서 담당 과목과 반(이동반은 분반 명단)을 정했는지 확인하세요. 학기 탭이 맞는지도 보세요.</p></details>
   <details><summary>나이스 입력에서 [복사]가 회색이에요.</summary><p>확정한 학생이 없어서예요. 글 짓기에서 확정하거나, 글 모아 보기에서 확정 여부를 확인하세요.</p></details>
   <details><summary>북마크 버튼에서 이동반이 본반(1반 · 2반)으로 나눠져 나와요.</summary><p>옛 버튼(v0.2.8 이하)이에요. 나이스 입력 화면에서 버튼을 다시 달고, 과목 줄의 [복사]를 다시 눌러 붙여 넣으세요. v0.2.9부터 이동반은 반 고르기 없이 한 목록이에요.</p></details>
