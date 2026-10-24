@@ -171,12 +171,12 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
     <div className="grid items-stretch gap-3.5 pb-24 md:gap-5 md:pb-0 @4xl:grid-cols-[minmax(0,1fr)_400px] [&>*]:min-w-0">
       {/* 조각 남기기 */}
       <section className="surface flex flex-col gap-4 rounded-card p-4 md:p-6">
-        <div className="flex items-center gap-2">
-          <h2 className="text-[15px] font-bold">받는 학생</h2>
-          <span className={cx("rounded-chip px-2 py-0.5 text-[12px] font-bold", n ? "bg-key-soft text-key-strong" : "bg-soft text-mute")}>{n}명</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="whitespace-nowrap text-[15px] font-bold">받는 학생</h2>
+          <span className={cx("whitespace-nowrap rounded-chip px-2 py-0.5 text-[12px] font-bold", n ? "bg-key-soft text-key-strong" : "bg-soft text-mute")}>{n}명</span>
           <span className="flex-1" />
           {students.length > 8 && (
-            <label className="flex h-8 w-[150px] min-w-0 shrink items-center gap-1.5 rounded-control border border-line bg-[#fff] px-2.5 md:w-[200px]">
+            <label className="order-last flex h-10 w-full min-w-0 items-center gap-1.5 rounded-control border border-line bg-[#fff] px-2.5 md:order-none md:h-8 md:w-[200px]">
               <Search size={13} className="shrink-0 text-mute" aria-hidden />
               <input value={find} onChange={(e) => setFind(e.target.value)} placeholder="학번 · 이름 찾기" aria-label="학생 찾기"
                 className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-faint" />
@@ -237,7 +237,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
         )}
 
         <div className="flex flex-col gap-2 md:flex-row">
-          <label className={cx("flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-control bg-soft px-3.5", touched && !activityOk && "ring-2 ring-bad")}>
+          <label className={cx("flex h-11 w-full min-w-0 shrink-0 items-center gap-2.5 rounded-control bg-soft px-3.5 md:w-auto md:flex-1", touched && !activityOk && "ring-2 ring-bad")}>
             <span className="shrink-0 text-[13px] font-medium text-mute">활동명</span>
             <input value={activity} onChange={(e) => setActivity(e.target.value)} maxLength={ACTIVITY_MAX} placeholder="예: 빗면 실험"
               className="min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none placeholder:text-faint" />
@@ -325,7 +325,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
       </section>
 
       {/* 모바일: 탭 막대 위에 붙는 남기기 */}
-      <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+66px)] z-10 border-t border-line bg-white px-4 py-3 md:hidden">{btn(true)}</div>
+      <div data-sticky-cta className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+66px)] z-10 border-t border-line bg-white px-4 py-3 md:hidden">{btn(true)}</div>
 
       <div className="flex flex-col gap-3.5 md:gap-5">
         <section className="surface rounded-card p-4 md:p-6">
