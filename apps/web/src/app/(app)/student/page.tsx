@@ -4,7 +4,7 @@ import { BookOpen, ListChecks, Moon, Upload } from "lucide-react";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { ButtonLink, Card, Tag } from "@/components/ui";
+import { ButtonLink, Card, NumberStrip, Tag } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
 import { countByArea, isFresh, matchRecs, RECORD_AREAS } from "@/lib/domain/counsel";
 import { ddayLabel, md } from "@/lib/domain/program";
@@ -91,7 +91,13 @@ export default async function StudentHome() {
         actions={<span className="hidden md:block"><ButtonLink href="/student/record" kind="outline"><BookOpen size={18} /> 내 생활기록부</ButtonLink></span>}
       />
       <PageBody>
-        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-4">
+        <NumberStrip items={[
+          ["제출할 서류", `${docs.length}개`, "/student/submit"],
+          scores ? [scores.latestExam ? `${scores.latestExam.month}월 모의` : "모의 평균", scores.latestAverage === null ? "–" : `${scores.latestAverage.toFixed(1)}등급`, "/student/scores"] : ["확정된 기록", `${records.length}건`, "/student/record"],
+          ["이번 주 야자", `${night.signed}일`, "/student/night"],
+          ["맞는 추천", `${recs.length}개`, "/student/recs"],
+        ]} />
+        <div className="hidden gap-4 md:grid md:grid-cols-4">
           <Stat label="제출할 서류" value={`${docs.length}개`} action={respond} />
           {scores ? (
             <Stat

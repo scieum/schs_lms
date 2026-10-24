@@ -1,6 +1,6 @@
 // 모바일 전수 점검: 모든 화면을 412px 로 열어 ① 화면보다 넓은 페이지 ② 두 줄로 꺾인 버튼·탭·칩 ③ 화면 밖으로 나간 요소를 찾는다.
 // node scripts/mobile-audit.mjs <out 폴더> [포트=3200] [폭=412]   (데모 서버: SUPABASE_URL= … npx next start -p 3200)
-// 결과: <out>/report.json, 문제가 있는 화면은 <out>/<이름>.png
+// 결과: <out>/report.json, 문제가 있는 화면은 <out>/<이름>.png (AUDIT_SHOTS=1 이면 모든 화면을 찍는다 — 눈으로 보는 QA)
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -17,10 +17,10 @@ mkdirSync(out, { recursive: true });
 const PAGES = [
   ["none", "/"], ["none", "/features"], ["none", "/login"], ["none", "/signup"],
   ...["/teacher", "/teacher/drafts", "/teacher/programs", "/teacher/programs/new", "/teacher/service", "/teacher/subjects", "/teacher/setuk", "/teacher/write",
-    "/teacher/club", "/teacher/joint", "/teacher/counseling", "/teacher/logs", "/teacher/pieces", "/teacher/neis", "/teacher/library", "/teacher/stamp", "/teacher/setuk/assessments", "/teacher/setuk/collect", "/students", "/students/new", "/schedule", "/me", "/menu"].map((p) => ["t-subject", p]),
+    "/teacher/club", "/teacher/joint", "/teacher/counseling", "/teacher/logs", "/teacher/pieces", "/teacher/neis", "/teacher/library", "/teacher/stamp", "/teacher/setuk/assessments", "/teacher/setuk/collect", "/teacher/setuk/compose", "/teacher/club/collect", "/teacher/club/compose", "/teacher/tips", "/teacher/qna", "/teacher/prompts", "/teacher/reports", "/ai", "/collab", "/students", "/students/new", "/schedule", "/me", "/menu"].map((p) => ["t-subject", p]),
   ["t-subject", { from: "/teacher/programs", match: /^\/teacher\/programs\/(?!new)[^/?]+$/, extra: ["", "/edit", "/materials", "/split"] }],
   ["t-subject", { from: "/teacher/setuk", match: /^\/teacher\/setuk\/activity\/[^/?]+$/, extra: [""] }],
-  ...["/homeroom", "/homeroom/menu", "/homeroom/behavior", "/homeroom/drafts", "/homeroom/minimum", "/homeroom/night", "/homeroom/scores", "/homeroom/service", "/homeroom/students",
+  ...["/homeroom", "/homeroom/menu", "/homeroom/behavior", "/homeroom/drafts", "/homeroom/minimum", "/homeroom/night", "/homeroom/scores", "/homeroom/service", "/homeroom/students", "/homeroom/logs", "/homeroom/compose",
     "/teacher/write?area=%EC%A7%84%EB%A1%9C", "/teacher/pieces",
     "/teacher/texts", "/teacher/texts?who=all", "/teacher/texts?tab=record&who=all", "/teacher/texts?tab=behavior", "/teacher/texts?tab=behavior&who=all", "/teacher/texts?tab=logs"].map((p) => ["t-homeroom", p]),
   ["t-homeroom", { from: "/homeroom/students", match: /^\/homeroom\/students\/[^/?]+$/, extra: [""] }],
@@ -118,7 +118,7 @@ try {
     const issues = (await evaluate(PROBE)) ?? [{ kind: "error", text: "점검 실패" }];
     const at = await evaluate("location.pathname + location.search");
     const name = `${account}${path}`.replace(/[^a-zA-Z0-9가-힣]+/g, "_");
-    if (issues.length) {
+    if (issues.length || process.env.AUDIT_SHOTS) {
       const h = Math.min(await evaluate("document.documentElement.scrollHeight"), 8000);
       await send("Emulation.setDeviceMetricsOverride", { width, height: h, deviceScaleFactor: 1, mobile: true });
       await sleep(600);

@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Mic, RotateCcw, Square } from "lucide-react";
-import { cx } from "@/components/ui";
 import { MAX_RECORD_SEC, clock, decode16k, startRecording, transcribe, type Recording } from "@/lib/client/speech";
 import { cleanTranscript } from "@/lib/domain/transcript";
 
@@ -10,7 +9,10 @@ import { cleanTranscript } from "@/lib/domain/transcript";
 // 녹음은 이 기기 메모리에만 두고 받아쓴 뒤 버린다.
 
 type Summary = { ok: true; text: string; label: "AI" | "자동" } | { ok: false; error: string };
-type State = { s: "idle" } | { s: "rec"; since: number } | { s: "run"; sec: number; load: number | null } | { s: "done"; sec: number; text: string };
+type State = { s: "idle" } | { s: "rec"; since: number } | { s: "run"; sec: number; stage: "load" | "run"; ratio: number } | { s: "done"; sec: number; text: string };
+
+/** 메모 칸 한도 (조각 모으기 메모 칸과 같음) */
+const MEMO_MAX = 1000;
 
 const BARS = 26;
 
@@ -62,10 +64,10 @@ export function SpeechRecorder({ aiOn, summarize, onUse }: {
     if (!r || st.s !== "rec") return;
     rec.current = null;
     const sec = Math.round((Date.now() - st.since) / 1000);
-    setSt({ s: "run", sec, load: null });
+    setSt({ s: "run", sec, stage: "run", ratio: 0 });
     try {
       const audio = await decode16k(await r.stop());
-      const text = cleanTranscript(await transcribe(audio, (p) => setSt((x) => (x.s === "run" ? { ...x, load: p.stage === "load" ? p.ratio : null } : x))));
+      const text = cleanTranscript(await transcribe(audio, (p) => setSt((x) => (x.s === "run" ? { ...x, stage: p.stage, ratio: p.ratio } : x))));
       if (!text.trim()) { setSt({ s: "idle" }); setError("말소리를 찾지 못했어요. 마이크 가까이에서 다시 녹음해 주세요"); return; }
       setSt({ s: "done", sec, text });
     } catch (e) {
@@ -115,11 +117,11 @@ export function SpeechRecorder({ aiOn, summarize, onUse }: {
       {st.s === "run" && (
         <div className="flex flex-col gap-2 rounded-control border border-hair bg-[#fff] px-3.5 py-3.5" role="status" aria-live="polite">
           <span className="flex items-center text-[14px] font-bold">
-            {st.load !== null ? "받아쓰기 모델 받는 중" : "받아쓰는 중"} · {clock(st.sec)} 녹음
-            {st.load !== null && <span className="ml-auto tabular-nums text-key-strong">{Math.round(st.load * 100)}%</span>}
+            {st.stage === "load" ? "받아쓰기 모델 받는 중" : "받아쓰는 중"} · {clock(st.sec)} 녹음
+            <span className="ml-auto tabular-nums text-key-strong">{Math.round(st.ratio * 100)}%</span>
           </span>
           <span className="h-2 overflow-hidden rounded-full bg-soft">
-            <span className={cx("block h-full rounded-full bg-key", st.load === null && "w-1/3 animate-pulse")} style={st.load !== null ? { width: `${Math.round(st.load * 100)}%` } : undefined} />
+            <span className="block h-full rounded-full bg-key transition-[width]" style={{ width: `${Math.max(3, Math.round(st.ratio * 100))}%` }} />
           </span>
           <span className="text-[12px] text-mute">처음 한 번은 받아쓰기 모델(약 80MB)을 받아요 · 소리는 밖으로 나가지 않아요</span>
         </div>
@@ -133,10 +135,13 @@ export function SpeechRecorder({ aiOn, summarize, onUse }: {
           </span>
           <textarea value={st.text} onChange={(e) => setSt({ ...st, text: e.target.value })} rows={4} aria-label="받아쓴 글"
             className="resize-y rounded-control border border-line bg-[#fff] px-3 py-2 text-[13px] leading-5 text-[#333d4b] outline-none focus:border-key" />
+          {st.text.length > MEMO_MAX && <p className="text-[12px] text-[#9a6400]">메모 칸은 {MEMO_MAX.toLocaleString()}자까지예요 · 긴 발표는 AI 요약을 권해요</p>}
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => setSt({ s: "idle" })} className="inline-flex h-9 items-center gap-1.5 rounded-control border border-hair bg-[#fff] px-3 text-[13px] font-bold"><RotateCcw size={13} /> 다시 녹음</button>
             <span className="flex-1" />
-            <button type="button" onClick={() => onUse(st.text.slice(0, 1000), "raw")} className="h-9 rounded-control px-3 text-[13px] font-medium text-sub hover:text-ink">그대로 넣기</button>
+            <button type="button" onClick={() => onUse(st.text.slice(0, MEMO_MAX), "raw")} className="h-9 rounded-control px-3 text-[13px] font-medium text-sub hover:text-ink">
+              {st.text.length > MEMO_MAX ? `앞 ${MEMO_MAX.toLocaleString()}자 넣기` : "그대로 넣기"}
+            </button>
             <button type="button" onClick={useAi} disabled={busy}
               className="inline-flex h-9 items-center gap-1.5 rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50">
               <span className="rounded-[6px] bg-new-soft px-1.5 py-px text-[11px] font-bold text-new">{aiOn ? "AI" : "자동"}</span>{busy ? "요약하는 중…" : "요약해 메모 칸에 넣기"}

@@ -82,17 +82,39 @@ export function Card({ title, action, children, className }: { title?: string; a
   );
 }
 
-/** D2 벤토: 숫자 타일 */
+/** 숫자 띠 (Figma N74 715:1843, 2026-10-24 모바일 QA): 모바일에서 숫자 3~4개를 한 칸 높이에. 세 번째 값(주소)이 있으면 누르는 칸(이름표 끝 ›).
+ * PC 에는 보이지 않는다 — PC 는 지금처럼 따로 떨어진 숫자 타일 */
+export function NumberStrip({ items, className }: { items: [string, string, string?][]; className?: string }) {
+  return (
+    <div className={cx("grid overflow-hidden rounded-card border border-line bg-[#fff] md:hidden", items.length === 3 ? "grid-cols-3" : "grid-cols-4", className)}>
+      {items.map(([k, v, href], i) => {
+        const inner = (
+          <>
+            <span className="block text-[12px] leading-tight text-mute break-keep">{k}{href && " ›"}</span>
+            <span className="mt-1 block text-[18px] font-bold leading-tight">{v}</span>
+          </>
+        );
+        const cls = cx("min-w-0 px-3 py-3", i > 0 && "border-l border-soft");
+        return href ? <Link key={k} href={href} className={cx(cls, "active:bg-soft")}>{inner}</Link> : <div key={k} className={cls}>{inner}</div>;
+      })}
+    </div>
+  );
+}
+
+/** D2 벤토: 숫자 타일 (모바일은 숫자 띠 N74) */
 export function StatTiles({ items }: { items: [string, string][] }) {
   return (
-    <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-4">
-      {items.map(([k, v]) => (
-        <div key={k} className="surface rounded-card p-4 md:px-[22px] md:py-5">
-          <div className="text-[13px] text-mute">{k}</div>
-          <div className="mt-1.5 text-[22px] font-bold md:text-[28px]">{v}</div>
-        </div>
-      ))}
-    </div>
+    <>
+      <NumberStrip items={items.slice(0, 4)} />
+      <div className="hidden gap-4 md:grid md:grid-cols-4">
+        {items.map(([k, v]) => (
+          <div key={k} className="surface rounded-card px-[22px] py-5">
+            <div className="text-[13px] text-mute">{k}</div>
+            <div className="mt-1.5 text-[28px] font-bold">{v}</div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 

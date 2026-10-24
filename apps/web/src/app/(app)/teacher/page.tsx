@@ -234,16 +234,16 @@ export default async function TeacherHome() {
               <h2 className="flex-1 text-[17px] font-bold md:text-lg">생기부 진행 현황</h2>
               <Link href="/teacher/programs" className="hidden text-[13px] text-mute md:inline">자세히 ›</Link>
             </div>
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:grid md:grid-cols-5 md:gap-3 md:overflow-visible md:px-0 [scrollbar-width:none]">
+            <div className="grid grid-cols-5 gap-1.5 md:gap-3">
               {steps.map((s) => {
                 const on = s.todo !== undefined;
                 const Icon = s.icon;
                 return (
-                  <div key={s.label} className={cx("w-[76px] shrink-0 rounded-inner p-3 md:w-auto md:p-4", on ? "bg-key text-white" : "bg-white")}>
+                  <div key={s.label} className={cx("min-w-0 rounded-inner px-2 py-2.5 md:p-4", on ? "bg-key text-white" : "bg-white")}>
                     <div className={cx("flex items-center gap-1.5 text-[12px] md:text-[13px]", on ? "text-white/85" : "text-sub")}>
                       <Icon size={14} className="hidden md:block" /><span className="md:hidden">{s.short}</span><span className="hidden md:inline">{s.label}</span>
                     </div>
-                    <div className="mt-1.5 md:mt-3"><span className="text-[20px] font-bold md:text-[26px]">{s.value}</span><span className={cx("ml-0.5 text-[12px] md:text-[13px]", on ? "text-white/85" : "text-sub")}>{s.unit}</span></div>
+                    <div className="mt-1 whitespace-nowrap md:mt-3"><span className="text-[18px] font-bold md:text-[26px]">{s.value}</span><span className={cx("ml-0.5 text-[12px] md:text-[13px]", on ? "text-white/85" : "text-sub")}>{s.unit}</span></div>
                     <div className="mt-1 hidden md:block">
                       {on ? <span className="rounded-chip bg-white px-2 py-0.5 text-[11px] font-bold text-key-strong">할 일 {s.todo}건</span> : <span className="text-[12px] text-mute">{s.line}</span>}
                     </div>

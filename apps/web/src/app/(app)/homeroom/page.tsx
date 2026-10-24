@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FileText, Layers } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/shell/app-shell";
-import { ButtonLink, Card, Tag } from "@/components/ui";
+import { ButtonLink, Card, NumberStrip, Tag } from "@/components/ui";
 import { addDays, seoulNow } from "@/lib/domain/night";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { repo } from "@/lib/server/repo";
@@ -88,7 +88,8 @@ export default async function HomeroomHome() {
     <>
       <PageHeader title={`${grade}학년 ${classNo}반`} actions={<ButtonLink href="/homeroom/students" kind="outline" size="sm" className="max-md:hidden">학생 기록</ButtonLink>} />
       <PageBody>
-        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-4">
+        <NumberStrip items={tiles.map(([k, val]) => [k, val, k === "받은 초안" ? "/homeroom/drafts" : k === "상담 필요" ? "/homeroom/students" : undefined])} />
+        <div className="hidden gap-4 md:grid md:grid-cols-4">
           {tiles.map(([k, val], i) => (
             <div key={k} className="flex flex-col surface rounded-card p-4 md:px-[22px] md:py-5">
               <div className="text-[13px] text-mute">{k}</div>

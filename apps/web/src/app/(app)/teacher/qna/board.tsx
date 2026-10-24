@@ -81,7 +81,7 @@ export function QnaBoard({ posts, counts, waiting, cat, state, text, selected, d
         </nav>
       </div>
 
-      <div className="grid items-start gap-4 md:grid-cols-[minmax(280px,420px)_minmax(0,1fr)] md:gap-6">
+      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[minmax(280px,420px)_minmax(0,1fr)] md:gap-6">
         <ul className={cx("flex flex-col gap-2", detailOnly && "max-md:hidden")}>
           {posts.length === 0 && <li className="rounded-inner bg-[#fff] px-4 py-8 text-center text-[14px] text-sub">맞는 문의가 없어요</li>}
           {posts.map((p) => {

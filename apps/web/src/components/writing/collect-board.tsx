@@ -176,7 +176,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
           <span className={cx("rounded-chip px-2 py-0.5 text-[12px] font-bold", n ? "bg-key-soft text-key-strong" : "bg-soft text-mute")}>{n}명</span>
           <span className="flex-1" />
           {students.length > 8 && (
-            <label className="flex h-8 w-[150px] items-center gap-1.5 rounded-control border border-line bg-[#fff] px-2.5 md:w-[200px]">
+            <label className="flex h-8 w-[150px] min-w-0 shrink items-center gap-1.5 rounded-control border border-line bg-[#fff] px-2.5 md:w-[200px]">
               <Search size={13} className="shrink-0 text-mute" aria-hidden />
               <input value={find} onChange={(e) => setFind(e.target.value)} placeholder="학번 · 이름 찾기" aria-label="학생 찾기"
                 className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-faint" />
@@ -184,8 +184,8 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
             </label>
           )}
           {/* 찾는 중이면 '모두'는 찾은 학생만 더한다 */}
-          <button type="button" onClick={() => { setMsg(null); setPicked(find.trim() ? new Set([...picked, ...shown.map((s) => s.id)]) : new Set(students.map((s) => s.id))); }} className="px-1.5 text-[13px] font-medium text-sub">모두</button>
-          <button type="button" onClick={() => { setMsg(null); setPicked(new Set()); }} className="px-1.5 text-[13px] font-medium text-sub">비우기</button>
+          <button type="button" onClick={() => { setMsg(null); setPicked(find.trim() ? new Set([...picked, ...shown.map((s) => s.id)]) : new Set(students.map((s) => s.id))); }} className="shrink-0 whitespace-nowrap px-1.5 text-[13px] font-medium text-sub">모두</button>
+          <button type="button" onClick={() => { setMsg(null); setPicked(new Set()); }} className="shrink-0 whitespace-nowrap px-1.5 text-[13px] font-medium text-sub">비우기</button>
         </div>
 
         {students.length === 0 ? (

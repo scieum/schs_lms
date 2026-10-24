@@ -55,7 +55,8 @@ export async function decode16k(blob: Blob): Promise<Float32Array> {
   }
 }
 
-export type TranscribeProgress = { stage: "load"; ratio: number } | { stage: "run" };
+/** load = 모델 내려받기, run = 받아쓰기 (28초 조각 몇 개 끝났는지) */
+export type TranscribeProgress = { stage: "load" | "run"; ratio: number };
 
 let worker: Worker | null = null;
 let seq = 0;
@@ -68,7 +69,7 @@ export function transcribe(audio: Float32Array, onProgress: (p: TranscribeProgre
   const files = new Map<string, [number, number]>();
   return new Promise((resolve, reject) => {
     const onMessage = (e: MessageEvent) => {
-      const m = e.data as { type: string; id?: number; file?: string; loaded?: number; total?: number; text?: string; error?: string };
+      const m = e.data as { type: string; id?: number; file?: string; loaded?: number; total?: number; done?: number; text?: string; error?: string };
       if (m.type === "load" && m.file) {
         files.set(m.file, [m.loaded ?? 0, m.total ?? 0]);
         const [l, t] = [...files.values()].reduce(([a, b], [x, y]) => [a + x, b + y], [0, 0]);
@@ -76,7 +77,8 @@ export function transcribe(audio: Float32Array, onProgress: (p: TranscribeProgre
         return;
       }
       if (m.id !== id) return;
-      if (m.type === "start") onProgress({ stage: "run" });
+      if (m.type === "start") onProgress({ stage: "run", ratio: 0 });
+      else if (m.type === "progress") onProgress({ stage: "run", ratio: m.total ? (m.done ?? 0) / m.total : 0 });
       else if (m.type === "done") { w.removeEventListener("message", onMessage); resolve(m.text ?? ""); }
       else if (m.type === "error") { w.removeEventListener("message", onMessage); reject(new Error(m.error || "받아쓰지 못했어요")); }
     };

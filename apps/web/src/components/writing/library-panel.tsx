@@ -82,8 +82,8 @@ export function LibraryPanel({ mode = "panel" }: { mode?: "panel" | "page" }) {
   const content = (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        <Bookmark size={18} className="shrink-0 text-key-strong" />
-        <h2 className="text-[17px] font-bold md:text-[16px]">문장 보관함</h2>
+        <Bookmark size={18} className={cx("shrink-0 text-key-strong", mode === "page" && "hidden")} />
+        <h2 className={cx("text-[17px] font-bold md:text-[16px]", mode === "page" && "sr-only")}>문장 보관함</h2>
         <span className="text-[13px] text-mute">{all ? total : ""}</span>
         <span className="flex-1" />
         {mode === "panel" && <button type="button" onClick={close} aria-label="보관함 닫기" className="flex size-7 items-center justify-center text-mute"><X size={18} /></button>}
