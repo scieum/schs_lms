@@ -44,10 +44,10 @@ export function normalizeHex(input: string): string | null {
   return null;
 }
 
-/** 새길 글자: 띄어쓰기 빼고 최대 4자. withIn 이면 3자 이하일 때 끝에 '인' */
-export function stampChars(text: string, withIn: boolean): string[] {
+/** 새길 글자: 띄어쓰기 빼고 최대 4자. 3자 이하면 끝에 '인'이 늘 붙고, noIn('인' 빼기)일 때만 뺀다 */
+export function stampChars(text: string, noIn = false): string[] {
   const chars = Array.from(text.replace(/\s+/g, "")).slice(0, STAMP_MAX_CHARS);
-  if (withIn && chars.length > 0 && chars.length < STAMP_MAX_CHARS) chars.push("인");
+  if (!noIn && chars.length > 0 && chars.length < STAMP_MAX_CHARS) chars.push("인");
   return chars;
 }
 
@@ -70,20 +70,23 @@ function innerBox(shape: StampShape): { w: number; h: number } {
 }
 
 /**
- * 칸 나누기 — 1자 = 가운데, 2자 = 세로 한 줄, 3자 = 오른쪽 줄 1자(성) · 왼쪽 줄 2자,
- * 4자 = 2×2 (오른쪽 줄 위→아래, 다음 왼쪽 줄). 타원은 늘 세로 한 줄.
+ * 칸 나누기 — 읽는 순서는 왼쪽→오른쪽, 위→아래 (2026-10-24 사용자: 김하연 → "김하 / 연인").
+ * 1자 = 가운데, 2자 = 세로 한 줄, 3자 = 위 두 자 · 아래 한 자(타원은 세로 한 줄), 4자 = 2×2.
  */
 export function stampCells(chars: string[], shape: StampShape): StampCell[] {
   const n = chars.length;
   if (n === 0) return [];
   const box = innerBox(shape);
   const left = 0.5 - box.w / 2, top = 0.5 - box.h / 2;
-  const col = (x0: number, w: number, list: string[]): StampCell[] =>
-    list.map((char, i) => ({ char, cx: x0 + w / 2, cy: top + (box.h / list.length) * (i + 0.5), w, h: box.h / list.length }));
-  if (shape === "타원" || n <= 2) return col(left, box.w, chars);
-  const half = box.w / 2;
-  if (n === 3) return [...col(left + half, half, chars.slice(0, 1)), ...col(left, half, chars.slice(1))];
-  return [...col(left + half, half, chars.slice(0, 2)), ...col(left, half, chars.slice(2))];
+  if (n <= 2 || (n === 3 && shape === "타원")) {
+    const h = box.h / n;
+    return chars.map((char, i) => ({ char, cx: 0.5, cy: top + h * (i + 0.5), w: box.w, h }));
+  }
+  // 두 줄: 윗줄 두 자, 아랫줄은 남은 글자(한 자면 가운데 넓은 칸)
+  const h = box.h / 2;
+  const row = (list: string[], y: number): StampCell[] =>
+    list.map((char, i) => ({ char, cx: left + (box.w / list.length) * (i + 0.5), cy: y, w: box.w / list.length, h }));
+  return [...row(chars.slice(0, 2), top + h / 2), ...row(chars.slice(2), top + h * 1.5)];
 }
 
 /** 글자 하나를 칸에 맞추는 가로 · 세로 배율. 도장처럼 칸을 채우되 한쪽으로 maxStretch 배 넘게 늘리지 않는다 */

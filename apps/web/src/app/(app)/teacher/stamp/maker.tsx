@@ -54,7 +54,7 @@ function ShapeIcon({ shape, on }: { shape: StampShape; on: boolean }) {
 
 export function StampMaker() {
   const [text, setText] = useState("");
-  const [withIn, setWithIn] = useState(false);
+  const [noIn, setNoIn] = useState(false);
   const [shape, setShape] = useState<StampShape>("원형");
   const [fontId, setFontId] = useState(STAMP_FONTS[0].id);
   const [color, setColor] = useState<string>(STAMP_DEFAULT_COLOR);
@@ -64,9 +64,9 @@ export function StampMaker() {
   const [tick, setTick] = useState(0);
   const preview = useRef<HTMLCanvasElement>(null);
   const font = STAMP_FONTS.find((f) => f.id === fontId) ?? STAMP_FONTS[0];
-  const chars = stampChars(text, withIn);
+  const chars = stampChars(text, noIn);
   const typed = Array.from(text.replace(/\s+/g, "")).length;
-  const sample = chars.join("") || "김속초";
+  const sample = chars.join("") || "김하연인";
 
   // 글꼴은 이 화면에서만 받는다 (Google Fonts, 한 번)
   useEffect(() => {
@@ -91,9 +91,9 @@ export function StampMaker() {
     draw();
     document.fonts.load(`${font.weight} 100px "${font.family}"`, chars.join("") || "가").then(draw).catch(() => {});
     return () => { live = false; };
-    // chars 는 text · withIn 으로 정해진다. tick = 글꼴 파일이 새로 받아짐
+    // chars 는 text · noIn 으로 정해진다. tick = 글꼴 파일이 새로 받아짐
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, withIn, shape, fontId, color, tick]);
+  }, [text, noIn, shape, fontId, color, tick]);
 
   const render = async () => {
     await document.fonts.load(`${font.weight} 100px "${font.family}"`, chars.join("")).catch(() => {});
@@ -164,11 +164,11 @@ export function StampMaker() {
             <label htmlFor="stamp-text" className="text-[15px] font-bold">새길 글자</label>
             <span className="text-[12px] text-mute">{Math.min(typed, STAMP_MAX_CHARS)} / {STAMP_MAX_CHARS}자</span>
           </div>
-          <input id="stamp-text" value={text} onChange={(e) => setText(e.target.value)} placeholder="이름 — 예: 김속초" autoComplete="off"
+          <input id="stamp-text" value={text} onChange={(e) => setText(e.target.value)} placeholder="이름 — 예: 김하연" autoComplete="off"
             className="h-12 rounded-control bg-soft px-4 text-[16px] font-medium outline-none focus:ring-2 focus:ring-key" />
           <label className={cx("flex items-center gap-2 self-start text-[14px] font-medium text-sub", typed >= STAMP_MAX_CHARS && "opacity-40")}>
-            <input type="checkbox" checked={withIn} onChange={(e) => setWithIn(e.target.checked)} disabled={typed >= STAMP_MAX_CHARS} className="size-5 accent-key" />
-            끝에 ‘인’ 붙이기
+            <input type="checkbox" checked={noIn} onChange={(e) => setNoIn(e.target.checked)} disabled={typed >= STAMP_MAX_CHARS} className="size-5 accent-key" />
+            ‘인’ 빼기
           </label>
         </div>
 
