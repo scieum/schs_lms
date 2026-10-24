@@ -3,7 +3,7 @@ import type { Viewer } from "@/lib/domain/types";
 // 역할별 메뉴. 교사는 역할이 여러 개면 그룹이 합쳐진다 (관리자 = 모든 권한 교사).
 export type IconName =
   | "home" | "file" | "clipboard" | "users" | "chat" | "userPlus" | "chart" | "target" | "moon"
-  | "book" | "bookmark" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user" | "calendar" | "presentation" | "send" | "share" | "layers" | "grid" | "lock" | "pencil" | "plus";
+  | "book" | "bookmark" | "sparkle" | "list" | "alert" | "refresh" | "shield" | "user" | "calendar" | "presentation" | "send" | "share" | "layers" | "grid" | "lock" | "pencil" | "plus" | "stamp";
 
 export interface NavItem { label: string; href: string; icon: IconName; ready?: boolean; badge?: number; /** 탭: 이 경로로 시작하면 켜짐 */ match?: string[] }
 /** 사이드바 숫자 배지 (Figma: 프로그램 12 = 검토 대기 초안, 오류 처리 2, 서류 제출 2) — href 기준 */
@@ -101,6 +101,7 @@ function baseNav(v: Viewer, rooms: { id: string; name: string }[] = []): NavGrou
     I("생기부 팁", "/teacher/tips", "book"),
     I("프롬프트 보관함", "/teacher/prompts", "sparkle"),
     I("문의 게시판", "/teacher/qna", "list"),
+    I("도장 만들기", "/teacher/stamp", "stamp"),
   ] });
   // 담임은 업무 바로 다음, 수업(세특)보다 위 (2026-10-22). 누가기록 = 담임의 조각 모으기
   if (homeroom) {
@@ -366,6 +367,7 @@ export const MENU_KEYWORDS: Record<string, string[]> = {
   "/collab": ["협업", "협업방", "동학년", "교과", "공동", "같이", "공유", "초대"],
   "/teacher/prompts": ["프롬프트", "프롬", "AI", "스타일", "공식", "공유", "별", "추천"],
   "/teacher/qna": ["문의", "질문", "QnA", "Q&A", "답변", "게시판", "도움"],
+  "/teacher/stamp": ["도장", "인장", "직인", "서명", "사인", "PNG", "이미지", "결재"],
   "/teacher/tips": ["팁", "DDAR", "구조", "작성법", "서술어", "게시판", "자료"],
   "/teacher/reports": ["리포트", "보고서", "학생별", "인쇄", "PDF", "출력", "가정 통신"],
   "/teacher/programs": ["특색 활동", "프로젝트", "서류"],

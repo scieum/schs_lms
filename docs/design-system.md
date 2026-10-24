@@ -3062,3 +3062,23 @@ Figma (VTHccW9TvWVWbNwdBawvSI): 01 구역 "컴포넌트 · N46 외부 생기부 
 > "조각모으기에서 테스트용으로 하나 적어봤는데 조각 삭제 기능은 없는 거죠?" → "삭제 기능 만들어보자"
 - 내가 쓴 조각만 지운다: 조각 모으기 "최근 조각" 줄 끝 휴지통(여러 학생에게 한 번에 남긴 줄은 그 학생들 것 모두, 확인 창) · 글 짓기 조각 칸의 내 조각(위/아래 옆 휴지통). 동아리 · 담임 누가기록도 같다.
 - 없애지 않고 숨긴다: `record_memos` · `activity_logs` 의 `deleted_at`(0034). 읽을 때 빼고, 지우기는 author_id 가 나인 것만(`deleteMyPieces`). 0034 전 DB면 읽기는 그대로, 지우기는 "DB 업데이트(0034)" 안내.
+
+## 2026-10-24 도장 만들기 (N71)
+> "선생님들 도장 png 형태로 이미지 파일 만드는 기능도 도구에 추가해보자. 글자체도 여러개 선택 가능하고 기본은 빨간색이지만, 색 선택도 가능하도록"
+
+### 참고 (유아이볼)
+- [페이워크 — 도장 만들기](https://uibowl.io/name/%ED%8E%98%EC%9D%B4%EC%9B%8C%ED%81%AC?patterns=%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0&patternName=%EB%8F%84%EC%9E%A5%EB%A7%8C%EB%93%A4%EA%B8%B0)(이름 한 칸 → 모양 · 글꼴 칸 2열, 고른 칸 = 파란 테두리) · [캘링 — 출석 도장](https://uibowl.io/name/%EC%BA%98%EB%A7%81?patterns=%EA%B2%8C%EC%9D%B4%EB%AF%B8%ED%94%BC%EC%BC%80%EC%9D%B4%EC%85%98&patternName=%EC%B6%9C%EC%84%9D%20%EB%8F%84%EC%9E%A5) · [카카오페이 — 전자서명](https://uibowl.io/name/%EC%B9%B4%EC%B9%B4%EC%98%A4%ED%8E%98%EC%9D%B4?patterns=%EC%9D%B8%EC%A6%9D%ED%95%98%EA%B8%B0&patternName=%EC%A0%84%EC%9E%90%EC%84%9C%EB%AA%85) · [모으미 — 지도 색](https://uibowl.io/name/%EB%AA%A8%EC%9C%BC%EB%AF%B8?patterns=%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0&imgId=cmv3cjgui000ujt06rljdzhfm)(원 칩 + 체크 · 직접 입력 HEX) · [캐시워크 — 글자 색](https://uibowl.io/name/%EC%BA%90%EC%8B%9C%EC%9B%8C%ED%81%AC?patterns=%EA%B8%80%EC%93%B0%EA%B8%B0&imgId=cmq8wb512000jjm04bkhhui27)(팔레트 + 무지개 = 직접 고르기) · [투두메이트 — 카테고리 색](https://uibowl.io/name/%ED%88%AC%EB%91%90%EB%A9%94%EC%9D%B4%ED%8A%B8?patterns=%EC%83%9D%EC%84%B1%ED%95%98%EA%B8%B0&imgId=cmpjgneuc0009lg041iws4nxb).
+
+### Figma
+| 화면 | 컴포넌트 (01, 703:1842) | 컴퓨터용 (02 · 기록 구역) | 모바일용 (03 · 기록 구역) |
+|---|---|---|---|
+| 도장 만들기 | 글꼴 칸 703:1849 · 색 칩 703:1857 · 모양 칸 703:1864 · 도장 703:1882 | 705:19756 (N71 a) | 706:11089 (N71 b) |
+
+### 규칙
+- 주소 `/teacher/stamp`, 사이드바 도구 맨 끝 "도장 만들기"(icon stamp). 찾기 "도장 · 인장 · 직인 · 서명 · 사인 · PNG · 결재".
+- PC: 왼쪽 설정 카드(640) · 오른쪽 미리보기 카드, 같은 높이. 모바일: 미리보기 → 설정 → 바닥 고정 [PNG 내려받기] [복사].
+- 새길 글자 최대 4자(띄어쓰기 뺌) · "끝에 '인' 붙이기"(3자 이하). 모양 원형 · 사각 · 타원.
+- 칸 나누기(`lib/domain/stamp.ts`): 1자 가운데, 2자 세로, 3자 = 오른쪽 성 · 왼쪽 두 자, 4자 = 2×2(오른쪽 줄 위→아래, 다음 왼쪽). 타원은 늘 세로 한 줄. 글자는 실제 모양을 재서 칸을 채우되 한쪽으로 1.35배까지만 늘림.
+- 글꼴 8종(Google Fonts, 이 화면에서만 받음): 명조(Noto Serif KR 700) · 고운바탕 · 송명 · 붓글씨(나눔손글씨 붓) · 굵은 고딕(Black Han Sans) · 도현 · 연성 · 손글씨(Gaegu 700). 칸 미리보기는 입력한 글자로.
+- 색: 기본 빨강 #D32F2F · 주홍 · 자주 · 남색 · 초록 · 검정 + 직접 고르기(무지개 원 = 브라우저 색 고르기) + HEX 칸.
+- 크기 300 · 600(기본) · 1200px, 투명 배경 PNG `도장_<글자>_<크기>.png`. 브라우저 캔버스에서 그리고 서버에 보내지도 저장하지도 않는다. 이미지 복사는 되는 브라우저만.
