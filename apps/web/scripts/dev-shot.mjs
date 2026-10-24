@@ -21,8 +21,10 @@ const base = `http://localhost:${portArg ?? 3200}`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const cdpPort = 9400 + Math.floor(Math.random() * 500);
+// SHOT_FAKE_MIC=<wav 경로>: 그 파일을 마이크 소리로 (발표 녹음 N73 시험)
+const mic = process.env.SHOT_FAKE_MIC ? ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-audio-capture=${process.env.SHOT_FAKE_MIC}`] : [];
 const chrome = spawn("C:/Program Files/Google/Chrome/Application/chrome.exe", [
-  "--headless=new", `--remote-debugging-port=${cdpPort}`, "--disable-gpu", `--user-data-dir=${mkdtempSync(join(tmpdir(), "shot-"))}`, "about:blank",
+  "--headless=new", `--remote-debugging-port=${cdpPort}`, "--disable-gpu", `--user-data-dir=${mkdtempSync(join(tmpdir(), "shot-"))}`, ...mic, "about:blank",
 ], { stdio: "ignore" });
 
 try {

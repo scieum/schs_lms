@@ -1,24 +1,26 @@
 "use client";
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
-import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Copy, FileUp, PencilLine, Plus, Sparkles, Upload, X } from "lucide-react";
 import { Button, ButtonLink, cx } from "@/components/ui";
-import { ASSESS_LIMITS } from "@/lib/domain/assessment";
+import { ASSESS_LIMITS, type AssessmentKind } from "@/lib/domain/assessment";
+import { emptyRubric, parseRubric, rubricTotal, type Rubric } from "@/lib/domain/rubric";
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { PdfSplitDialog } from "@/components/writing/pdf-split-dialog";
 import { ACCEPT } from "@/components/writing/evidence-files";
 import { ShareToRoomButton } from "@/components/collab-share";
 import { roomAssessments } from "@/app/(app)/collab/actions";
 import { deleteAssessment, listSameSubjectAssessments, readAssessmentFile, readAssessPlanFile, saveAssessment, type SharedAssessment } from "./actions";
+import { RubricEditor, RubricPanel, Shell, gradeFor, type GradeView } from "./rubric-ui";
 
 // 세특 · 수행평가 (Figma N59): 목록 · 고른 수행평가 칸 · 등록 창 · 한 명씩 올리기 · 합본 PDF 나누기(번호순 | 페이지 지정).
 // 나누기는 브라우저에서 하고(큰 합본도 됨), 학생마다 한 파일씩 서버가 AI로 읽어 요약만 조각으로 남긴다.
+// 루브릭 채점 (N72): 등록 창에서 [자료 요약 | 루브릭 채점]을 고른다. 루브릭이면 칸 · 채점 창은 rubric-ui.tsx.
 
-type Item = { id: string; title: string; date: string; description: string; done: number };
-type Sel = { id: string; title: string; date: string; description: string };
-type Stu = { id: string; no: string; name: string; summary: string | null };
+type Item = { id: string; title: string; date: string; description: string; kind: AssessmentKind; done: number };
+type Sel = { id: string; title: string; date: string; description: string; kind: AssessmentKind; rubric: Rubric | null };
+type Stu = { id: string; no: string; name: string; summary: string | null; grade: GradeView | null };
 
 const dot = (d: string) => `${Number(d.slice(5, 7))}. ${Number(d.slice(8, 10))}.`;
 const today = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
@@ -46,8 +48,8 @@ export function NewAssessButton({ courseId, section, base, aiOn }: { courseId: s
   );
 }
 
-export function AssessBoard({ base, aiOn, items, selected, total, students, composeHref }: {
-  base: string; aiOn: boolean; items: Item[]; selected: Sel | null; total: number; students: Stu[]; composeHref: string;
+export function AssessBoard({ base, aiOn, courseId, section, items, selected, total, students, composeHref }: {
+  base: string; aiOn: boolean; courseId: string; section: string | null; items: Item[]; selected: Sel | null; total: number; students: Stu[]; composeHref: string;
 }) {
   const router = useRouter();
   const [dialog, setDialog] = useState<null | "edit" | "one" | "split">(null);
@@ -79,7 +81,7 @@ export function AssessBoard({ base, aiOn, items, selected, total, students, comp
               <Link href={`${base}&a=${a.id}`} aria-current={on ? "true" : undefined}
                 className={cx("flex flex-col gap-1 whitespace-nowrap rounded-inner px-4 py-3 md:whitespace-normal md:py-3.5", on ? "bg-key-soft" : "bg-[#fff] hover:bg-soft")}>
                 <span className={cx("text-[15px] font-bold", on && "text-key-strong")}>{a.title}</span>
-                <span className="text-[13px] text-mute">{dot(a.date)} · 자료 {a.done} / {total}명</span>
+                <span className="text-[13px] text-mute">{dot(a.date)} · {a.kind === "rubric" ? `루브릭 · 확정 ${a.done}` : `자료 ${a.done}`} / {total}명</span>
               </Link>
             </li>
           );
@@ -88,15 +90,20 @@ export function AssessBoard({ base, aiOn, items, selected, total, students, comp
 
       {selected && (
         <section className="surface flex flex-col gap-3.5 rounded-card p-4 md:p-6">
-          <div className="flex items-center gap-2">
-            <h2 className="min-w-0 truncate text-[18px] font-bold">{selected.title}</h2>
+          <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
+            <h2 className="min-w-0 truncate text-[18px] font-bold max-md:w-full">{selected.title}</h2>
             <span className="shrink-0 rounded-chip bg-soft px-1.5 py-px text-[12px] font-bold text-sub">{dot(selected.date)}</span>
+            {selected.rubric && <span className="shrink-0 rounded-chip bg-key-soft px-1.5 py-px text-[12px] font-bold text-key-strong">루브릭 · {rubricTotal(selected.rubric)}점</span>}
             <span className="flex-1" />
             <ShareToRoomButton preset={{ kind: "수행평가", title: selected.title, body: selected.description, meta: { date: selected.date } }} className="flex shrink-0 items-center gap-1 text-[13px] font-medium text-sub hover:text-ink" />
             <button type="button" onClick={() => setDialog("edit")} className="shrink-0 text-[13px] font-medium text-sub hover:text-ink">고치기</button>
             <button type="button" onClick={remove} disabled={pending} className="shrink-0 text-[13px] font-medium text-bad">지우기</button>
           </div>
           {selected.description && <p className="whitespace-pre-line text-[13px] leading-5 text-sub">{selected.description}</p>}
+          {selected.kind === "rubric" && selected.rubric ? (
+            <RubricPanel a={{ id: selected.id, title: selected.title, rubric: selected.rubric }} total={total} aiOn={aiOn} composeHref={composeHref} onSplit={() => setDialog("split")}
+              students={students.map((s) => ({ id: s.id, no: s.no, name: s.name, grade: s.grade }))} />
+          ) : (<>
           <div className="flex items-center gap-2.5">
             <span className="text-[13px] font-bold">자료</span>
             <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-soft"><span className="block h-full rounded-full bg-key" style={{ width: `${total ? (done / total) * 100 : 0}%` }} /></span>
@@ -128,45 +135,38 @@ export function AssessBoard({ base, aiOn, items, selected, total, students, comp
               <p className="whitespace-pre-line text-[13px] leading-5 text-[#333d4b]">{pick.summary}</p>
             </div>
           )}
+          </>)}
           {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
         </section>
       )}
 
-      {selected && dialog === "edit" && <RegisterDialog item={selected} base={base} onClose={() => setDialog(null)} />}
+      {selected && dialog === "edit" && <RegisterDialog item={selected} courseId={courseId} section={section} base={base} aiOn={aiOn} onClose={() => setDialog(null)} />}
       {selected && dialog === "one" && <OneDialog assessmentId={selected.id} students={students} first={who} onClose={() => setDialog(null)} />}
-      {selected && dialog === "split" && <SplitDialog assessmentId={selected.id} students={students} onClose={() => setDialog(null)} />}
+      {selected && dialog === "split" && <SplitDialog assessmentId={selected.id} rubric={selected.kind === "rubric"} students={students} onClose={() => setDialog(null)} />}
     </div>
   );
 }
 
-function Shell({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
-  return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 md:items-center md:p-6" role="dialog" aria-modal="true" aria-label={title}>
-      <div className={cx("flex max-h-[92dvh] w-full flex-col gap-4 overflow-y-auto rounded-t-[16px] bg-[#fff] px-5 pb-5 pt-4 md:rounded-[16px] md:px-7 md:py-6", wide ? "md:max-w-[640px]" : "md:max-w-[560px]")}>
-        <div className="flex items-center">
-          <h2 className="flex-1 text-[18px] font-bold">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="닫기" className="text-mute hover:text-ink"><X size={20} /></button>
-        </div>
-        {children}
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-type PlanPick = { title: string; date: string | null; description: string; who?: string; where?: string };
+type PlanPick = { title: string; date: string | null; description: string; who?: string; where?: string; rubric?: Rubric | null };
 
 function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { courseId?: string; section?: string | null; item?: Sel; base: string; aiOn?: boolean; onClose: () => void }) {
   const router = useRouter();
   const [title, setTitle] = useState(item?.title ?? "");
   const [date, setDate] = useState(item?.date ?? today());
   const [description, setDescription] = useState(item?.description ?? "");
+  // 종류 (N72): 등록할 때만 고른다 — 고칠 때는 처음 종류 그대로
+  const [kind, setKind] = useState<AssessmentKind>(item?.kind ?? "summary");
+  const [rubric, setRubric] = useState<Rubric>(() => item?.rubric ?? emptyRubric());
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   // 계획서 AI 읽기 · 같은 과목 가져오기 (2026-10-22): 고르면 칸을 채운다. 저장은 등록을 눌러야
   const [picks, setPicks] = useState<{ from: "ai" | "same" | "room"; list: PlanPick[] } | null>(null);
   const file = useRef<HTMLInputElement>(null);
-  const fill = (x: PlanPick) => { setTitle(x.title); if (x.date) setDate(x.date); setDescription(x.description); setPicks(null); };
+  const fill = (x: PlanPick) => {
+    setTitle(x.title); if (x.date) setDate(x.date); setDescription(x.description); setPicks(null);
+    const rb = x.rubric ? parseRubric(x.rubric) : null;
+    if (rb && !item) { setKind("rubric"); setRubric(rb); }
+  };
   const readPlan = (f: File) => start(async () => {
     setError("");
     const fd = new FormData();
@@ -200,14 +200,22 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
   });
   const save = () => start(async () => {
     setError("");
-    const r = await saveAssessment({ id: item?.id, courseId: courseId ?? "", section: section ?? null, title, date, description });
+    const r = await saveAssessment({ id: item?.id, courseId: courseId ?? "", section: section ?? null, title, date, description, kind, rubric: kind === "rubric" ? rubric : null });
     if (!r.ok) return setError(r.error);
     onClose();
     router.push(`${base}&a=${r.id}`);
   });
   const field = "h-11 rounded-control bg-soft px-3 text-[15px] text-ink outline-none focus:ring-2 focus:ring-key";
   return (
-    <Shell title={item ? "수행평가 고치기" : "수행평가 등록"} onClose={onClose}>
+    <Shell title={item ? "수행평가 고치기" : "수행평가 등록"} onClose={onClose} wide={kind === "rubric"}>
+      {!item && (
+        <div className="flex rounded-control bg-soft p-[3px]" role="tablist" aria-label="수행평가 종류">
+          {([["summary", "자료 요약"], ["rubric", "루브릭 채점"]] as const).map(([k, l]) => (
+            <button key={k} type="button" role="tab" aria-selected={kind === k} onClick={() => setKind(k)}
+              className={cx("h-9 flex-1 rounded-[6px] text-[14px]", kind === k ? "border border-line bg-[#fff] font-bold text-key-strong" : "font-medium text-sub")}>{l}</button>
+          ))}
+        </div>
+      )}
       {!item && courseId && (
         <div className="flex flex-wrap gap-2">
           {aiOn && <button type="button" onClick={() => file.current?.click()} disabled={pending} className="flex h-9 items-center gap-1.5 rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50"><Sparkles size={14} /> 계획서로 채우기 (AI)</button>}
@@ -241,10 +249,12 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
         <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">이름<input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={ASSESS_LIMITS.title} placeholder="예: 빗면 실험 보고서" className={field} /></label>
         <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">날짜<input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field} /></label>
       </div>
-      <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">평가 내용 · 기준 (선택)
-        <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={ASSESS_LIMITS.description} rows={4} placeholder="무엇을 했고 어떻게 평가했는지 — AI가 학생 자료를 읽을 때 참고해요"
+      <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">{kind === "rubric" ? "과제 · 평가 내용 (선택)" : "평가 내용 · 기준 (선택)"}
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={ASSESS_LIMITS.description} rows={kind === "rubric" ? 2 : 4}
+          placeholder={kind === "rubric" ? "무엇을 하는 과제인지 — AI가 루브릭을 만들고 답안을 읽을 때 참고해요" : "무엇을 했고 어떻게 평가했는지 — AI가 학생 자료를 읽을 때 참고해요"}
           className="resize-y rounded-control bg-soft px-3 py-2.5 text-[14px] leading-6 text-ink outline-none focus:ring-2 focus:ring-key" />
       </label>
+      {kind === "rubric" && courseId && <RubricEditor courseId={courseId} section={section ?? null} title={title} description={description} rubric={rubric} setRubric={setRubric} aiOn={!!aiOn} />}
       {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" kind="outline" className="flex-1 md:flex-none" onClick={onClose}>취소</Button>
@@ -287,17 +297,19 @@ function OneDialog({ assessmentId, students, first, onClose }: { assessmentId: s
   );
 }
 
-function SplitDialog({ assessmentId, students, onClose }: { assessmentId: string; students: Stu[]; onClose: () => void }) {
+function SplitDialog({ assessmentId, rubric = false, students, onClose }: { assessmentId: string; rubric?: boolean; students: Stu[]; onClose: () => void }) {
   const router = useRouter();
   const nameOf = new Map(students.map((s) => [s.id, `${s.no} ${s.name}`]));
   return (
     <PdfSplitDialog students={students} onClose={onClose} confirm={(n) => `${n}명 자료 만들기`}
-      note="나눈 파일은 학생마다 AI가 읽어 요약만 조각으로 남겨요 · 파일은 저장하지 않아요"
+      note={rubric ? "나눈 답안은 학생마다 AI가 루브릭으로 읽어 채점 제안을 남겨요 · 확정은 학생을 눌러 해요 · 파일은 저장하지 않아요" : "나눈 파일은 학생마다 AI가 읽어 요약만 조각으로 남겨요 · 파일은 저장하지 않아요"}
       run={async (parts, report) => {
         const fails: string[] = [];
         for (let k = 0; k < parts.length; k++) {
           report(`${k + 1} / ${parts.length}명 읽는 중 · ${nameOf.get(parts[k].studentId)}`);
-          const e = await readFor(assessmentId, parts[k].studentId, parts[k].file);
+          const e = rubric
+            ? await gradeFor(assessmentId, parts[k].studentId, parts[k].file).then((x) => ("error" in x ? x.error : null)).catch(() => "읽지 못했어요")
+            : await readFor(assessmentId, parts[k].studentId, parts[k].file);
           if (e) fails.push(`${nameOf.get(parts[k].studentId)}: ${e}`);
         }
         router.refresh();

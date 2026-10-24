@@ -21,6 +21,7 @@ import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
 import { fitRange, PIECE_MAX, PIECE_MIN, PIECE_SOURCES, pieceScopeOf, type MergePiece, type PieceKind } from "@/lib/domain/merge";
 import type { TaggedSentence } from "@/lib/domain/competency";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
+import { readTranscript } from "@/lib/server/transcript";
 import { latestByStudent } from "@/lib/domain/setuk";
 import { setukScope } from "@/lib/domain/common-activity";
 import { schoolYear } from "@/lib/domain/curriculum";
@@ -462,4 +463,17 @@ export async function classWriteSetuk(input: z.input<typeof ClassWriteSchema>): 
       return { status: "done", bytes: measure(r.text, "bytes"), max, versionId: rec.id, sample: r.sample };
     },
   });
+}
+
+/** 발표 녹음 (N73): 이 기기에서 받아쓴 글 → 활동 요약 (이 과목 학생 이름 · 학번 가림, 저장 안 함) */
+export async function readSetukTranscript(input: { courseId: string; text: string }): Promise<EvidenceResult> {
+  const v = await requireCan("setuk.write");
+  const courseId = String(input.courseId ?? "");
+  const [course, mine, roster, all] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getCourseRosters(v.accountId, courseId), repo.listStudents({ external: true })]);
+  const assignment = mine.find((a) => a.courseId === courseId);
+  if (!course || !assignment) return { ok: false, error: "내 담당 과목만 쓸 수 있어요" };
+  const people = studentsInCourse(all, course, assignment, roster).map((s) => ({ name: s.name, studentNo: s.studentNo }));
+  const r = await readTranscript(input.text, { kind: `${course.subject} 교과 세특`, people });
+  await repo.audit(v.accountId, "setuk.ai_piece_voice", `${course.subject} 조각 모으기`);
+  return r;
 }

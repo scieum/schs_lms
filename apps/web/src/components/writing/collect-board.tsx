@@ -9,8 +9,9 @@ import { shortMd } from "@/lib/domain/log-date";
 import { sortStudents, todayCount, type CollectStudent, type RecentPiece, findStudents } from "@/lib/domain/collect";
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { ACCEPT } from "./evidence-files";
-import { addSetukPieces, polishSetukMemo, readSetukCollectFile } from "@/app/(app)/teacher/setuk/actions";
-import { addLogs, polishLogMemo, readLogFile } from "@/app/(app)/teacher/logs/actions";
+import { addSetukPieces, polishSetukMemo, readSetukCollectFile, readSetukTranscript } from "@/app/(app)/teacher/setuk/actions";
+import { addLogs, polishLogMemo, readLogFile, readLogTranscript } from "@/app/(app)/teacher/logs/actions";
+import { SpeechRecorder } from "./speech-recorder";
 import { deleteMyPieces } from "@/app/(app)/teacher/piece-actions";
 
 // 조각 모으기 (Figma N52 a 599:17196 · g2 599:17565 · 모바일 600:10311): 조각만 남기는 곳 — 바이트 이야기는 없다.
@@ -18,6 +19,7 @@ import { deleteMyPieces } from "@/app/(app)/teacher/piece-actions";
 // 남기면 메모 칸만 비우고 받는 학생 · 활동명 · 날짜는 그대로 둔다(이어서 남기기). 오른쪽: 최근 조각 · 학생별 조각(적은 순).
 // 저장은 그대로: 세특 = 학생마다 조각 메모(addSetukPieces), 동아리 · 담임 = 누가기록(addLogs).
 // [메모 | 자료] (N60): 자료 = 활동지 · 보고서 · 사진 → AI가 읽은 요약이 메모 칸에 들어가고(고쳐 쓸 수 있음) 같은 버튼으로 남긴다. 세특은 "자료" 조각으로.
+// [녹음] (N73): 발표를 녹음 → 이 기기에서 받아쓰기 → 받아쓴 글을 AI가 요약(또는 그대로) → 메모 칸 → 같은 버튼으로 남긴다. 녹음 파일은 남기지 않는다.
 
 export type CollectTarget =
   | { kind: "setuk"; courseId: string }
@@ -56,7 +58,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
   const [busy, start] = useTransition();
   const [sort, setSort] = useState<"few" | "no">("few");
   const [allRows, setAllRows] = useState(false);
-  const [mode, setMode] = useState<"memo" | "file">("memo");
+  const [mode, setMode] = useState<"memo" | "file" | "voice">("memo");
   const [file, setFile] = useState<File | null>(null);
   const [fromFile, setFromFile] = useState(false);
   const [drag, setDrag] = useState(false);
@@ -91,6 +93,10 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
       if (res.ok) router.refresh();
     });
   };
+
+  const readVoice = (text: string) => target.kind === "setuk"
+    ? readSetukTranscript({ courseId: target.courseId, text })
+    : readLogTranscript({ area: logArea, clubId: target.clubId, text });
 
   const readFile = () => file && start(async () => {
     setMsg(null);
@@ -248,7 +254,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
         </div>
 
         <div className="flex gap-1 self-start rounded-inner bg-soft p-1" role="tablist" aria-label="남길 것">
-          {([["memo", "메모"], ["file", "자료"]] as const).map(([k, l]) => (
+          {([["memo", "메모"], ["file", "자료"], ["voice", "녹음"]] as const).map(([k, l]) => (
             <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => { setMode(k); setMsg(null); }}
               className={cx("h-8 rounded-control px-4 text-[14px]", mode === k ? "border border-line bg-[#fff] font-bold" : "font-medium text-mute")}>{l}</button>
           ))}
@@ -274,8 +280,13 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
           </label>
         ))}
 
+        {mode === "voice" && (
+          <SpeechRecorder aiOn={aiOn} summarize={readVoice}
+            onUse={(t) => { setMemo([memo.trim(), t.trim()].filter(Boolean).join(" ").slice(0, 1000)); setFromFile(false); setMsg({ ok: true, text: "메모 칸에 넣었어요 · 고쳐 쓴 뒤 남겨요" }); }} />
+        )}
+
         <div className="relative">
-          <textarea value={memo} onChange={(e) => { setMemo(e.target.value); setMsg(null); }} placeholder={mode === "file" ? "자료를 읽으면 요약이 여기 들어가요 · 고쳐 쓸 수 있어요" : "본 것을 한두 줄로"} maxLength={1000}
+          <textarea value={memo} onChange={(e) => { setMemo(e.target.value); setMsg(null); }} placeholder={mode === "file" ? "자료를 읽으면 요약이 여기 들어가요 · 고쳐 쓸 수 있어요" : mode === "voice" ? "받아쓴 글을 요약하면 여기 들어가요 · 고쳐 쓸 수 있어요" : "본 것을 한두 줄로"} maxLength={1000}
             className="block h-[132px] w-full resize-none rounded-control bg-soft px-3.5 py-3 text-[15px] leading-6 outline-none placeholder:text-faint md:h-[120px]" />
           <span className="pointer-events-none absolute bottom-2 right-3 text-[12px] text-mute">{memo.length}자</span>
         </div>

@@ -1,6 +1,11 @@
 // 수행평가 (Figma N59): 교과 교사가 분반마다 수행평가를 등록하고, 학생 자료(한 명씩 · 합본 PDF 나누기)를 올리면
 // AI가 학생마다 읽어 요약만 "수행평가" 조각으로 남긴다(파일은 저장하지 않음 — 세특 자료 요약 N32와 같은 방식).
 // 조각 범위 = 세특:<과목>#수행:<수행평가 id> → 글 짓기 왼쪽 칸에 "수행평가" 출처로 나온다.
+// 종류 (N72, 2026-10-24): summary = 자료 요약(위), rubric = 루브릭 채점(lib/domain/rubric.ts — 확정하면 같은 범위에 조각).
+
+import type { Rubric } from "./rubric";
+
+export type AssessmentKind = "summary" | "rubric";
 
 export type Assessment = {
   id: string;
@@ -13,6 +18,9 @@ export type Assessment = {
   date: string;
   /** 평가 내용 · 기준 — AI가 학생 자료를 읽을 때 참고 */
   description: string;
+  kind: AssessmentKind;
+  /** kind = rubric 일 때만 */
+  rubric: Rubric | null;
   createdAt: string;
 };
 

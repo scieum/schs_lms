@@ -9,6 +9,7 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { readEvidence } from "@/lib/server/ai/read-evidence";
 import { takeEvidenceFile } from "@/lib/server/evidence-upload";
+import { readTranscript } from "@/lib/server/transcript";
 
 export type LogState = { error?: string; added?: number };
 
@@ -215,4 +216,15 @@ export async function readLogFile(form: FormData): Promise<PolishResult> {
   if (!r.ok) return r;
   await repo.audit(v.accountId, "logs.ai.read_file", area);
   return { ok: true, text: r.text.slice(0, 1000), label: r.label, notice: `${file.name}에서` };
+}
+
+/** 발표 녹음 (N73): 이 기기에서 받아쓴 글 → 누가기록 요약 (이 칸 학생 이름 · 학번 가림, 저장 안 함) */
+export async function readLogTranscript(input: { area: string; clubId?: string; text: string }): Promise<PolishResult> {
+  const v = await requireCan("logs.write");
+  if (!isAreaOf(input.area)) return { ok: false, error: "영역을 골라 주세요" };
+  const people = (await boardPeople(v, input.area, input.clubId || undefined)).map((s) => ({ name: s.name, studentNo: s.studentNo }));
+  const r = await readTranscript(input.text, { kind: input.area, people });
+  if (!r.ok) return r;
+  await repo.audit(v.accountId, "logs.ai.read_voice", input.area);
+  return { ok: true, text: r.text.slice(0, 1000), label: r.label };
 }

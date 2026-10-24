@@ -14,6 +14,7 @@ export function proxy(req: NextRequest) {
   return NextResponse.next();
 }
 
+// whisper-worker.js (N73): 발표 녹음 받아쓰기 워커 — 학교 정보가 없는 공개 파일이라 로그인 검사에서 뺀다
 export const config = {
-  matcher: ["/((?!_next/|api/health|api/cron/|favicon.ico|.*\\.png$).*)"],
+  matcher: ["/((?!_next/|api/health|api/cron/|favicon.ico|whisper-worker\\.js$|.*\\.png$).*)"],
 };
