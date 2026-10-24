@@ -42,3 +42,5 @@ yarn-error.log*
 next-env.d.ts
 audit/
 supabase/seed_*.sql
+# 문의 게시판 문답 SQL은 개인정보가 없어 올린다 (qna.test.ts 가 읽음)
+!supabase/seed_qna_*.sql

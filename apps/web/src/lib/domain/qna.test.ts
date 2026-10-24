@@ -1,18 +1,20 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { canEditQuestion, checkAnswer, checkQuestion, filterQna, qnaCounts, SEED_QNA, type QnaPost } from "./qna";
 
-const ask = (over: Partial<QnaPost>): QnaPost => ({ ...SEED_QNA[0], id: "x", answer: null, authorId: "t1", authorName: "가 선생님", answeredBy: null, answeredAt: null, createdAt: "2026-10-23T00:00:00Z", ...over });
+const ask = (over: Partial<QnaPost>): QnaPost => ({ ...SEED_QNA[0], id: "x", answer: null, authorId: "t1", authorName: "가 선생님", answeredBy: null, answeredAt: null, createdAt: "2026-10-25T00:00:00Z", ...over });
 
 describe("문의 게시판", () => {
-  it("처음 문답 2개 · 0035 SQL 에도 같은 글", () => {
-    expect(SEED_QNA).toHaveLength(2);
-    const sql = readFileSync(new URL("../../../supabase/migrations/0035_qna.sql", import.meta.url), "utf8");
+  it("처음 문답 · 운영 SQL(0035 · seed_qna_*.sql)에도 같은 글", () => {
+    expect(SEED_QNA).toHaveLength(4);
+    const dir = new URL("../../../supabase/", import.meta.url);
+    const sql = [readFileSync(new URL("migrations/0035_qna.sql", dir), "utf8"),
+      ...readdirSync(dir).filter((f) => /^seed_qna_.*\.sql$/.test(f)).map((f) => readFileSync(new URL(f, dir), "utf8"))].join("\n");
     for (const p of SEED_QNA) {
       expect(sql).toContain(`'${p.id}'`);
       expect(sql).toContain(p.answer!.split("\n")[0]);
     }
-    expect(qnaCounts(SEED_QNA)["조각 · 글 짓기"]).toBe(2);
+    expect(qnaCounts(SEED_QNA)["조각 · 글 짓기"]).toBe(3);
   });
 
   it("질문 · 답 길이 검사", () => {
@@ -27,7 +29,7 @@ describe("문의 게시판", () => {
   it("거르기: 답 여부 · 분류 · 찾기 · 최신 위", () => {
     const list = [...SEED_QNA, ask({ category: "나이스" })];
     expect(filterQna(list, { state: "답변 대기" }).map((p) => p.id)).toEqual(["x"]);
-    expect(filterQna(list, { state: "답변 완료" })).toHaveLength(2);
+    expect(filterQna(list, { state: "답변 완료" })).toHaveLength(4);
     expect(filterQna(list, { category: "나이스" })).toHaveLength(1);
     expect(filterQna(list, { text: "휴지통 지울" }).map((p) => p.id)).toEqual(["qna-piece-delete"]);
     expect(filterQna(list, {})[0].id).toBe("x");
