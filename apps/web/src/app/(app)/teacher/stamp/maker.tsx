@@ -66,7 +66,7 @@ export function StampMaker() {
   const font = STAMP_FONTS.find((f) => f.id === fontId) ?? STAMP_FONTS[0];
   const chars = stampChars(text, noIn);
   const typed = Array.from(text.replace(/\s+/g, "")).length;
-  const sample = chars.join("") || "김하연인";
+  const sample = chars.join("") || "홍길동인";
 
   // 글꼴은 이 화면에서만 받는다 (Google Fonts, 한 번)
   useEffect(() => {
@@ -164,7 +164,7 @@ export function StampMaker() {
             <label htmlFor="stamp-text" className="text-[15px] font-bold">새길 글자</label>
             <span className="text-[12px] text-mute">{Math.min(typed, STAMP_MAX_CHARS)} / {STAMP_MAX_CHARS}자</span>
           </div>
-          <input id="stamp-text" value={text} onChange={(e) => setText(e.target.value)} placeholder="이름 — 예: 김하연" autoComplete="off"
+          <input id="stamp-text" value={text} onChange={(e) => setText(e.target.value)} placeholder="이름 — 예: 홍길동" autoComplete="off"
             className="h-12 rounded-control bg-soft px-4 text-[16px] font-medium outline-none focus:ring-2 focus:ring-key" />
           <label className={cx("flex items-center gap-2 self-start text-[14px] font-medium text-sub", typed >= STAMP_MAX_CHARS && "opacity-40")}>
             <input type="checkbox" checked={noIn} onChange={(e) => setNoIn(e.target.checked)} disabled={typed >= STAMP_MAX_CHARS} className="size-5 accent-key" />
