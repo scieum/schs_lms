@@ -63,7 +63,7 @@ export async function AppShell({ viewer, children, demo, badges = {}, prefs }: {
           </form>
         </div>
       </SidebarFrame>
-      <div data-shell-main className="min-h-dvh min-w-0 flex-1 bg-bg pb-28 md:pb-0">
+      <div data-shell-main className="min-h-dvh min-w-0 flex-1 bg-bg pb-28 has-[[data-sticky-cta]]:pb-48 md:pb-0 md:has-[[data-sticky-cta]]:pb-0">
         {demo && (
           <div className="bg-wait-soft px-4 py-2 text-center text-xs text-[#9a6400]">
             데모 모드 · 가짜 데이터예요. 서버를 다시 켜면 처음 상태로 돌아가요
@@ -89,7 +89,7 @@ export function PageHeader({ title, actions, eyebrow }: { title: string; actions
     <header className="flex items-end gap-2.5 px-4 pb-2 pt-5 md:px-10 md:pt-8">
       <div className="min-w-0 flex-1">
         {eyebrow && <div className="mb-1 text-[13px] text-mute md:text-[14px]">{eyebrow}</div>}
-        <h1 className="text-xl font-bold md:text-[28px]">{title}</h1>
+        <h1 className="text-xl font-bold break-keep md:text-[28px]">{title}</h1>
       </div>
       {actions}
     </header>

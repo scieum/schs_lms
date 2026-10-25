@@ -104,7 +104,7 @@ export function ScheduleCalendar({ items, month, today }: { items: ScheduleItem[
           {inMonth.map((p, i) => (
             <li key={p.id} className={cx(i > 0 && "border-t border-line")}>
               <button type="button" onClick={() => setOpen(open === p.id ? null : p.id)} className="flex w-full items-center gap-3 py-3 text-left">
-                <span className={cx("h-8 w-1.5 shrink-0 rounded-full", BAR[p.area].split(" ")[0])} aria-hidden />
+                <span className={cx("size-2 shrink-0 rounded-full", BAR[p.area].split(" ")[0])} aria-hidden />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-bold">{p.title}</span>
                   <span className="block truncate text-[12px] text-mute">{md(p.startDate)} ~ {md(p.endDate)} · {p.owners}</span>

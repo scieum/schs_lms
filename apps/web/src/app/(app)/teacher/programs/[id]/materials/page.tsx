@@ -148,10 +148,10 @@ export default async function MaterialsPage({ params, searchParams }: Props) {
             <ul className="mt-4 flex flex-col gap-2">
               {missing.map((r) => (
                 <li key={r.student.id}>
-                  <form action={setMissing} className="flex items-center gap-2">
+                  <form action={setMissing} className="flex flex-wrap items-center gap-2 md:flex-nowrap">
                     <input type="hidden" name="programId" value={p.id} />
                     <input type="hidden" name="studentId" value={r.student.id} />
-                    <span className="w-32 shrink-0 truncate text-[14px]">{makeStudentNo(r.student.grade, r.student.classNo, r.student.number)} {r.student.name}</span>
+                    <span className="w-full shrink-0 truncate text-[14px] md:w-32">{makeStudentNo(r.student.grade, r.student.classNo, r.student.number)} {r.student.name}</span>
                     <input name="reason" defaultValue={r.missingReason ?? ""} maxLength={100} placeholder="미제출 사유 (남기면 다음으로 넘어갈 수 있어요)"
                       className="h-9 min-w-0 flex-1 rounded-field bg-navy-2 px-3 text-[13px] text-white outline-none placeholder:text-[#9eaaff] focus:ring-2 focus:ring-key" />
                     <button className="h-9 shrink-0 rounded-control bg-white/10 px-3 text-[13px] hover:bg-white/20">저장</button>

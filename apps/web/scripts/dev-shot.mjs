@@ -45,6 +45,8 @@ try {
   const mobile = width < 768;
   await send("Emulation.setDeviceMetricsOverride", { width, height: mobile ? 900 : 1000, deviceScaleFactor: 1, mobile });
   await send("Network.enable");
+  // SHOT_CPU=4: CPU 를 4배 느리게 (느린 학교 PC · 휴대폰 받아쓰기 시간 재기)
+  if (process.env.SHOT_CPU) await send("Emulation.setCPUThrottlingRate", { rate: Number(process.env.SHOT_CPU) });
   // SHOT_MEDIA=print: 인쇄 화면으로 찍기 (A4 인쇄 확인)
   if (process.env.SHOT_MEDIA) await send("Emulation.setEmulatedMedia", { media: process.env.SHOT_MEDIA });
   if (account !== "none") {
