@@ -20,16 +20,18 @@ export type GradeView = { status: GradeStatus; total: number; picks: GradePick[]
 export type RStu = { id: string; no: string; name: string; grade: GradeView | null };
 type RSel = { id: string; title: string; rubric: Rubric };
 
-export function Shell({ title, onClose, children, wide = false, label }: { title: React.ReactNode; onClose: () => void; children: React.ReactNode; wide?: boolean | "xl"; label?: string }) {
+// 머리(제목 · 닫기)와 footer(취소 · 저장)는 고정, 본문만 스크롤 (N72 f 733:2, 2026-10-26 — 모바일에서 [등록]이 맨 아래까지 내려야 보이던 것)
+export function Shell({ title, onClose, children, footer, wide = false, label }: { title: React.ReactNode; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean | "xl"; label?: string }) {
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 md:items-center md:p-6" role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)}>
-      <div className={cx("flex max-h-[92dvh] w-full flex-col gap-4 overflow-y-auto rounded-t-[16px] bg-[#fff] px-5 pb-5 pt-4 md:rounded-[16px] md:px-7 md:py-6",
+      <div className={cx("flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[16px] bg-[#fff] md:rounded-[16px]",
         wide === "xl" ? "md:max-w-[920px]" : wide ? "md:max-w-[760px]" : "md:max-w-[560px]")}>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 border-b border-hair px-5 pb-3 pt-4 md:border-0 md:px-7 md:pb-4 md:pt-6">
           <h2 className="min-w-0 flex-1 text-[18px] font-bold">{title}</h2>
           <button type="button" onClick={onClose} aria-label="닫기" className="text-mute hover:text-ink"><X size={20} /></button>
         </div>
-        {children}
+        <div className={cx("flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pt-3 md:px-7 md:pt-0", footer ? "pb-4 md:pb-5" : "pb-5 md:pb-6")}>{children}</div>
+        {footer && <div className="flex shrink-0 justify-end gap-2 border-t border-hair px-5 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-3 md:border-0 md:px-7 md:pb-6 md:pt-0">{footer}</div>}
       </div>
     </div>,
     document.body,
@@ -116,7 +118,7 @@ export function RubricEditor({ courseId, section, title, description, rubric, se
             <ul className="absolute inset-x-0 top-full z-10 mt-1 max-h-[240px] overflow-y-auto rounded-inner border border-line bg-[#fff] p-1 shadow-lg">
               {found.map((s) => (
                 <li key={s.code}>
-                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setRubric({ ...rubric, standards: [...picked, s.code] }); setQ(""); }}
+                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setRubric({ ...rubric, standards: [...picked, s.code] }); setQ(""); setOpen(false); }}
                     className="flex w-full flex-col gap-0.5 rounded-control px-2.5 py-2 text-left hover:bg-key-soft">
                     <span className="text-[12px] font-bold text-key-strong">{s.code} <span className="font-medium text-mute">· {s.unit}</span></span>
                     <span className="text-[13px] leading-5 text-ink">{s.text}</span>
@@ -136,10 +138,10 @@ export function RubricEditor({ courseId, section, title, description, rubric, se
               className={cx("h-7 whitespace-nowrap rounded-chip px-3 text-[12px]", rubric.scale === s ? "border border-line bg-[#fff] font-bold text-key-strong" : "font-medium text-sub")}>{SCALE_NAME[s]}</button>
           ))}
         </div>
-        <span className="flex-1" />
+        <span className="hidden flex-1 md:block" />
         {aiOn && (
           <button type="button" onClick={draft} disabled={pending}
-            className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50">
+            className="flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50 md:h-9 md:w-auto">
             <AiTag /> {pending ? "만드는 중…" : "성취기준으로 루브릭 만들기"}
           </button>
         )}
@@ -151,33 +153,34 @@ export function RubricEditor({ courseId, section, title, description, rubric, se
           {SCALE_LABELS[rubric.scale].map((l) => <span key={l} className={cell}>{l}</span>)}
           <span />
         </div>
+        {/* 모바일(N72 f 733:2): 이름 · 배점 · 빼기 한 줄 + 수준마다 [수준 | 설명 | 점수] 한 줄. 컴퓨터는 표 한 줄(N72 c) */}
         {rubric.criteria.map((c, i) => (
-          <div key={c.id} className="grid gap-2 border-t border-line p-3 first:border-t-0 md:gap-0 md:p-0 md:[grid-template-columns:var(--cols)] md:first:border-t">
-            <label className={cx("flex flex-col gap-1", cell)}>
+          <div key={c.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-2 border-t border-line p-3 first:border-t-0 md:items-stretch md:gap-0 md:p-0 md:[grid-template-columns:var(--cols)] md:first:border-t">
+            <label className={cx("flex min-w-0 flex-col gap-1", cell)}>
               <span className="text-[12px] font-bold text-sub md:hidden">평가 기준 {i + 1}</span>
               <input value={c.name} onChange={(e) => set(i, { ...c, name: e.target.value })} maxLength={RUBRIC_LIMITS.name} placeholder="예: 근거 활용"
                 className="h-9 rounded-control bg-soft px-2 text-[14px] font-bold outline-none focus:ring-2 focus:ring-key md:bg-transparent md:px-0" />
             </label>
-            <label className={cx("flex items-center gap-1.5 md:flex-col md:items-start", cell)}>
+            <label className={cx("flex flex-col gap-1 md:items-start", cell)}>
               <span className="text-[12px] font-bold text-sub md:hidden">배점</span>
               <input type="number" min={1} max={RUBRIC_LIMITS.points} value={c.points} aria-label={`${c.name || `기준 ${i + 1}`} 배점`}
                 onChange={(e) => set(i, changePoints(c, rubric.scale, Math.max(1, Math.min(RUBRIC_LIMITS.points, Math.round(Number(e.target.value) || 1)))))}
-                className="h-9 w-16 rounded-control bg-soft px-2 text-[14px] font-medium outline-none focus:ring-2 focus:ring-key md:w-full" />
+                className="h-9 w-16 rounded-control bg-soft px-2 text-[14px] font-medium outline-none focus:ring-2 focus:ring-key md:w-full md:bg-transparent md:px-0" />
             </label>
             {c.levels.map((l, k) => (
-              <div key={l.label} className={cx("flex flex-col gap-1", cell)}>
-                <span className="text-[12px] font-bold text-sub md:hidden">{l.label}</span>
-                <textarea value={l.desc} rows={3} maxLength={RUBRIC_LIMITS.desc} aria-label={`${c.name || `기준 ${i + 1}`} ${l.label} 설명`} placeholder="이 수준에서 보이는 모습"
+              <div key={l.label} className={cx("col-span-3 grid grid-cols-[24px_minmax(0,1fr)_auto] items-start gap-2 max-md:order-last md:col-span-1 md:flex md:flex-col md:gap-1", cell)}>
+                <span className="pt-2 text-center text-[13px] font-bold text-sub md:hidden">{l.label}</span>
+                <textarea value={l.desc} rows={2} maxLength={RUBRIC_LIMITS.desc} aria-label={`${c.name || `기준 ${i + 1}`} ${l.label} 설명`} placeholder="이 수준에서 보이는 모습"
                   onChange={(e) => set(i, { ...c, levels: c.levels.map((x, j) => (j === k ? { ...x, desc: e.target.value } : x)) })}
-                  className="resize-y rounded-control bg-soft px-2 py-1.5 text-[12px] leading-[18px] outline-none focus:ring-2 focus:ring-key md:bg-transparent md:px-0" />
-                <label className="flex items-center gap-1 text-[12px] font-bold text-key-strong">
+                  className="min-h-[52px] resize-y rounded-control bg-soft px-2.5 py-2 text-[12px] leading-[18px] outline-none focus:ring-2 focus:ring-key md:min-h-[72px] md:bg-transparent md:px-0 md:py-1.5" />
+                <label className="flex h-9 items-center gap-1 rounded-control bg-key-soft pr-2 text-[12px] font-bold text-key-strong md:h-auto md:bg-transparent md:pr-0">
                   <input type="number" min={0} max={c.points} value={l.points} aria-label={`${c.name || `기준 ${i + 1}`} ${l.label} 점수`}
                     onChange={(e) => set(i, { ...c, levels: c.levels.map((x, j) => (j === k ? { ...x, points: Math.max(0, Math.min(c.points, Math.round(Number(e.target.value) || 0))) } : x)) })}
-                    className="h-7 w-12 rounded-[6px] bg-key-soft px-1.5 text-[12px] font-bold text-key-strong outline-none" />점
+                    className="h-9 w-10 rounded-[6px] bg-transparent px-1.5 text-right text-[12px] font-bold text-key-strong outline-none md:h-7 md:w-12 md:bg-key-soft md:text-left" />점
                 </label>
               </div>
             ))}
-            <div className="flex justify-end md:items-start md:justify-center md:py-2">
+            <div className="flex h-9 items-center md:h-auto md:items-start md:justify-center md:py-2">
               <button type="button" aria-label={`${c.name || `기준 ${i + 1}`} 빼기`} disabled={rubric.criteria.length < 2}
                 onClick={() => setRubric({ ...rubric, criteria: rubric.criteria.filter((x) => x.id !== c.id) })} className="p-1 text-mute hover:text-bad disabled:opacity-30"><Trash2 size={15} /></button>
             </div>

@@ -207,7 +207,10 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
   });
   const field = "h-11 rounded-control bg-soft px-3 text-[15px] text-ink outline-none focus:ring-2 focus:ring-key";
   return (
-    <Shell title={item ? "수행평가 고치기" : "수행평가 등록"} onClose={onClose} wide={kind === "rubric"}>
+    <Shell title={item ? "수행평가 고치기" : "수행평가 등록"} onClose={onClose} wide={kind === "rubric"} footer={<>
+      <Button type="button" kind="outline" className="flex-1 md:flex-none" onClick={onClose}>취소</Button>
+      <Button type="button" className="flex-1 md:flex-none" disabled={pending} onClick={save}>{pending ? "저장 중…" : item ? "고치기" : "등록"}</Button>
+    </>}>
       {!item && (
         <div className="flex rounded-control bg-soft p-[3px]" role="tablist" aria-label="수행평가 종류">
           {([["summary", "자료 요약"], ["rubric", "루브릭 채점"]] as const).map(([k, l]) => (
@@ -245,7 +248,7 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
           {picks.from === "ai" && picks.list.length > 1 && <Button type="button" size="sm" kind="soft" disabled={pending} onClick={saveAll}>{picks.list.length}개 모두 등록</Button>}
         </div>
       )}
-      <div className="grid gap-3 md:grid-cols-[1fr_170px]">
+      <div className="grid grid-cols-[minmax(0,1fr)_148px] gap-2 md:grid-cols-[1fr_170px] md:gap-3">
         <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">이름<input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={ASSESS_LIMITS.title} placeholder="예: 빗면 실험 보고서" className={field} /></label>
         <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">날짜<input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field} /></label>
       </div>
@@ -256,10 +259,6 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
       </label>
       {kind === "rubric" && courseId && <RubricEditor courseId={courseId} section={section ?? null} title={title} description={description} rubric={rubric} setRubric={setRubric} aiOn={!!aiOn} />}
       {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
-      <div className="flex justify-end gap-2">
-        <Button type="button" kind="outline" className="flex-1 md:flex-none" onClick={onClose}>취소</Button>
-        <Button type="button" className="flex-1 md:flex-none" disabled={pending} onClick={save}>{pending ? "저장 중…" : item ? "고치기" : "등록"}</Button>
-      </div>
     </Shell>
   );
 }
