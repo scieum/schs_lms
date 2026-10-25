@@ -78,7 +78,9 @@ export function RubricEditor({ courseId, section, title, description, rubric, se
   const draft = () => start(async () => {
     setError("");
     if (rubric.criteria.some((c) => c.name.trim()) && !window.confirm("지금 표를 AI 초안으로 바꿀까요?")) return;
-    const r = await draftRubricAction({ courseId, section, title, description, standards: picked, scale: rubric.scale, total: rubricTotal(rubric) || 20 }).catch(() => ({ ok: false as const, error: "만들지 못했어요" }));
+    // 빈 표(처음 한 줄 10점)면 총점 20점으로, 기준을 적어 둔 표면 지금 총점을 지킨다
+    const total = rubric.criteria.some((c) => c.name.trim()) ? rubricTotal(rubric) : 20;
+    const r = await draftRubricAction({ courseId, section, title, description, standards: picked, scale: rubric.scale, total }).catch(() => ({ ok: false as const, error: "만들지 못했어요" }));
     if (!r.ok) return setError(r.error);
     setRubric({ ...r.rubric, standards: picked });
   });
