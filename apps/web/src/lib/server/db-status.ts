@@ -28,7 +28,7 @@ const PROBES: Probe[] = [
   { no: "0018", label: "내 정보 설정", table: "account_prefs", column: "account_id" },
   { no: "0019", label: "공통 활동", table: "common_activity_pieces", column: "id" },
   { no: "0020", label: "문장 보관함 · 성취수준", table: "achievement_levels", column: "student_id" },
-  { no: "0021", label: "자료 보존", table: "retention_holds", column: "id" },
+  { no: "0021", label: "자료 보존", table: "retention_holds", column: "target" },
   { no: "0022", label: "AI 원안 · 근거", table: "ai_originals", column: "id" },
   { no: "0023", label: "프로그램 교사 메모", table: "programs", column: "use_memos" },
   { no: "0024", label: "반 전체 쓰기 잠금", table: "class_write_locks", column: "scope" },
