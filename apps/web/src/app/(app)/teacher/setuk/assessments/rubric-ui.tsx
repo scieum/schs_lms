@@ -11,7 +11,11 @@ import {
 } from "@/lib/domain/rubric";
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { ACCEPT } from "@/components/writing/evidence-files";
-import { confirmGrade, courseStandards, draftRubricAction, gradeAssessmentFile, gradeAssessmentText, readAnswerPart, type StandardItem } from "./actions";
+import { HWP_GUIDE, isHwp } from "@/lib/domain/hwpx";
+import { confirmGrade, courseStandards, draftRubricAction, gradeAssessmentFile, gradeAssessmentText, importRubricAction, readAnswerPart, readRubricPart, type StandardItem } from "./actions";
+
+// .hwp 도 고를 수 있게 둔다 — 고르면 HWPX로 저장해 달라고 바로 안내 (읽지는 않는다)
+const RUBRIC_ACCEPT = ".pdf,.hwpx,.hwp,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp";
 
 // 루브릭 채점 (Figma N72): 등록 창의 루브릭 표(N72 c) · 수행평가 칸(N72 a · d) · 채점 확인 창(N72 b · 모바일 시트 e).
 // AI는 버튼으로만 — 루브릭 초안 · 답안 채점 제안. 확정은 교사가 수준을 보고 누른다(AI 없이 직접 골라도 된다).
@@ -86,6 +90,33 @@ export function RubricEditor({ courseId, section, title, description, rubric, se
     if (!r.ok) return setError(r.error);
     setRubric({ ...r.rubric, standards: picked });
   });
+  // 교사가 만든 루브릭 파일 (PDF · HWPX · 사진). 큰 PDF는 쪽 묶음마다 글로 옮겨 모은 뒤 한 번에 표로
+  const importFile = (f: File) => start(async () => {
+    setError("");
+    if (isHwp(f.name)) return setError(HWP_GUIDE);
+    if (rubric.criteria.some((c) => c.name.trim()) && !window.confirm("지금 표를 파일의 루브릭으로 바꿀까요?")) return;
+    const fd = (part: File | null, text?: string) => {
+      const x = new FormData(); x.set("courseId", courseId); x.set("section", section ?? ""); x.set("title", title);
+      if (part) x.set("file", part); else x.set("text", text ?? "");
+      return x;
+    };
+    const fail = { ok: false as const, error: "파일을 읽지 못했어요" };
+    const parts = await prepareUpload(f).catch(() => [f]);
+    let r;
+    if (parts.length === 1) r = await importRubricAction(fd(parts[0])).catch(() => fail);
+    else {
+      const texts: string[] = [];
+      for (const part of parts) {
+        const t = await readRubricPart(fd(part)).catch(() => fail);
+        if (!t.ok) return setError(t.error);
+        texts.push(t.text);
+      }
+      r = await importRubricAction(fd(null, texts.join("\n"))).catch(() => fail);
+    }
+    if (!r.ok) return setError(r.error);
+    // 파일에서 찾은 성취기준을 지금 고른 것에 더한다 (6개까지)
+    setRubric({ ...r.rubric, standards: [...new Set([...picked, ...r.rubric.standards])].slice(0, RUBRIC_LIMITS.standards) });
+  });
   const cols = { "--cols": `150px 64px repeat(${n}, minmax(0, 1fr)) 36px` } as React.CSSProperties;
   const cell = "md:border-r md:border-line md:px-2.5 md:py-2";
   return (
@@ -140,6 +171,13 @@ export function RubricEditor({ courseId, section, title, description, rubric, se
         </div>
         <span className="hidden flex-1 md:block" />
         {aiOn && (
+          <label className={cx("flex h-10 w-full cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-control border border-line bg-[#fff] px-3 text-[13px] font-bold text-ink md:order-none md:h-9 md:w-auto max-md:order-last",
+            pending && "pointer-events-none opacity-50")}>
+            <Upload size={14} aria-hidden /> {pending ? "읽는 중…" : <>내 루브릭 파일로 채우기<span className="font-medium text-mute md:hidden"> · PDF · HWPX · 사진</span></>}
+            <input type="file" accept={RUBRIC_ACCEPT} className="sr-only" disabled={pending} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importFile(f); }} />
+          </label>
+        )}
+        {aiOn && (
           <button type="button" onClick={draft} disabled={pending}
             className="flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50 md:h-9 md:w-auto">
             <AiTag /> {pending ? "만드는 중…" : "성취기준으로 루브릭 만들기"}
@@ -168,11 +206,11 @@ export function RubricEditor({ courseId, section, title, description, rubric, se
                 className="h-9 w-16 rounded-control bg-soft px-2 text-[14px] font-medium outline-none focus:ring-2 focus:ring-key md:w-full md:bg-transparent md:px-0" />
             </label>
             {c.levels.map((l, k) => (
-              <div key={l.label} className={cx("col-span-3 grid grid-cols-[24px_minmax(0,1fr)_auto] items-start gap-2 max-md:order-last md:col-span-1 md:flex md:flex-col md:gap-1", cell)}>
+              <div key={l.label} className={cx("col-span-3 grid min-w-0 grid-cols-[24px_minmax(0,1fr)_auto] items-start gap-2 max-md:order-last md:col-span-1 md:flex md:flex-col md:gap-1", cell)}>
                 <span className="pt-2 text-center text-[13px] font-bold text-sub md:hidden">{l.label}</span>
                 <textarea value={l.desc} rows={2} maxLength={RUBRIC_LIMITS.desc} aria-label={`${c.name || `기준 ${i + 1}`} ${l.label} 설명`} placeholder="이 수준에서 보이는 모습"
                   onChange={(e) => set(i, { ...c, levels: c.levels.map((x, j) => (j === k ? { ...x, desc: e.target.value } : x)) })}
-                  className="min-h-[52px] resize-y rounded-control bg-soft px-2.5 py-2 text-[12px] leading-[18px] outline-none focus:ring-2 focus:ring-key md:min-h-[72px] md:bg-transparent md:px-0 md:py-1.5" />
+                  className="min-h-[52px] w-full min-w-0 resize-y rounded-control bg-soft px-2.5 py-2 text-[12px] leading-[18px] outline-none focus:ring-2 focus:ring-key md:min-h-[72px] md:bg-transparent md:px-0 md:py-1.5" />
                 <label className="flex h-9 items-center gap-1 rounded-control bg-key-soft pr-2 text-[12px] font-bold text-key-strong md:h-auto md:bg-transparent md:pr-0">
                   <input type="number" min={0} max={c.points} value={l.points} aria-label={`${c.name || `기준 ${i + 1}`} ${l.label} 점수`}
                     onChange={(e) => set(i, { ...c, levels: c.levels.map((x, j) => (j === k ? { ...x, points: Math.max(0, Math.min(c.points, Math.round(Number(e.target.value) || 0))) } : x)) })}

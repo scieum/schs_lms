@@ -1,6 +1,7 @@
 // 개발용: 데모 서버 화면을 역할별로 로그인한 채 캡처한다 (시안 비교용).
 // 사용: node scripts/dev-shot.mjs <경로> <계정id|none> <폭 1440|412> <저장할 png> [포트=3200]
 //   계정 id: t-admin(정다은·관리자) t-subject(이서연·교과) t-homeroom(박지훈·담임) s-3(박서준·학생)
+// 파일 올리기 시험: SHOT_FILE="<선택자>|<경로>" (아래 참고)
 // 데모 서버는 SESSION_SECRET 없이 켜야 데모용 서명 키를 쓴다:
 //   SUPABASE_URL= SUPABASE_SERVICE_ROLE_KEY= SESSION_SECRET= ANTHROPIC_API_KEY= npx next start -p 3200
 import { spawn } from "node:child_process";
@@ -60,6 +61,14 @@ try {
   await sleep(5000);
   // SHOT_PRE: 찍기 전에 실행할 스크립트 (버튼 누르기 등). 화면이 바뀔 시간을 준다
   if (process.env.SHOT_PRE) { await send("Runtime.evaluate", { expression: process.env.SHOT_PRE }); await sleep(Number(process.env.SHOT_WAIT) || 800); }
+  // SHOT_FILE="<css 선택자>|<파일 경로>": 그 파일 칸에 파일을 넣고 SHOT_FILE_WAIT(기본 20초) 기다린다 (업로드 · AI 읽기 시험)
+  if (process.env.SHOT_FILE) {
+    const [sel, file] = process.env.SHOT_FILE.split("|");
+    const { root } = await send("DOM.getDocument", { depth: -1 });
+    const { nodeId } = await send("DOM.querySelector", { nodeId: root.nodeId, selector: sel });
+    await send("DOM.setFileInputFiles", { nodeId, files: [file] });
+    await sleep(Number(process.env.SHOT_FILE_WAIT) || 20000);
+  }
   const h = (await send("Runtime.evaluate", { expression: "document.documentElement.scrollHeight", returnByValue: true })).result.value;
   await send("Emulation.setDeviceMetricsOverride", { width, height: Math.min(h, 12000), deviceScaleFactor: 1, mobile });
   await sleep(1200);

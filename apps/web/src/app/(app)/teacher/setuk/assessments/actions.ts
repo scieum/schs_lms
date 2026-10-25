@@ -7,7 +7,7 @@ import { sectionAllowed, studentsInCourse } from "@/lib/domain/setuk";
 import { normalizeSubjectName } from "@/lib/domain/curriculum";
 import { readAssessPlan, type PlanItem } from "@/lib/server/ai/assess-plan";
 import { readEvidence } from "@/lib/server/ai/read-evidence";
-import { draftRubric, gradeAnswer, transcribeAnswer } from "@/lib/server/ai/rubric";
+import { draftRubric, gradeAnswer, importRubric, transcribeAnswer } from "@/lib/server/ai/rubric";
 import { subjectStandardList } from "@/lib/server/standards";
 import { readUpload } from "@/lib/server/hwpx";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
@@ -164,6 +164,36 @@ export async function draftRubricAction(input: { courseId: string; section: stri
   const r = await draftRubric({ subject: c.course.subject, title: String(input.title).trim(), description: String(input.description ?? ""), standards, scale, total });
   await repo.audit(c.v.accountId, "assessment.rubric_draft", `${c.course.subject} ${String(input.title).slice(0, 40)}`);
   return r.ok ? { ok: true, rubric: r.data } : r;
+}
+
+export type RubricImport = { ok: true; rubric: Rubric } | { ok: false; error: string };
+
+/** 교사가 만든 루브릭 파일 → 등록 창 표 (저장 안 함). form: courseId · section · title · file 또는 text(큰 PDF를 쪽마다 옮긴 글) */
+export async function importRubricAction(form: FormData): Promise<RubricImport> {
+  const c = await myCourse(String(form.get("courseId") ?? ""), (form.get("section") as string) || null);
+  if (!c) return { ok: false, error: "내 담당 과목에만 쓸 수 있어요" };
+  const text = form.get("text");
+  const file = typeof text === "string" ? null : await takeEvidenceFile(form);
+  if (typeof file === "string") return { ok: false, error: file };
+  if (typeof text === "string" && text.trim().length < 5) return { ok: false, error: "파일에서 글을 찾지 못했어요" };
+  const known = subjectStandardList(c.course.subject)?.items ?? [];
+  try {
+    const r = await importRubric({ ...(file ? { file } : { text: String(text).slice(0, 40000) }), subject: c.course.subject, title: String(form.get("title") ?? "").trim(), known });
+    await repo.audit(c.v.accountId, "assessment.rubric_import", `${c.course.subject} ${String(form.get("title") ?? "").slice(0, 40)}`);
+    return r.ok ? { ok: true, rubric: r.data } : r;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "루브릭을 읽지 못했어요" };
+  }
+}
+
+/** 큰 루브릭 PDF: 쪽 묶음 하나 → 글 (저장 안 함). 다 모으면 importRubricAction 에 text 로 */
+export async function readRubricPart(form: FormData): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  const c = await myCourse(String(form.get("courseId") ?? ""), (form.get("section") as string) || null);
+  if (!c) return { ok: false, error: "내 담당 과목에만 쓸 수 있어요" };
+  const file = await takeEvidenceFile(form);
+  if (typeof file === "string") return { ok: false, error: file };
+  const r = await transcribeAnswer(file, [], "루브릭");
+  return r.ok ? { ok: true, text: r.data } : r;
 }
 
 /** 내 루브릭 수행평가 · 이 분반 학생 */

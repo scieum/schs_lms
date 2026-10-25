@@ -6,7 +6,7 @@ import { GRADE_LIMITS, RUBRIC_LIMITS, SCALE_LABELS, defaultLevels, newCriterionI
 import { aiJson, fileBlock, type AiResult } from "./claude";
 import type { EvidenceFile } from "./read-evidence";
 
-// 루브릭 채점 (Figma N72): ① 성취기준으로 루브릭 만들기 ② 학생 답안을 읽고 기준마다 수준 제안 ③ 큰 PDF 쪽 하나를 글로 옮기기.
+// 루브릭 채점 (Figma N72): ① 성취기준으로 루브릭 만들기 (①-2 교사가 만든 루브릭 파일 옮기기) ② 학생 답안을 읽고 기준마다 수준 제안 ③ 큰 PDF 쪽 하나를 글로 옮기기.
 // 답안은 저장하지 않는다. 글로 된 답안은 이름 · 학번을 가린 뒤 보내고, AI가 돌려준 글도 다시 가린다. 결과는 교사가 확정해야 남는다.
 
 type People = { name: string; studentNo: string }[];
@@ -37,6 +37,49 @@ export async function draftRubric(o: { subject: string; title: string; descripti
     return { id: newCriterionId(), name: c.name.trim().slice(0, RUBRIC_LIMITS.name), points, levels: defaultLevels(o.scale, points, c.levels.map((d) => d.trim().slice(0, RUBRIC_LIMITS.desc))) };
   }).filter((c) => c.name);
   return criteria.length ? { ok: true, data: { scale: o.scale, criteria, standards: o.standards.map((s) => s.code) } } : { ok: false, error: "루브릭을 만들지 못했어요. 직접 적어 주세요" };
+}
+
+const ImportOut = z.object({
+  levels: z.number(),
+  criteria: z.array(z.object({ name: z.string(), points: z.number(), levels: z.array(z.object({ desc: z.string(), points: z.number().nullable() })) })),
+  standards: z.array(z.string()),
+});
+
+/** ①-2 교사가 만든 루브릭 파일(PDF · HWPX · 사진, 큰 PDF는 쪽마다 옮긴 글) → 등록 창 표 (저장 안 함). 학교 문서라 학생 정보가 없다.
+ *  파일의 단계 수가 3 이하면 상중하, 4 이상이면 A~E — 모자라는 아래 수준은 설명 · 점수를 비워 교사가 채우거나 지운다(지어내지 않는다). */
+export async function importRubric(o: { file?: EvidenceFile; text?: string; subject: string; title: string; known: Std[] }): Promise<AiResult<Rubric>> {
+  const system = `첨부한 것은 고등학교 "${o.subject}" 교사가 직접 만든 수행평가 채점 기준(루브릭) 문서다. 표에 적힌 그대로 옮긴다.
+- levels: 문서의 수준(단계) 수. 예: 상 · 중 · 하 → 3, A~E → 5, 매우 우수 · 우수 · 보통 · 미흡 → 4
+- criteria: 평가 기준(평가 요소)마다 하나, 문서 순서대로. name = 기준 이름(30자 이내, 문서 표현), points = 그 기준 배점(만점) 정수
+  - levels: 높은 수준부터 차례대로 { desc: 그 수준 설명(문서 문장 그대로, 200자 이내), points: 그 수준 점수(문서에 없으면 null) }
+- 문서에 수행평가가 여러 개면 「${o.title || "(이름 없음)"}」와 가장 맞는 하나만. 이름이 없으면 첫 번째.
+- standards: 문서에 적힌 성취기준 코드(예: [10통과1-03-03]) 그대로. 없으면 빈 목록.
+- 문서에 없는 기준 · 수준 · 설명은 만들지 않는다. 학생 이름 · 학번은 옮기지 않는다.`;
+  let content: Anthropic.ContentBlockParam[];
+  if (o.text != null) content = [{ type: "text", text: `<루브릭>\n${o.text.slice(0, 20000)}\n</루브릭>` }];
+  else if (o.file?.text) content = [{ type: "text", text: `<루브릭 이름="${o.file.name}">\n${o.file.text.slice(0, 20000)}\n</루브릭>` }];
+  else if (o.file) content = [fileBlock(o.file.bytes, o.file.mime)];
+  else return { ok: false, error: "루브릭 파일이 없어요" };
+  content.push({ type: "text", text: "이 루브릭을 표로 옮겨 주세요." });
+  const r = await aiJson(ImportOut, { model: "write", system, content, maxTokens: 4000 });
+  if (!r.ok) return r;
+  const scale: RubricScale = r.data.levels >= 4 ? "A-E" : "상중하";
+  const n = SCALE_LABELS[scale].length;
+  const criteria = r.data.criteria.slice(0, RUBRIC_LIMITS.criteria).map((c) => {
+    const points = Math.min(RUBRIC_LIMITS.points, Math.max(1, Math.round(c.points) || 1));
+    // 단계가 더 많으면(6단계 등) 넘치는 아래 수준은 마지막 칸에 잇는다
+    const src = c.levels.length > n ? [...c.levels.slice(0, n - 1), { desc: c.levels.slice(n - 1).map((l) => l.desc.trim()).filter(Boolean).join(" / "), points: c.levels[c.levels.length - 1].points }] : c.levels;
+    const levels = defaultLevels(scale, points, src.map((l) => l.desc.trim().slice(0, RUBRIC_LIMITS.desc))).map((l, i) => {
+      if (i >= src.length) return { ...l, points: 0 };
+      const p = src[i].points;
+      return p == null ? l : { ...l, points: Math.min(points, Math.max(0, Math.round(p))) };
+    });
+    return { id: newCriterionId(), name: c.name.trim().slice(0, RUBRIC_LIMITS.name), points, levels };
+  }).filter((c) => c.name);
+  if (!criteria.length) return { ok: false, error: "파일에서 루브릭 표를 찾지 못했어요. 직접 적거나 AI 초안을 써 주세요" };
+  const codes = r.data.standards.map((s) => s.replace(/[\s[\]]/g, ""));
+  const standards = o.known.filter((s) => codes.includes(s.code.replace(/[\s[\]]/g, ""))).map((s) => s.code).slice(0, RUBRIC_LIMITS.standards);
+  return { ok: true, data: { scale, criteria, standards } };
 }
 
 const GradeOut = z.object({
@@ -92,12 +135,14 @@ ${o.description.trim() ? `수행평가 내용: ${o.description.trim()}\n` : ""}$
 const TextOut = z.object({ text: z.string() });
 
 /** ③ 큰 PDF는 브라우저가 쪽을 나눠 보낸다 — 쪽 하나에 쓰인 답안 글을 옮겨 적는다 (이어 붙여 ②에 넣음) */
-export async function transcribeAnswer(file: EvidenceFile, people: People): Promise<AiResult<string>> {
+export async function transcribeAnswer(file: EvidenceFile, people: People, what: "답안" | "루브릭" = "답안"): Promise<AiResult<string>> {
   if (file.text) return { ok: true, data: maskIdentity(file.text, people).slice(0, 8000) };
   const r = await aiJson(TextOut, {
     model: "fast", maxTokens: 4000,
-    system: "첨부한 것은 고등학생 답안의 일부다. 답안에 쓰인 글을 빠짐없이 그대로 옮겨 적는다(text). 표 · 그림은 [표: 내용 요약]처럼 한 줄로. 학생 이름 · 학번은 옮기지 않는다.",
-    content: [fileBlock(file.bytes, file.mime), { type: "text", text: "이 쪽의 답안 글을 옮겨 적어 주세요." }],
+    system: what === "답안"
+      ? "첨부한 것은 고등학생 답안의 일부다. 답안에 쓰인 글을 빠짐없이 그대로 옮겨 적는다(text). 표 · 그림은 [표: 내용 요약]처럼 한 줄로. 학생 이름 · 학번은 옮기지 않는다."
+      : "첨부한 것은 수행평가 채점 기준(루브릭) 문서의 일부다. 쓰인 글을 빠짐없이 그대로 옮겨 적는다(text). 표는 줄마다 칸을 \" | \"로 이어 옮긴다.",
+    content: [fileBlock(file.bytes, file.mime), { type: "text", text: `이 쪽의 ${what} 글을 옮겨 적어 주세요.` }],
   });
   return r.ok ? { ok: true, data: maskIdentity(r.data.text, people).slice(0, 8000) } : r;
 }
