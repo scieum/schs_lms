@@ -1,21 +1,24 @@
 "use client";
 import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
-import { Check, Mic, Square, Trash2 } from "lucide-react";
+import { Check, Mic, PenLine, Square, Trash2 } from "lucide-react";
 import { MAX_RECORD_SEC, clock, startRecording, type Recording } from "@/lib/client/speech";
 import { addTake, editTake, getServerTakes, getTakes, markUsed, removeTake, subscribeTakes, type Take } from "@/lib/client/speech-queue";
 
 // 발표 녹음 칸 (Figma N73 711:2000): 녹음 전 → 녹음 중(시간 · 소리 막대 · 멈추고 받아쓰기) → 바로 다음 녹음을 할 수 있고,
 // 멈춘 녹음은 아래 "녹음 n" 줄에서 차례로 받아쓴다(처음엔 모델 받기 %) → 받아쓴 글(고칠 수 있음) → [AI 요약해 넣기] 또는 [그대로 넣기]가
-// 메모 칸을 채운다. 남기기는 조각 모으기 버튼 그대로. 녹음은 이 기기 메모리에만 두고 받아쓴 뒤 버린다(lib/client/speech-queue.ts).
+// 메모 칸을 채운다. 받아쓴 글 아래 [AI 오타 고치기](724:1882)는 과목 · 활동명 맥락으로 잘못 들은 낱말만 고치고 되돌릴 수 있다. 남기기는 조각 모으기 버튼 그대로. 녹음은 이 기기 메모리에만 두고 받아쓴 뒤 버린다(lib/client/speech-queue.ts).
 
 type Summary = { ok: true; text: string; label: "AI" | "자동" } | { ok: false; error: string };
+type Fixed = { ok: true; text: string; fixes: { from: string; to: string }[] } | { ok: false; error: string };
 
 /** 메모 칸 한도 (조각 모으기 메모 칸과 같음) */
 const MEMO_MAX = 1000;
 const BARS = 26;
 
-export function SpeechRecorder({ aiOn, summarize, onUse }: {
+export function SpeechRecorder({ aiOn, summarize, fix, onUse }: {
   aiOn: boolean;
+  /** 받아쓴 글 → 잘못 들은 낱말만 고친 글 (서버, 이름 · 학번 가림) */
+  fix: (text: string) => Promise<Fixed>;
   /** 받아쓴 글 → 활동 요약 (서버, 이름 · 학번 가림) */
   summarize: (text: string) => Promise<Summary>;
   /** 메모 칸에 넣기 */
@@ -99,15 +102,18 @@ export function SpeechRecorder({ aiOn, summarize, onUse }: {
         </div>
       )}
 
-      {takes.map((t) => <TakeCard key={t.id} t={t} aiOn={aiOn} summarize={summarize} onUse={onUse} />)}
+      {takes.map((t) => <TakeCard key={t.id} t={t} aiOn={aiOn} summarize={summarize} fix={fix} onUse={onUse} />)}
       {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
     </div>
   );
 }
 
-function TakeCard({ t, aiOn, summarize, onUse }: { t: Take; aiOn: boolean; summarize: (text: string) => Promise<Summary>; onUse: (text: string, from: "ai" | "raw") => void }) {
+function TakeCard({ t, aiOn, summarize, fix, onUse }: { t: Take; aiOn: boolean; summarize: (text: string) => Promise<Summary>; fix: (text: string) => Promise<Fixed>; onUse: (text: string, from: "ai" | "raw") => void }) {
   const [busy, start] = useTransition();
+  const [fixing, startFix] = useTransition();
   const [error, setError] = useState("");
+  // 오타 고친 뒤: 고치기 전 글(되돌리기) · 고친 곳
+  const [undo, setUndo] = useState<{ text: string; fixes: { from: string; to: string }[] } | null>(null);
   const head = (
     <span className="flex items-center gap-1.5 text-[13px] font-bold">
       {t.label}
@@ -148,17 +154,37 @@ function TakeCard({ t, aiOn, summarize, onUse }: { t: Take; aiOn: boolean; summa
     onUse(r.text, "ai");
     markUsed(t.id);
   });
+  const useFix = () => startFix(async () => {
+    setError("");
+    const before = t.text;
+    const r = await fix(before).catch((): Fixed => ({ ok: false, error: "오타를 고치지 못했어요. 다시 해 주세요" }));
+    if (!r.ok) return setError(r.error);
+    editTake(t.id, r.text);
+    setUndo({ text: before, fixes: r.fixes });
+  });
+  // 보기 2개: 다른 고친 곳을 품은 것("모든 빛면 → 모든 빗면")은 빼고
+  const shown = undo?.fixes.filter((f, i, all) => !all.some((g, j) => j !== i && g.from !== f.from && f.from.includes(g.from))).slice(0, 2).map((f) => `${f.from} → ${f.to}`).join(", ");
   return (
     <div className="flex flex-col gap-1.5 rounded-control border border-hair bg-[#fff] px-3.5 py-3">
       {head}
       <textarea value={t.text} onChange={(e) => editTake(t.id, e.target.value)} rows={4} aria-label={`${t.label} 받아쓴 글`}
         className="resize-y rounded-control border border-line bg-[#fff] px-3 py-2 text-[13px] leading-5 text-[#333d4b] outline-none focus:border-key" />
+      {undo ? (
+        <p className="text-[12px] text-ok break-keep">
+          ✓ {undo.fixes.length ? `AI가 ${undo.fixes.length}곳을 고쳤어요 (${shown}${undo.fixes.length > 2 ? " …" : ""})` : "AI가 보기에 고칠 곳이 없어요"}
+          {" · "}<button type="button" onClick={() => { editTake(t.id, undo.text); setUndo(null); }} className="font-bold underline underline-offset-2">되돌리기</button>
+        </p>
+      ) : aiOn && (
+        <button type="button" onClick={useFix} disabled={fixing || busy} className="inline-flex items-center gap-1 self-start py-0.5 text-[13px] font-bold text-key-strong disabled:opacity-50">
+          <PenLine size={13} /> {fixing ? "오타 고치는 중…" : "AI 오타 고치기"}<span className="font-medium text-mute"> · 과목 낱말 · 띄어쓰기만</span>
+        </button>
+      )}
       {t.text.length > MEMO_MAX && <p className="text-[12px] text-[#9a6400]">메모 칸은 {MEMO_MAX.toLocaleString()}자까지예요 · 긴 발표는 AI 요약을 권해요</p>}
       <div className="flex flex-wrap items-center justify-end gap-2">
         <button type="button" onClick={() => { onUse(t.text.slice(0, MEMO_MAX), "raw"); markUsed(t.id); }} className="h-9 rounded-control px-3 text-[13px] font-medium text-sub hover:text-ink">
           {t.text.length > MEMO_MAX ? `앞 ${MEMO_MAX.toLocaleString()}자 넣기` : "그대로 넣기"}
         </button>
-        <button type="button" onClick={useAi} disabled={busy}
+        <button type="button" onClick={useAi} disabled={busy || fixing}
           className="inline-flex h-9 items-center gap-1.5 rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50">
           <span className="rounded-[6px] bg-new-soft px-1.5 py-px text-[11px] font-bold text-new">{aiOn ? "AI" : "자동"}</span>{busy ? "요약하는 중…" : "요약해 메모 칸에 넣기"}
         </button>

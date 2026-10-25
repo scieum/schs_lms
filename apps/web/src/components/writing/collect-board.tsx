@@ -9,8 +9,8 @@ import { shortMd } from "@/lib/domain/log-date";
 import { sortStudents, todayCount, type CollectStudent, type RecentPiece, findStudents } from "@/lib/domain/collect";
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { ACCEPT } from "./evidence-files";
-import { addSetukPieces, polishSetukMemo, readSetukCollectFile, readSetukTranscript } from "@/app/(app)/teacher/setuk/actions";
-import { addLogs, polishLogMemo, readLogFile, readLogTranscript } from "@/app/(app)/teacher/logs/actions";
+import { addSetukPieces, fixSetukTranscript, polishSetukMemo, readSetukCollectFile, readSetukTranscript } from "@/app/(app)/teacher/setuk/actions";
+import { addLogs, fixLogTranscript, polishLogMemo, readLogFile, readLogTranscript } from "@/app/(app)/teacher/logs/actions";
 import { SpeechRecorder } from "./speech-recorder";
 import { deleteMyPieces } from "@/app/(app)/teacher/piece-actions";
 
@@ -97,6 +97,9 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
   const readVoice = (text: string) => target.kind === "setuk"
     ? readSetukTranscript({ courseId: target.courseId, text })
     : readLogTranscript({ area: logArea, clubId: target.clubId, text });
+  const fixVoice = (text: string) => target.kind === "setuk"
+    ? fixSetukTranscript({ courseId: target.courseId, text, activity })
+    : fixLogTranscript({ area: logArea, clubId: target.clubId, text, activity });
 
   const readFile = () => file && start(async () => {
     setMsg(null);
@@ -281,7 +284,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
         ))}
 
         {mode === "voice" && (
-          <SpeechRecorder aiOn={aiOn} summarize={readVoice}
+          <SpeechRecorder aiOn={aiOn} summarize={readVoice} fix={fixVoice}
             onUse={(t) => { setMemo([memo.trim(), t.trim()].filter(Boolean).join(" ").slice(0, 1000)); setFromFile(false); setMsg({ ok: true, text: "메모 칸에 넣었어요 · 고쳐 쓴 뒤 남겨요" }); }} />
         )}
 

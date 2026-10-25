@@ -9,7 +9,7 @@ import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { readEvidence } from "@/lib/server/ai/read-evidence";
 import { takeEvidenceFile } from "@/lib/server/evidence-upload";
-import { readTranscript } from "@/lib/server/transcript";
+import { fixTranscript, readTranscript, type FixResult } from "@/lib/server/transcript";
 
 export type LogState = { error?: string; added?: number };
 
@@ -227,4 +227,14 @@ export async function readLogTranscript(input: { area: string; clubId?: string; 
   if (!r.ok) return r;
   await repo.audit(v.accountId, "logs.ai.read_voice", input.area);
   return { ok: true, text: r.text.slice(0, 1000), label: r.label };
+}
+
+/** 발표 녹음 오타 고치기 (724:1882): 영역 · 활동명을 맥락으로 잘못 들은 낱말만 (이 칸 학생 이름 · 학번 가림, 저장 안 함) */
+export async function fixLogTranscript(input: { area: string; clubId?: string; text: string; activity?: string }): Promise<FixResult> {
+  const v = await requireCan("logs.write");
+  if (!isAreaOf(input.area)) return { ok: false, error: "영역을 골라 주세요" };
+  const people = (await boardPeople(v, input.area, input.clubId || undefined)).map((s) => ({ name: s.name, studentNo: s.studentNo }));
+  const r = await fixTranscript(input.text, { kind: input.area, activity: String(input.activity ?? ""), people });
+  if (r.ok) await repo.audit(v.accountId, "logs.ai.fix_voice", input.area);
+  return r;
 }

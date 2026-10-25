@@ -21,7 +21,7 @@ import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
 import { fitRange, PIECE_MAX, PIECE_MIN, PIECE_SOURCES, pieceScopeOf, type MergePiece, type PieceKind } from "@/lib/domain/merge";
 import type { TaggedSentence } from "@/lib/domain/competency";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
-import { readTranscript } from "@/lib/server/transcript";
+import { fixTranscript, readTranscript, type FixResult } from "@/lib/server/transcript";
 import { latestByStudent } from "@/lib/domain/setuk";
 import { setukScope } from "@/lib/domain/common-activity";
 import { schoolYear } from "@/lib/domain/curriculum";
@@ -475,5 +475,18 @@ export async function readSetukTranscript(input: { courseId: string; text: strin
   const people = studentsInCourse(all, course, assignment, roster).map((s) => ({ name: s.name, studentNo: s.studentNo }));
   const r = await readTranscript(input.text, { kind: `${course.subject} 교과 세특`, people });
   await repo.audit(v.accountId, "setuk.ai_piece_voice", `${course.subject} 조각 모으기`);
+  return r;
+}
+
+/** 발표 녹음 오타 고치기 (724:1882): 과목 · 활동명을 맥락으로 잘못 들은 낱말만 (이 과목 학생 이름 · 학번 가림, 저장 안 함) */
+export async function fixSetukTranscript(input: { courseId: string; text: string; activity?: string }): Promise<FixResult> {
+  const v = await requireCan("setuk.write");
+  const courseId = String(input.courseId ?? "");
+  const [course, mine, roster, all] = await Promise.all([repo.getCourse(courseId), repo.listTeacherCourses(v.accountId), repo.getCourseRosters(v.accountId, courseId), repo.listStudents({ external: true })]);
+  const assignment = mine.find((a) => a.courseId === courseId);
+  if (!course || !assignment) return { ok: false, error: "내 담당 과목만 쓸 수 있어요" };
+  const people = studentsInCourse(all, course, assignment, roster).map((s) => ({ name: s.name, studentNo: s.studentNo }));
+  const r = await fixTranscript(input.text, { kind: course.subject, activity: String(input.activity ?? ""), people });
+  await repo.audit(v.accountId, "setuk.ai_voice_fix", `${course.subject} 조각 모으기`);
   return r;
 }
