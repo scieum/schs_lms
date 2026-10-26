@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, Copy, FileUp, PencilLine, Plus, Sparkles, Upload, X } from "lucide-react";
+import { BookOpen, Check, ChevronLeft, Copy, PencilLine, Plus, Sparkles, Upload, Users } from "lucide-react";
 import { Button, ButtonLink, cx } from "@/components/ui";
 import { ASSESS_LIMITS, type AssessmentKind } from "@/lib/domain/assessment";
 import { emptyRubric, parseRubric, rubricTotal, type Rubric } from "@/lib/domain/rubric";
@@ -18,6 +18,7 @@ import { RubricEditor, RubricPanel, Shell, gradeFor, type GradeView } from "./ru
 // 나누기는 브라우저에서 하고(큰 합본도 됨), 학생마다 한 파일씩 서버가 AI로 읽어 요약만 조각으로 남긴다.
 // 루브릭 채점 (N72): 등록 창에서 [자료 요약 | 루브릭 채점]을 고른다. 루브릭이면 칸 · 채점 창은 rubric-ui.tsx.
 // 평가계획서 불러오기 (N78): 학교 평가계획서 라이브러리에서 이 과목 수행평가를 고르면 이름 · 내용 · 루브릭 · 성취기준이 채워진다(AI 없음).
+// N78 v2: 불러오기 네 곳(평가계획서 · 같은 과목 · 협업방 · 계획서 파일)은 같은 모양 타일, 누르면 창이 고르기 화면(라디오 카드 · [불러오기])으로 바뀐다.
 
 type Item = { id: string; title: string; date: string; description: string; kind: AssessmentKind; done: number };
 type Sel = { id: string; title: string; date: string; description: string; kind: AssessmentKind; rubric: Rubric | null };
@@ -149,6 +150,20 @@ export function AssessBoard({ base, aiOn, courseId, section, items, selected, to
 }
 
 type PlanPick = { title: string; date: string | null; description: string; who?: string; where?: string; tag?: string; rubric?: Rubric | null };
+type Picks = { from: "ai" | "same" | "room" | "plan"; list: PlanPick[] };
+const PICK_TITLE: Record<Picks["from"], string> = { plan: "평가계획서에서 불러오기", same: "같은 과목에서 가져오기", room: "협업방에서 가져오기", ai: "계획서 파일에서 고르기" };
+const PICK_DONE: Record<Picks["from"], string> = { plan: "평가계획서에서 불러왔어요", same: "같은 과목에서 가져왔어요", room: "협업방에서 가져왔어요", ai: "계획서 파일에서 채웠어요" };
+
+/** 불러오기 타일 (N78 v2): 네 곳 모두 같은 모양 — 아이콘만 인디고 */
+function Tile({ icon: Icon, label, badge, onClick, disabled }: { icon: typeof Copy; label: string; badge?: number; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled}
+      className="flex h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-control border border-line bg-[#fff] px-3 text-[14px] font-medium text-sub hover:bg-bg disabled:opacity-50 md:h-10 md:flex-1 md:text-[13px]">
+      <Icon size={15} className="shrink-0 text-key" />{label}
+      {badge != null && <span className="rounded-full bg-key-soft px-1.5 text-[11px] font-bold text-key-strong">{badge}</span>}
+    </button>
+  );
+}
 
 function RegisterDialog({ courseId, section, item, base, aiOn, library = 0, onClose }: { courseId?: string; section?: string | null; item?: Sel; base: string; aiOn?: boolean; library?: number; onClose: () => void }) {
   const router = useRouter();
@@ -161,10 +176,14 @@ function RegisterDialog({ courseId, section, item, base, aiOn, library = 0, onCl
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   // 계획서 AI 읽기 · 같은 과목 가져오기 (2026-10-22): 고르면 칸을 채운다. 저장은 등록을 눌러야
-  const [picks, setPicks] = useState<{ from: "ai" | "same" | "room" | "plan"; list: PlanPick[] } | null>(null);
+  const [picks, setPicks] = useState<Picks | null>(null);
+  // 고르기 화면 (N78 v2): 라디오로 하나 고르고 [불러오기]. 불러온 뒤 폼 위에 "…에서 불러왔어요 · 다른 것 고르기"
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [loaded, setLoaded] = useState<Picks | null>(null);
+  const open = (x: Picks) => { setChosen(x.list.length === 1 ? 0 : null); setPicks(x); };
   const file = useRef<HTMLInputElement>(null);
   const fill = (x: PlanPick) => {
-    setTitle(x.title); if (x.date) setDate(x.date); setDescription(x.description); setPicks(null);
+    setTitle(x.title); if (x.date) setDate(x.date); setDescription(x.description); setLoaded(picks); setPicks(null);
     const rb = x.rubric ? parseRubric(x.rubric) : null;
     if (rb && !item) { setKind("rubric"); setRubric(rb); }
   };
@@ -174,25 +193,25 @@ function RegisterDialog({ courseId, section, item, base, aiOn, library = 0, onCl
     fd.set("courseId", courseId ?? ""); fd.set("section", section ?? ""); fd.set("file", f);
     const r = await readAssessPlanFile(fd).catch(() => ({ ok: false as const, error: "읽지 못했어요" }));
     if (!r.ok) return setError(r.error);
-    if (r.items.length === 1) fill(r.items[0]); else setPicks({ from: "ai", list: r.items });
+    if (r.items.length === 1) fill(r.items[0]); else open({ from: "ai", list: r.items });
   });
   const loadSame = () => start(async () => {
     setError("");
     const list: SharedAssessment[] = await listSameSubjectAssessments(courseId ?? "", section ?? null).catch(() => []);
     if (!list.length) return setError("같은 과목에 등록된 수행평가가 아직 없어요");
-    setPicks({ from: "same", list });
+    open({ from: "same", list });
   });
   const loadLibrary = () => start(async () => {
     setError("");
     const list = await libraryAssessments(courseId ?? "", section ?? null).catch(() => []);
     if (!list.length) return setError("이 과목은 평가계획서 라이브러리에 아직 없어요");
-    setPicks({ from: "plan", list });
+    open({ from: "plan", list });
   });
   const loadRooms = () => start(async () => {
     setError("");
     const list = await roomAssessments().catch(() => []);
     if (!list.length) return setError("든 협업방에 올린 수행평가가 아직 없어요");
-    setPicks({ from: "room", list });
+    open({ from: "room", list });
   });
   const saveAll = () => picks && start(async () => {
     setError("");
@@ -214,6 +233,44 @@ function RegisterDialog({ courseId, section, item, base, aiOn, library = 0, onCl
     router.push(`${base}&a=${r.id}`);
   });
   const field = "h-11 rounded-control bg-soft px-3 text-[15px] text-ink outline-none focus:ring-2 focus:ring-key";
+  if (picks) {
+    const many = (picks.from === "ai" || picks.from === "plan") && picks.list.length > 1;
+    const pick = chosen == null ? null : picks.list[chosen];
+    return (
+      <Shell label={PICK_TITLE[picks.from]} onClose={onClose} wide title={
+        <span className="flex items-center gap-1"><button type="button" onClick={() => setPicks(null)} aria-label="뒤로" className="-ml-1.5 p-1 text-sub hover:text-ink"><ChevronLeft size={22} /></button>{PICK_TITLE[picks.from]}</span>
+      } footer={<>
+        <span className="mr-auto hidden self-center text-[13px] text-mute md:block">{picks.from === "plan" ? "고르면 이름 · 내용 · 루브릭 · 성취기준이 채워져요" : "고르면 칸에 채워져요"}</span>
+        {many && <Button type="button" kind="outline" className="md:flex-none" disabled={pending} onClick={saveAll}>{picks.list.length}개 모두 등록</Button>}
+        <Button type="button" className="flex-1 md:flex-none" disabled={!pick || pending} onClick={() => pick && fill(pick)}>불러오기</Button>
+      </>}>
+        <p className="text-[13px] text-mute md:pl-7">{picks.from === "plan" ? `${picks.list[0]?.who} · ${picks.list.length}개` : picks.from === "ai" ? `계획서에서 ${picks.list.length}개를 찾았어요` : `${picks.list.length}개`}</p>
+        <ul className="flex flex-col gap-2.5" role="radiogroup" aria-label={PICK_TITLE[picks.from]}>
+          {picks.list.map((x, i) => {
+            const on = chosen === i;
+            const chips = picks.from === "plan" ? (x.where ?? "").split(" · ").filter(Boolean) : [x.date, x.who, x.where].filter((c): c is string => !!c);
+            return (
+              <li key={i}>
+                <button type="button" role="radio" aria-checked={on} onClick={() => setChosen(i)} onDoubleClick={() => fill(x)}
+                  className={cx("flex w-full items-start gap-3 rounded-[10px] border px-4 py-3.5 text-left md:px-[18px] md:py-4", on ? "border-key bg-[#f7f8ff] ring-[0.5px] ring-key" : "border-line bg-[#fff] hover:bg-bg")}>
+                  <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <span className="break-keep text-[15px] font-bold">{x.title}</span>
+                    <span className="flex flex-wrap gap-1.5">
+                      {chips.map((c) => <span key={c} className="rounded-[6px] bg-soft px-1.5 py-px text-[12px] font-medium text-sub">{c}</span>)}
+                      {x.tag && <span className="rounded-[6px] bg-key-soft px-1.5 py-px text-[12px] font-medium text-key-strong">{x.tag}</span>}
+                    </span>
+                    {x.description && <span className="line-clamp-2 text-[13px] leading-5 text-sub">{x.description}</span>}
+                  </span>
+                  <span aria-hidden className={cx("mt-0.5 size-5 shrink-0 rounded-full bg-[#fff]", on ? "border-[6px] border-key" : "border-[1.5px] border-faint")} />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
+      </Shell>
+    );
+  }
   return (
     <Shell title={item ? "수행평가 고치기" : "수행평가 등록"} onClose={onClose} wide={kind === "rubric" ? (rubric.scale === "A-E" ? "xl" : true) : false} footer={<>
       <Button type="button" kind="outline" className="flex-1 md:flex-none" onClick={onClose}>취소</Button>
@@ -228,44 +285,29 @@ function RegisterDialog({ courseId, section, item, base, aiOn, library = 0, onCl
         </div>
       )}
       {!item && courseId && (
-        <div className="flex flex-wrap gap-2">
-          {library > 0 && <button type="button" onClick={loadLibrary} disabled={pending} aria-pressed={picks?.from === "plan"}
-            className={cx("flex h-9 items-center gap-1.5 rounded-control px-3 text-[13px] font-bold disabled:opacity-50", picks?.from === "plan" ? "bg-key-strong text-[#fff]" : "bg-key-soft text-key-strong")}><BookOpen size={14} /> 평가계획서에서 불러오기</button>}
-          {aiOn && <button type="button" onClick={() => file.current?.click()} disabled={pending} className="flex h-9 items-center gap-1.5 rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50"><Sparkles size={14} /> 계획서로 채우기 (AI)</button>}
-          <button type="button" onClick={loadSame} disabled={pending} className="flex h-9 items-center gap-1.5 rounded-control bg-soft px-3 text-[13px] font-bold text-sub hover:text-ink disabled:opacity-50"><Copy size={14} /> 같은 과목에서 가져오기</button>
-          <button type="button" onClick={loadRooms} disabled={pending} className="flex h-9 items-center gap-1.5 rounded-control bg-ok-soft px-3 text-[13px] font-bold text-ok disabled:opacity-50">협업방에서 가져오기</button>
+        <div className="flex flex-col gap-1.5">
+          <span className="flex items-center text-[13px] font-medium text-sub">불러오기 (선택){pending && <span className="ml-auto text-[12px] text-mute">읽는 중…</span>}</span>
+          <div className="grid grid-cols-2 gap-2 md:flex">
+            {library > 0 && <Tile icon={BookOpen} label="평가계획서" badge={library} onClick={loadLibrary} disabled={pending} />}
+            <Tile icon={Copy} label="같은 과목" onClick={loadSame} disabled={pending} />
+            <Tile icon={Users} label="협업방" onClick={loadRooms} disabled={pending} />
+            {aiOn && <Tile icon={Sparkles} label="계획서 파일 (AI)" onClick={() => file.current?.click()} disabled={pending} />}
+          </div>
           <input ref={file} type="file" hidden accept=".pdf,.hwpx,.pptx,.txt,image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) readPlan(f); e.target.value = ""; }} />
-          {pending && <span className="self-center text-[12px] text-mute">{picks ? "" : "읽는 중…"}</span>}
         </div>
       )}
-      {picks && (
-        <div className="flex flex-col gap-1.5 rounded-inner bg-bg p-2">
-          <p className="flex items-center px-1 text-[12px] font-bold text-sub">
-            {picks.from === "plan" ? <><BookOpen size={13} className="mr-1 shrink-0" /><span className="min-w-0">{picks.list[0]?.who} <span className="font-medium text-mute">— 고르면 이름 · 내용 · 루브릭이 채워져요</span></span></>
-              : picks.from === "ai" ? <><FileUp size={13} className="mr-1" /> 계획서에서 {picks.list.length}개를 찾았어요 — 하나를 고르거나 모두 등록</> : picks.from === "room" ? "협업방 수행평가 — 고르면 칸에 채워져요" : "같은 과목 수행평가 — 고르면 칸에 채워져요"}
-            <button type="button" onClick={() => setPicks(null)} className="ml-auto text-mute hover:text-ink" aria-label="닫기"><X size={14} /></button>
-          </p>
-          <ul className="flex max-h-[260px] flex-col gap-1 overflow-y-auto">
-            {picks.list.map((x, i) => (
-              <li key={i}>
-                <button type="button" onClick={() => fill(x)} className="flex w-full flex-col gap-0.5 rounded-control bg-[#fff] px-3 py-2 text-left hover:bg-key-soft">
-                  <span className="flex min-w-0 items-center gap-1.5 text-[14px] font-bold"><span className="truncate">{x.title}</span>{x.date && <span className="shrink-0 text-[12px] font-medium text-mute">{x.date}</span>}
-                    {x.tag && <span className="shrink-0 rounded-chip bg-key-soft px-1.5 py-px text-[11px] font-bold text-key-strong">{x.tag}</span>}</span>
-                  {picks.from === "plan" ? x.where && <span className="text-[12px] font-medium text-mute">{x.where}</span> : x.who && <span className="text-[12px] text-mute">{x.who} · {x.where}</span>}
-                  {x.description && <span className="line-clamp-2 text-[12px] leading-5 text-sub">{x.description}</span>}
-                </button>
-              </li>
-            ))}
-          </ul>
-          {(picks.from === "ai" || picks.from === "plan") && picks.list.length > 1 && <Button type="button" size="sm" kind="soft" disabled={pending} onClick={saveAll}>{picks.list.length}개 모두 등록{picks.from === "plan" ? " · 루브릭까지" : ""}</Button>}
-        </div>
+      {!item && loaded && (
+        <p className="flex items-center gap-2 rounded-control bg-key-soft px-3 py-2.5 text-[13px] font-medium text-key-strong md:px-3.5">
+          <Check size={15} className="shrink-0" /><span className="min-w-0 flex-1">{PICK_DONE[loaded.from]}<span className="hidden md:inline"> · 내용과 루브릭을 확인하고 [등록]</span></span>
+          <button type="button" onClick={() => open(loaded)} className="shrink-0 font-bold">다른 것 고르기</button>
+        </p>
       )}
       <div className="grid grid-cols-[minmax(0,1fr)_148px] gap-2 md:grid-cols-[1fr_170px] md:gap-3">
         <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">이름<input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={ASSESS_LIMITS.title} placeholder="예: 빗면 실험 보고서" className={field} /></label>
         <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">날짜<input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field} /></label>
       </div>
       <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">{kind === "rubric" ? "과제 · 평가 내용 (선택)" : "평가 내용 · 기준 (선택)"}
-        <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={ASSESS_LIMITS.description} rows={kind === "rubric" ? 2 : 4}
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={ASSESS_LIMITS.description} rows={kind === "rubric" ? (description.length > 80 ? 4 : 2) : 4}
           placeholder={kind === "rubric" ? "무엇을 하는 과제인지 — AI가 루브릭을 만들고 답안을 읽을 때 참고해요" : "무엇을 했고 어떻게 평가했는지 — AI가 학생 자료를 읽을 때 참고해요"}
           className="resize-y rounded-control bg-soft px-3 py-2.5 text-[14px] leading-6 text-ink outline-none focus:ring-2 focus:ring-key" />
       </label>
