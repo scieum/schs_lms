@@ -7,6 +7,7 @@ import { latestGrades } from "@/lib/domain/rubric";
 import { schoolYear, type Course } from "@/lib/domain/curriculum";
 import { courseSections, studentsInCourse } from "@/lib/domain/setuk";
 import { aiEnabled } from "@/lib/server/ai/claude";
+import { libraryEntries } from "@/lib/server/assess-library";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 import { AssessBoard, NewAssessButton } from "./board";
@@ -61,7 +62,7 @@ export default async function AssessmentsPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="수행평가" actions={<NewAssessButton courseId={tab.course.id} section={tab.section} base={base} aiOn={aiEnabled()} />} />
+      <PageHeader title="수행평가" actions={<NewAssessButton courseId={tab.course.id} section={tab.section} base={base} aiOn={aiEnabled()} library={libraryEntries(tab.course).length} />} />
       <PageBody>
         {tabs.length > 1 && (
           <nav className="grid grid-cols-2 gap-1 rounded-card border border-line bg-[#fff] p-1 md:grid-cols-[repeat(var(--tabs),minmax(0,1fr))]" style={{ "--tabs": Math.min(tabs.length, 5) } as CSSProperties}>

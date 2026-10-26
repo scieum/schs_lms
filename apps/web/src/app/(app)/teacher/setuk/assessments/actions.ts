@@ -9,6 +9,8 @@ import { readAssessPlan, type PlanItem } from "@/lib/server/ai/assess-plan";
 import { readEvidence } from "@/lib/server/ai/read-evidence";
 import { draftRubric, gradeAnswer, importRubric, transcribeAnswer } from "@/lib/server/ai/rubric";
 import { subjectStandardList } from "@/lib/server/standards";
+import { libraryEntries } from "@/lib/server/assess-library";
+import { libraryDescription, libraryLine, libraryRubric, libraryTitle } from "@/lib/domain/assess-library";
 import { readUpload } from "@/lib/server/hwpx";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
 import type { EvidenceFile } from "@/lib/server/ai/read-evidence";
@@ -112,6 +114,23 @@ export async function readAssessPlanFile(form: FormData): Promise<{ ok: true; it
   const r = await readAssessPlan(up, { subject: c.course.subject, year: c.course.year });
   await repo.audit(c.v.accountId, "assessment.plan", `${c.course.subject} ${f.name}`);
   return r.ok ? { ok: true, items: r.data } : r;
+}
+
+export type LibraryAssessment = PlanItem & { key: string; who: string; where: string; tag: string; rubric: Rubric | null };
+
+/** 학교 평가계획서 라이브러리 (N78): 이 과목 수행평가 — 이름 · 내용 · 루브릭 · 성취기준을 등록 창에 채운다 (AI 없음, 저장 안 함) */
+export async function libraryAssessments(courseId: string, section: string | null): Promise<LibraryAssessment[]> {
+  const c = await myCourse(String(courseId), section);
+  if (!c) return [];
+  const known = subjectStandardList(c.course.subject)?.items ?? [];
+  return libraryEntries(c.course).map((e) => {
+    const rubric = libraryRubric(e, known);
+    return {
+      key: e.key, title: libraryTitle(e), date: null, description: libraryDescription(e), rubric,
+      who: `${e.grade}학년 ${e.semester}학기 평가계획서 · ${e.subject}`, where: libraryLine(e),
+      tag: rubric ? `루브릭 ${rubric.criteria.length}기준` : "자료 요약",
+    };
+  });
 }
 
 export type SharedAssessment = PlanItem & { id: string; who: string; where: string; mine: boolean; rubric?: Rubric | null };

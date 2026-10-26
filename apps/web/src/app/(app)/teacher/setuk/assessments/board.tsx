@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, FileUp, PencilLine, Plus, Sparkles, Upload, X } from "lucide-react";
+import { BookOpen, Copy, FileUp, PencilLine, Plus, Sparkles, Upload, X } from "lucide-react";
 import { Button, ButtonLink, cx } from "@/components/ui";
 import { ASSESS_LIMITS, type AssessmentKind } from "@/lib/domain/assessment";
 import { emptyRubric, parseRubric, rubricTotal, type Rubric } from "@/lib/domain/rubric";
@@ -11,12 +11,13 @@ import { PdfSplitDialog } from "@/components/writing/pdf-split-dialog";
 import { ACCEPT } from "@/components/writing/evidence-files";
 import { ShareToRoomButton } from "@/components/collab-share";
 import { roomAssessments } from "@/app/(app)/collab/actions";
-import { deleteAssessment, listSameSubjectAssessments, readAssessmentFile, readAssessPlanFile, saveAssessment, type SharedAssessment } from "./actions";
+import { deleteAssessment, libraryAssessments, listSameSubjectAssessments, readAssessmentFile, readAssessPlanFile, saveAssessment, type SharedAssessment } from "./actions";
 import { RubricEditor, RubricPanel, Shell, gradeFor, type GradeView } from "./rubric-ui";
 
 // 세특 · 수행평가 (Figma N59): 목록 · 고른 수행평가 칸 · 등록 창 · 한 명씩 올리기 · 합본 PDF 나누기(번호순 | 페이지 지정).
 // 나누기는 브라우저에서 하고(큰 합본도 됨), 학생마다 한 파일씩 서버가 AI로 읽어 요약만 조각으로 남긴다.
 // 루브릭 채점 (N72): 등록 창에서 [자료 요약 | 루브릭 채점]을 고른다. 루브릭이면 칸 · 채점 창은 rubric-ui.tsx.
+// 평가계획서 불러오기 (N78): 학교 평가계획서 라이브러리에서 이 과목 수행평가를 고르면 이름 · 내용 · 루브릭 · 성취기준이 채워진다(AI 없음).
 
 type Item = { id: string; title: string; date: string; description: string; kind: AssessmentKind; done: number };
 type Sel = { id: string; title: string; date: string; description: string; kind: AssessmentKind; rubric: Rubric | null };
@@ -38,12 +39,12 @@ async function readFor(assessmentId: string, studentId: string, file: File): Pro
   return null;
 }
 
-export function NewAssessButton({ courseId, section, base, aiOn }: { courseId: string; section: string | null; base: string; aiOn: boolean }) {
+export function NewAssessButton({ courseId, section, base, aiOn, library = 0 }: { courseId: string; section: string | null; base: string; aiOn: boolean; library?: number }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}><Plus size={14} /> <span className="md:hidden">등록</span><span className="hidden md:inline">수행평가 등록</span></Button>
-      {open && <RegisterDialog courseId={courseId} section={section} base={base} aiOn={aiOn} onClose={() => setOpen(false)} />}
+      {open && <RegisterDialog courseId={courseId} section={section} base={base} aiOn={aiOn} library={library} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -147,9 +148,9 @@ export function AssessBoard({ base, aiOn, courseId, section, items, selected, to
   );
 }
 
-type PlanPick = { title: string; date: string | null; description: string; who?: string; where?: string; rubric?: Rubric | null };
+type PlanPick = { title: string; date: string | null; description: string; who?: string; where?: string; tag?: string; rubric?: Rubric | null };
 
-function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { courseId?: string; section?: string | null; item?: Sel; base: string; aiOn?: boolean; onClose: () => void }) {
+function RegisterDialog({ courseId, section, item, base, aiOn, library = 0, onClose }: { courseId?: string; section?: string | null; item?: Sel; base: string; aiOn?: boolean; library?: number; onClose: () => void }) {
   const router = useRouter();
   const [title, setTitle] = useState(item?.title ?? "");
   const [date, setDate] = useState(item?.date ?? today());
@@ -160,7 +161,7 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   // 계획서 AI 읽기 · 같은 과목 가져오기 (2026-10-22): 고르면 칸을 채운다. 저장은 등록을 눌러야
-  const [picks, setPicks] = useState<{ from: "ai" | "same" | "room"; list: PlanPick[] } | null>(null);
+  const [picks, setPicks] = useState<{ from: "ai" | "same" | "room" | "plan"; list: PlanPick[] } | null>(null);
   const file = useRef<HTMLInputElement>(null);
   const fill = (x: PlanPick) => {
     setTitle(x.title); if (x.date) setDate(x.date); setDescription(x.description); setPicks(null);
@@ -181,6 +182,12 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
     if (!list.length) return setError("같은 과목에 등록된 수행평가가 아직 없어요");
     setPicks({ from: "same", list });
   });
+  const loadLibrary = () => start(async () => {
+    setError("");
+    const list = await libraryAssessments(courseId ?? "", section ?? null).catch(() => []);
+    if (!list.length) return setError("이 과목은 평가계획서 라이브러리에 아직 없어요");
+    setPicks({ from: "plan", list });
+  });
   const loadRooms = () => start(async () => {
     setError("");
     const list = await roomAssessments().catch(() => []);
@@ -191,7 +198,8 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
     setError("");
     let last = "";
     for (const x of picks.list) {
-      const r = await saveAssessment({ courseId: courseId ?? "", section: section ?? null, title: x.title, date: x.date ?? today(), description: x.description });
+      const rb = picks.from === "plan" && x.rubric ? parseRubric(x.rubric) : null;
+      const r = await saveAssessment({ courseId: courseId ?? "", section: section ?? null, title: x.title, date: x.date ?? today(), description: x.description, kind: rb ? "rubric" : "summary", rubric: rb });
       if (!r.ok) return setError(`${x.title}: ${r.error}`);
       last = r.id;
     }
@@ -221,6 +229,8 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
       )}
       {!item && courseId && (
         <div className="flex flex-wrap gap-2">
+          {library > 0 && <button type="button" onClick={loadLibrary} disabled={pending} aria-pressed={picks?.from === "plan"}
+            className={cx("flex h-9 items-center gap-1.5 rounded-control px-3 text-[13px] font-bold disabled:opacity-50", picks?.from === "plan" ? "bg-key-strong text-[#fff]" : "bg-key-soft text-key-strong")}><BookOpen size={14} /> 평가계획서에서 불러오기</button>}
           {aiOn && <button type="button" onClick={() => file.current?.click()} disabled={pending} className="flex h-9 items-center gap-1.5 rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50"><Sparkles size={14} /> 계획서로 채우기 (AI)</button>}
           <button type="button" onClick={loadSame} disabled={pending} className="flex h-9 items-center gap-1.5 rounded-control bg-soft px-3 text-[13px] font-bold text-sub hover:text-ink disabled:opacity-50"><Copy size={14} /> 같은 과목에서 가져오기</button>
           <button type="button" onClick={loadRooms} disabled={pending} className="flex h-9 items-center gap-1.5 rounded-control bg-ok-soft px-3 text-[13px] font-bold text-ok disabled:opacity-50">협업방에서 가져오기</button>
@@ -231,21 +241,23 @@ function RegisterDialog({ courseId, section, item, base, aiOn, onClose }: { cour
       {picks && (
         <div className="flex flex-col gap-1.5 rounded-inner bg-bg p-2">
           <p className="flex items-center px-1 text-[12px] font-bold text-sub">
-            {picks.from === "ai" ? <><FileUp size={13} className="mr-1" /> 계획서에서 {picks.list.length}개를 찾았어요 — 하나를 고르거나 모두 등록</> : picks.from === "room" ? "협업방 수행평가 — 고르면 칸에 채워져요" : "같은 과목 수행평가 — 고르면 칸에 채워져요"}
+            {picks.from === "plan" ? <><BookOpen size={13} className="mr-1 shrink-0" /><span className="min-w-0">{picks.list[0]?.who} <span className="font-medium text-mute">— 고르면 이름 · 내용 · 루브릭이 채워져요</span></span></>
+              : picks.from === "ai" ? <><FileUp size={13} className="mr-1" /> 계획서에서 {picks.list.length}개를 찾았어요 — 하나를 고르거나 모두 등록</> : picks.from === "room" ? "협업방 수행평가 — 고르면 칸에 채워져요" : "같은 과목 수행평가 — 고르면 칸에 채워져요"}
             <button type="button" onClick={() => setPicks(null)} className="ml-auto text-mute hover:text-ink" aria-label="닫기"><X size={14} /></button>
           </p>
           <ul className="flex max-h-[260px] flex-col gap-1 overflow-y-auto">
             {picks.list.map((x, i) => (
               <li key={i}>
                 <button type="button" onClick={() => fill(x)} className="flex w-full flex-col gap-0.5 rounded-control bg-[#fff] px-3 py-2 text-left hover:bg-key-soft">
-                  <span className="flex min-w-0 items-center gap-1.5 text-[14px] font-bold"><span className="truncate">{x.title}</span>{x.date && <span className="shrink-0 text-[12px] font-medium text-mute">{x.date}</span>}</span>
-                  {x.who && <span className="text-[12px] text-mute">{x.who} · {x.where}</span>}
+                  <span className="flex min-w-0 items-center gap-1.5 text-[14px] font-bold"><span className="truncate">{x.title}</span>{x.date && <span className="shrink-0 text-[12px] font-medium text-mute">{x.date}</span>}
+                    {x.tag && <span className="shrink-0 rounded-chip bg-key-soft px-1.5 py-px text-[11px] font-bold text-key-strong">{x.tag}</span>}</span>
+                  {picks.from === "plan" ? x.where && <span className="text-[12px] font-medium text-mute">{x.where}</span> : x.who && <span className="text-[12px] text-mute">{x.who} · {x.where}</span>}
                   {x.description && <span className="line-clamp-2 text-[12px] leading-5 text-sub">{x.description}</span>}
                 </button>
               </li>
             ))}
           </ul>
-          {picks.from === "ai" && picks.list.length > 1 && <Button type="button" size="sm" kind="soft" disabled={pending} onClick={saveAll}>{picks.list.length}개 모두 등록</Button>}
+          {(picks.from === "ai" || picks.from === "plan") && picks.list.length > 1 && <Button type="button" size="sm" kind="soft" disabled={pending} onClick={saveAll}>{picks.list.length}개 모두 등록{picks.from === "plan" ? " · 루브릭까지" : ""}</Button>}
         </div>
       )}
       <div className="grid grid-cols-[minmax(0,1fr)_148px] gap-2 md:grid-cols-[1fr_170px] md:gap-3">

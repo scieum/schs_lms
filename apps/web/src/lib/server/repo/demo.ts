@@ -103,6 +103,8 @@ function seed(): Store {
     { teacherId: "t-subject", courseId: "c-5", classes: [3] },
     { teacherId: "t-homeroom", courseId: "c-7", classes: [3] },
     { teacherId: "t-subject", courseId: "c-10", classes: [1, 2] },
+    // 1학년 2학기 통합과학2 — 평가계획서 라이브러리(N78)를 데모에서 볼 수 있게
+    { teacherId: "t-subject", courseId: "c-2", classes: [1] },
   ];
   // 공유용 깨끗한 데모 (2026-10-22): 학생 · 교사 · 편제표 · 수업 배정 · 동아리 명단만. 기록(세특 · 누가기록 · 봉사 · 프로그램 …)은 비워 둔다
   const setuk: SetukRecord[] = [];
