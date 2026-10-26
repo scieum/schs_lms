@@ -6,19 +6,21 @@ import { CalendarDays, Check, ChevronDown, ChevronRight, FileUp, Search, Trash2,
 import { cx } from "@/components/ui";
 import { ACTIVITY_MAX, cleanActivity } from "@/lib/domain/activity-name";
 import { shortMd } from "@/lib/domain/log-date";
-import { sortStudents, todayCount, type CollectStudent, type RecentPiece, findStudents } from "@/lib/domain/collect";
+import { sortStudents, todayCount, type CollectStudent, type RecentPiece, type StudentPiece, findStudents } from "@/lib/domain/collect";
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { ACCEPT } from "./evidence-files";
 import { addSetukPieces, fixSetukTranscript, polishSetukMemo, readSetukCollectFile, readSetukTranscript } from "@/app/(app)/teacher/setuk/actions";
 import { addLogs, fixLogTranscript, polishLogMemo, readLogFile, readLogTranscript } from "@/app/(app)/teacher/logs/actions";
 import { SpeechRecorder } from "./speech-recorder";
 import { deleteMyPieces } from "@/app/(app)/teacher/piece-actions";
+import { StudentPiecesDialog } from "./student-pieces";
 
 // 조각 모으기 (Figma N52 a 599:17196 · g2 599:17565 · 모바일 600:10311): 조각만 남기는 곳 — 바이트 이야기는 없다.
 // 받는 학생(여러 명, 학생마다 조각 수) → 활동명 · 날짜 · 메모 → [AI 다듬기](전 · 후 → 이걸로 바꾸기) → "n명에게 남기기".
 // 남기면 메모 칸만 비우고 받는 학생 · 활동명 · 날짜는 그대로 둔다(이어서 남기기). 오른쪽: 최근 조각 · 학생별 조각(적은 순).
 // 저장은 그대로: 세특 = 학생마다 조각 메모(addSetukPieces), 동아리 · 담임 = 누가기록(addLogs).
 // [메모 | 자료] (N60): 자료 = 활동지 · 보고서 · 사진 → AI가 읽은 요약이 메모 칸에 들어가고(고쳐 쓸 수 있음) 같은 버튼으로 남긴다. 세특은 "자료" 조각으로.
+// 학생별 조각에서 이름을 누르면 그 학생 조각 창 (N77, student-pieces.tsx).
 // [녹음] (N73): 발표를 녹음 → 이 기기에서 받아쓰기 → 받아쓴 글을 AI가 요약(또는 그대로) → 메모 칸 → 같은 버튼으로 남긴다. 녹음 파일은 남기지 않는다.
 
 export type CollectTarget =
@@ -60,6 +62,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
   const [busy, start] = useTransition();
   const [sort, setSort] = useState<"few" | "no">("few");
   const [allRows, setAllRows] = useState(false);
+  const [pieceOf, setPieceOf] = useState<string | null>(null);
   const [mode, setMode] = useState<"memo" | "file" | "voice">(startMode);
   const [file, setFile] = useState<File | null>(null);
   const [fromFile, setFromFile] = useState(false);
@@ -86,12 +89,24 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
   const shownPolish = polish && polish.memo === memo ? polish : null;
 
   // 조각 지우기 (2026-10-22): 내가 쓴 조각만 — 여러 학생에게 한 번에 남긴 줄은 그 학생들 것 모두
+  const pieceStudent = pieceOf ? students.find((s) => s.id === pieceOf) ?? null : null;
   const removePiece = (r: RecentPiece) => {
     if (!r.ids.length || busy) return;
     if (!window.confirm(r.n > 1 ? `이 조각을 ${r.n}명 모두에게서 지울까요?` : "이 조각을 지울까요?")) return;
     start(async () => {
       const res = await deleteMyPieces(target.kind === "setuk" ? { memoIds: r.ids } : { logIds: r.ids }).catch(() => ({ ok: false as const, error: "지우지 못했어요" }));
       setMsg(res.ok ? { ok: true, text: `조각을 지웠어요 (${res.n}개)` } : { ok: false, text: res.error });
+      if (res.ok) router.refresh();
+    });
+  };
+
+  // 학생 조각 창의 한 조각 지우기 (id = "memo-<id>" | "log-<id>")
+  const removeOne = (p: StudentPiece) => {
+    const m = /^(memo|log)-(.+)$/.exec(p.id);
+    if (!m || busy || !window.confirm("이 조각을 지울까요?")) return;
+    start(async () => {
+      const res = await deleteMyPieces(m[1] === "memo" ? { memoIds: [m[2]] } : { logIds: [m[2]] }).catch(() => ({ ok: false as const, error: "지우지 못했어요" }));
+      setMsg(res.ok ? { ok: true, text: "조각을 지웠어요" } : { ok: false, text: res.error });
       if (res.ok) router.refresh();
     });
   };
@@ -373,7 +388,8 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
             {sorted.map((s, i) => (
               <li key={s.id} className={cx("flex h-11 items-center gap-2", !allRows && (i >= 6 ? "hidden" : i >= 4 ? "max-md:hidden" : ""))}>
                 <span className="w-11 shrink-0 text-[12px] font-medium text-mute">{s.no}</span>
-                <b className="truncate text-[14px]">{s.name}</b>
+                <button type="button" onClick={() => setPieceOf(s.id)} title="조각 모두 보기"
+                  className="truncate text-left text-[14px] font-bold underline-offset-4 hover:text-key-strong hover:underline">{s.name}</button>
                 <span className={cx("shrink-0 rounded-[6px] px-1.5 py-0.5 text-[12px] font-bold", s.count === 0 ? "bg-due-soft text-due" : "bg-soft text-sub")}>조각 {s.count}</span>
                 <span className="flex-1" />
                 <Link href={`${composeHref}&student=${s.id}`} className="inline-flex items-center gap-0.5 whitespace-nowrap text-[13px] font-bold text-key-strong">글 짓기 <ChevronRight size={14} /></Link>
@@ -388,6 +404,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
         </section>
       </div>
     </div>
+    {pieceStudent && <StudentPiecesDialog student={pieceStudent} composeHref={composeHref} onClose={() => setPieceOf(null)} onRemove={removeOne} busy={busy} />}
     </div>
   );
 }

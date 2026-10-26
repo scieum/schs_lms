@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recentPieces, sortStudents, todayCount } from "./collect";
+import { dayLabel, pieceKinds, piecesByDay, recentPieces, sortStudents, todayCount } from "./collect";
 
 const names: Record<string, string> = { a: "학생A", b: "학생B", c: "학생C" };
 const nameOf = (id: string) => names[id];
@@ -49,5 +49,30 @@ describe("최근 조각 — 지우기용 id (2026-10-22)", () => {
     const r = recentPieces([{ id: "m1", studentId: "a", date: "2026-10-22", content: "[실험] 측정함" }, { id: "m2", studentId: "b", date: "2026-10-22", content: "[실험] 측정함" }], () => "학생");
     expect(r).toHaveLength(1);
     expect(r[0].ids).toEqual(["m1", "m2"]);
+  });
+});
+
+describe("학생별 조각 창 (N77)", () => {
+  const ps = [
+    { id: "memo-1", source: "메모", date: "2026-10-14", text: "a" },
+    { id: "memo-2", source: "자료 요약", date: "2026-10-21", text: "b" },
+    { id: "memo-3", source: "메모", date: "2026-10-26", text: "c" },
+    { id: "memo-4", source: "메모", date: null, text: "d" },
+    { id: "memo-5", source: "공통 활동", date: "2026-10-14", text: "e" },
+  ];
+  it("종류는 있는 것만 많은 순", () => {
+    expect(pieceKinds(ps)).toEqual([{ source: "메모", n: 3 }, { source: "자료 요약", n: 1 }, { source: "공통 활동", n: 1 }]);
+  });
+  it("날짜별로 새 날짜부터, 날짜 없는 조각은 맨 뒤", () => {
+    expect(piecesByDay(ps, null).map((g) => [g.date, g.items.map((i) => i.id)])).toEqual([
+      ["2026-10-26", ["memo-3"]], ["2026-10-21", ["memo-2"]], ["2026-10-14", ["memo-1", "memo-5"]], [null, ["memo-4"]],
+    ]);
+  });
+  it("종류를 고르면 그 종류만", () => {
+    expect(piecesByDay(ps, "자료 요약").map((g) => g.items.length)).toEqual([1]);
+  });
+  it("날짜 이름표", () => {
+    expect(dayLabel("2026-10-26")).toBe("10.26 (월)");
+    expect(dayLabel(null)).toBe("날짜 없음");
   });
 });

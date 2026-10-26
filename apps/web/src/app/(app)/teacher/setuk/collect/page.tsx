@@ -11,6 +11,7 @@ import { repo } from "@/lib/server/repo";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
 import { listMemosWithPieces, memoPieces } from "@/lib/server/merge-pieces";
+import { withPieces } from "@/lib/domain/collect";
 import { CollectBoard } from "@/components/writing/collect-board";
 import { setukScope } from "@/lib/domain/common-activity";
 import { commonActivityRows } from "@/lib/server/common-activity";
@@ -99,7 +100,7 @@ export default async function SetukCollectPage({ searchParams }: Props) {
           key={`${course.id}-${tab.section ?? ""}`}
           target={{ kind: "setuk", courseId: course.id }}
           // 다른 학교 학생(N54)은 칸이 좁아 번호 자리에 학교 이름만
-          students={students.map((s) => ({ id: s.id, no: s.school ?? s.studentNo, name: s.name, count: memoPieces(memos.filter((m) => m.studentId === s.id)).length }))}
+          students={students.map((s) => ({ id: s.id, no: s.school ?? s.studentNo, name: s.name, ...withPieces(memoPieces(memos.filter((m) => m.studentId === s.id), v.accountId)) }))}
           recent={recentPieces(memos.filter((m) => m.authorId === v.accountId).map((m) => ({ id: m.id, studentId: m.studentId, date: m.date ?? seoulDay(m.createdAt), content: m.content })), (id) => nameOf.get(id))}
           composeHref={compose}
           today={today}

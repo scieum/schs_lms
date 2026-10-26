@@ -4,7 +4,8 @@ import { PageBody, PageHeader } from "@/components/shell/app-shell";
 import { ButtonLink } from "@/components/ui";
 import { homeroomStudents, today } from "@/lib/domain/activity";
 import { makeStudentNo } from "@/lib/domain/roster";
-import { recentPieces } from "@/lib/domain/collect";
+import { recentPieces, withPieces } from "@/lib/domain/collect";
+import { logPieces } from "@/lib/server/merge-pieces";
 import { repo } from "@/lib/server/repo";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
@@ -49,7 +50,7 @@ export default async function HomeroomLogsPage({ searchParams }: Props) {
         <CollectBoard
           target={{ kind: "log", area: first.value }}
           areas={areas}
-          students={students.map((s) => ({ id: s.id, no: makeStudentNo(s.grade, s.classNo, s.number), name: s.name, count: logs.filter((l) => l.studentId === s.id).length }))}
+          students={students.map((s) => ({ id: s.id, no: makeStudentNo(s.grade, s.classNo, s.number), name: s.name, ...withPieces(logPieces(logs.filter((l) => l.studentId === s.id), v.accountId)) }))}
           recent={recentPieces(logs.filter((l) => l.authorId === v.accountId).map((l) => ({ id: l.id, studentId: l.studentId, date: l.date, content: l.content })), (id) => nameOf.get(id))}
           composeHref="/homeroom/compose?tab=behavior"
           today={today()}

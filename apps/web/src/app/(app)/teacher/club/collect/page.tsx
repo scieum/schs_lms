@@ -6,7 +6,8 @@ import { ButtonLink, Card, cx } from "@/components/ui";
 import { today } from "@/lib/domain/activity";
 import { schoolYear } from "@/lib/domain/curriculum";
 import { makeStudentNo } from "@/lib/domain/roster";
-import { recentPieces } from "@/lib/domain/collect";
+import { recentPieces, withPieces } from "@/lib/domain/collect";
+import { logPieces } from "@/lib/server/merge-pieces";
 import { repo } from "@/lib/server/repo";
 import { aiEnabled } from "@/lib/server/ai/claude";
 import { requireCan } from "@/lib/server/viewer";
@@ -81,7 +82,7 @@ export default async function ClubCollectPage({ searchParams }: Props) {
         <CollectBoard
           key={club.id}
           target={{ kind: "log", area: "동아리", clubId: club.id }}
-          students={students.map((s) => ({ id: s.id, no: makeStudentNo(s.grade, s.classNo, s.number), name: s.name, count: logs.filter((l) => l.studentId === s.id).length }))}
+          students={students.map((s) => ({ id: s.id, no: makeStudentNo(s.grade, s.classNo, s.number), name: s.name, ...withPieces(logPieces(logs.filter((l) => l.studentId === s.id), v.accountId)) }))}
           recent={recentPieces(logs.filter((l) => l.authorId === v.accountId).map((l) => ({ id: l.id, studentId: l.studentId, date: l.date, content: l.content })), (id) => nameOf.get(id))}
           composeHref={compose}
           today={today()}
