@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { libraryDescription, libraryFor, libraryLine, libraryRubric, libraryTitle, type LibItem, type LibPlan } from "./assess-library";
 import g1 from "./assess-library/2026-2-g1.json";
+import g2 from "./assess-library/2026-2-g2.json";
 import { checkRubric, rubricTotal } from "./rubric";
 
 const poem: LibItem = {
@@ -79,6 +80,26 @@ describe("평가계획서 라이브러리 (N78)", () => {
     const social = libraryFor([plan], { subject: "통합사회2", year: 2026, grade: 1, semester: 2 })[0];
     const r = libraryRubric(social)!;
     expect(r.criteria.map((c) => `${c.name} ${c.points}`)).toEqual(["1회 · 내용정리 20", "1회 · 탐구쓰기 30", "2회 · 내용정리 20", "2회 · 탐구쓰기 30"]);
+  });
+  it("실제 계획서(2학년 2학기): 25과목 · 루브릭 · 비율 합 · 기준 총점 (계획서 오류는 check 로 표시)", () => {
+    const plan = g2 as LibPlan;
+    expect(plan.subjects.length).toBe(25);
+    for (const s of plan.subjects) {
+      expect(s.items.reduce((a, x) => a + (x.weight ?? 0), 0), s.subject).toBe(s.perfRatio);
+      for (const x of s.items) {
+        const r = libraryRubric(x);
+        expect(r, x.title).not.toBeNull();
+        expect(checkRubric(r!), x.title).toBeNull();
+        const pts = x.criteria.reduce((a, c) => a + (c.points ?? 0) * (c.perItem ?? 1), 0);
+        if (!x.check) expect(pts, x.title).toBe(x.max);
+        expect(x.criteria.length, x.title).toBeLessThanOrEqual(8);
+      }
+    }
+    // 같은 학년 계획서가 먼저, 다른 학년은 뒤로
+    const lit = libraryFor([g1 as LibPlan, plan], { subject: "문학", year: 2026, grade: 2, semester: 2 });
+    expect(lit.map((x) => x.title)).toEqual(["책 서평쓰기", "책 대화 나누기"]);
+    const calc = libraryRubric(libraryFor([plan], { subject: "미적분Ⅰ", year: 2026, grade: 2, semester: 2 })[0])!;
+    expect(calc.criteria.map((c) => c.name)).toEqual(["극한과 연속 (5점 문항) (문항마다)", "극한과 연속 (2.5점 문항) (문항마다)", "미분법 (5점 문항) (문항마다)", "미분법 (2.5점 문항) (문항마다)"]);
   });
   it("한 줄 · 평가 내용", () => {
     expect(libraryLine(poem)).toBe("9월 · 반영 15% · 100점");
