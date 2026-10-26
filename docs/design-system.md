@@ -69,7 +69,7 @@ Display 32 · H1 28 · H2 20 · Title 17 Bold · Lead 17 Light · Body 15 · Cap
 - Don't: 포인트 색으로 큰 면 칠하기 · 한 화면에 포인트 색 4가지 이상 · 빨강을 "중요" 강조용으로 쓰기(실패에만)
 
 ## 2026-10-17 추가 시안
-> Figma 파일 `VTHccW9TvWVWbNwdBawvSI`, Theme `E 속초 인디고`(53:0). 각 페이지 맨 아래 "2026-10-17 추가 시안" 구역, D2 열(PC x=2100 · Mobile x=3640, 둘째 화면 PC x=4200 · Mobile x=5740)에 둔다. 코드에 먼저 만든 기능을 시안에 옮긴 것.
+> Figma 파일 `LY7t8RFuJZlFu64tkyOVWt`, Theme `E 속초 인디고`(53:0). 각 페이지 맨 아래 "2026-10-17 추가 시안" 구역, D2 열(PC x=2100 · Mobile x=3640, 둘째 화면 PC x=4200 · Mobile x=5740)에 둔다. 코드에 먼저 만든 기능을 시안에 옮긴 것.
 
 | 화면 | 페이지 | PC | Mobile |
 |---|---|---|---|
@@ -1556,7 +1556,7 @@ Figma 페이지 "N37 이동반 명단 직접 고르기"(448:98413): PC 1440 `448
 
 - "인쇄 미리보기"·"삭제 예정 안내"는 유아이볼 결과가 0건이라 학교 공문(결재란)·A4 표 관례로 그렸다.
 
-### 화면 (Figma VTHccW9TvWVWbNwdBawvSI)
+### 화면 (Figma LY7t8RFuJZlFu64tkyOVWt)
 | 화면 | 구역 | id |
 |---|---|---|
 | PC · 나이스 입력 · 채운 뒤 대조 · 다름 펼침 (N39 a) | 02 나이스 입력 459:95706 오른쪽 (묶음 제목 470:22018) | 470:22127 (창 470:22236) |
@@ -2229,7 +2229,7 @@ Figma: 02 컴퓨터용 "교사 · 기록 쓰기" 구역 459:95634 맨 아래 두
 > "프로그램의 경우 아예 외부에서 생기부 데이터를 줄 수도 있어서 이거 그냥 입력하는 창도 있어야 할 것 같아."(사용자). 대학 연계 프로그램 · 외부 강사 · 교육청 캠프처럼 **기관이 학생마다 완성된 생기부 글을 보내 주는 경우**, 교사가 그 글을 AI 없이 그대로 학생 초안으로 넣는다. 넣은 글은 **"직접 입력" 초안(새 버전, AI 원안 없음)** 이 되고 지금 흐름 그대로 — 자동 검사(N23 · N34 금칙어 · N38 맞춤법 · N41 과장) → 교사 확정 → 담임 전달 → 나이스.
 > 세 가지 길: ① 학생마다 **직접 넣기**(초안 검토 편집 · 프로그램 학생 팝업) ② **외부 글 넣기**(N25 양식 엑셀 한꺼번에 — 붙여넣기 칸 · AI 열 맞추기 없음) ③ 프로그램 등록 근거 자료 **"외부 글 (직접 넣기)"**(설문·서류·AI 없이 외부 글만 모으는 프로그램, 학생 화면에 안 보임).
 
-Figma (VTHccW9TvWVWbNwdBawvSI): 01 구역 "컴포넌트 · N46 외부 생기부 글 직접 넣기 (2026-10-20)" **516:552**. 02 컴퓨터용 "교사 · 초안 검토" 459:95676(x 7720~, 구역 폭 10800) · "프로그램" 459:95681, 03 모바일용 같은 구역 459:95818 · 459:95823. 00 목차 Row/N46 **522:31331**. 대체한 화면이 없어(모두 새 상태) 99 이전 버전으로 옮긴 것은 없다. 시안 PNG: scratchpad `n46/figma/`.
+Figma (LY7t8RFuJZlFu64tkyOVWt): 01 구역 "컴포넌트 · N46 외부 생기부 글 직접 넣기 (2026-10-20)" **516:552**. 02 컴퓨터용 "교사 · 초안 검토" 459:95676(x 7720~, 구역 폭 10800) · "프로그램" 459:95681, 03 모바일용 같은 구역 459:95818 · 459:95823. 00 목차 Row/N46 **522:31331**. 대체한 화면이 없어(모두 새 상태) 99 이전 버전으로 옮긴 것은 없다. 시안 PNG: scratchpad `n46/figma/`.
 
 | 화면 | 컴퓨터용 (1440) | 모바일용 (412) |
 |---|---|---|
@@ -2350,7 +2350,7 @@ Figma (VTHccW9TvWVWbNwdBawvSI): 01 구역 "컴포넌트 · N46 외부 생기부 
 - [번개장터 — 글쓰기](https://uibowl.io/name/%EB%B2%88%EA%B0%9C%EC%9E%A5%ED%84%B0?patterns=%EA%B8%80%EC%93%B0%EA%B8%B0&imgId=clxd868fa0023mc0cj63e6d2j): 글쓰기 단계 · 맨 아래 주 버튼 하나.
 - [미소 — 견적 요청 완료](https://uibowl.io/name/%EB%AF%B8%EC%86%8C?patterns=%EC%8B%A0%EC%B2%AD%ED%95%98%EA%B8%B0&imgId=cmqt6igjt000slb04sgvu1irw): 진행 과정 세로 목록에서 지금 단계만 설명 펼침.
 
-### Figma (VTHccW9TvWVWbNwdBawvSI)
+### Figma (LY7t8RFuJZlFu64tkyOVWt)
 | 화면 | 컴퓨터용 (02 기록 쓰기 459:95634 맨 아래 줄, 줄 제목 540:34258) | 모바일용 (03 기록 쓰기 459:95782 맨 아래 줄, 줄 제목 543:8285) |
 |---|---|---|
 | (a) 세특 ① 활동 메모 — 접힌 수업 자료 · 단계 표시 ① · 다음 · AI로 쓰기 | 540:34259 | 543:8286 |
@@ -2454,7 +2454,7 @@ Figma (VTHccW9TvWVWbNwdBawvSI): 01 구역 "컴포넌트 · N46 외부 생기부 
   - [리스닝마인드.AI — 광고카피 쓰기](https://uibowl.io/website/%EB%A6%AC%EC%8A%A4%EB%8B%9D%EB%A7%88%EC%9D%B8%EB%93%9C.AI?patterns=AI&imgId=cmsk10uuj0011l404zeqpji82): AI 글을 늘어놓고 하나씩 복사 → PC는 글 전체를 자르지 않고.
 - (e) 누가기록 작은 수정 요청: (c)의 AI Hay 글쓰기 · 에이닷 추천 · 카나나 입력 칸 + [네이버페이 — 오늘운세](https://uibowl.io/name/%EB%84%A4%EC%9D%B4%EB%B2%84%ED%8E%98%EC%9D%B4?patterns=%EA%B2%8C%EC%9D%B4%EB%AF%B8%ED%94%BC%EC%BC%80%EC%9D%B4%EC%85%98&imgId=cmswziybm00epic04o15pu9mu)(AI 결과에 작은 표시 → 미리보기 머리 "AI로 다듬음") + [달다방 히스토리](https://uibowl.io/name/%EB%8B%AC%EB%8B%A4%EB%B0%A9?patterns=%EB%82%B4%EC%97%AD&imgId=cmuc8yfts001ni604fi1lycqa)(N41 — 작은 동작 하나).
 
-### Figma (VTHccW9TvWVWbNwdBawvSI)
+### Figma (LY7t8RFuJZlFu64tkyOVWt)
 | 화면 | 컴퓨터용 (02 기록 쓰기 459:95634 맨 아래 줄, 줄 제목 574:13482) | 모바일용 (03 기록 쓰기 459:95782 맨 아래 줄, 줄 제목 576:36080) |
 |---|---|---|
 | (a) 세특 ② 메모 모아 쓰기 — 빠르게 고르기 · 목표 · 오차(메뉴 열림) · 맞출 범위 | 574:13483 | 576:36081 |
@@ -2577,7 +2577,7 @@ Figma (VTHccW9TvWVWbNwdBawvSI): 01 구역 "컴포넌트 · N46 외부 생기부 
 - 잠긴 지금 글 · 자리 없음: [아하 — 질문하기](https://uibowl.io/name/%EC%95%84%ED%95%98?patterns=%EA%B8%80%EC%93%B0%EA%B8%B0&imgId=cmp69gd2j000sjs047x7ypp6s)(회색 안내 칸 "수정할 수 없어요" + 글자 수 "61 / 10,000자") · [아이쿠카 — 챌린지 내역](https://uibowl.io/name/%EC%95%84%EC%9D%B4%EC%BF%A0%EC%B9%B4?patterns=%EB%82%B4%EC%97%AD&imgId=cmp0t1b3b0024l504ocohcb9s)(고칠 수 없음 알림) · [모으미 — 도움말](https://uibowl.io/name/%EB%AA%A8%EC%9C%BC%EB%AF%B8?patterns=%ED%8A%9C%ED%86%A0%EB%A6%AC%EC%96%BC&imgId=cmv3cge2800r3l806ug35xz2n)(짧은 규칙 줄) · [에이닷 — 1대1 문의](https://uibowl.io/name/%EC%97%90%EC%9D%B4%EB%8B%B7?patterns=%EB%AC%B8%EC%9D%98%ED%95%98%EA%B8%B0&imgId=cmtwluyiv01rflf04gy835fs8)(조건이 안 되면 회색 주 버튼) · [지그재그 — 리뷰쓰기](https://uibowl.io/name/%EC%A7%80%EA%B7%B8%EC%9E%AC%EA%B7%B8?patterns=%EB%A6%AC%EB%B7%B0%EC%93%B0%EA%B8%B0&imgId=mp1diy0mcp95sweymtb1u149)("이어서 리뷰 작성" 주 버튼) · [링커리어 — CBT](https://uibowl.io/name/%EB%A7%81%EC%BB%A4%EB%A6%AC%EC%96%B4?patterns=%EC%83%81%EC%84%B8%EC%A0%95%EB%B3%B4%20%28PDP%29&imgId=cmgq7u2ne0012jr04t1f35j8x)("이어서 풀기").
 - ③ 더한 글 표시: [네이버페이 — 오늘운세](https://uibowl.io/name/%EB%84%A4%EC%9D%B4%EB%B2%84%ED%8E%98%EC%9D%B4?patterns=%EA%B2%8C%EC%9D%B4%EB%AF%B8%ED%94%BC%EC%BC%80%EC%9D%B4%EC%85%98&imgId=cmswziybm00epic04o15pu9mu)(AI 결과에 작은 표지) · [에이닷 — 생성형 답변](https://uibowl.io/name/%EC%97%90%EC%9D%B4%EB%8B%B7?patterns=AI&imgId=cmtwlukyo0007ky040kmpt6my)(글 자리에서 바로 결과) · [리스닝마인드.AI — 광고카피](https://uibowl.io/website/%EB%A6%AC%EC%8A%A4%EB%8B%9D%EB%A7%88%EC%9D%B8%EB%93%9C.AI?patterns=AI&imgId=cmsk10uuj0011l404zeqpji82)(AI 글 그대로 보여 주기) · [아하 — 질문하기](https://uibowl.io/name/%EC%95%84%ED%95%98?patterns=%EA%B8%80%EC%93%B0%EA%B8%B0&imgId=cmp69gd2j000sjs047x7ypp6s)(글 칸 위 분량 숫자) · [지그재그 — 리뷰쓰기](https://uibowl.io/name/%EC%A7%80%EA%B7%B8%EC%9E%AC%EA%B7%B8?patterns=%EB%A6%AC%EB%B7%B0%EC%93%B0%EA%B8%B0&imgId=mp1diy0mcp95sweymtb1u149)(이어 쓴 결과) + 이 앱 N34 전 · 후 "더한 말 = 인디고 밑줄".
 
-**Figma (VTHccW9TvWVWbNwdBawvSI)** — N49 줄 오른쪽에 이어 붙임(PC x 15,320~ · 모바일 x 5,040~)
+**Figma (LY7t8RFuJZlFu64tkyOVWt)** — N49 줄 오른쪽에 이어 붙임(PC x 15,320~ · 모바일 x 5,040~)
 | 화면 | 컴퓨터용 (02 · 459:95634) | 모바일용 (03 · 459:95782) |
 |---|---|---|
 | (a1) ② 새로 쓰기 · 지금 글 있음 — 모드 고르기 + 지금 글 행(고르는 조각) | 586:14739 (1440×1487) | 587:9616 (412×1718) |
@@ -2645,7 +2645,7 @@ Figma (VTHccW9TvWVWbNwdBawvSI): 01 구역 "컴포넌트 · N46 외부 생기부 
   - [셀레트립 — 지도](https://uibowl.io/name/%EC%85%80%EB%A0%88%ED%8A%B8%EB%A6%BD?patterns=%EC%A7%80%EB%8F%84%EB%B7%B0%C2%B7%EB%82%B4%EC%A3%BC%EB%B3%80&imgId=cmqp02abs0009l1048vibzry6): 빈 칸 안에서만 빈 상태(화면 전체 아님) → 왼쪽 칸만 비고 오른쪽 글 칸은 그대로.
   - [폴센트 — 메모](https://uibowl.io/name/%ED%8F%B4%EC%84%BC%ED%8A%B8?patterns=%EA%B8%80%EC%93%B0%EA%B8%B0&patternName=%EB%A9%94%EB%AA%A8): 첫 기록을 부르는 짧은 말.
 
-### Figma (VTHccW9TvWVWbNwdBawvSI)
+### Figma (LY7t8RFuJZlFu64tkyOVWt)
 | 화면 | 컴퓨터용 (02 새 구역 "교사 · 조각 모으기 · 글 짓기 · 메뉴 묶음 (N52, 2026-10-20)" 598:15580 · 줄 제목 598:15581) | 모바일용 (03 새 구역 같은 이름 600:10309 · 줄 제목 600:10310) |
 |---|---|---|
 | (a) 세특 · 조각 모으기 — 여러 학생(3명) · 남기기 · 최근 조각 · 학생별 수 | 599:17196 (1440×971) | 600:10311 (412×1533) |
@@ -3136,7 +3136,8 @@ Figma (VTHccW9TvWVWbNwdBawvSI): 01 구역 "컴포넌트 · N46 외부 생기부 
 
 ## 2026-10-26 신기능 안내 창 (N75)
 > 사용자: "처음 들어간 분들을 위해 로그인하면 홈 화면에 팝업 창으로 신기능 출시로 조각 모으기에서 녹음이 있다고 안내 … 일주일 동안 안 보이게 하기". 유아이볼 7건(보맵 · 미래에셋 M-STOCK · 패스오더 · 김밥카메라 · 사방넷 · 호갱노노 · 다비치마켓).
-> 시안: Figma MCP 호출 한도(Starter)로 Figma 대신 Claude 디자인 캔버스 https://claude.ai/artifact/THmZm1Z7aVLhRdBgGzCgy4 (N75 a PC · b 모바일). Figma 로 옮기면 여기 노드 번호를 적는다.
+> 시안: 처음엔 Figma MCP 호출 한도(Starter)로 Claude 디자인 캔버스(https://claude.ai/artifact/THmZm1Z7aVLhRdBgGzCgy4)에 그렸고, 새 파일로 옮긴 뒤 Figma 에 같은 모양으로 넣었다 — 02 컴퓨터용 "교사 · 홈 · 학사일정" **2002:21186** (N75 a, 배경 = T1 홈 인스턴스) · 03 모바일용 같은 구역 **2002:32576** (N75 b).
+> **Figma 파일 이전 (2026-10-26)**: 시안 파일을 새 계정(김하연 gkrn94@gw1.kr)으로 복제 → `LY7t8RFuJZlFu64tkyOVWt`. 복제라 노드 번호는 그대로(예: 733:2 · 734:22024 확인). 이 문서의 예전 파일 키는 모두 새 키로 바꿨다.
 
 - 교사 홈(`/teacher`)에만. PC = 가운데 480 창, 모바일 = 바닥 시트. 그림(녹음 줄 · 받아쓴 글 · AI 오타 고치기) · NEW + 영역 · 제목 두 줄 · 세 단계 · [녹음 써 보기] · 아래 줄 [□ 일주일 동안 보지 않기 | 닫기].
 - [닫기] = 이번 접속(sessionStorage)만 숨김 → 다음 로그인 때 다시. 체크하고 닫기 · [써 보기] = 7일(localStorage). 바깥 누르기 · Esc = 닫기.
