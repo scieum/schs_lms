@@ -4,16 +4,20 @@ import { redirect } from "next/navigation";
 import type { Viewer } from "@/lib/domain/types";
 import { can, type Action } from "@/lib/domain/policy";
 import { repo } from "./repo";
-import { readSession } from "./session";
+import { sessionValid } from "@/lib/domain/session-policy";
+import { passwordStamp, readSessionClaims } from "./session";
 import { scoresEnabled } from "./features";
 
 /** 지금 로그인한 사람. 요청마다 한 번만 읽는다. */
 export const getViewer = cache(async (): Promise<Viewer | null> => {
-  const id = await readSession();
-  if (!id) return null;
+  const claims = await readSessionClaims();
+  if (!claims) return null;
+  const id = claims.id;
   // DB 왕복을 줄이려고 계정·교사·학생을 한 번에 조회한다 (둘 중 하나만 있다)
   const [account, teacher, student] = await Promise.all([repo.getAccount(id), repo.getTeacher(id), repo.getStudent(id)]);
   if (!account) return null;
+  // 비밀번호가 바뀌었거나 관리자가 잠근 계정이면 (자동 로그인이라도) 세션을 받지 않는다
+  if (!sessionValid(claims, account, new Date(), passwordStamp)) return null;
   if (account.kind === "student") {
     return student ? { kind: "student", accountId: id, mustChangePassword: account.mustChangePassword, student } : null;
   }

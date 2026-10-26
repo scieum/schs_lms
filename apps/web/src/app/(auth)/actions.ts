@@ -7,7 +7,7 @@ import { checkNewPassword, PASSWORD_MESSAGES } from "@/lib/domain/password";
 import { homePath } from "@/lib/domain/policy";
 import { env } from "@/lib/server/env";
 import { repo } from "@/lib/server/repo";
-import { createSession, destroySession, readSession } from "@/lib/server/session";
+import { createSession, destroySession, readSession, renewSession } from "@/lib/server/session";
 import { getViewer } from "@/lib/server/viewer";
 
 export type FormState = { error?: string } | undefined;
@@ -16,6 +16,8 @@ const LoginSchema = z.object({
   kind: z.enum(["student", "teacher"]),
   loginId: z.string().trim().min(1).max(40),
   password: z.string().min(1).max(100),
+  /** 자동 로그인 체크 (켜면 30일) */
+  keep: z.literal("on").optional(),
 });
 
 // 없는 계정·틀린 비밀번호를 구분하지 않는다 (계정 존재 여부를 알려주지 않음)
@@ -26,7 +28,7 @@ const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", 10);
 export async function login(_: FormState, form: FormData): Promise<FormState> {
   const parsed = LoginSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: "학번(이름)과 비밀번호를 입력해 주세요" };
-  const { kind, loginId, password } = parsed.data;
+  const { kind, loginId, password, keep } = parsed.data;
   const now = new Date();
 
   const account = await repo.findAccountByLogin(kind, loginId);
@@ -53,8 +55,8 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
 
   await repo.updateAccount(account.id, afterSuccess());
   await repo.adminTouchLogin(account.id);
-  await repo.audit(account.id, "login", null);
-  await createSession(account.id);
+  await repo.audit(account.id, "login", keep ? "자동 로그인" : null);
+  await createSession(account.id, { passwordHash: account.passwordHash, keep: !!keep });
   if (account.mustChangePassword) redirect("/change-password");
   const v = await getViewer();
   redirect(v ? homePath(v) : "/login");
@@ -75,7 +77,9 @@ export async function changePassword(_: FormState, form: FormData): Promise<Form
   const problem = checkNewPassword(next, confirm, env.initialAuthCode);
   if (problem) return { error: PASSWORD_MESSAGES[problem] };
 
-  await repo.updateAccount(v.accountId, { passwordHash: await bcrypt.hash(next, 10), mustChangePassword: false });
+  const hash = await bcrypt.hash(next, 10);
+  await repo.updateAccount(v.accountId, { passwordHash: hash, mustChangePassword: false });
   await repo.audit(v.accountId, "password.change", null);
+  await renewSession(v.accountId, hash);
   redirect(homePath({ ...v, mustChangePassword: false }));
 }

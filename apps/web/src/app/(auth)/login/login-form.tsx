@@ -69,6 +69,12 @@ export function LoginForm() {
         </label>
       </div>
 
+      <label className="-mt-2 flex min-h-11 cursor-pointer items-center gap-2 self-start">
+        <input type="checkbox" name="keep" className="size-5 shrink-0 accent-[#536DFE]" />
+        <span className="text-[15px] font-medium">자동 로그인</span>
+        <span className="text-[13px] text-mute">30일 · 공용 기기에서는 끄세요</span>
+      </label>
+
       {state?.error && <p className="text-sm text-bad" role="alert">{state.error}</p>}
       <Button disabled={pending} className="h-13 font-bold">
         {pending ? "확인 중…" : "로그인"}

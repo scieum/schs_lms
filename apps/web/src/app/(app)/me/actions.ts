@@ -8,6 +8,7 @@ import { maskIdentity } from "@/lib/domain/program";
 import { careerKeywords } from "@/lib/server/ai/student-ai";
 import { env } from "@/lib/server/env";
 import { repo } from "@/lib/server/repo";
+import { renewSession } from "@/lib/server/session";
 import { requireCan, requireViewer } from "@/lib/server/viewer";
 import { cleanLayout, isLockedMenu, navFor, type MenuLayout } from "@/components/shell/nav";
 
@@ -36,8 +37,11 @@ export async function changeMyPassword(prev: MeState, form: FormData): Promise<M
   const problem = checkNewPassword(next, confirm, env.initialAuthCode);
   if (problem) return { error: PASSWORD_MESSAGES[problem] };
   if (next === current) return { error: "지금과 다른 비밀번호를 써 주세요" };
-  await repo.updateAccount(v.accountId, { passwordHash: await bcrypt.hash(next, 10), mustChangePassword: false });
+  const hash = await bcrypt.hash(next, 10);
+  await repo.updateAccount(v.accountId, { passwordHash: hash, mustChangePassword: false });
   await repo.audit(v.accountId, "password.change", null);
+  // 다른 기기의 세션은 끝나고 이 기기만 새 비밀번호로 이어진다
+  await renewSession(v.accountId, hash);
   return { ok: (prev.ok ?? 0) + 1 };
 }
 

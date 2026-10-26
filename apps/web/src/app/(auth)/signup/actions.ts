@@ -48,8 +48,9 @@ export async function signup(_: SignupState, form: FormData): Promise<SignupStat
   const name = normalizeTeacherName(input.name);
 
   let created: { id: string; roles: string[] };
+  const hash = await bcrypt.hash(input.password, 10);
   try {
-    created = await repo.adminRegisterTeacher(name, await bcrypt.hash(input.password, 10));
+    created = await repo.adminRegisterTeacher(name, hash);
   } catch (e) {
     if (e instanceof Error && e.message === "duplicate_name") {
       return { error: "이미 가입한 이름이에요. 동명이인이면 '이서연2'처럼 구분해 주세요" };
@@ -57,7 +58,7 @@ export async function signup(_: SignupState, form: FormData): Promise<SignupStat
     return { error: "가입하지 못했어요. 잠시 뒤 다시 해 주세요" };
   }
   await repo.audit(created.id, created.roles.includes("admin") ? "teacher.signup.admin" : "teacher.signup", null);
-  await createSession(created.id);
+  await createSession(created.id, { passwordHash: hash });
   const v = await getViewer();
   redirect(v ? homePath(v) : "/login");
 }
