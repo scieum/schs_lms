@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { libraryDescription, libraryFor, libraryLine, libraryRubric, libraryTitle, type LibItem, type LibPlan } from "./assess-library";
 import g1 from "./assess-library/2026-2-g1.json";
 import g2 from "./assess-library/2026-2-g2.json";
+import g3 from "./assess-library/2026-2-g3.json";
 import { checkRubric, rubricTotal } from "./rubric";
 
 const poem: LibItem = {
@@ -100,6 +101,24 @@ describe("평가계획서 라이브러리 (N78)", () => {
     expect(lit.map((x) => x.title)).toEqual(["책 서평쓰기", "책 대화 나누기"]);
     const calc = libraryRubric(libraryFor([plan], { subject: "미적분Ⅰ", year: 2026, grade: 2, semester: 2 })[0])!;
     expect(calc.criteria.map((c) => c.name)).toEqual(["극한과 연속 (5점 문항) (문항마다)", "극한과 연속 (2.5점 문항) (문항마다)", "미분법 (5점 문항) (문항마다)", "미분법 (2.5점 문항) (문항마다)"]);
+  });
+  it("실제 계획서(3학년 2학기): 39과목 · P/F 과목은 비율 없이도 루브릭이 됨", () => {
+    const plan = g3 as LibPlan;
+    expect(plan.subjects.length).toBe(39);
+    for (const s of plan.subjects) {
+      if (s.perfRatio != null) expect(s.items.reduce((a, x) => a + (x.weight ?? 0), 0), s.subject).toBe(s.perfRatio);
+      for (const x of s.items) {
+        const r = libraryRubric(x);
+        expect(r, x.title).not.toBeNull();
+        expect(checkRubric(r!), x.title).toBeNull();
+        const pts = x.criteria.reduce((a, c) => a + (c.points ?? 0) * (c.perItem ?? 1), 0);
+        if (!x.check && x.max != null) expect(pts, x.title).toBe(x.max);
+      }
+    }
+    // 같은 이름 과목(영미문학읽기)은 학년이 맞는 계획서가 먼저
+    const lit = libraryFor([g1 as LibPlan, g2 as LibPlan, plan], { subject: "영미문학읽기", year: 2026, grade: 3, semester: 2 });
+    expect(lit[0].grade).toBe(3);
+    expect(libraryFor([plan], { subject: "화학Ⅱ", year: 2026, grade: 3, semester: 2 }).map((x) => x.title)).toEqual(["반응 속도 자료 해석", "효소와 촉매 탐구 보고서", "반응 속도 실생활 예시 탐구"]);
   });
   it("한 줄 · 평가 내용", () => {
     expect(libraryLine(poem)).toBe("9월 · 반영 15% · 100점");
