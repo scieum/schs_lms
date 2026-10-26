@@ -30,7 +30,7 @@ type Polish = { ok: true; text: string; label: "AI" | "자동"; notice?: string 
 const PC_SHOWN = 12;
 const M_SHOWN = 6;
 
-export function CollectBoard({ target, students, recent, composeHref, today, withDate, preselect = [], areas, aiOn }: {
+export function CollectBoard({ target, students, recent, composeHref, today, withDate, preselect = [], areas, aiOn, startMode = "memo" }: {
   target: CollectTarget;
   students: CollectStudent[];
   recent: RecentPiece[];
@@ -43,6 +43,8 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
   /** 담임 누가기록: 남길 영역 (자율·자치 | 진로) */
   areas?: { value: string; label: string }[];
   aiOn: boolean;
+  /** 처음 열 칸 (신기능 안내 N75 [녹음 써 보기] → ?mode=voice) */
+  startMode?: "memo" | "file" | "voice";
 }) {
   const router = useRouter();
   const [picked, setPicked] = useState<Set<string>>(() => new Set(preselect.filter((id) => students.some((s) => s.id === id))));
@@ -58,7 +60,7 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
   const [busy, start] = useTransition();
   const [sort, setSort] = useState<"few" | "no">("few");
   const [allRows, setAllRows] = useState(false);
-  const [mode, setMode] = useState<"memo" | "file" | "voice">("memo");
+  const [mode, setMode] = useState<"memo" | "file" | "voice">(startMode);
   const [file, setFile] = useState<File | null>(null);
   const [fromFile, setFromFile] = useState(false);
   const [drag, setDrag] = useState(false);

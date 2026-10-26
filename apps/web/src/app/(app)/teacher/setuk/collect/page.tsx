@@ -19,7 +19,7 @@ import { ClassMaterials } from "@/components/writing/class-materials";
 
 export const metadata = { title: "세특 조각 모으기 · 속초고 쌤기부" };
 
-type Props = { searchParams: Promise<{ course?: string; section?: string; student?: string }> };
+type Props = { searchParams: Promise<{ course?: string; section?: string; student?: string; mode?: string }> };
 
 // 탭 이름은 과목 이름만 (2026-10-22: "1-2" 같은 학년-학기는 뺌)
 const short = (c: Course) => c.subject;
@@ -106,6 +106,7 @@ export default async function SetukCollectPage({ searchParams }: Props) {
           withDate={false}
           preselect={q.student ? [q.student] : []}
           aiOn={aiEnabled()}
+          startMode={q.mode === "voice" ? "voice" : "memo"}
         />
       </PageBody>
     </>

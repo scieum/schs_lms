@@ -16,6 +16,7 @@ import { repo } from "@/lib/server/repo";
 import { requireViewer } from "@/lib/server/viewer";
 import { TodayBriefing } from "./briefing";
 import { SchoolInfoRow } from "@/components/school-info";
+import { NewsPopup } from "@/components/news-popup";
 
 /** 학생 제출 서류 → 학생마다 한 번 "제출" (처음 낸 때) — 예전 설문 응답과 같은 모양이라 아래 계산을 그대로 쓴다 */
 function submissionsOf(mats: { studentId: string | null; createdAt: string }[]): { studentId: string; submittedAt: string }[] {
@@ -98,6 +99,7 @@ export default async function TeacherHome() {
 
   return (
     <>
+      <NewsPopup />
       <PageHeader
         eyebrow={todayLabel()}
         title={greeting(`${v.teacher.name} 선생님`)}
