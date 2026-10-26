@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Download, PencilLine, Plus, Search, Sparkles, Trash2, Upload, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Download, PencilLine, Plus, Search, Sparkles, Trash2, Upload, X } from "lucide-react";
 import { Button, ButtonLink, cx } from "@/components/ui";
 import { neisBytes } from "@/lib/domain/length";
 import {
@@ -12,17 +12,19 @@ import {
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { ACCEPT } from "@/components/writing/evidence-files";
 import { HWP_GUIDE, isHwp } from "@/lib/domain/hwpx";
-import { confirmGrade, courseStandards, draftRubricAction, gradeAssessmentFile, gradeAssessmentText, importRubricAction, readAnswerPart, readRubricPart, type StandardItem } from "./actions";
+import { ASSESS_LIMITS } from "@/lib/domain/assessment";
+import { confirmGrade, courseStandards, draftRubricAction, gradeAssessmentFile, gradeAssessmentText, importRubricAction, readAnswerPart, readModelAnswerPart, readRubricPart, type StandardItem } from "./actions";
 
 // .hwp 도 고를 수 있게 둔다 — 고르면 HWPX로 저장해 달라고 바로 안내 (읽지는 않는다)
 const RUBRIC_ACCEPT = ".pdf,.hwpx,.hwp,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp";
 
 // 루브릭 채점 (Figma N72): 등록 창의 루브릭 표(N72 c) · 수행평가 칸(N72 a · d) · 채점 확인 창(N72 b · 모바일 시트 e).
 // AI는 버튼으로만 — 루브릭 초안 · 답안 채점 제안. 확정은 교사가 수준을 보고 누른다(AI 없이 직접 골라도 된다).
+// 예시 답안 (N80 a · c 등록 창 · b 채점 창): 답이 있는 평가면 교사가 넣고, AI가 학생 답안과 맞춰 본다. 학생에게는 안 보인다.
 
 export type GradeView = { status: GradeStatus; total: number; picks: GradePick[]; reading: string; piece: string };
 export type RStu = { id: string; no: string; name: string; grade: GradeView | null };
-type RSel = { id: string; title: string; rubric: Rubric };
+type RSel = { id: string; title: string; rubric: Rubric; modelAnswer: string };
 
 // 머리(제목 · 닫기)와 footer(취소 · 저장)는 고정, 본문만 스크롤 (N72 f 733:2, 2026-10-26 — 모바일에서 [등록]이 맨 아래까지 내려야 보이던 것)
 export function Shell({ title, onClose, children, footer, wide = false, label }: { title: React.ReactNode; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean | "xl"; label?: string }) {
@@ -235,6 +237,55 @@ export function RubricEditor({ courseId, section, title, description, rubric, se
   );
 }
 
+// ---------- 예시 답안 (N80 a · c) ----------
+
+export function ModelAnswerField({ courseId, section, title, value, onChange, aiOn }: {
+  courseId: string; section: string | null; title: string; value: string; onChange: (v: string) => void; aiOn: boolean;
+}) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState("");
+  // 파일 (PDF · HWPX · 사진): 쪽 묶음마다 글로 옮겨 이어 붙인다 — 칸에 넣고 교사가 확인 · 고친 뒤 저장
+  const importFile = (f: File) => start(async () => {
+    setError("");
+    if (isHwp(f.name)) return setError(HWP_GUIDE);
+    if (value.trim() && !window.confirm("지금 예시 답안을 파일 내용으로 바꿀까요?")) return;
+    const texts: string[] = [];
+    for (const part of await prepareUpload(f).catch(() => [f])) {
+      const x = new FormData(); x.set("courseId", courseId); x.set("section", section ?? ""); x.set("title", title); x.set("file", part);
+      const t = await readModelAnswerPart(x).catch(() => ({ ok: false as const, error: "파일을 읽지 못했어요" }));
+      if (!t.ok) return setError(t.error);
+      texts.push(t.text.trim());
+    }
+    const all = texts.filter(Boolean).join("\n");
+    if (!all) return setError("파일에서 글을 찾지 못했어요");
+    onChange(all.slice(0, ASSESS_LIMITS.modelAnswer));
+  });
+  return (
+    <div className="flex flex-col gap-2 border-t border-line pt-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[15px] font-bold">예시 답안 <span className="font-medium text-mute">(선택)</span></span>
+        <span className="rounded-chip bg-key-soft px-1.5 py-px text-[12px] font-bold text-key-strong">AI 채점 기준</span>
+        <span className="hidden flex-1 md:block" />
+        {aiOn && (
+          <label className={cx("flex h-10 w-full cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-control border border-line bg-[#fff] px-3 text-[13px] font-bold text-ink md:h-9 md:w-auto",
+            pending && "pointer-events-none opacity-50")}>
+            <Upload size={14} aria-hidden /> {pending ? "옮기는 중…" : <>파일에서 옮기기<span className="font-medium text-mute"> · PDF · HWPX · 사진</span></>}
+            <input type="file" accept={RUBRIC_ACCEPT} className="sr-only" disabled={pending} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importFile(f); }} />
+          </label>
+        )}
+      </div>
+      <textarea value={value} onChange={(e) => onChange(e.target.value)} maxLength={ASSESS_LIMITS.modelAnswer} rows={value.length > 160 ? 6 : 3} aria-label="예시 답안"
+        placeholder="정답 · 모범 답안 · 꼭 들어가야 할 요소 — 서술형 답이 있는 평가면 적어 주세요"
+        className="resize-y rounded-control bg-soft px-3 py-2.5 text-[14px] leading-6 text-ink outline-none focus:ring-2 focus:ring-key" />
+      <div className="flex items-start gap-3 text-[12px] leading-[18px] text-mute">
+        <span className="min-w-0 flex-1">답이 있는 평가면 넣어 주세요 — AI가 학생 답안과 맞춰 보고 맞은 점 · 빠진 점을 근거로 수준을 골라요. 학생에게는 보이지 않아요.</span>
+        <span className="shrink-0 tabular-nums">{value.length.toLocaleString()} / {ASSESS_LIMITS.modelAnswer.toLocaleString()}자</span>
+      </div>
+      {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
+    </div>
+  );
+}
+
 // ---------- 수행평가 칸 (N72 a · d) ----------
 
 export function RubricPanel({ a, students, total, aiOn, composeHref, onSplit }: {
@@ -248,8 +299,11 @@ export function RubricPanel({ a, students, total, aiOn, composeHref, onSplit }: 
   const max = rubricTotal(r);
   return (
     <>
-      {r.standards.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">{r.standards.map((s) => <span key={s} className="rounded-chip bg-soft px-1.5 py-px text-[12px] font-bold text-sub">{s}</span>)}</div>
+      {(r.standards.length > 0 || a.modelAnswer) && (
+        <div className="flex flex-wrap gap-1.5">
+          {r.standards.map((s) => <span key={s} className="rounded-chip bg-soft px-1.5 py-px text-[12px] font-bold text-sub">{s}</span>)}
+          {a.modelAnswer && <span className="rounded-chip bg-key-soft px-1.5 py-px text-[12px] font-bold text-key-strong">예시 답안으로 채점</span>}
+        </div>
       )}
       <div className="grid overflow-hidden rounded-inner border border-line" style={{ gridTemplateColumns: `repeat(${r.criteria.length}, minmax(0, 1fr))` }}>
         {r.criteria.map((c, i) => (
@@ -381,6 +435,7 @@ function GradeBody({ a, s, aiOn, onDone }: { a: RSel; s: RStu; aiOn: boolean; on
     <>
       <div className="grid gap-4 md:grid-cols-[340px_minmax(0,1fr)] md:gap-5">
         <div className="order-2 flex flex-col gap-3 md:order-1">
+          {a.modelAnswer && <ModelAnswerCard text={a.modelAnswer} />}
           {g?.reading && (
             <div className="flex flex-col gap-1.5 rounded-inner bg-bg px-3.5 py-3">
               <span className="flex items-center gap-1.5 text-[13px] font-bold"><AiTag /> 답안에서 읽은 것</span>
@@ -435,3 +490,21 @@ function GradeBody({ a, s, aiOn, onDone }: { a: RSel; s: RStu; aiOn: boolean; on
   );
 }
 
+/** 채점 창 왼쪽 맨 위 (N80 b): 예시 답안 세 줄 미리 보기 · 펼치기 */
+function ModelAnswerCard({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 90 || text.includes("\n");
+  return (
+    <div className="flex flex-col gap-1.5 rounded-inner border border-line px-3.5 py-3">
+      <span className="flex items-center gap-1.5 text-[13px] font-bold">
+        <span className="rounded-chip bg-key-soft px-1.5 py-px text-[11px] font-bold text-key-strong">예시</span> 예시 답안
+      </span>
+      <p className={cx("whitespace-pre-line text-[13px] leading-5 text-[#333d4b]", !open && "line-clamp-3")}>{text}</p>
+      {long && (
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex items-center gap-0.5 self-start text-[12px] font-bold text-key-strong">
+          {open ? "접기" : "펼치기"} <ChevronDown size={14} className={cx("transition-transform", open && "rotate-180")} />
+        </button>
+      )}
+    </div>
+  );
+}

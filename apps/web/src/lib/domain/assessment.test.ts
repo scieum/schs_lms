@@ -18,7 +18,7 @@ describe("수행평가 (N59)", () => {
   it("학생마다 마지막 요약 · 분반 거르기", () => {
     const m = latestSummaries([{ studentId: "s1", createdAt: "1" }, { studentId: "s1", createdAt: "3" }, { studentId: "s2", createdAt: "2" }]);
     expect(m.get("s1")!.createdAt).toBe("3");
-    const a = (id: string, section: string | null, date: string): Assessment => ({ id, courseId: "c", section, teacherId: "t", title: id, date, description: "", kind: "summary", rubric: null, createdAt: date });
+    const a = (id: string, section: string | null, date: string): Assessment => ({ id, courseId: "c", section, teacherId: "t", title: id, date, description: "", kind: "summary", rubric: null, modelAnswer: "", createdAt: date });
     expect(assessmentsFor([a("x", "1분반", "2026-09-01"), a("y", "1분반", "2026-10-01"), a("z", "2분반", "2026-10-02")], "c", "1분반").map((x) => x.id)).toEqual(["y", "x"]);
   });
   it("합본 나누기는 프로그램 규칙 그대로 (번호순 2쪽씩 · 겹침 막기)", () => {

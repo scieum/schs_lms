@@ -21,21 +21,24 @@ export type Assessment = {
   kind: AssessmentKind;
   /** kind = rubric 일 때만 */
   rubric: Rubric | null;
+  /** 예시 답안 (N80) — 답이 있는 루브릭 평가에서 AI가 학생 답안과 맞춰 본다. 학생에게는 안 보임. 없으면 "" */
+  modelAnswer: string;
   createdAt: string;
 };
 
-export const ASSESS_LIMITS = { title: 40, description: 500 } as const;
+export const ASSESS_LIMITS = { title: 40, description: 500, modelAnswer: 4000 } as const;
 
 export const assessScope = (courseId: string, id: string) => `세특:${courseId}#수행:${id}`;
 export const isAssessScope = (scope: string) => /#수행:/.test(scope);
 export const assessIdOf = (scope: string) => scope.split("#수행:")[1] ?? "";
 
-export function checkAssessment(input: { title: string; date: string; description?: string }): string | null {
+export function checkAssessment(input: { title: string; date: string; description?: string; modelAnswer?: string }): string | null {
   const title = input.title.trim();
   if (title.length < 2) return "수행평가 이름을 2자 이상 써 주세요";
   if (title.length > ASSESS_LIMITS.title) return `이름은 ${ASSESS_LIMITS.title}자까지예요`;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return "날짜를 골라 주세요";
   if ((input.description ?? "").trim().length > ASSESS_LIMITS.description) return `평가 내용은 ${ASSESS_LIMITS.description}자까지예요`;
+  if ((input.modelAnswer ?? "").trim().length > ASSESS_LIMITS.modelAnswer) return `예시 답안은 ${ASSESS_LIMITS.modelAnswer.toLocaleString()}자까지예요`;
   return null;
 }
 

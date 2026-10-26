@@ -41,9 +41,11 @@ async function myAssessment(id: string) {
 
 const done = () => { revalidatePath("/teacher/setuk/assessments"); revalidatePath("/teacher/setuk/compose"); };
 
-export async function saveAssessment(input: { id?: string; courseId: string; section?: string | null; title: string; date: string; description?: string; kind?: AssessmentKind; rubric?: Rubric | null }): Promise<AssessResult> {
+export async function saveAssessment(input: { id?: string; courseId: string; section?: string | null; title: string; date: string; description?: string; kind?: AssessmentKind; rubric?: Rubric | null; modelAnswer?: string }): Promise<AssessResult> {
   const data = { title: String(input.title ?? "").trim(), date: String(input.date ?? ""), description: String(input.description ?? "").trim() };
-  const bad = checkAssessment(data);
+  // 예시 답안 (N80): 루브릭 수행평가에만
+  const modelAnswer = input.kind === "rubric" ? String(input.modelAnswer ?? "").trim() : "";
+  const bad = checkAssessment({ ...data, modelAnswer });
   if (bad) return { ok: false, error: bad };
   // 루브릭 (N72): 화면에서 온 값을 모양대로 다시 읽고 검사한다
   const rubric = input.kind === "rubric" ? parseRubric(input.rubric) : null;
@@ -55,13 +57,13 @@ export async function saveAssessment(input: { id?: string; courseId: string; sec
     if (input.id) {
       const m = await myAssessment(input.id);
       if (!m) return { ok: false, error: "내가 등록한 수행평가만 고칠 수 있어요" };
-      await repo.updateAssessment(m.a.id, m.a.kind === "rubric" && rubric ? { ...data, rubric } : data);
+      await repo.updateAssessment(m.a.id, m.a.kind === "rubric" && rubric ? { ...data, rubric, modelAnswer } : data);
       done();
       return { ok: true, id: m.a.id };
     }
     const c = await myCourse(String(input.courseId), input.section ?? null);
     if (!c) return { ok: false, error: "내 담당 과목에만 등록할 수 있어요" };
-    const a = await repo.createAssessment(c.v.accountId, { courseId: c.course.id, section: input.section ?? null, ...data, kind: rubric ? "rubric" : "summary", rubric });
+    const a = await repo.createAssessment(c.v.accountId, { courseId: c.course.id, section: input.section ?? null, ...data, kind: rubric ? "rubric" : "summary", rubric, modelAnswer: rubric ? modelAnswer : "" });
     await repo.audit(c.v.accountId, "assessment.create", `${c.course.subject} ${a.title}`);
     done();
     return { ok: true, id: a.id };
@@ -207,11 +209,21 @@ export async function importRubricAction(form: FormData): Promise<RubricImport> 
 
 /** 큰 루브릭 PDF: 쪽 묶음 하나 → 글 (저장 안 함). 다 모으면 importRubricAction 에 text 로 */
 export async function readRubricPart(form: FormData): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  return readPart(form, "루브릭");
+}
+
+/** 예시 답안 파일 (N80): 쪽 묶음 하나 → 글 (저장 안 함). 등록 창이 이어 붙여 예시 답안 칸에 넣고, 교사가 확인 · 고친 뒤 저장 */
+export async function readModelAnswerPart(form: FormData): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  return readPart(form, "예시 답안");
+}
+
+async function readPart(form: FormData, what: "루브릭" | "예시 답안"): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
   const c = await myCourse(String(form.get("courseId") ?? ""), (form.get("section") as string) || null);
   if (!c) return { ok: false, error: "내 담당 과목에만 쓸 수 있어요" };
   const file = await takeEvidenceFile(form);
   if (typeof file === "string") return { ok: false, error: file };
-  const r = await transcribeAnswer(file, [], "루브릭");
+  const r = await transcribeAnswer(file, [], what);
+  if (r.ok && what === "예시 답안") await repo.audit(c.v.accountId, "assessment.model_answer_import", `${c.course.subject} ${String(form.get("title") ?? "").slice(0, 40)}`);
   return r.ok ? { ok: true, text: r.data } : r;
 }
 
@@ -231,7 +243,7 @@ type RubricTarget = NonNullable<Awaited<ReturnType<typeof rubricTarget>>>;
 export type GradeResult = { ok: true; grade: AssessmentGrade } | { ok: false; error: string };
 
 async function saveSuggestion(t: RubricTarget, source: { file?: EvidenceFile; text?: string }): Promise<GradeResult> {
-  const r = await gradeAnswer({ ...source, rubric: t.rubric, subject: t.course.subject, title: t.a.title, description: t.a.description, standards: t.standards, people: t.people });
+  const r = await gradeAnswer({ ...source, rubric: t.rubric, subject: t.course.subject, title: t.a.title, description: t.a.description, standards: t.standards, people: t.people, modelAnswer: t.a.modelAnswer });
   await repo.audit(t.v.accountId, "assessment.grade_ai", `${t.course.subject} ${t.a.title} ${t.student.pseudonymId}`);
   if (!r.ok) return r;
   const grade = await repo.addGrade({ assessmentId: t.a.id, studentId: t.student.id, teacherId: t.v.accountId, picks: r.data.picks, total: gradeTotal(t.rubric, r.data.picks), status: "ai", reading: r.data.reading, piece: r.data.piece });

@@ -97,12 +97,13 @@ export async function POST() {
     const course = (await repo.getCourse(phys.courseId))!;
     const sec = phys.sections?.[0] ?? null;
     const ss = studentsInCourse(all, course, phys, rosters.filter((r) => r.courseId === phys.courseId), sec);
-    const sum = await repo.createAssessment(T, { courseId: course.id, section: sec, title: "빗면 실험 보고서", date: day(-10), description: "빗면 각도를 바꾸며 가속도를 재고 오차 원인을 분석하는 보고서", kind: "summary", rubric: null });
+    const sum = await repo.createAssessment(T, { courseId: course.id, section: sec, title: "빗면 실험 보고서", date: day(-10), description: "빗면 각도를 바꾸며 가속도를 재고 오차 원인을 분석하는 보고서", kind: "summary", rubric: null, modelAnswer: "" });
     if (ss[0]) await repo.addRecordMemo({ scope: assessScope(course.id, sum.id), studentId: ss[0].id, authorId: T, content: "[빗면 실험 보고서] 빗면 각도 세 가지로 가속도를 반복 측정하고 이론값과의 차이를 마찰과 시간 측정 한계로 나누어 설명함." });
     const rubric: Rubric = { scale: "상중하", standards: ["[12물리01-02]"], criteria: [
       { ...newCriterion("상중하", 8, "탐구 설계"), id: "c1" }, { ...newCriterion("상중하", 8, "자료 해석"), id: "c2" }, { ...newCriterion("상중하", 4, "표현·형식"), id: "c3" }] };
     rubric.criteria[0].levels.forEach((l, i) => { l.desc = ["변인을 통제하고 반복 측정함", "변인은 정했으나 반복 측정이 빠짐", "실험 절차가 흐림"][i]; });
-    const rb = await repo.createAssessment(T, { courseId: course.id, section: sec, title: "역학 탐구 보고서", date: day(-2), description: "", kind: "rubric", rubric });
+    const rb = await repo.createAssessment(T, { courseId: course.id, section: sec, title: "역학 탐구 보고서", date: day(-2), description: "", kind: "rubric", rubric,
+      modelAnswer: "빗면 각도를 10°~30°에서 다섯 단계로 바꾸고 각도마다 세 번씩 측정해 평균을 낸다. 가속도는 a = g sinθ 에 가깝게 커지며, 측정값이 이론값보다 작은 까닭은 마찰과 공기 저항, 초시계 반응 시간 때문이다. 오차를 줄이려면 광센서로 시간을 재고 빗면을 매끄럽게 한다." });
     const picks = [{ criterionId: "c1", level: 0, reason: "각도를 다섯 단계로 바꾸고 세 번씩 측정함" }, { criterionId: "c2", level: 1, reason: "그래프는 그렸으나 오차를 다루지 않음" }, { criterionId: "c3", level: 0, reason: "짜임이 분명함" }];
     if (ss[0]) await repo.addGrade({ assessmentId: rb.id, studentId: ss[0].id, teacherId: T, picks, total: gradeTotal(rubric, picks), status: "confirmed", reading: "빗면 각도와 가속도 관계를 다섯 단계로 측정함.", piece: "[역학 탐구 보고서] 빗면 각도를 다섯 단계로 바꾸며 가속도를 측정해 그래프로 정리함." });
     if (ss[1]) await repo.addGrade({ assessmentId: rb.id, studentId: ss[1].id, teacherId: T, picks: picks.map((p) => ({ ...p, level: 1 })), total: gradeTotal(rubric, picks.map((p) => ({ ...p, level: 1 }))), status: "ai", reading: "수레 질량을 바꾸며 가속도를 측정함.", piece: "[역학 탐구 보고서] 수레 질량을 바꾸며 가속도를 재고 표로 정리함." });

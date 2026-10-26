@@ -96,7 +96,10 @@ export type GradeDraft = { reading: string; picks: GradePick[]; piece: string };
 /** ② 답안(파일 한 개 또는 쪽마다 옮겨 적은 글) → 기준마다 수준 · 근거, 읽은 것, 조각 글 */
 export async function gradeAnswer(o: {
   file?: EvidenceFile; text?: string; rubric: Rubric; subject: string; title: string; description: string; standards: Std[]; people: People;
+  /** 교사가 넣은 예시 답안 (N80) — 있으면 학생 답안과 맞춰 본다 */
+  modelAnswer?: string;
 }): Promise<AiResult<GradeDraft>> {
+  const model = (o.modelAnswer ?? "").trim();
   const labels = SCALE_LABELS[o.rubric.scale];
   const system = `첨부한 것은 고등학생이 "${o.subject}" 수행평가 「${o.title}」에 낸 답안이다. 아래 루브릭으로 1차 채점을 한다(교사가 확인 · 수정한다).
 <루브릭>
@@ -105,7 +108,7 @@ ${rubricText(o.rubric)}
 ${o.description.trim() ? `수행평가 내용: ${o.description.trim()}\n` : ""}${o.standards.length ? `연결한 성취기준: ${o.standards.map((s) => `${s.code} ${s.text}`).join(" / ")}\n` : ""}
 - picks: 기준마다 하나. criterion = 기준 번호(1부터), level = ${labels.join(" · ")} 가운데 하나, reason = 그 수준으로 본 근거 한 문장(80자 안팎, 답안 표현을 짧게 인용해도 됨)
 - 답안에 드러난 것만으로 판단한다. 답안에 없으면 낮은 수준으로 보고 reason 에 "답안에서 찾지 못함"이라고 쓴다.
-- reading: 답안이 무엇을 주장 · 설명했는지 2~3문장 요약
+- reading: 답안이 무엇을 주장 · 설명했는지 2~3문장 요약${model ? ". 끝에 예시 답안과 견주어 맞은 점 · 빠진 점을 한 문장으로 덧붙인다" : ""}
 - piece: 학교생활기록부 세특 조각으로 쓸 관찰 기록 1~2문장(150자 안팎). 학생이 한 활동 · 생각을 "~함"으로 끝내고, 주어(학생 이름) · 점수 · 수준 · "우수함" 같은 평가 말은 쓰지 않는다.
 - 학생 이름 · 학번은 어디에도 쓰지 않는다.`;
   let content: Anthropic.ContentBlockParam[];
@@ -135,13 +138,15 @@ ${o.description.trim() ? `수행평가 내용: ${o.description.trim()}\n` : ""}$
 const TextOut = z.object({ text: z.string() });
 
 /** ③ 큰 PDF는 브라우저가 쪽을 나눠 보낸다 — 쪽 하나에 쓰인 답안 글을 옮겨 적는다 (이어 붙여 ②에 넣음) */
-export async function transcribeAnswer(file: EvidenceFile, people: People, what: "답안" | "루브릭" = "답안"): Promise<AiResult<string>> {
+export async function transcribeAnswer(file: EvidenceFile, people: People, what: "답안" | "루브릭" | "예시 답안" = "답안"): Promise<AiResult<string>> {
   if (file.text) return { ok: true, data: maskIdentity(file.text, people).slice(0, 8000) };
   const r = await aiJson(TextOut, {
     model: "fast", maxTokens: 4000,
     system: what === "답안"
       ? "첨부한 것은 고등학생 답안의 일부다. 답안에 쓰인 글을 빠짐없이 그대로 옮겨 적는다(text). 표 · 그림은 [표: 내용 요약]처럼 한 줄로. 학생 이름 · 학번은 옮기지 않는다."
-      : "첨부한 것은 수행평가 채점 기준(루브릭) 문서의 일부다. 쓰인 글을 빠짐없이 그대로 옮겨 적는다(text). 표는 줄마다 칸을 \" | \"로 이어 옮긴다.",
+      : what === "예시 답안"
+        ? "첨부한 것은 교사가 만든 수행평가 예시 답안(모범 답안 · 정답) 문서의 일부다. 답안 글 · 식 · 계산 과정을 빠짐없이 그대로 옮겨 적는다(text). 식은 한 줄 글로(예: v = s / t), 그림 · 그래프는 [그림: 내용 요약]처럼 한 줄로."
+        : "첨부한 것은 수행평가 채점 기준(루브릭) 문서의 일부다. 쓰인 글을 빠짐없이 그대로 옮겨 적는다(text). 표는 줄마다 칸을 \" | \"로 이어 옮긴다.",
     content: [fileBlock(file.bytes, file.mime), { type: "text", text: `이 쪽의 ${what} 글을 옮겨 적어 주세요.` }],
   });
   return r.ok ? { ok: true, data: maskIdentity(r.data.text, people).slice(0, 8000) } : r;

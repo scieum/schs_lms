@@ -12,7 +12,7 @@ import { ACCEPT } from "@/components/writing/evidence-files";
 import { ShareToRoomButton } from "@/components/collab-share";
 import { roomAssessments } from "@/app/(app)/collab/actions";
 import { deleteAssessment, libraryAssessments, listSameSubjectAssessments, readAssessmentFile, readAssessPlanFile, saveAssessment, type SharedAssessment } from "./actions";
-import { RubricEditor, RubricPanel, Shell, gradeFor, type GradeView } from "./rubric-ui";
+import { ModelAnswerField, RubricEditor, RubricPanel, Shell, gradeFor, type GradeView } from "./rubric-ui";
 
 // 세특 · 수행평가 (Figma N59): 목록 · 고른 수행평가 칸 · 등록 창 · 한 명씩 올리기 · 합본 PDF 나누기(번호순 | 페이지 지정).
 // 나누기는 브라우저에서 하고(큰 합본도 됨), 학생마다 한 파일씩 서버가 AI로 읽어 요약만 조각으로 남긴다.
@@ -21,7 +21,7 @@ import { RubricEditor, RubricPanel, Shell, gradeFor, type GradeView } from "./ru
 // N78 v2: 불러오기 네 곳(평가계획서 · 같은 과목 · 협업방 · 계획서 파일)은 같은 모양 타일, 누르면 창이 고르기 화면(라디오 카드 · [불러오기])으로 바뀐다.
 
 type Item = { id: string; title: string; date: string; description: string; kind: AssessmentKind; done: number };
-type Sel = { id: string; title: string; date: string; description: string; kind: AssessmentKind; rubric: Rubric | null };
+type Sel = { id: string; title: string; date: string; description: string; kind: AssessmentKind; rubric: Rubric | null; modelAnswer: string };
 type Stu = { id: string; no: string; name: string; summary: string | null; grade: GradeView | null };
 
 const dot = (d: string) => `${Number(d.slice(5, 7))}. ${Number(d.slice(8, 10))}.`;
@@ -103,7 +103,7 @@ export function AssessBoard({ base, aiOn, courseId, section, items, selected, to
           </div>
           {selected.description && <p className="whitespace-pre-line text-[13px] leading-5 text-sub">{selected.description}</p>}
           {selected.kind === "rubric" && selected.rubric ? (
-            <RubricPanel a={{ id: selected.id, title: selected.title, rubric: selected.rubric }} total={total} aiOn={aiOn} composeHref={composeHref} onSplit={() => setDialog("split")}
+            <RubricPanel a={{ id: selected.id, title: selected.title, rubric: selected.rubric, modelAnswer: selected.modelAnswer }} total={total} aiOn={aiOn} composeHref={composeHref} onSplit={() => setDialog("split")}
               students={students.map((s) => ({ id: s.id, no: s.no, name: s.name, grade: s.grade }))} />
           ) : (<>
           <div className="flex items-center gap-2.5">
@@ -173,6 +173,7 @@ function RegisterDialog({ courseId, section, item, base, aiOn, library = 0, onCl
   // 종류 (N72): 등록할 때만 고른다 — 고칠 때는 처음 종류 그대로
   const [kind, setKind] = useState<AssessmentKind>(item?.kind ?? "summary");
   const [rubric, setRubric] = useState<Rubric>(() => item?.rubric ?? emptyRubric());
+  const [modelAnswer, setModelAnswer] = useState(item?.modelAnswer ?? "");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   // 계획서 AI 읽기 · 같은 과목 가져오기 (2026-10-22): 고르면 칸을 채운다. 저장은 등록을 눌러야
@@ -227,7 +228,7 @@ function RegisterDialog({ courseId, section, item, base, aiOn, library = 0, onCl
   });
   const save = () => start(async () => {
     setError("");
-    const r = await saveAssessment({ id: item?.id, courseId: courseId ?? "", section: section ?? null, title, date, description, kind, rubric: kind === "rubric" ? rubric : null });
+    const r = await saveAssessment({ id: item?.id, courseId: courseId ?? "", section: section ?? null, title, date, description, kind, rubric: kind === "rubric" ? rubric : null, modelAnswer: kind === "rubric" ? modelAnswer : "" });
     if (!r.ok) return setError(r.error);
     onClose();
     router.push(`${base}&a=${r.id}`);
@@ -312,6 +313,7 @@ function RegisterDialog({ courseId, section, item, base, aiOn, library = 0, onCl
           className="resize-y rounded-control bg-soft px-3 py-2.5 text-[14px] leading-6 text-ink outline-none focus:ring-2 focus:ring-key" />
       </label>
       {kind === "rubric" && courseId && <RubricEditor courseId={courseId} section={section ?? null} title={title} description={description} rubric={rubric} setRubric={setRubric} aiOn={!!aiOn} />}
+      {kind === "rubric" && courseId && <ModelAnswerField courseId={courseId} section={section ?? null} title={title} value={modelAnswer} onChange={setModelAnswer} aiOn={!!aiOn} />}
       {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
     </Shell>
   );

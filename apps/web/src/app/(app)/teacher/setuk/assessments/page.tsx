@@ -85,7 +85,7 @@ export default async function AssessmentsPage({ searchParams }: Props) {
           courseId={tab.course.id}
           section={tab.section}
           items={list.map((a, i) => ({ id: a.id, title: a.title, date: a.date, description: a.description, kind: a.kind, done: a.kind === "rubric" ? confirmed(i) : summaries[i].size }))}
-          selected={sel ? { id: sel.id, title: sel.title, date: sel.date, description: sel.description, kind: sel.kind, rubric: sel.rubric } : null}
+          selected={sel ? { id: sel.id, title: sel.title, date: sel.date, description: sel.description, kind: sel.kind, rubric: sel.rubric, modelAnswer: sel.modelAnswer } : null}
           total={students.length}
           students={students.map((s) => {
             const g = sel ? grades[selIndex]?.get(s.id) ?? null : null;

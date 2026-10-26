@@ -47,6 +47,7 @@ const PROBES: Probe[] = [
   { no: "0037", label: "문의 AI 답 초안", table: "qna_posts", column: "draft_answer" },
   { no: "0038", label: "협업방", table: "collab_items", column: "id" },
   { no: "0039", label: "루브릭 채점", table: "assessment_grades", column: "id" },
+  { no: "0040", label: "예시 답안 채점", table: "course_assessments", column: "model_answer" },
 ];
 
 export type DbStatus = { demo: true } | { demo: false; missing: { no: string; label: string; why: string }[]; total: number };
