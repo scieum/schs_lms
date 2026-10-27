@@ -6,7 +6,7 @@ import { addTake, editTake, getServerTakes, getTakes, markUsed, removeTake, subs
 
 // 발표 녹음 칸 (Figma N73 711:2000): 녹음 전 → 녹음 중(시간 · 소리 막대 · 멈추고 받아쓰기) → 바로 다음 녹음을 할 수 있고,
 // 멈춘 녹음은 아래 "녹음 n" 줄에서 차례로 받아쓴다(처음엔 모델 받기 %) → 받아쓴 글(고칠 수 있음) → [AI 요약해 넣기] 또는 [그대로 넣기]가
-// 메모 칸을 채운다. 받아쓴 글 아래 [AI 오타 고치기](724:1882)는 과목 · 활동명 맥락으로 잘못 들은 낱말만 고치고 되돌릴 수 있다. 남기기는 조각 모으기 버튼 그대로. 녹음은 이 기기 메모리에만 두고 받아쓴 뒤 버린다(lib/client/speech-queue.ts).
+// 메모 칸을 채운다. 수행평가 답안 · 자료(N81)에서는 summarize 없이 [답안에 더하기] 하나로 받아쓴 글을 그대로 넘긴다. 받아쓴 글 아래 [AI 오타 고치기](724:1882)는 과목 · 활동명 맥락으로 잘못 들은 낱말만 고치고 되돌릴 수 있다. 남기기는 조각 모으기 버튼 그대로. 녹음은 이 기기 메모리에만 두고 받아쓴 뒤 버린다(lib/client/speech-queue.ts).
 
 type Summary = { ok: true; text: string; label: "AI" | "자동" } | { ok: false; error: string };
 type Fixed = { ok: true; text: string; fixes: { from: string; to: string }[] } | { ok: false; error: string };
@@ -15,14 +15,20 @@ type Fixed = { ok: true; text: string; fixes: { from: string; to: string }[] } |
 const MEMO_MAX = 1000;
 const BARS = 26;
 
-export function SpeechRecorder({ aiOn, summarize, fix, onUse }: {
+export function SpeechRecorder({ aiOn, summarize, fix, onUse, useLabel, max = MEMO_MAX, autoStart = false }: {
   aiOn: boolean;
   /** 받아쓴 글 → 잘못 들은 낱말만 고친 글 (서버, 이름 · 학번 가림) */
-  fix: (text: string) => Promise<Fixed>;
-  /** 받아쓴 글 → 활동 요약 (서버, 이름 · 학번 가림) */
-  summarize: (text: string) => Promise<Summary>;
-  /** 메모 칸에 넣기 */
-  onUse: (text: string, from: "ai" | "raw") => void;
+  fix?: (text: string) => Promise<Fixed>;
+  /** 받아쓴 글 → 활동 요약 (서버, 이름 · 학번 가림). 없으면 [useLabel] 하나만 (N81) */
+  summarize?: (text: string) => Promise<Summary>;
+  /** 메모 칸에 넣기 (sec = 녹음 길이) */
+  onUse: (text: string, from: "ai" | "raw", sec: number) => void;
+  /** 그대로 넘기는 버튼 글 (기본 "그대로 넣기") */
+  useLabel?: string;
+  /** 넘길 수 있는 글자 수 */
+  max?: number;
+  /** [녹음]을 눌러 열었을 때 바로 녹음 시작 */
+  autoStart?: boolean;
 }) {
   const [since, setSince] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -49,6 +55,9 @@ export function SpeechRecorder({ aiOn, summarize, fix, onUse }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [since]);
   useEffect(() => () => rec.current?.cancel(), []);
+  // 처음 한 번만
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (autoStart) void begin(); }, []);
 
   const begin = async () => {
     setError("");
@@ -102,13 +111,15 @@ export function SpeechRecorder({ aiOn, summarize, fix, onUse }: {
         </div>
       )}
 
-      {takes.map((t) => <TakeCard key={t.id} t={t} aiOn={aiOn} summarize={summarize} fix={fix} onUse={onUse} />)}
+      {takes.map((t) => <TakeCard key={t.id} t={t} aiOn={aiOn} summarize={summarize} fix={fix} onUse={onUse} useLabel={useLabel} max={max} />)}
       {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
     </div>
   );
 }
 
-function TakeCard({ t, aiOn, summarize, fix, onUse }: { t: Take; aiOn: boolean; summarize: (text: string) => Promise<Summary>; fix: (text: string) => Promise<Fixed>; onUse: (text: string, from: "ai" | "raw") => void }) {
+function TakeCard({ t, aiOn, summarize, fix, onUse, useLabel, max }: {
+  t: Take; aiOn: boolean; summarize?: (text: string) => Promise<Summary>; fix?: (text: string) => Promise<Fixed>; onUse: (text: string, from: "ai" | "raw", sec: number) => void; useLabel?: string; max: number;
+}) {
   const [busy, start] = useTransition();
   const [fixing, startFix] = useTransition();
   const [error, setError] = useState("");
@@ -147,14 +158,14 @@ function TakeCard({ t, aiOn, summarize, fix, onUse }: { t: Take; aiOn: boolean; 
       </div>
     );
   }
-  const useAi = () => start(async () => {
+  const useAi = () => summarize && start(async () => {
     setError("");
     const r = await summarize(t.text).catch((): Summary => ({ ok: false, error: "요약하지 못했어요. 다시 해 주세요" }));
     if (!r.ok) return setError(r.error);
-    onUse(r.text, "ai");
+    onUse(r.text, "ai", t.sec);
     markUsed(t.id);
   });
-  const useFix = () => startFix(async () => {
+  const useFix = () => fix && startFix(async () => {
     setError("");
     const before = t.text;
     const r = await fix(before).catch((): Fixed => ({ ok: false, error: "오타를 고치지 못했어요. 다시 해 주세요" }));
@@ -174,20 +185,27 @@ function TakeCard({ t, aiOn, summarize, fix, onUse }: { t: Take; aiOn: boolean; 
           ✓ {undo.fixes.length ? `AI가 ${undo.fixes.length}곳을 고쳤어요 (${shown}${undo.fixes.length > 2 ? " …" : ""})` : "AI가 보기에 고칠 곳이 없어요"}
           {" · "}<button type="button" onClick={() => { editTake(t.id, undo.text); setUndo(null); }} className="font-bold underline underline-offset-2">되돌리기</button>
         </p>
-      ) : aiOn && (
+      ) : aiOn && fix && (
         <button type="button" onClick={useFix} disabled={fixing || busy} className="inline-flex items-center gap-1 self-start py-0.5 text-[13px] font-bold text-key-strong disabled:opacity-50">
           <PenLine size={13} /> {fixing ? "오타 고치는 중…" : "AI 오타 고치기"}<span className="font-medium text-mute"> · 과목 낱말 · 띄어쓰기만</span>
         </button>
       )}
-      {t.text.length > MEMO_MAX && <p className="text-[12px] text-[#9a6400]">메모 칸은 {MEMO_MAX.toLocaleString()}자까지예요 · 긴 발표는 AI 요약을 권해요</p>}
+      {t.text.length > max && <p className="text-[12px] text-[#9a6400]">{summarize ? `메모 칸은 ${max.toLocaleString()}자까지예요 · 긴 발표는 AI 요약을 권해요` : `앞 ${max.toLocaleString()}자까지만 넘겨요`}</p>}
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <button type="button" onClick={() => { onUse(t.text.slice(0, MEMO_MAX), "raw"); markUsed(t.id); }} className="h-9 rounded-control px-3 text-[13px] font-medium text-sub hover:text-ink">
-          {t.text.length > MEMO_MAX ? `앞 ${MEMO_MAX.toLocaleString()}자 넣기` : "그대로 넣기"}
-        </button>
-        <button type="button" onClick={useAi} disabled={busy || fixing}
+        {!summarize ? (
+          <button type="button" onClick={() => { onUse(t.text.slice(0, max), "raw", t.sec); removeTake(t.id); }} disabled={fixing || !t.text.trim()}
+            className="inline-flex h-9 items-center gap-1.5 rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50">
+            <Check size={14} /> {useLabel ?? "그대로 넣기"}
+          </button>
+        ) : (
+          <button type="button" onClick={() => { onUse(t.text.slice(0, max), "raw", t.sec); markUsed(t.id); }} className="h-9 rounded-control px-3 text-[13px] font-medium text-sub hover:text-ink">
+            {t.text.length > max ? `앞 ${max.toLocaleString()}자 넣기` : useLabel ?? "그대로 넣기"}
+          </button>
+        )}
+        {summarize && <button type="button" onClick={useAi} disabled={busy || fixing}
           className="inline-flex h-9 items-center gap-1.5 rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong disabled:opacity-50">
           <span className="rounded-[6px] bg-new-soft px-1.5 py-px text-[11px] font-bold text-new">{aiOn ? "AI" : "자동"}</span>{busy ? "요약하는 중…" : "요약해 메모 칸에 넣기"}
-        </button>
+        </button>}
       </div>
       {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
     </div>

@@ -10,9 +10,9 @@ import {
   type GradePick, type GradeStatus, type Rubric, type RubricScale,
 } from "@/lib/domain/rubric";
 import { prepareUpload } from "@/lib/client/shrink-upload";
-import { ACCEPT } from "@/components/writing/evidence-files";
 import { HWP_GUIDE, isHwp } from "@/lib/domain/hwpx";
 import { ASSESS_LIMITS } from "@/lib/domain/assessment";
+import { AnswerParts, partsText, type AnswerPart } from "./answer-parts";
 import { confirmGrade, courseStandards, draftRubricAction, gradeAssessmentFile, gradeAssessmentText, importRubricAction, readAnswerPart, readModelAnswerPart, readRubricPart, type StandardItem } from "./actions";
 
 // .hwp 도 고를 수 있게 둔다 — 고르면 HWPX로 저장해 달라고 바로 안내 (읽지는 않는다)
@@ -61,6 +61,16 @@ export async function gradeFor(assessmentId: string, studentId: string, file: Fi
     texts.push(r.text);
   }
   const r = await gradeAssessmentText({ assessmentId, studentId, text: texts.join("\n") });
+  return r.ok ? { grade: r.grade } : { error: r.error };
+}
+
+/** 답안 · 자료 여러 개 (N81) → AI 채점 제안. 파일 하나면 그대로, 아니면 글로 옮겨 이어 붙인 뒤 한 번에 */
+async function gradeParts(assessmentId: string, studentId: string, parts: AnswerPart[], report: (s: string) => void): Promise<{ grade: GradeView } | { error: string }> {
+  if (parts.length === 1 && parts[0].kind === "file") return gradeFor(assessmentId, studentId, parts[0].file);
+  const t = await partsText(assessmentId, studentId, parts, report);
+  if ("error" in t) return t;
+  report("AI가 채점하는 중…");
+  const r = await gradeAssessmentText({ assessmentId, studentId, text: t.text });
   return r.ok ? { grade: r.grade } : { error: r.error };
 }
 
@@ -395,7 +405,9 @@ function GradeBody({ a, s, aiOn, onDone }: { a: RSel; s: RStu; aiOn: boolean; on
   const [g, setG] = useState<GradeView | null>(s.grade);
   const [picks, setPicks] = useState<Record<string, number>>(() => Object.fromEntries((s.grade?.picks ?? []).map((p) => [p.criterionId, p.level])));
   const [piece, setPiece] = useState(s.grade?.piece ?? "");
-  const [file, setFile] = useState<File | null>(null);
+  // 답안 · 자료 여러 개 (N81): 발표 + 보고서처럼 나뉜 평가는 하나씩 더한다
+  const [parts, setParts] = useState<AnswerPart[]>([]);
+  const [step, setStep] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   const aiPick = (id: string) => (g && g.status === "ai" ? g.picks.find((p) => p.criterionId === id)?.level : undefined);
@@ -404,14 +416,15 @@ function GradeBody({ a, s, aiOn, onDone }: { a: RSel; s: RStu; aiOn: boolean; on
   const sum = gradeTotal(r, list);
   const all = list.length === r.criteria.length;
 
-  const read = () => file && start(async () => {
+  const read = () => parts.length > 0 && start(async () => {
     setError("");
-    const x = await gradeFor(a.id, s.id, file).catch(() => ({ error: "읽지 못했어요. 다시 해 주세요" }));
+    const x = await gradeParts(a.id, s.id, parts, setStep).catch(() => ({ error: "읽지 못했어요. 다시 해 주세요" }));
+    setStep("");
     if ("error" in x) return setError(x.error);
     setG(x.grade);
     setPicks(Object.fromEntries(x.grade.picks.map((p) => [p.criterionId, p.level])));
     setPiece(x.grade.piece);
-    setFile(null);
+    setParts([]);
     router.refresh();
   });
   const confirm = () => start(async () => {
@@ -423,11 +436,13 @@ function GradeBody({ a, s, aiOn, onDone }: { a: RSel; s: RStu; aiOn: boolean; on
   });
 
   const upload = (
-    <div className="flex flex-col gap-2 rounded-inner border border-dashed border-faint px-3.5 py-3">
-      <span className="text-[13px] font-bold">{g ? "답안 다시 읽기" : "답안 올리기"}</span>
-      <input type="file" accept={ACCEPT} onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-[13px]" aria-label="답안 파일" />
-      <Button type="button" size="sm" kind="soft" disabled={!file || pending} onClick={read} className="self-start"><Sparkles size={14} /> {pending ? "AI가 읽는 중…" : "AI로 채점 제안 받기"}</Button>
-      <span className="text-[12px] text-mute">PDF · 사진 · hwpx · pptx · txt · 답안 파일은 저장하지 않아요</span>
+    <div className="flex flex-col gap-2.5 rounded-inner border border-hair px-3.5 py-3">
+      <AnswerParts assessmentId={a.id} parts={parts} setParts={setParts} aiOn={aiOn} head={g ? "답안 다시 읽기" : "답안 올리기"} disabled={pending} />
+      <button type="button" disabled={!parts.length || pending} onClick={read}
+        className="flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-control bg-key-soft text-[13px] font-bold text-key-strong disabled:opacity-50">
+        <Sparkles size={14} /> {pending ? step || "AI가 읽는 중…" : `AI로 채점 제안 받기${parts.length > 1 ? ` · ${parts.length}개` : ""}`}
+      </button>
+      <span className="text-[12px] text-mute">PDF · 사진 · hwpx · pptx · txt · 파일 · 녹음은 저장하지 않아요 · 받아쓰기는 이 기기에서 해요</span>
     </div>
   );
 

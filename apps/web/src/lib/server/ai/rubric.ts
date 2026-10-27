@@ -108,11 +108,12 @@ ${rubricText(o.rubric)}
 ${o.description.trim() ? `수행평가 내용: ${o.description.trim()}\n` : ""}${o.standards.length ? `연결한 성취기준: ${o.standards.map((s) => `${s.code} ${s.text}`).join(" / ")}\n` : ""}
 - picks: 기준마다 하나. criterion = 기준 번호(1부터), level = ${labels.join(" · ")} 가운데 하나, reason = 그 수준으로 본 근거 한 문장(80자 안팎, 답안 표현을 짧게 인용해도 됨)
 - 답안에 드러난 것만으로 판단한다. 답안에 없으면 낮은 수준으로 보고 reason 에 "답안에서 찾지 못함"이라고 쓴다.
+- 답안이 [자료 1 · …] [발표 녹음 · …]처럼 여러 부분이면(발표 + 보고서 같은 평가) 모든 부분을 함께 보고 채점한다. 발표 녹음은 이 기기가 소리를 글로 옮긴 것이라 잘못 들은 낱말 · 띄어쓰기가 있을 수 있으니 뜻으로 읽는다.
 - reading: 답안이 무엇을 주장 · 설명했는지 2~3문장 요약${model ? ". 끝에 예시 답안과 견주어 맞은 점 · 빠진 점을 한 문장으로 덧붙인다" : ""}
 - piece: 학교생활기록부 세특 조각으로 쓸 관찰 기록 1~2문장(150자 안팎). 학생이 한 활동 · 생각을 "~함"으로 끝내고, 주어(학생 이름) · 점수 · 수준 · "우수함" 같은 평가 말은 쓰지 않는다.
 - 학생 이름 · 학번은 어디에도 쓰지 않는다.`;
   let content: Anthropic.ContentBlockParam[];
-  if (o.text != null) content = [{ type: "text", text: `<답안>\n${maskIdentity(o.text, o.people).slice(0, 20000)}\n</답안>` }];
+  if (o.text != null) content = [{ type: "text", text: `<답안>\n${maskIdentity(o.text, o.people).slice(0, 30000)}\n</답안>` }];
   else if (o.file?.text) content = [{ type: "text", text: `<답안 이름="${maskIdentity(o.file.name, o.people)}">\n${maskIdentity(o.file.text, o.people).slice(0, 20000)}\n</답안>` }];
   else if (o.file) content = [fileBlock(o.file.bytes, o.file.mime)];
   else return { ok: false, error: "답안이 없어요" };

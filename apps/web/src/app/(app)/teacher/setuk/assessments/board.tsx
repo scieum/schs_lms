@@ -8,11 +8,11 @@ import { ASSESS_LIMITS, type AssessmentKind } from "@/lib/domain/assessment";
 import { emptyRubric, parseRubric, rubricTotal, type Rubric } from "@/lib/domain/rubric";
 import { prepareUpload } from "@/lib/client/shrink-upload";
 import { PdfSplitDialog } from "@/components/writing/pdf-split-dialog";
-import { ACCEPT } from "@/components/writing/evidence-files";
 import { ShareToRoomButton } from "@/components/collab-share";
 import { roomAssessments } from "@/app/(app)/collab/actions";
-import { deleteAssessment, libraryAssessments, listSameSubjectAssessments, readAssessmentFile, readAssessPlanFile, saveAssessment, type SharedAssessment } from "./actions";
+import { deleteAssessment, libraryAssessments, readAssessmentVoice, listSameSubjectAssessments, readAssessmentFile, readAssessPlanFile, saveAssessment, type SharedAssessment } from "./actions";
 import { ModelAnswerField, RubricEditor, RubricPanel, Shell, gradeFor, type GradeView } from "./rubric-ui";
+import { AnswerParts, type AnswerPart } from "./answer-parts";
 
 // 세특 · 수행평가 (Figma N59): 목록 · 고른 수행평가 칸 · 등록 창 · 한 명씩 올리기 · 합본 PDF 나누기(번호순 | 페이지 지정).
 // 나누기는 브라우저에서 하고(큰 합본도 됨), 학생마다 한 파일씩 서버가 AI로 읽어 요약만 조각으로 남긴다.
@@ -143,7 +143,7 @@ export function AssessBoard({ base, aiOn, courseId, section, items, selected, to
       )}
 
       {selected && dialog === "edit" && <RegisterDialog item={selected} courseId={courseId} section={section} base={base} aiOn={aiOn} onClose={() => setDialog(null)} />}
-      {selected && dialog === "one" && <OneDialog assessmentId={selected.id} students={students} first={who} onClose={() => setDialog(null)} />}
+      {selected && dialog === "one" && <OneDialog assessmentId={selected.id} students={students} first={who} aiOn={aiOn} onClose={() => setDialog(null)} />}
       {selected && dialog === "split" && <SplitDialog assessmentId={selected.id} rubric={selected.kind === "rubric"} students={students} onClose={() => setDialog(null)} />}
     </div>
   );
@@ -319,16 +319,28 @@ function RegisterDialog({ courseId, section, item, base, aiOn, library = 0, onCl
   );
 }
 
-function OneDialog({ assessmentId, students, first, onClose }: { assessmentId: string; students: Stu[]; first: string | null; onClose: () => void }) {
+// 발표 + 자료 (N81 d): 파일 · 녹음을 하나씩 더하면 하나마다 요약 조각이 남는다
+function OneDialog({ assessmentId, students, first, aiOn, onClose }: { assessmentId: string; students: Stu[]; first: string | null; aiOn: boolean; onClose: () => void }) {
   const router = useRouter();
   const [who, setWho] = useState(first ?? students.find((s) => !s.summary)?.id ?? students[0]?.id ?? "");
-  const [file, setFile] = useState<File | null>(null);
+  const [parts, setParts] = useState<AnswerPart[]>([]);
+  const [step, setStep] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
-  const go = () => file && start(async () => {
+  const go = () => parts.length > 0 && start(async () => {
     setError("");
-    const e = await readFor(assessmentId, who, file);
-    if (e) return setError(e);
+    for (const [k, p] of parts.entries()) {
+      setStep(`${k + 1} / ${parts.length} 읽는 중…`);
+      const e = p.kind === "file"
+        ? await readFor(assessmentId, who, p.file)
+        : await readAssessmentVoice({ assessmentId, studentId: who, text: p.text }).then((r) => (r.ok ? null : r.error)).catch(() => "읽지 못했어요");
+      if (e) {
+        // 남긴 것은 빼고, 못 읽은 것부터 다시
+        setParts(parts.slice(k)); setStep(""); router.refresh();
+        return setError(e);
+      }
+    }
+    setStep("");
     onClose();
     router.refresh();
   });
@@ -339,14 +351,14 @@ function OneDialog({ assessmentId, students, first, onClose }: { assessmentId: s
           {students.map((s) => <option key={s.id} value={s.id}>{s.no} {s.name}{s.summary ? " · 자료 있음" : ""}</option>)}
         </select>
       </label>
-      <label className="flex flex-col gap-1.5 text-[13px] font-medium text-sub">파일 (PDF · 사진 · hwpx · pptx · txt)
-        <input type="file" accept={ACCEPT} onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="rounded-control border border-dashed border-faint px-3 py-3 text-[14px]" />
-      </label>
-      <p className="rounded-control bg-bg px-3 py-2 text-[12px] text-sub">AI가 읽어 요약만 조각으로 남겨요 · 파일은 저장하지 않아요 · 다시 올리면 새 요약이 더해져요</p>
+      <div className="flex flex-col gap-2.5 rounded-inner border border-hair px-3.5 py-3">
+        <AnswerParts assessmentId={assessmentId} parts={parts} setParts={setParts} aiOn={aiOn} head="자료 올리기" disabled={pending} />
+        <span className="text-[12px] text-mute">PDF · 사진 · hwpx · pptx · txt · 파일 · 녹음마다 AI가 읽어 요약 조각을 하나씩 남겨요 · 파일 · 녹음은 저장하지 않아요</span>
+      </div>
       {error && <p className="text-[13px] text-bad" role="alert">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" kind="outline" className="flex-1 md:flex-none" onClick={onClose}>취소</Button>
-        <Button type="button" className="flex-1 md:flex-none" disabled={pending || !file || !who} onClick={go}>{pending ? "읽는 중…" : "올리고 읽기"}</Button>
+        <Button type="button" className="flex-1 md:flex-none" disabled={pending || !parts.length || !who} onClick={go}>{pending ? step || "읽는 중…" : `AI로 읽어 남기기${parts.length > 1 ? ` · ${parts.length}개` : ""}`}</Button>
       </div>
     </Shell>
   );

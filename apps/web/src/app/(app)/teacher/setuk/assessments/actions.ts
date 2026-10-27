@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { withActivity } from "@/lib/domain/activity-name";
-import { assessScope, checkAssessment, type AssessmentKind } from "@/lib/domain/assessment";
+import { assessScope, checkAssessment, type Assessment, type AssessmentKind } from "@/lib/domain/assessment";
 import { checkPicks, checkRubric, gradeTotal, parseRubric, GRADE_LIMITS, RUBRIC_SCALES, type AssessmentGrade, type GradePick, type Rubric, type RubricScale } from "@/lib/domain/rubric";
 import { sectionAllowed, studentsInCourse } from "@/lib/domain/setuk";
 import { normalizeSubjectName } from "@/lib/domain/curriculum";
@@ -12,8 +12,10 @@ import { subjectStandardList } from "@/lib/server/standards";
 import { libraryEntries } from "@/lib/server/assess-library";
 import { libraryDescription, libraryLine, libraryRubric, libraryTitle } from "@/lib/domain/assess-library";
 import { readUpload } from "@/lib/server/hwpx";
+import { fixTranscript, readTranscript, type FixResult } from "@/lib/server/transcript";
 import { peopleAround, takeEvidenceFile } from "@/lib/server/evidence-upload";
 import type { EvidenceFile } from "@/lib/server/ai/read-evidence";
+import type { Student } from "@/lib/domain/types";
 import { repo } from "@/lib/server/repo";
 import { requireCan } from "@/lib/server/viewer";
 
@@ -83,26 +85,60 @@ export async function deleteAssessment(id: string): Promise<AssessResult> {
 }
 
 /** 학생 자료 한 파일 → AI 요약 → "수행평가" 조각. form: assessmentId · studentId · file */
-export async function readAssessmentFile(form: FormData): Promise<ReadResult> {
-  const m = await myAssessment(String(form.get("assessmentId") ?? ""));
-  if (!m) return { ok: false, error: "내가 등록한 수행평가가 아니에요" };
+/** 내 수행평가 · 이 분반 학생 (자료 요약 올리기) */
+async function summaryTarget(assessmentId: string, studentId: string): Promise<{ error: string } | { c: NonNullable<Awaited<ReturnType<typeof myCourse>>>; a: Assessment; student: Student; all: Student[] }> {
+  const m = await myAssessment(String(assessmentId));
+  if (!m) return { error: "내가 등록한 수행평가가 아니에요" };
   const c = await myCourse(m.a.courseId, m.a.section);
-  if (!c) return { ok: false, error: "내 담당 과목이 아니에요" };
-  const [student, roster, all] = await Promise.all([repo.getStudent(String(form.get("studentId") ?? "")), repo.getCourseRosters(c.v.accountId, c.course.id), repo.listStudents({ external: true })]);
-  if (!student || !studentsInCourse([student], c.course, c.assignment, roster, m.a.section).length) return { ok: false, error: "이 분반 학생만 올릴 수 있어요" };
+  if (!c) return { error: "내 담당 과목이 아니에요" };
+  const [student, roster, all] = await Promise.all([repo.getStudent(String(studentId)), repo.getCourseRosters(c.v.accountId, c.course.id), repo.listStudents({ external: true })]);
+  if (!student || !studentsInCourse([student], c.course, c.assignment, roster, m.a.section).length) return { error: "이 분반 학생만 올릴 수 있어요" };
+  return { c, a: m.a, student, all };
+}
+
+export async function readAssessmentFile(form: FormData): Promise<ReadResult> {
+  const t = await summaryTarget(String(form.get("assessmentId") ?? ""), String(form.get("studentId") ?? ""));
+  if ("error" in t) return { ok: false, error: t.error };
+  const { c, a, student, all } = t;
   const file = await takeEvidenceFile(form);
   if (typeof file === "string") return { ok: false, error: file };
   const r = await readEvidence(file, {
-    mode: "log", kind: `${c.course.subject} 수행평가 「${m.a.title}」`,
-    context: m.a.description ? `평가 내용 · 기준: ${m.a.description}` : null,
+    mode: "log", kind: `${c.course.subject} 수행평가 「${a.title}」`,
+    context: a.description ? `평가 내용 · 기준: ${a.description}` : null,
     people: peopleAround(student, all),
   });
-  await repo.audit(c.v.accountId, "assessment.read", `${c.course.subject} ${m.a.title} ${student.pseudonymId}`);
+  await repo.audit(c.v.accountId, "assessment.read", `${c.course.subject} ${a.title} ${student.pseudonymId}`);
   if (!r.ok) return r;
   if (!r.text.trim()) return { ok: false, error: "자료에서 읽을 내용을 찾지 못했어요" };
-  await repo.addRecordMemo({ scope: assessScope(c.course.id, m.a.id), studentId: student.id, authorId: c.v.accountId, content: withActivity(m.a.title, r.text) });
+  await repo.addRecordMemo({ scope: assessScope(c.course.id, a.id), studentId: student.id, authorId: c.v.accountId, content: withActivity(a.title, r.text) });
   done();
   return { ok: true, text: r.text, label: r.label };
+}
+
+/** 발표 녹음 (N81 d): 이 기기에서 받아쓴 글 → 요약 조각 하나 (이름 · 학번 가림, 녹음은 저장 안 함) */
+export async function readAssessmentVoice(input: { assessmentId: string; studentId: string; text: string }): Promise<ReadResult> {
+  const t = await summaryTarget(input.assessmentId, input.studentId);
+  if ("error" in t) return { ok: false, error: t.error };
+  const r = await readTranscript(String(input.text ?? ""), { kind: `${t.c.course.subject} 수행평가 「${t.a.title}」`, people: peopleAround(t.student, t.all) });
+  await repo.audit(t.c.v.accountId, "assessment.read_voice", `${t.c.course.subject} ${t.a.title} ${t.student.pseudonymId}`);
+  if (!r.ok) return r;
+  if (!r.text.trim()) return { ok: false, error: "받아쓴 글에서 읽을 내용을 찾지 못했어요" };
+  await repo.addRecordMemo({ scope: assessScope(t.c.course.id, t.a.id), studentId: t.student.id, authorId: t.c.v.accountId, content: withActivity(t.a.title, r.text) });
+  done();
+  return { ok: true, text: r.text, label: r.label };
+}
+
+/** 발표 녹음 오타 고치기 (N81): 과목 · 수행평가 이름을 맥락으로 잘못 들은 낱말만 (이 분반 학생 이름 · 학번 가림, 저장 안 함) */
+export async function fixAssessVoice(input: { assessmentId: string; text: string }): Promise<FixResult> {
+  const m = await myAssessment(String(input.assessmentId ?? ""));
+  if (!m) return { ok: false, error: "내가 등록한 수행평가가 아니에요" };
+  const c = await myCourse(m.a.courseId, m.a.section);
+  if (!c) return { ok: false, error: "내 담당 과목이 아니에요" };
+  const [roster, all] = await Promise.all([repo.getCourseRosters(c.v.accountId, c.course.id), repo.listStudents({ external: true })]);
+  const people = studentsInCourse(all, c.course, c.assignment, roster, m.a.section).map((s) => ({ name: s.name, studentNo: s.studentNo }));
+  const r = await fixTranscript(String(input.text ?? ""), { kind: c.course.subject, activity: m.a.title, people });
+  await repo.audit(c.v.accountId, "assessment.voice_fix", `${c.course.subject} ${m.a.title}`);
+  return r;
 }
 
 /** 수행평가 계획서 → AI 가 뽑은 수행평가 목록 (저장하지 않음, 등록 창에 채움). form: courseId · section · file */
