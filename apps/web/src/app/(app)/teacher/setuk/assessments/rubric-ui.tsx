@@ -27,10 +27,11 @@ export type RStu = { id: string; no: string; name: string; grade: GradeView | nu
 type RSel = { id: string; title: string; rubric: Rubric; modelAnswer: string };
 
 // 머리(제목 · 닫기)와 footer(취소 · 저장)는 고정, 본문만 스크롤 (N72 f 733:2, 2026-10-26 — 모바일에서 [등록]이 맨 아래까지 내려야 보이던 것)
-export function Shell({ title, onClose, children, footer, wide = false, label }: { title: React.ReactNode; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean | "xl"; label?: string }) {
+// tall: 내용과 상관없이 높이 고정 (N82 — 등록 창 탭을 바꿀 때 창 크기가 바뀌던 것)
+export function Shell({ title, onClose, children, footer, wide = false, tall = false, label }: { title: React.ReactNode; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean | "xl"; tall?: boolean; label?: string }) {
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 md:items-center md:p-6" role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)}>
-      <div className={cx("flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[16px] bg-[#fff] md:rounded-[16px]",
+      <div className={cx("flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[16px] bg-[#fff] md:rounded-[16px]", tall && "h-[92dvh] md:h-[min(820px,92dvh)]",
         wide === "xl" ? "md:max-w-[920px]" : wide ? "md:max-w-[760px]" : "md:max-w-[560px]")}>
         <div className="flex shrink-0 items-center gap-2 border-b border-hair px-5 pb-3 pt-4 md:border-0 md:px-7 md:pb-4 md:pt-6">
           <h2 className="min-w-0 flex-1 text-[18px] font-bold">{title}</h2>

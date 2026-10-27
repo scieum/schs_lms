@@ -273,7 +273,7 @@ function RegisterDialog({ courseId, section, item, base, aiOn, library = 0, onCl
     );
   }
   return (
-    <Shell title={item ? "수행평가 고치기" : "수행평가 등록"} onClose={onClose} wide={kind === "rubric" ? (rubric.scale === "A-E" ? "xl" : true) : false} footer={<>
+    <Shell title={item ? "수행평가 고치기" : "수행평가 등록"} onClose={onClose} wide={rubric.scale === "A-E" ? "xl" : true} tall={!item} footer={<>
       <Button type="button" kind="outline" className="flex-1 md:flex-none" onClick={onClose}>취소</Button>
       <Button type="button" className="flex-1 md:flex-none" disabled={pending} onClick={save}>{pending ? "저장 중…" : item ? "고치기" : "등록"}</Button>
     </>}>
