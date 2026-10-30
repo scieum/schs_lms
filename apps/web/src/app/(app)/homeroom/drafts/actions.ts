@@ -7,7 +7,7 @@ import { requireCan } from "@/lib/server/viewer";
 
 /**
  * 받은 초안 확정 (Figma N83 a 2035:23590 · b 2036:35439): 담임이 [확정]을 누르면 그 초안이
- * 담임의 자율·자치 / 진로 조각("특색 활동" 칩)으로 들어간다. 추가만 (C4), 이미 넣은 글은 다시 넣지 않는다.
+ * 담임의 자율·자치 / 진로 조각("특색 활동" 칩)으로 들어간다 — 조각 모으기에서 확인하고 글 짓기에서 고쳐 쓴다 (본문에 바로 넣지 않음). 추가만 (C4), 이미 넣은 글은 다시 넣지 않는다.
  * keys: "programId:studentId"
  */
 export async function acceptDrafts(keys: string[]): Promise<{ ok: true; added: number } | { ok: false; error: string }> {
@@ -28,6 +28,7 @@ export async function acceptDrafts(keys: string[]): Promise<{ ok: true; added: n
     added++;
   }
   revalidatePath("/homeroom/drafts");
+  revalidatePath("/homeroom/logs");
   revalidatePath("/teacher/pieces");
   return { ok: true, added };
 }

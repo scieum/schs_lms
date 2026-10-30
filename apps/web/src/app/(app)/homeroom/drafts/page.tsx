@@ -65,7 +65,7 @@ export default async function HomeroomDrafts() {
                       {area && (done ? (
                         <span className="flex shrink-0 items-center gap-2">
                           <Tag tone="bg-ok-soft text-ok">✓ 조각에 넣음</Tag>
-                          <Link href={`/teacher/pieces?student=${d.studentId}&area=${encodeURIComponent(area)}`} className="whitespace-nowrap text-xs text-sub hover:text-key-strong">조각 보기 ›</Link>
+                          <Link href={`/homeroom/logs?area=${encodeURIComponent(area)}&student=${d.studentId}`} className="whitespace-nowrap text-xs text-sub hover:text-key-strong">조각 보기 ›</Link>
                         </span>
                       ) : <AcceptButton keys={[keyOf(d)]} label="확정" className="shrink-0 font-bold" />)}
                     </div>
