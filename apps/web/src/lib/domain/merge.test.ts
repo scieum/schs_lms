@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { neisBytes } from "./length";
-import { budgetStatus, fitGap, fitGoal, fitRange, groupByActivity, mergeByRules, nextImportance, orderPieces, pickByBudget, type Importance, type MergePiece } from "./merge";
+import { budgetStatus, fitGap, fitGoal, fitRange, groupByActivity, isDraftAccepted, isProgramScope, mergeByRules, nextImportance, orderPieces, pickByBudget, programPieceText, programRecordArea, programScope, type Importance, type MergePiece } from "./merge";
 
 const P = (id: string, date: string | null, text: string, source: MergePiece["source"] = "누가기록"): MergePiece => ({ id, source, date, text });
 
@@ -79,5 +79,23 @@ describe("분량 맞추기 겨냥 (fitGoal · fitGap)", () => {
     expect(fitGap("가".repeat(470), range)).toBeNull();
     expect(fitGap("가".repeat(300), range)).toEqual({ dir: "늘리기", now: 900, by: 525 });
     expect(fitGap("가".repeat(520), range)).toEqual({ dir: "줄이기", now: 1560, by: 135 });
+  });
+});
+
+describe("받은 초안 확정 → 조각 (N83)", () => {
+  const d = { studentId: "s1", area: "창체-진로", programTitle: "진로 캠프", content: "강연을 듣고 정리함. " };
+  it("자율 · 진로만 담임 영역으로", () => {
+    expect(programRecordArea("창체-자율")).toBe("자율·자치");
+    expect(programRecordArea("창체-진로")).toBe("진로");
+    expect(programRecordArea("세특")).toBeNull();
+  });
+  it("같은 학생 · 같은 영역에 같은 글이 있으면 확정됨", () => {
+    const piece = { scope: programScope("진로"), studentId: "s1", content: programPieceText(d) };
+    expect(programPieceText(d)).toBe("[진로 캠프] 강연을 듣고 정리함.");
+    expect(isProgramScope(piece.scope)).toBe(true);
+    expect(isDraftAccepted(d, [piece])).toBe(true);
+    expect(isDraftAccepted(d, [{ ...piece, studentId: "s2" }])).toBe(false);
+    expect(isDraftAccepted(d, [{ ...piece, scope: programScope("자율·자치") }])).toBe(false);
+    expect(isDraftAccepted({ ...d, content: "고친 글" }, [piece])).toBe(false);
   });
 });

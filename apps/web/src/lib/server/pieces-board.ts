@@ -7,10 +7,10 @@ import { courseSections, latestByStudent, statusLabel, studentsInCourse } from "
 import type { Student, Viewer } from "@/lib/domain/types";
 import { latestRecordByStudent, RECORD_LABEL, RECORD_MAX_BYTES, recordStatus, type RecordArea } from "@/lib/domain/writing";
 import { evidenceLogs } from "@/app/(app)/teacher/write/data";
-import { listMemosWithPieces, logPieces, memoPieces, programPieces } from "./merge-pieces";
+import { listMemosWithPieces, logPieces, memoPieces } from "./merge-pieces";
 import { repo } from "./repo";
 
-// 생기부 조각 (Figma N13): 학생별로 지금까지 모인 조각(누가기록·관찰 메모·받은 특색 활동 초안)과 저장한 본문을 영역마다 모아 본다.
+// 생기부 조각 (Figma N13): 학생별로 지금까지 모인 조각(누가기록·관찰 메모·확정한 받은 특색 활동 초안)과 저장한 본문을 영역마다 모아 본다.
 // 이 교사가 쓰는 영역만: 교과 세특(내 과목·분반), 동아리(지도 동아리), 자율·자치·진로·행발(담임 반).
 
 export type AreaFilter = "세특" | RecordArea;
@@ -75,16 +75,14 @@ async function refsFor(v: Viewer): Promise<Ref[]> {
     maxBytes: RECORD_MAX_BYTES[area], students,
     href: (id) => (area === "행발" ? `/homeroom/behavior?student=${id}&panel=merge` : `/teacher/write?area=${encodeURIComponent(area)}${extra.clubId ? `&club=${extra.clubId}` : ""}&student=${id}&panel=merge`),
     load: async (ids) => {
-      const programArea = area === "자율·자치" ? "창체-자율" : area === "진로" ? "창체-진로" : null;
-      const [logs, memos, drafts, records] = await Promise.all([
+      // 받은 특색 활동 초안은 담임이 확정(N83)하면 조각 메모로 들어와 memos 에 있다
+      const [logs, memos, records] = await Promise.all([
         evidenceLogs(area, ids, extra.clubId),
         listMemosWithPieces(area, ids),
-        programArea ? repo.listDraftsForStudents(ids) : Promise.resolve([]),
         repo.listRecordDrafts({ area, year: y, studentIds: ids }),
       ]);
       const latest = latestRecordByStudent(records);
       const pieces = group([
-        ...ids.flatMap((id) => programPieces(drafts.filter((d) => d.studentId === id && d.area === programArea)).map((p) => ({ ...p, studentId: id }))),
         ...ids.flatMap((id) => logPieces(logs.filter((l) => l.studentId === id)).map((p) => ({ ...p, studentId: id }))),
         ...ids.flatMap((id) => memoPieces(memos.filter((m) => m.studentId === id)).map((p) => ({ ...p, studentId: id }))),
       ]);

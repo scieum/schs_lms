@@ -19,7 +19,7 @@ import { softenMemo } from "@/lib/server/ai/teacher-ai";
 import { measure } from "@/lib/domain/length";
 import { scrubIdentity } from "@/lib/domain/writing";
 import type { AiFixResult, VariantsActionResult } from "@/lib/domain/variants";
-import { listMemosWithPieces, logPieces, memoPieces, programPieces } from "@/lib/server/merge-pieces";
+import { listMemosWithPieces, logPieces, memoPieces } from "@/lib/server/merge-pieces";
 import { seoulNow } from "@/lib/domain/night";
 import { cleanActivity, withActivity } from "@/lib/domain/activity-name";
 import { fitRange, PIECE_MAX, PIECE_MIN, PIECE_SOURCES, pieceScopeOf, type MergePiece, type PieceKind } from "@/lib/domain/merge";
@@ -190,20 +190,15 @@ async function recordTarget(area: string, studentId: string, clubId?: string | n
   return { v, area, ...t };
 }
 
-// 담임 영역에 붙는 특색 활동 초안의 영역 (동아리 특기사항은 지도교사가, 행발은 담임이 직접 쓴다)
-const PROGRAM_AREA = { "자율·자치": "창체-자율", 진로: "창체-진로" } as const;
-
-/** 합칠 조각: 이 영역 누가기록(행발은 세 영역) + 관찰 메모 + (자율·자치·진로) 받은 특색 활동 초안 */
+/** 합칠 조각: 이 영역 누가기록(행발은 세 영역) + 관찰 메모 (자율·자치·진로는 담임이 확정한 받은 특색 활동 초안도 — N83) */
 export async function listRecordPieces(input: { area: string; studentId: string; clubId?: string | null }): Promise<MergePiece[]> {
   const t = await recordTarget(input.area, input.studentId, input.clubId);
   if ("error" in t) return [];
-  const programArea = t.area === "자율·자치" || t.area === "진로" ? PROGRAM_AREA[t.area] : null;
-  const [logs, memos, drafts] = await Promise.all([
+  const [logs, memos] = await Promise.all([
     evidenceLogs(t.area, [input.studentId], input.clubId),
     listMemosWithPieces(t.area, [input.studentId]),
-    programArea ? repo.listDraftsForStudents([input.studentId]) : Promise.resolve([]),
   ]);
-  return [...programPieces(drafts.filter((d) => d.area === programArea)), ...logPieces(logs, t.v.accountId), ...memoPieces(memos, t.v.accountId)];
+  return [...logPieces(logs, t.v.accountId), ...memoPieces(memos, t.v.accountId)];
 }
 
 /**

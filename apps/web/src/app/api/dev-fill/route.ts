@@ -82,6 +82,16 @@ export async function POST() {
     await repo.updateDraftJob(j.id, { state: "DONE" });
     await repo.addDraftVersion({ jobId: j.id, programId: closed.id, studentId: j.studentId, content: "환경 동아리 캠페인에서 교내 분리배출 실태를 조사하고 안내 포스터를 만들어 학급마다 붙이며 친구들의 참여를 이끌어 냄.", status: "finalized", reason: null, source: "sample", authorId: T });
   }
+  // 담임 받은 초안 확정 → 조각 (N83) 점검용: 창체 · 진로 프로그램
+  const career = await repo.createProgram({
+    ownerId: T, coOwnerIds: [], title: "진로 탐색 캠프", subject: null, area: "창체-진로", unit: "bytes", max: 1500, startDate: day(-20), endDate: day(-5),
+    source: "survey", useMemos: false, requestDocs: false, docKinds: [], questions: [{ id: "q1", title: "느낀 점", prompt: "강연에서 새로 안 것은?", fixed: true, minChars: 30 }],
+    targetIds: homeroom.slice(0, 3).map((s) => s.id), overview: "", status: "closed",
+  });
+  for (const j of await repo.ensureDraftJobs(career.id, homeroom.slice(0, 3).map((s) => s.id), { unit: "bytes", max: 1500 })) {
+    await repo.updateDraftJob(j.id, { state: "DONE" });
+    await repo.addDraftVersion({ jobId: j.id, programId: career.id, studentId: j.studentId, content: "진로 탐색 캠프에서 환경 공학자 강연을 듣고 하천 수질 측정 체험에 참여함. 측정값이 지점마다 다른 까닭을 상류 농지와 연결해 설명하고 관련 학과의 교육과정을 찾아 정리함.", status: "finalized", reason: null, source: "sample", authorId: T });
+  }
 
   // ④ 상담 · 문장 보관함
   for (const [i, s] of homeroom.slice(0, 2).entries()) {

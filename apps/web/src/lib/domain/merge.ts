@@ -34,6 +34,22 @@ export const isFileScope = (scope: string) => scope.endsWith("#자료");
 /** 문장 보관함에서 넣은 조각의 범위 (Figma N35 ②) — 목록에서 "보관함" 칩 */
 export const libraryScope = (scope: string) => `${scope}#보관함`;
 export const isLibraryScope = (scope: string) => scope.endsWith("#보관함");
+/** 담임이 받은 특색 활동 초안을 확정해 넣은 조각의 범위 (Figma N83) — 목록에서 "특색 활동" 칩 */
+export const programScope = (scope: string) => `${scope}#특색`;
+export const isProgramScope = (scope: string) => scope.endsWith("#특색");
+/** 받은 초안 → 조각 글: 앞에 프로그램 이름을 붙인다 (이 글이 같으면 이미 넣은 초안) */
+export const programPieceText = (d: { programTitle: string; content: string }) => `[${d.programTitle}] ${d.content.trim()}`;
+/** 받은 초안이 들어갈 담임 영역 (자율·진로만, 그 밖은 담임 조각이 아니다) */
+export function programRecordArea(area: string): "자율·자치" | "진로" | null {
+  return area === "창체-자율" ? "자율·자치" : area === "창체-진로" ? "진로" : null;
+}
+/** 이미 조각으로 넣었나: 같은 학생 · 같은 영역 조각 중 글이 같은 것이 있으면 */
+export function isDraftAccepted(d: { studentId: string; area: string; programTitle: string; content: string }, pieces: { scope: string; studentId: string; content: string }[]): boolean {
+  const area = programRecordArea(d.area);
+  if (!area) return false;
+  const text = programPieceText(d);
+  return pieces.some((p) => p.studentId === d.studentId && p.scope === programScope(area) && p.content.trim() === text);
+}
 /** 조각 남기기의 출처: 메모 칸 · 자료 요약 · 문장 보관함 */
 export type PieceKind = "memo" | "file" | "library";
 /** 조각 칸에서 남길 메모 범위: 메모는 #조각, 자료 요약은 #자료, 보관함은 #보관함 */

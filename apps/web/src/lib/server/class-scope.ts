@@ -133,10 +133,6 @@ export async function memoCounts(r: ResolvedScope): Promise<Map<string, number>>
     const area = r.areaKey as RecordArea;
     const logs = await evidenceLogs(area, ids, r.clubId);
     for (const l of logs) add(l.studentId, 1);
-    if (area === "자율·자치" || area === "진로") {
-      const want = area === "자율·자치" ? "창체-자율" : "창체-진로";
-      for (const d of await repo.listDraftsForStudents(ids).catch(() => [])) if (d.area === want) add(d.studentId, 1);
-    }
     if (area === "행발") {
       for (const p of await repo.listBehaviorPicks(ids, schoolYear()).catch(() => [])) if (p.memo.trim()) add(p.studentId, 1);
     }
