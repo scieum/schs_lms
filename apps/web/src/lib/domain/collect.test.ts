@@ -12,7 +12,7 @@ describe("최근 조각 (N52 a)", () => {
       { studentId: "c", date: "2026-10-20", content: "[빗면 실험] 각도를 바꿔 잼." },
     ], nameOf);
     expect(r).toHaveLength(1);
-    expect(r[0]).toMatchObject({ activity: "빗면 실험", text: "각도를 바꿔 잼.", who: "학생A 외 2명", n: 3 });
+    expect(r[0]).toMatchObject({ activity: "빗면 실험", text: "각도를 바꿔 잼.", who: "학생A 외 2명", n: 3, students: ["a", "b", "c"] });
   });
   it("새 것부터 · limit 줄까지 · 한 명이면 이름만", () => {
     const r = recentPieces([

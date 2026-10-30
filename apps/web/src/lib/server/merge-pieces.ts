@@ -14,7 +14,9 @@ export async function listMemosWithPieces(scope: string, studentIds: string[]): 
   const assess = course ? (await repo.listAssessments({ courseId: course }).catch(() => [])).map((a) => assessScope(course, a.id)) : [];
   const [memos, pieces, common, files, library, lessons, programs, ...assessed] = await Promise.all([
     repo.listRecordMemos(scope, studentIds), repo.listRecordMemos(pieceScope(scope), studentIds), repo.listRecordMemos(commonScope(scope), studentIds), repo.listRecordMemos(fileScope(scope), studentIds),
-    repo.listRecordMemos(libraryScope(scope), studentIds), repo.listRecordMemos(lessonScope(scope), studentIds), repo.listRecordMemos(programScope(scope), studentIds),
+    repo.listRecordMemos(libraryScope(scope), studentIds), repo.listRecordMemos(lessonScope(scope), studentIds),
+    // 확정한 받은 초안 (N83): 행발은 누가기록처럼 자율·자치 · 진로 것을 다 본다
+    Promise.all((scope === "행발" ? ["자율·자치", "진로"] : [scope]).map((a) => repo.listRecordMemos(programScope(a), studentIds))).then((x) => x.flat()),
     ...assess.map((s) => repo.listRecordMemos(s, studentIds)),
   ]);
   return [...memos, ...pieces, ...common, ...files, ...library, ...lessons, ...programs, ...assessed.flat()];

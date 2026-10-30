@@ -6,8 +6,8 @@ import { activityTag, stripActivity } from "./activity-name";
 export type CollectStudent = { id: string; no: string; name: string; count: number; pieces?: StudentPiece[] };
 /** id: "memo-<기록 id>" | "log-<기록 id>" (지우기에 쓴다) · mine: 지금 선생님이 쓴 조각 */
 export type StudentPiece = { id: string; source: string; date: string | null; text: string; mine?: boolean };
-/** ids: 그 줄에 묶인 기록 id (지우기에 쓴다) */
-export type RecentPiece = { key: string; date: string; activity: string; text: string; who: string; n: number; ids: string[] };
+/** ids: 그 줄에 묶인 기록 id (지우기에 쓴다) · students: 그 줄의 학생 id (이름을 누르면 조각 창 — N84) */
+export type RecentPiece = { key: string; date: string; activity: string; text: string; who: string; n: number; ids: string[]; students: string[] };
 
 /**
  * 여러 학생에게 한 번에 남긴 같은 조각은 한 줄로 ("학생A 외 2명"). 같은 날 · 같은 글이면 같은 조각으로 본다.
@@ -27,7 +27,7 @@ export function recentPieces(items: { id?: string; studentId: string; date: stri
     .map(([key, g]) => {
       const names = g.ids.map(nameOf).filter((x): x is string => !!x);
       const who = names.length === 0 ? `${g.ids.length}명` : names.length === 1 ? names[0] : `${names[0]} 외 ${names.length - 1}명`;
-      return { key, date: g.date, activity: activityTag(g.content) ?? "", text: stripActivity(g.content), who, n: g.ids.length, ids: g.recs };
+      return { key, date: g.date, activity: activityTag(g.content) ?? "", text: stripActivity(g.content), who, n: g.ids.length, ids: g.recs, students: g.ids };
     });
 }
 

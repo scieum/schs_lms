@@ -20,7 +20,7 @@ import { StudentPiecesDialog } from "./student-pieces";
 // 남기면 메모 칸만 비우고 받는 학생 · 활동명 · 날짜는 그대로 둔다(이어서 남기기). 오른쪽: 최근 조각 · 학생별 조각(적은 순).
 // 저장은 그대로: 세특 = 학생마다 조각 메모(addSetukPieces), 동아리 · 담임 = 누가기록(addLogs).
 // [메모 | 자료] (N60): 자료 = 활동지 · 보고서 · 사진 → AI가 읽은 요약이 메모 칸에 들어가고(고쳐 쓸 수 있음) 같은 버튼으로 남긴다. 세특은 "자료" 조각으로.
-// 학생별 조각에서 이름을 누르면 그 학생 조각 창 (N77, student-pieces.tsx).
+// 학생별 조각에서 이름을 누르면 그 학생 조각 창 (N77, student-pieces.tsx). N84: 받는 학생 칸의 조각 수 · 최근 조각의 이름도 같은 창을 연다.
 // [녹음] (N73): 발표를 녹음 → 이 기기에서 받아쓰기 → 받아쓴 글을 AI가 요약(또는 그대로) → 메모 칸 → 같은 버튼으로 남긴다. 녹음 파일은 남기지 않는다.
 
 export type CollectTarget =
@@ -63,6 +63,8 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
   const [sort, setSort] = useState<"few" | "no">("few");
   const [allRows, setAllRows] = useState(false);
   const [pieceOf, setPieceOf] = useState<string | null>(null);
+  // 최근 조각 "학생A 외 n명"을 누르면 그 줄 아래 이름을 펼친다 (N84)
+  const [whoOpen, setWhoOpen] = useState<string | null>(null);
   const [mode, setMode] = useState<"memo" | "file" | "voice">(startMode);
   const [file, setFile] = useState<File | null>(null);
   const [fromFile, setFromFile] = useState(false);
@@ -219,17 +221,20 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
                 // 찾는 중에는 찾은 학생을 다 보여 준다
                 const hide = !more && !find.trim() && (i >= PC_SHOWN ? "hidden" : i >= M_SHOWN ? "hidden md:block" : "");
                 return (
-                  <li key={s.id} className={cx(hide || "")}>
+                  <li key={s.id} className={cx("relative", hide || "")}>
                     <button type="button" onClick={() => toggle(s.id)} aria-pressed={on}
-                      className={cx("flex h-11 w-full items-center gap-2 rounded-control border px-3 text-left",
+                      className={cx("flex h-11 w-full items-center gap-2 rounded-control border pl-3 pr-8 text-left",
                         on ? "border-key bg-key-soft" : "border-hair bg-[#fff] hover:bg-soft")}>
                       <span className={cx("flex size-[18px] shrink-0 items-center justify-center rounded-[6px]", on ? "bg-key text-white" : "border-[1.5px] border-faint bg-white")}>
                         {on && <Check size={12} strokeWidth={3} />}
                       </span>
                       <span className="shrink-0 text-[12px] font-medium text-mute">{s.no}</span>
                       <span className={cx("min-w-0 flex-1 truncate text-[14px] font-bold", on && "text-key-strong")}>{s.name}</span>
-                      <span className="shrink-0 text-[12px] font-medium text-mute" aria-label={`조각 ${s.count}개`}>{s.count}</span>
                     </button>
+                    {/* 조각 수: 누르면 그 학생 조각 창 (고르기와 따로) */}
+                    <button type="button" onClick={() => setPieceOf(s.id)} aria-label={`${s.name} 조각 ${s.count}개 보기`} title="조각 보기"
+                      className={cx("absolute right-2 top-1/2 -translate-y-1/2 rounded-[6px] px-1 py-0.5 text-[12px] font-medium text-mute hover:text-key-strong",
+                        on ? "bg-white" : "bg-soft")}>{s.count}</button>
                   </li>
                 );
               })}
@@ -360,13 +365,29 @@ export function CollectBoard({ target, students, recent, composeHref, today, wit
                   <div className="flex items-center gap-2 text-[13px]">
                     <span className="text-[12px] text-mute">{shortMd(r.date)}</span>
                     <b className="min-w-0 flex-1 truncate">{r.activity || "조각"}</b>
-                    <span className="shrink-0 text-[12px] font-medium text-sub">{r.who}</span>
+                    {/* 이름을 누르면 조각 창 · 여러 명이면 이름을 펼친다 (N84) */}
+                    <button type="button" onClick={() => (r.students.length === 1 ? setPieceOf(r.students[0]) : setWhoOpen(whoOpen === r.key ? null : r.key))}
+                      aria-expanded={r.students.length > 1 ? whoOpen === r.key : undefined} title="조각 보기"
+                      className="shrink-0 text-[12px] font-bold text-key-strong hover:underline">{r.who}{r.students.length > 1 ? (whoOpen === r.key ? " ▴" : " ▾") : ""}</button>
                     {r.ids.length > 0 && (
                       <button type="button" onClick={() => removePiece(r)} disabled={busy} aria-label={`${r.activity || "조각"} 지우기`} title="지우기"
                         className="-my-1 shrink-0 rounded-control p-1 text-faint hover:bg-bad-soft hover:text-bad disabled:opacity-40"><Trash2 size={14} /></button>
                     )}
                   </div>
                   <p className="truncate text-[13px] text-sub">{r.text}</p>
+                  {whoOpen === r.key && (
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {r.students.map((id) => {
+                        const st = students.find((x) => x.id === id);
+                        return st ? (
+                          <button key={id} type="button" onClick={() => setPieceOf(id)}
+                            className="inline-flex items-center gap-1 rounded-[6px] bg-key-soft px-2 py-1 text-[12px] font-bold text-key-strong">
+                            {st.name} <span className="font-medium text-mute">조각 {st.count}</span>
+                          </button>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

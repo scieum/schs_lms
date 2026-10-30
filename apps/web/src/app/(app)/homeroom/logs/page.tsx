@@ -41,6 +41,8 @@ export default async function HomeroomLogsPage({ searchParams }: Props) {
   const nameOf = new Map(students.map((s) => [s.id, s.name]));
   const first = AREAS.find((a) => a.value === q.area) ?? AREAS[0];
   const areas = [first, ...AREAS.filter((a) => a !== first)];
+  // 글 짓기는 고른 영역 탭으로 (예전엔 늘 행발 탭이라 확정한 받은 초안 조각이 안 보였다)
+  const composeBase = `/homeroom/compose?tab=${first.value === "진로" ? "career" : "autonomy"}`;
   // 공통 활동 · 차시별 활동 (N26 · N43): 주소의 영역(처음은 자율·자치) 반 단위 카드 — 글 짓기 아래와 같은 카드
   const h = v.teacher.homeroom;
   const commonKey = classScope(first.value as "자율·자치" | "진로", h.grade, h.classNo);
@@ -50,7 +52,7 @@ export default async function HomeroomLogsPage({ searchParams }: Props) {
     <>
       <PageHeader title="조각 모으기" eyebrow="담임 · 누가기록" actions={<>
         <ButtonLink href={`/teacher/logs?area=${encodeURIComponent(first.value)}`} kind="outline" size="sm" className="hidden md:inline-flex">여러 명 따로 쓰기</ButtonLink>
-        <ButtonLink href={q.student ? `/homeroom/compose?student=${q.student}` : "/homeroom/compose"} kind="outline" size="sm"><PencilLine size={14} /> 글 짓기</ButtonLink>
+        <ButtonLink href={q.student ? `${composeBase}&student=${q.student}` : composeBase} kind="outline" size="sm"><PencilLine size={14} /> 글 짓기</ButtonLink>
       </>} />
       <PageBody>
         <ClassMaterials year={schoolYear()} lesson={lesson} common={{ scope: commonKey, rows: commonRows, detailBase: "/teacher/write/activity", today: today() }} />
@@ -59,7 +61,7 @@ export default async function HomeroomLogsPage({ searchParams }: Props) {
           areas={areas}
           students={students.map((s) => ({ id: s.id, no: makeStudentNo(s.grade, s.classNo, s.number), name: s.name, ...withPieces(piecesOf(s.id)) }))}
           recent={recentPieces(logs.filter((l) => l.authorId === v.accountId).map((l) => ({ id: l.id, studentId: l.studentId, date: l.date, content: l.content })), (id) => nameOf.get(id))}
-          composeHref="/homeroom/compose?tab=behavior"
+          composeHref={composeBase}
           today={today()}
           withDate
           preselect={q.student ? [q.student] : []}
