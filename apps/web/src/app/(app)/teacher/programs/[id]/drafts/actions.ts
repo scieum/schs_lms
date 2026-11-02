@@ -19,6 +19,8 @@ import type { ClassCheckView } from "@/lib/domain/class-check";
 import { buildClassView, classAudit } from "@/lib/server/class-check";
 import { classProv, confirmAudit, provForSave } from "@/lib/server/provenance";
 import { programMemo } from "@/lib/server/program-memo";
+import { pinsFrom } from "@/lib/domain/provenance";
+import { runPool } from "@/lib/domain/pool";
 
 /** 이 초안 작업을 다룰 수 있는 교사인지 (자기 프로그램 · 관리자) */
 async function loadJob(jobId: string) {
@@ -180,6 +182,37 @@ export async function rephraseAction(prev: RephraseState, form: FormData): Promi
   await repo.audit(ctx.v.accountId, "draft.ai.rephrase", `${program.id} ${student.pseudonymId} ${r.label}${avoid ? " 유사" : ""}`);
   if (r.options.length === 0) return { sentence, options: [], label: r.label, error: r.error ?? "AI가 꺼져 있어 바꿀 안이 없어요. 직접 고쳐 주세요", n };
   return { sentence, options: r.options, label: r.label, error: r.error, n };
+}
+
+export type FinalizeAllResult = { error?: string; done: number; needReason: number; failed: number };
+
+/**
+ * 전체 확정 (Figma N85): 아직 확정하지 않은 초안을 saveDraft(확정)로 한 명씩 — 검사(분량 초과 · 실명 · 금칙어)에 걸리면 빼고,
+ * 적게 고친 초안은 reason 이 있어야 확정한다. 지금 글 그대로 새 버전을 더한다 (C4).
+ */
+export async function finalizeAllDrafts(input: { programId: string; reason?: string }): Promise<FinalizeAllResult> {
+  const v = await requireCan("draft.review");
+  const program = await repo.getProgram(String(input?.programId ?? ""));
+  if (!program || !canOwn(v, program)) return { error: "내 프로그램 초안만 확정할 수 있어요", done: 0, needReason: 0, failed: 0 };
+  const [jobs, versions] = await Promise.all([repo.listDraftJobs({ programIds: [program.id] }), repo.listDraftVersions({ programIds: [program.id] })]);
+  const todo = jobs.flatMap((j) => {
+    const last = latestVersion(versions, j.id);
+    return last && last.status === "draft" && last.content.trim() ? [{ j, last }] : [];
+  });
+  const reason = String(input.reason ?? "").slice(0, 300);
+  const results = await runPool(todo, 4, async ({ j, last }) => {
+    const fd = new FormData();
+    fd.set("jobId", j.id);
+    fd.set("content", last.content);
+    fd.set("intent", "finalized");
+    fd.set("lowEditReason", reason);
+    fd.set("pins", JSON.stringify(pinsFrom(last.content, last.sentenceSources)));
+    return saveDraft({}, fd);
+  });
+  const done = results.filter((r) => r?.saved === "finalized").length;
+  const needReason = results.filter((r) => r?.needReason).length;
+  await repo.audit(v.accountId, "draft.finalize_all", `${program.id} done=${done} reason=${needReason} failed=${todo.length - done - needReason}`);
+  return { done, needReason, failed: todo.length - done - needReason };
 }
 
 /** 반 전체 검사 (Figma N35 ①): 이 프로그램 학생들의 최신 초안을 규칙으로만 (AI 없음). 확정한 초안은 locked */

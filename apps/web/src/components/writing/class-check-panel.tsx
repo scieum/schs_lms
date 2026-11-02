@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ChevronRight, ChevronUp, Lock, RotateCw, Sparkles, X } from "lucide-react";
 import { Button, cx } from "@/components/ui";
 import { barParts, CLASS_FIX_LIMIT, fixTargets, provenanceCounts, type ClassStatus, type ClassViewRow } from "@/lib/domain/class-check";
@@ -8,6 +9,7 @@ import { EditRatioChip } from "./edit-ratio-chip";
 import { RESULT, ResultTag, useWorkspace, type FixItem } from "./workspace";
 import { BeforeAfter, changeCount } from "./before-after";
 import { measure as measureText } from "@/lib/domain/length";
+import { finalizeAllDrafts } from "@/app/(app)/teacher/programs/[id]/drafts/actions";
 
 // 반 전체 검사 (Figma N35 ① 432:2 · 433:42) + AI로 고치기 대기열 (434:57 · 434:467).
 // 규칙만(AI 없음)으로 검사 → 요약 막대 · 거르기 칩(화면 상태, URL에 넣지 않음) · 학생별 가장 큰 문제 · 행 누르면 그 학생 ③ 검사로.
@@ -56,16 +58,26 @@ function Result() {
   const ws = useWorkspace()!;
   const [filter, setFilter] = useState<Filter>("all");
   const [more, setMore] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMsg, setConfirmMsg] = useState<string | null>(null);
   const [, tick] = useState(0);
   useEffect(() => { const t = window.setInterval(() => tick((n) => n + 1), 30000); return () => window.clearInterval(t); }, []);
   const v = ws.view;
   const close = () => ws.setPanel(null);
+  // 전체 확정 (N85): 초안 검토만. 확정 불가 · 분량 초과 · 빈 글 · 이미 확정은 뺀다
+  const confirmable = ws.scope.kind === "drafts" && v?.ok ? v.rows.filter((r) => !r.locked && !r.over && (r.status === "pass" || r.status === "warn")) : [];
 
   const head = (
     <div className="flex items-center gap-2">
       <h2 className="whitespace-nowrap text-[17px] font-bold">반 전체 검사</h2>
       {v?.ok && <span className="min-w-0 truncate text-[13px] text-mute">{v.rows.length}명 · <span className="@lg:hidden">{ago(v.at) === "방금" ? "방금" : ago(v.at)}</span><span className="hidden @lg:inline">{ago(v.at)} 검사</span></span>}
       <span className="flex-1" />
+      {confirmable.length > 0 && (
+        <button type="button" onClick={() => setConfirmOpen((o) => !o)} aria-pressed={confirmOpen}
+          className="hidden h-[30px] shrink-0 items-center whitespace-nowrap rounded-control bg-key-soft px-3 text-[13px] font-bold text-key-strong hover:bg-[#e3e7ff] @lg:inline-flex">
+          <Check size={13} strokeWidth={2.5} className="mr-1" /> 전체 확정
+        </button>
+      )}
       <button type="button" onClick={ws.runCheck} disabled={ws.checking} className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] font-medium text-sub disabled:opacity-40">
         <RotateCw size={13} className={ws.checking ? "animate-spin" : undefined} /> 다시 검사
       </button>
@@ -118,6 +130,12 @@ function Result() {
           );
         })}
       </div>
+      {confirmable.length > 0 && (confirmOpen
+        ? <ConfirmAll rows={confirmable} onClose={() => setConfirmOpen(false)} onDone={(m) => { setConfirmMsg(m); setConfirmOpen(false); }} />
+        : <button type="button" onClick={() => setConfirmOpen(true)} className="inline-flex h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-control border border-hair bg-[#fff] text-[14px] font-bold text-ink @lg:hidden">
+            <Check size={14} strokeWidth={2.5} /> 전체 확정 {confirmable.length}명
+          </button>)}
+      {confirmMsg && <p className="rounded-control bg-ok-soft px-3.5 py-2.5 text-[13px] font-medium text-ok" role="status">{confirmMsg}</p>}
 
       {/* 넓은 단: 표 */}
       <div className="hidden overflow-hidden rounded-inner border border-line @[640px]:block">
@@ -177,6 +195,49 @@ function Result() {
         </div>
       )}
     </>
+  );
+}
+
+/** 전체 확정 띠 (Figma N85 a · b): 지금 글 그대로 한 명씩 확정. 적게 고친 초안은 까닭 한 번으로 */
+function ConfirmAll({ rows, onClose, onDone }: { rows: ClassViewRow[]; onClose: () => void; onDone: (msg: string) => void }) {
+  const ws = useWorkspace()!;
+  const router = useRouter();
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const low = rows.filter((r) => r.lowEdit).length;
+  const n = rows.length;
+  const go = async () => {
+    if (ws.scope.kind !== "drafts") return;
+    setBusy(true);
+    const r = await finalizeAllDrafts({ programId: ws.scope.programId, reason: reason.trim() }).catch(() => ({ error: "확정하지 못했어요. 다시 눌러 주세요", done: 0, needReason: 0, failed: 0 }));
+    setBusy(false);
+    if (r.error) { setErr(r.error); return; }
+    onDone([`${r.done}명 확정했어요`, r.needReason ? `까닭이 없어 ${r.needReason}명은 남겼어요` : "", r.failed ? `검사에 걸린 ${r.failed}명은 남겼어요` : ""].filter(Boolean).join(" · "));
+    ws.runCheck();
+    router.refresh();
+  };
+  return (
+    <div className="flex flex-col gap-2.5 rounded-inner bg-key-soft px-3.5 py-3.5 @lg:px-4">
+      <div className="flex flex-col gap-2.5 @lg:flex-row @lg:items-center">
+        <div className="min-w-0 flex-1">
+          <p className="break-keep text-[15px] font-bold @lg:text-[14px]">확정하지 않은 {n}명을 한 번에 확정할까요?</p>
+          <p className="break-keep text-[12px] text-sub">확정 불가 · 분량 초과 · 빈 글은 빼요 — 그 학생은 열어서 고친 뒤 확정해요</p>
+        </div>
+        <div className="order-last flex gap-2 [&>*]:h-11 [&>*]:flex-1 @lg:order-none @lg:[&>*]:h-9 @lg:[&>*]:flex-none">
+          <Button type="button" kind="outline" size="sm" onClick={onClose}>취소</Button>
+          <Button type="button" size="sm" onClick={go} disabled={busy || (low === n && !reason.trim())}>{busy ? "확정하는 중…" : `${n}명 확정`}</Button>
+        </div>
+      </div>
+      {low > 0 && (
+        <label className="flex flex-col gap-1.5">
+          <span className="break-keep text-[12px] font-medium text-key-strong">AI 원안을 거의 안 고친 초안 {low}명 · 확정하려면 까닭을 한 번 써 주세요</span>
+          <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={60} placeholder="예: 설문 응답과 맞게 썼고 고칠 곳이 없어요"
+            className="h-11 rounded-control border border-hair bg-[#fff] px-3 text-[14px] @lg:h-10 @lg:text-[13px]" />
+        </label>
+      )}
+      {err && <p className="text-[13px] text-bad" role="alert">{err}</p>}
+    </div>
   );
 }
 
