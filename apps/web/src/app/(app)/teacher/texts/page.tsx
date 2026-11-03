@@ -71,7 +71,7 @@ export default async function TextsPage({ searchParams }: Props) {
         : { kind: "record", area: opt.input.area, clubId: opt.input.clubId ?? null };
       actions = { tab, rows: shown, disabled: !shown.length, excel: { kind: "modal", scope, who } };
       body = shown.length
-        ? <TextRows rows={shown} max={d.scope.maxBytes} />
+        ? <TextRows rows={shown} max={d.scope.maxBytes} scope={scope} />
         : <Empty line={emptyLine(tab, who, d.rows.length)} action={who === "confirmed" && d.rows.length ? { label: "전체 보기", href: optHref(opt.query, "all") } : undefined} />;
     }
   }

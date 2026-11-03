@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ChevronRight, ChevronUp, Copy, Download } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ChevronUp, Copy, Download, Pencil } from "lucide-react";
 import { cx } from "@/components/ui";
 import { ExcelExport } from "@/components/writing/excel-export";
 import { ImportButton } from "./import-dialog";
@@ -13,8 +13,12 @@ import {
   type LogRow, type TextRow, type TextsTab, type TextsWho,
 } from "@/lib/domain/texts-view";
 import { textsCopyLog } from "./actions";
+import { saveSetuk } from "@/app/(app)/teacher/setuk/actions";
+import { saveRecord } from "@/app/(app)/teacher/write/actions";
+import { neisBytes } from "@/lib/domain/length";
 
 // 글 모아 보기 (Figma N49 (d) PC 576:14499 · 모바일 577:9472): 머리 동작 · 범위 고르기 · 행(PC 글 전체 / 모바일 3줄 + 펼치기).
+// 바로 고치기 (N86 a 2043:23780 · b 2043:36223): 연필 → 그 자리 글 칸 → 저장 = 글 짓기와 같은 저장(saveSetuk · saveRecord, 새 버전 · 확정이면 다시 확정)
 
 async function writeClipboard(text: string) {
   await navigator.clipboard.writeText(text);
@@ -103,18 +107,71 @@ function StatusChip({ s }: { s: TextRow["status"] }) {
 }
 
 /** 세특 · 창체 · 행발 목록 (흰 r12 · 행 사이 1px) */
-export function TextRows({ rows, max }: { rows: (TextRow & { href: string })[]; max: number }) {
+export function TextRows({ rows, max, scope }: { rows: (TextRow & { href: string })[]; max: number; scope: ScopeArg }) {
   return (
     <ul className="surface overflow-hidden rounded-card">
-      {rows.map((r) => <TextRowItem key={r.id} r={r} max={max} />)}
+      {rows.map((r) => <TextRowItem key={r.id} r={r} max={max} scope={scope} />)}
     </ul>
   );
 }
 
-function TextRowItem({ r, max }: { r: TextRow & { href: string }; max: number }) {
+function EditButton({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} aria-label="글 고치기" aria-pressed={on}
+      className={cx("inline-flex h-9 min-w-9 shrink-0 items-center justify-center rounded-control border md:h-8 md:min-w-8", on ? "border-key bg-key-soft text-key-strong" : "border-hair bg-[#fff] text-ink hover:bg-soft")}>
+      <Pencil size={15} />
+    </button>
+  );
+}
+
+/** 그 자리 고치기: 저장은 글 짓기와 같은 서버 확인(담당 학생 · 실명 · 금칙어 · 분량)을 거친다 */
+function EditBox({ r, max, scope, onDone }: { r: TextRow; max: number; scope: ScopeArg; onDone: () => void }) {
+  const router = useRouter();
+  const [text, setText] = useState(r.text);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const confirmed = r.status === "confirmed";
+  const bytes = neisBytes(text);
+  const save = async () => {
+    if (confirmed && bytes > max) return setError(`${max.toLocaleString()}B를 넘었어요 (지금 ${bytes.toLocaleString()}B). 줄여서 저장하거나 쓰러 가기에서 확정해 주세요`);
+    setBusy(true); setError("");
+    const fd = new FormData();
+    fd.set("studentId", r.id); fd.set("content", text); fd.set("lengthUnit", "bytes"); fd.set("lengthMax", String(max)); fd.set("intent", confirmed ? "confirmed" : "draft");
+    let res: { error?: string; saved?: string };
+    try {
+      if (scope.kind === "setuk") { fd.set("courseId", scope.courseId); res = await saveSetuk({}, fd); }
+      else { fd.set("area", scope.area); if (scope.clubId) fd.set("clubId", scope.clubId); res = await saveRecord({}, fd); }
+    } catch { res = { error: "저장하지 못했어요 · 다시 눌러 주세요" }; }
+    setBusy(false);
+    if (!res.saved) return setError(res.error ?? "저장하지 못했어요");
+    onDone();
+    router.refresh();
+  };
+  return (
+    <div className="flex min-w-0 flex-col gap-2.5">
+      <textarea value={text} onChange={(e) => setText(e.target.value)} autoFocus aria-label={`${r.name} 글`} disabled={busy}
+        className="min-h-28 w-full resize-y rounded-control border-2 border-key bg-[#fff] px-3 py-2.5 text-[15px] leading-6 [field-sizing:content] focus:outline-none md:text-[14px]" />
+      <div className="flex flex-col gap-2 md:flex-row md:items-center">
+        <p className="flex-1 text-[13px] text-mute">
+          <span className={cx("font-bold", TONE[bytesTone(bytes, max)])}>{bytesLabel(bytes)}</span> · {confirmed ? "확정 글은 저장하면 새 확정본으로 남아요 · 이전 글은 기록에 그대로" : "임시 저장으로 남아요"}
+        </p>
+        <div className="flex gap-2">
+          <button type="button" onClick={onDone} disabled={busy} className="h-11 flex-1 whitespace-nowrap rounded-control border border-hair bg-[#fff] px-3.5 text-[15px] font-bold md:h-8 md:flex-none md:text-[13px]">취소</button>
+          <button type="button" onClick={save} disabled={busy || text.trim() === r.text.trim()} className="h-11 flex-1 whitespace-nowrap rounded-control bg-key px-3.5 text-[15px] font-bold text-[#fff] disabled:opacity-50 md:h-8 md:flex-none md:text-[13px]">{busy ? "저장 중…" : "저장"}</button>
+        </div>
+      </div>
+      {error && <p role="alert" className="text-[13px] font-bold text-bad">{error}</p>}
+    </div>
+  );
+}
+
+function TextRowItem({ r, max, scope }: { r: TextRow & { href: string }; max: number; scope: ScopeArg }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const empty = r.status === "empty" || !r.text;
   const tone = TONE[bytesTone(r.bytes, max)];
+  const edit = !empty && <EditButton on={editing} onClick={() => setEditing((e) => !e)} />;
+  const box = editing && <EditBox r={r} max={max} scope={scope} onDone={() => setEditing(false)} />;
   const go = <Link href={r.href} className="inline-flex shrink-0 items-center whitespace-nowrap text-[13px] font-bold text-key-strong">쓰러 가기 <ChevronRight size={14} /></Link>;
   return (
     <li className="border-b border-line px-4 py-4 last:border-b-0 md:px-5">
@@ -122,10 +179,11 @@ function TextRowItem({ r, max }: { r: TextRow & { href: string }; max: number })
       <div className="hidden grid-cols-[32px_72px_minmax(0,1fr)_140px] gap-x-4 md:grid">
         <span className="pt-0.5 text-[13px] text-mute">{r.no}</span>
         <span className="truncate text-[15px] font-bold">{r.name}</span>
-        <p className={cx("whitespace-pre-wrap break-words text-[14px] leading-6", empty ? "text-mute" : "text-ink")}>{empty ? "아직 쓴 글이 없어요" : r.text}</p>
+        {box || <p className={cx("whitespace-pre-wrap break-words text-[14px] leading-6", empty ? "text-mute" : "text-ink")}>{empty ? "아직 쓴 글이 없어요" : r.text}</p>}
         <div className="flex flex-col items-end gap-1.5">
           <div className="flex items-center gap-2">
             <span className={cx("text-[14px] font-bold", tone)}>{bytesLabel(r.bytes)}</span>
+            {edit}
             <CopyOne text={r.text} disabled={empty} />
           </div>
           <StatusChip s={r.status} />
@@ -140,11 +198,12 @@ function TextRowItem({ r, max }: { r: TextRow & { href: string }; max: number })
           <StatusChip s={r.status} />
           <span className="flex-1" />
           <span className={cx("shrink-0 text-[14px] font-bold", tone)}>{bytesLabel(r.bytes)}</span>
+          {edit}
           <CopyOne text={r.text} disabled={empty} />
         </div>
         {empty ? (
           <div className="flex items-center gap-2"><span className="flex-1 text-[14px] text-mute">아직 쓴 글이 없어요</span>{go}</div>
-        ) : (
+        ) : box || (
           <>
             <p className={cx("whitespace-pre-wrap break-words text-[15px] leading-6", !open && "line-clamp-3")}>{r.text}</p>
             {[...r.text].length > 60 && (
