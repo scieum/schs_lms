@@ -90,10 +90,10 @@ export async function resolveScope(v: Viewer, input: ClassScopeInput): Promise<R
   };
 }
 
-/** 세특 "내 분반 모두": 내 담당 과목(이동반이면 분반마다) */
+/** 세특 "내 분반 모두": 내 담당 과목(이동반이면 분반마다) + 공동교육과정 수업(N54) */
 export async function mySetukScopes(v: Viewer): Promise<ClassScopeInput[]> {
   if (v.kind !== "teacher") return [];
-  const [mine, offered] = await Promise.all([repo.listTeacherCourses(v.accountId), repo.listCourses(schoolYear())]);
+  const [mine, offered] = await Promise.all([repo.listTeacherCourses(v.accountId), repo.listCourses(schoolYear(), { joint: true })]);
   return offered.filter((c) => mine.some((a) => a.courseId === c.id)).flatMap((c): ClassScopeInput[] => {
     const a = mine.find((x) => x.courseId === c.id)!;
     return courseSections(a).map((s) => ({ kind: "setuk" as const, courseId: c.id, section: s }));
